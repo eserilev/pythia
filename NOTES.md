@@ -485,11 +485,23 @@ sharing rule that the EF runs use:
   holds one new object twice. So the lemma also needs "each new object has one path".
 - The three proofs got shorter: the parts that kept the global rule on the result are gone.
 
-Status at 09:30: item 2, the translator, is in progress and not committed. It already writes one
-Lean structure per uint class (`Uint64`, `Gwei`, `Slot`, and the rest) and a first readable file
-of about 1,400 lines with no `sorry`. Not known yet: how many of the 163 functions it covers,
-whether the output builds, and whether it matches the EF vectors. Item 3, the proof tactic, has
-not started.
+Item 2, the translator, is done (`d9aebf4`). It turns all 162 scope functions and 73 types into
+readable Lean, about 7,000 lines. The file builds in 14 s with no `sorry`. The EF runner can now
+run every case through the readable Lean too. Result: 678 of 678 minimal cases pass on the
+readable Lean, as on the interpreter.
+
+The vectors found five translator bugs, all fixed. The most interesting one: a local name bound
+to a field that a later line replaces. `old_previous_justified_checkpoint` must keep the old
+object, not follow the path to the new one. That is the V1 "rebound prefix" failure from the
+draft 3 review, found again in real spec code.
+
+Two places where the readable Lean differs from the spec text, open for now:
+
+- Early returns are `return` inside `do`, not if-then-else. Item 3 shows whether this hurts the
+  proofs.
+- When a uint goes to a parameter of another class with the same width, the readable Lean
+  converts it. Python keeps the argument's class. The vectors cannot see this. The proofs will:
+  a theorem fails wherever the difference changes a result.
 
 In parallel, the fuzzer now runs with the sharing check on and has hazard tests that must
 trigger it. Its generator covers sets, closures, byte functions and more SSZ kinds. A campaign of
