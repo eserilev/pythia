@@ -26,6 +26,9 @@ INT, BOOL, BOOLEAN, NONE = ("int",), ("bool",), ("Boolean",), ("none",)
 # - "pycopy": `.copy()` of a Python list.
 # - "shortcircuit": `any` and `all` over a generator with side effects or errors.
 # - "negstep": `range` with a negative step.
+# - "dictorder": dict literals with more than one entry.
+# - "subfield": uint arithmetic across classes, whose result (a subclass) can reach a field of
+#   the base class.
 AVOID: set[str] = set()
 
 
@@ -297,7 +300,7 @@ class Gen:
         if k == "pylist":
             return self.pylist_expr(T, sc, d)
         if k == "dict":
-            n = ch.int(0, 2) if d > 0 else 0
+            n = ch.int(0, 1 if "dictorder" in AVOID else 2) if d > 0 else 0
             kvs = [f"{self.expr(T[1], sc, d - 1)}: {self.expr(T[2], sc, d - 1)}" for _ in range(n)]
             return "{" + ", ".join(kvs) + "}"
         return "None"
@@ -409,7 +412,7 @@ class Gen:
             op = ch.weighted([(4, "+"), (3, "-"), (2, "*"), (2, "//"), (1, "%"), (1, "&"),
                               (1, "|"), (1, "^"), (1, "<<"), (1, ">>"), (1, "**")])
             a = self.expr(U(c), sc, d - 1)
-            ob = ch.weighted([(5, "same"), (3, "int"), (1, "other"),
+            ob = ch.weighted([(5, "same"), (3, "int"), (0 if "subfield" in AVOID else 1, "other"),
                               (0 if "boolleft" in AVOID else 1, "bool")])
             if op in ("<<", ">>", "**"):
                 b = str(ch.int(0, 3))
