@@ -466,6 +466,33 @@ elab "rd_ne" : tactic => do
 /-- `h'.objs c = h.objs c`: no write of `h'` is at `c`. -/
 syntax "rd_same" : tactic
 
+/-- `f (g y) = some y` for an item `y` of a decoded list of scalars: the decoder reads back the
+encoding, and the item is in range. -/
+syntax "rd_itemdec" : tactic
+
+/-- A fact `∀ z ∈ ys, P z` of the context, at the item `y ∈ ys` of the goal. -/
+elab "rd_mem" : tactic => withMainContext <| withTransparency .default do
+  let g ← getMainGoal
+  let lctx ← getLCtx
+  let mems := lctx.foldl (init := #[]) fun acc d =>
+    if d.isImplementationDetail then acc else
+    match_expr d.type with
+    | Membership.mem _ _ _ _ _ => acc.push d.toExpr
+    | _ => acc
+  for d in lctx do
+    if d.isImplementationDetail then continue
+    unless (← instantiateMVars d.type).isForall do continue
+    for m in mems do
+      let s ← saveState
+      try
+        let pf ← mkAppM' d.toExpr #[(← inferType m).appArg!, m]
+        if ← isDefEq (← inferType pf) (← g.getType) then
+          g.assign pf
+          return
+        restoreState s
+      catch _ => restoreState s
+  throwError "rd_mem: none"
+
 /-- The side conditions of the heap steps: two addresses differ, or no object that the items
 of a list reach is the written one. -/
 macro "rd_disch" : tactic => `(tactic| first
@@ -478,7 +505,7 @@ macro "rd_disch" : tactic => `(tactic| first
   | assumption
   | decide
   | omega
-  | (intro y; with_unfolding_all rfl))
+  | (intro y hy; rd_itemdec))
 
 macro_rules
   | `(tactic| rd_step) => `(tactic| (
@@ -496,15 +523,18 @@ namespace SpecLean.Validation.Tactic
 
 open Lean Meta Elab Tactic
 
-/-- The decode facts of the context: objects, fields and items, decoded lists. -/
+/-- The decode facts of the context: objects, fields and items, decoded lists, ranges. -/
 def heapFacts : MetaM (Array Lean.Expr) := do
   let mut out := #[]
   for d in ← getLCtx do
     if d.isImplementationDetail then continue
     let ty ← instantiateMVars d.type
+    -- Range facts of decoded uints: a write of the same value decodes again.
+    if ty.isAppOfArity ``LT.lt 4 then out := out.push d.toExpr
     let_expr Eq _ lhs _ := ty | continue
     if (lhs.isApp && lhs.appFn!.isAppOf ``SpecLean.Heap.objs) ||
-        lhs.isAppOfArity ``GetElem?.getElem? 7 || lhs.isAppOf ``List.mapM then
+        lhs.isAppOfArity ``GetElem?.getElem? 7 || lhs.isAppOf ``List.mapM ||
+        lhs.isAppOf ``List.length then
       out := out.push d.toExpr
     if lhs.isAppOf ``SpecLean.normIndex then
       out := out.push (← mkAppM ``SpecLean.Validation.Where.normIndex_lt #[d.toExpr])
@@ -520,12 +550,14 @@ elab "rd_heap" : tactic => withMainContext do
     Option.bind_some, Option.pure_def, Option.map_some, Option.some.injEq,
     if_true, if_false, ite_true, ite_false, and_self, true_and, and_true, decide_true,
     SpecLean.Rd.UintC.ofNat_val, SpecLean.Rd.BytesC.ofBytes_data, eq_self_iff_true,
+    SpecLean.Rd.UintC.bits, SpecLean.Rd.BytesC.len, SpecLean.Validation.Decode.ite_lt_of,
     SpecLean.Validation.Where.objs_set_ne, SpecLean.Validation.Where.objs_set_self, rd_dec,
     SpecLean.Rd.containerFieldsT, SpecLean.Rd.decUintT, SpecLean.Rd.decBytesT,
     SpecLean.Rd.decBooleanV, SpecLean.Rd.decListT, SpecLean.Validation.Local.mapM_same_of,
     SpecLean.Validation.Decode.mapM_map_of, SpecLean.Validation.Decode.mapM_set_map,
     List.mapM_append, List.mapM_cons, List.mapM_nil, rd_dec,
     List.getElem?_set_ne, List.getElem?_set_self', Option.map_eq_map, Option.map_some,
+    List.getElem?_cons_zero, List.getElem?_cons_succ,
     Function.const_apply, SpecLean.Validation.Where.alloc_fst, SpecLean.Validation.Where.alloc_next,
     SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.objs_alloc_ne,
     SpecLean.Validation.Where.objs_alloc_self, SpecLean.Validation.Where.objs_alloc_at, $args,*]))
@@ -572,6 +604,7 @@ elab "rd_objs" : tactic => withMainContext do
   evalTactic (← `(tactic| simp (disch := rd_disch) only
     [SpecLean.Validation.Where.objs_set_ne, SpecLean.Validation.Where.objs_set_self,
      List.getElem?_set_ne, List.getElem?_set_self', Option.map_eq_map, Option.map_some,
+    List.getElem?_cons_zero, List.getElem?_cons_succ,
      Function.const_apply, SpecLean.Validation.Where.alloc_fst, SpecLean.Validation.Where.alloc_next,
      SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.objs_alloc_ne,
      SpecLean.Validation.Where.objs_alloc_self, SpecLean.Validation.Where.objs_alloc_at, $args,*]))
@@ -646,6 +679,12 @@ end SpecLean.Validation.Tactic
 macro_rules | `(tactic| rd_finish) => `(tactic| rd_contra)
 
 macro_rules
+  | `(tactic| rd_itemdec) => `(tactic| first
+      | exact SpecLean.Validation.Decode.decBooleanV_eq.2 rfl
+      | (refine SpecLean.Validation.Decode.decUintT_eq.2 ⟨rfl, ?_⟩; rd_mem)
+      | (refine SpecLean.Validation.Decode.decBytesT_eq.2 ⟨rfl, ?_⟩; rd_mem))
+
+macro_rules
   | `(tactic| rd_same) => `(tactic| simp (disch := rd_disch) only
       [SpecLean.Validation.Where.objs_set_ne, SpecLean.Validation.Where.objs_alloc_ne,
        SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next])
@@ -691,8 +730,8 @@ macro "rd_newval" : tactic => `(tactic| first
   | refine SpecLean.Validation.Grow.newVals_cons ?_ ?_
   | refine SpecLean.Validation.Grow.newVals_append ?_ ?_
   | (apply SpecLean.Validation.Grow.newVal_of_ge;
-     simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
-       SpecLean.Validation.Where.alloc_fst]; omega))
+     (try simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
+       SpecLean.Validation.Where.alloc_fst]); omega))
 
 /-- `Reach` of a run of writes: the heap grows. Defined below. -/
 syntax "rd_reach" : tactic
@@ -733,8 +772,8 @@ macro_rules
     | rd_newval
     | (rd_objs; done)
     | rd_heapwf
-    | (simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
-        SpecLean.Validation.Where.alloc_fst]; omega)
+    | ((try simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
+        SpecLean.Validation.Where.alloc_fst]); omega)
     | apply SpecLean.Validation.Grow.objGrows_list_set
     | apply SpecLean.Validation.Grow.objGrows_container_set
     | apply SpecLean.Validation.Grow.objGrows_list_append
@@ -743,8 +782,9 @@ macro_rules
     | (intro _; first
         | apply SpecLean.Validation.Grow.newObj_container
         | apply SpecLean.Validation.Grow.newObj_list)
-    | apply SpecLean.Validation.Grow.grows_set
-    | apply SpecLean.Validation.Grow.grows_alloc)))
+    -- Reducible only, alloc first: at default transparency `grows_set` matches a new object.
+    | with_reducible apply SpecLean.Validation.Grow.grows_alloc
+    | with_reducible apply SpecLean.Validation.Grow.grows_set)))
 
 macro_rules
   | `(tactic| rd_frame) => `(tactic| repeat' (first
@@ -757,8 +797,8 @@ macro_rules
   | (rd_objs; done)
   | rd_skel
   | (rd_reach; done)
-  | (simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
-      SpecLean.Validation.Where.alloc_fst]; omega)
+  | ((try simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
+      SpecLean.Validation.Where.alloc_fst]); omega)
   | assumption
   -- Reducible only: at default transparency `h.set a o` unifies with `(h.alloc o).2`, and the
   -- loop never ends.

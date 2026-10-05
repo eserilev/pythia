@@ -237,6 +237,7 @@ theorem {name}_valid (gfp : Footprint) (h : Heap) {binders}{hw} :
   obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le' hf
   clear hf
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, {", ".join(defs)}{", *" if hys else ""}]
+  rd_step
   repeat' (rd_split <;> (try rd_step))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 """

@@ -30,30 +30,31 @@ theorem containerFieldsT_eq {ty : Name} {h : Heap} {v : Value} {fs : List Value}
     simp [containerFieldsT, ho]
 
 theorem decUintT_eq {α : Type} [UintC α] {t : UintTy} {h : Heap} {v : Value} {x : α} :
-    decUintT t h v = some x ↔ v = .uint t (UintC.val x) := by
+    decUintT t h v = some x ↔ v = .uint t (UintC.val x) ∧ UintC.val x < 2 ^ UintC.bits α := by
   constructor
   · intro e
     unfold decUintT at e
     split at e
     · split at e
-      · cases e; subst_vars; simp [UintC.val_ofNat]
+      · rename_i hc; cases e; obtain ⟨rfl, hr⟩ := hc; simp [UintC.val_ofNat, hr]
       · cases e
     · cases e
-  · rintro rfl
-    simp [decUintT, UintC.ofNat_val]
+  · rintro ⟨rfl, hr⟩
+    simp [decUintT, UintC.ofNat_val, hr]
 
 theorem decBytesT_eq {α : Type} [BytesC α] {cls : Name} {h : Heap} {v : Value} {x : α} :
-    decBytesT cls h v = some x ↔ v = .bytes cls (BytesC.data x) := by
+    decBytesT cls h v = some x ↔
+      v = .bytes cls (BytesC.data x) ∧ (BytesC.data x).length = BytesC.len α := by
   constructor
   · intro e
     unfold decBytesT at e
     split at e
     · split at e
-      · cases e; subst_vars; simp [BytesC.data_ofBytes]
+      · rename_i hc; cases e; obtain ⟨rfl, hl⟩ := hc; simp [BytesC.data_ofBytes, hl]
       · cases e
     · cases e
-  · rintro rfl
-    simp [decBytesT, BytesC.ofBytes_data]
+  · rintro ⟨rfl, hl⟩
+    simp [decBytesT, BytesC.ofBytes_data, hl]
 
 theorem decBooleanV_eq {h : Heap} {v : Value} {x : Boolean} :
     decBooleanV h v = some x ↔ v = .boolean x.val := by
@@ -121,15 +122,41 @@ theorem mapM_eq_map {α : Type} {f : Value → Option α} {g : α → Value}
         simp only [List.map_cons, List.cons.injEq] at e
         exact ⟨y, (hf _ _).2 e.1, ys, (mapM_eq_map hf).2 e.2, rfl⟩
 
+/-- `mapM_eq_map` for a decoder with a check on the decoded value, such as a range. -/
+theorem mapM_eq_map_P {α : Type} {f : Value → Option α} {g : α → Value} {P : α → Prop}
+    (hf : ∀ v y, f v = some y ↔ v = g y ∧ P y) :
+    ∀ {xs : List Value} {ys : List α}, xs.mapM f = some ys ↔ xs = ys.map g ∧ ∀ y ∈ ys, P y
+  | [], ys => by cases ys <;> simp
+  | x :: xs, ys => by
+    simp only [List.mapM_cons, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq]
+    constructor
+    · rintro ⟨y', hy', ys', hys', rfl⟩
+      obtain ⟨e1, p1⟩ := (hf _ _).1 hy'
+      obtain ⟨e2, p2⟩ := (mapM_eq_map_P hf).1 hys'
+      refine ⟨by simp [e1, e2], fun y hy => ?_⟩
+      rcases List.mem_cons.1 hy with rfl | hy
+      · exact p1
+      · exact p2 y hy
+    · rintro ⟨e, hp⟩
+      cases ys with
+      | nil => cases e
+      | cons y ys =>
+        simp only [List.map_cons, List.cons.injEq] at e
+        exact ⟨y, (hf _ _).2 ⟨e.1, hp y (by simp)⟩, ys,
+          (mapM_eq_map_P hf).2 ⟨e.2, fun z hz => hp z (by simp [hz])⟩, rfl⟩
+
 theorem mapM_decUintT {α : Type} [UintC α] {t : UintTy} {h : Heap} {xs : List Value}
     {ys : List α} :
-    xs.mapM (decUintT t h) = some ys ↔ xs = ys.map (fun y => .uint t (UintC.val y)) :=
-  mapM_eq_map (fun _ _ => decUintT_eq)
+    xs.mapM (decUintT t h) = some ys ↔ xs = ys.map (fun y => .uint t (UintC.val y)) ∧
+      ∀ y ∈ ys, UintC.val y < 2 ^ UintC.bits α :=
+  mapM_eq_map_P (fun _ _ => decUintT_eq)
 
 theorem mapM_decBytesT {α : Type} [BytesC α] {cls : Name} {h : Heap} {xs : List Value}
     {ys : List α} :
-    xs.mapM (decBytesT cls h) = some ys ↔ xs = ys.map (fun y => .bytes cls (BytesC.data y)) :=
-  mapM_eq_map (fun _ _ => decBytesT_eq)
+    xs.mapM (decBytesT cls h) = some ys ↔ xs = ys.map (fun y => .bytes cls (BytesC.data y)) ∧
+      ∀ y ∈ ys, (BytesC.data y).length = BytesC.len α :=
+  mapM_eq_map_P (fun _ _ => decBytesT_eq)
 
 theorem mapM_decBooleanV {h : Heap} {xs : List Value} {ys : List Boolean} :
     xs.mapM (decBooleanV h) = some ys ↔ xs = ys.map (fun y => .boolean y.val) :=
@@ -158,61 +185,78 @@ theorem mapM_getElem? {α β : Type} {f : α → Option β} :
     | succ k => simpa using mapM_getElem? hys k
 
 /-- A write into a list of encodings, decoded: the decoded list with the item replaced. -/
-theorem mapM_set_map {α : Type} {f : Value → Option α} {g : α → Value}
-    (hfg : ∀ y, f (g y) = some y) :
-    ∀ (ys : List α) (k : Nat) (v : Value), ((ys.map g).set k v).mapM f =
-      if k < ys.length then (f v).map (ys.set k ·) else some ys
-  | [], k, v => by simp
-  | y :: ys, 0, v => by
+theorem mapM_map_of {α : Type} {f : Value → Option α} {g : α → Value} :
+    ∀ (ys : List α), (∀ y ∈ ys, f (g y) = some y) → (ys.map g).mapM f = some ys
+  | [], _ => rfl
+  | y :: ys, hfg => by
+    simp [List.mapM_cons, hfg y (by simp),
+      mapM_map_of ys (fun z hz => hfg z (by simp [hz]))]
+
+/-- A write into a list of encodings, decoded: the decoded list with the item replaced. -/
+theorem mapM_set_map {α : Type} {f : Value → Option α} {g : α → Value} :
+    ∀ (ys : List α), (∀ y ∈ ys, f (g y) = some y) → ∀ (k : Nat) (v : Value),
+      ((ys.map g).set k v).mapM f = if k < ys.length then (f v).map (ys.set k ·) else some ys
+  | [], _, k, v => by simp
+  | y :: ys, hfg, 0, v => by
     simp only [List.map_cons, List.set_cons_zero, List.mapM_cons, Option.bind_eq_bind,
       Option.pure_def, List.length_cons, Nat.zero_lt_succ, if_true, List.set_cons_zero]
-    have hm : (ys.map g).mapM f = some ys := by
-      have := mapM_set_map hfg ys ys.length (g y)
-      simp only [List.set_eq_of_length_le (by simp : (ys.map g).length ≤ ys.length),
-        Nat.lt_irrefl, if_false] at this
-      exact this
+    have hm : (ys.map g).mapM f = some ys := mapM_map_of ys (fun z hz => hfg z (by simp [hz]))
     cases f v <;> simp [hm]
-  | y :: ys, k + 1, v => by
+  | y :: ys, hfg, k + 1, v => by
     simp only [List.map_cons, List.set_cons_succ, List.mapM_cons, Option.bind_eq_bind,
-      Option.pure_def, List.length_cons, Nat.add_lt_add_iff_right, hfg, Option.bind_some,
-      mapM_set_map hfg ys k v]
+      Option.pure_def, List.length_cons, Nat.add_lt_add_iff_right, hfg y (by simp),
+      Option.bind_some, mapM_set_map ys (fun z hz => hfg z (by simp [hz])) k v]
     split <;> (try cases f v) <;> simp
 
-theorem mapM_map_of {α : Type} {f : Value → Option α} {g : α → Value}
-    (hfg : ∀ y, f (g y) = some y) : ∀ (ys : List α), (ys.map g).mapM f = some ys
-  | [] => rfl
-  | y :: ys => by simp [List.mapM_cons, hfg, mapM_map_of hfg ys]
-
-theorem mapM_map_decUintT {α : Type} [UintC α] {t : UintTy} {h : Heap} (ys : List α) :
+theorem mapM_map_decUintT {α : Type} [UintC α] {t : UintTy} {h : Heap} (ys : List α)
+    (hr : ∀ y ∈ ys, UintC.val y < 2 ^ UintC.bits α) :
     (ys.map (fun y => Value.uint t (UintC.val y))).mapM (decUintT t h) = some ys :=
-  mapM_decUintT.2 rfl
+  mapM_decUintT.2 ⟨rfl, hr⟩
 
-theorem mapM_map_decBytesT {α : Type} [BytesC α] {cls : Name} {h : Heap} (ys : List α) :
+theorem mapM_map_decBytesT {α : Type} [BytesC α] {cls : Name} {h : Heap} (ys : List α)
+    (hl : ∀ y ∈ ys, (BytesC.data y).length = BytesC.len α) :
     (ys.map (fun y => Value.bytes cls (BytesC.data y))).mapM (decBytesT cls h) = some ys :=
-  mapM_decBytesT.2 rfl
+  mapM_decBytesT.2 ⟨rfl, hl⟩
 
 theorem mapM_map_decBooleanV {h : Heap} (ys : List Boolean) :
     (ys.map (fun y => Value.boolean y.val)).mapM (decBooleanV h) = some ys :=
   mapM_decBooleanV.2 rfl
 
 theorem mapM_set_map_decUintT {α : Type} [UintC α] {t : UintTy} {h : Heap} (ys : List α)
-    (k : Nat) (v : Value) :
+    (hr : ∀ y ∈ ys, UintC.val y < 2 ^ UintC.bits α) (k : Nat) (v : Value) :
     ((ys.map (fun y => Value.uint t (UintC.val y))).set k v).mapM (decUintT t h) =
       if k < ys.length then (decUintT t h v).map (ys.set k ·) else some ys :=
-  mapM_set_map (fun _ => decUintT_eq.2 rfl) ys k v
+  mapM_set_map ys (fun y hy => decUintT_eq.2 ⟨rfl, hr y hy⟩) k v
 
 theorem mapM_set_map_decBytesT {α : Type} [BytesC α] {cls : Name} {h : Heap} (ys : List α)
-    (k : Nat) (v : Value) :
+    (hl : ∀ y ∈ ys, (BytesC.data y).length = BytesC.len α) (k : Nat) (v : Value) :
     ((ys.map (fun y => Value.bytes cls (BytesC.data y))).set k v).mapM (decBytesT cls h) =
       if k < ys.length then (decBytesT cls h v).map (ys.set k ·) else some ys :=
-  mapM_set_map (fun _ => decBytesT_eq.2 rfl) ys k v
+  mapM_set_map ys (fun y hy => decBytesT_eq.2 ⟨rfl, hl y hy⟩) k v
 
 theorem mapM_set_map_decBooleanV {h : Heap} (ys : List Boolean) (k : Nat) (v : Value) :
     ((ys.map (fun y => Value.boolean y.val)).set k v).mapM (decBooleanV h) =
       if k < ys.length then (decBooleanV h v).map (ys.set k ·) else some ys :=
-  mapM_set_map (fun _ => decBooleanV_eq.2 rfl) ys k v
+  mapM_set_map ys (fun _ _ => decBooleanV_eq.2 rfl) k v
 
 attribute [rd_simp] containerFieldsT_eq decUintT_eq decBytesT_eq decBooleanV_eq decListV_eq decListT_eq
   mapM_decUintT mapM_decBytesT mapM_decBooleanV
+
+end SpecLean.Validation.Decode
+
+namespace SpecLean.Validation.Decode
+
+open SpecLean.Rd
+
+-- The width and the length of a class are literals in the proofs.
+attribute [rd_simp] UintC.bits BytesC.len
+
+end SpecLean.Validation.Decode
+
+namespace SpecLean.Validation.Decode
+
+/-- A range check that the context proves: the proofs discharge `n < m` by `omega`. -/
+theorem ite_lt_of {α : Type} {n m : Nat} {a b : α} (h : n < m) : (if n < m then a else b) = a :=
+  if_pos h
 
 end SpecLean.Validation.Decode

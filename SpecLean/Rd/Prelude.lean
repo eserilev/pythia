@@ -235,9 +235,10 @@ def decUintC [UintC α] : Dec α
   | _, .uint _ n => some (UintC.ofNat n)
   | _, _ => none
 
-/-- A uint of class `t`. A heap field holds its exact class: a write coerces to it. -/
+/-- A uint of class `t`, in range. A heap field holds its exact class: a write coerces to it.
+The range check makes a decoded value a valid SSZ value, as Python's type guarantees. -/
 def decUintT [UintC α] (t : UintTy) : Dec α
-  | _, .uint t' n => if t' = t then some (UintC.ofNat n) else none
+  | _, .uint t' n => if t' = t ∧ n < 2 ^ UintC.bits α then some (UintC.ofNat n) else none
   | _, _ => none
 
 def decBooleanV : Dec Boolean
@@ -248,9 +249,9 @@ def decBytesC [BytesC α] : Dec α
   | _, .bytes _ b => some (BytesC.ofBytes b)
   | _, _ => none
 
-/-- A byte vector of class `cls`. -/
+/-- A byte vector of class `cls`, of the length of the class. -/
 def decBytesT [BytesC α] (cls : Name) : Dec α
-  | _, .bytes c b => if c = cls then some (BytesC.ofBytes b) else none
+  | _, .bytes c b => if c = cls ∧ b.length = BytesC.len α then some (BytesC.ofBytes b) else none
   | _, _ => none
 
 def decListV (f : Dec α) : Dec (List α)

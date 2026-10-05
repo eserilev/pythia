@@ -487,7 +487,10 @@ Emits readable Lean in the style of the existing hand-written model:
 
 `decode (heap : Heap) (v : Value) : Option α` reads the typed Lean value of `v` out of the heap,
 following `ref`s. The translator generates `decode` for each SSZ type. Two refs to one object
-decode to equal values, so sharing is invisible to `decode`. `DecodesArgs` includes `HeapWF`:
+decode to equal values, so sharing is invisible to `decode`. A decoder checks that each uint is in
+the range of its class and each byte vector has the length of its class. Python's types
+guarantee this, and the proofs need it: a container that Python builds checks the range of
+each field, and the readable Lean does not. `DecodesArgs` includes `HeapWF`:
 every `ref` reachable from the arguments points to an address in the heap.
 
 **Footprints.** A footprint is a set of path patterns rooted at SSZ types, such as
