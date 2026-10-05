@@ -65,6 +65,11 @@ def known_signatures() -> set[str]:
     return out
 
 
+def save_to(d: Path, sig: str, src: str, py: str, lean: str, n: int):
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", sig).strip("_")[:60]
+    (d / f"{slug}_{n}.py").write_text(f"# signature: {sig}\n# python: {py}\n# lean:   {lean}\n\n{src}")
+
+
 def save(sig: str, src: str, py: str, lean: str) -> Path:
     slug = re.sub(r"[^A-Za-z0-9]+", "_", sig).strip("_")[:60]
     h = hashlib.sha256(src.encode()).hexdigest()[:8]
@@ -74,12 +79,12 @@ def save(sig: str, src: str, py: str, lean: str) -> Path:
 
 
 def blocks(lines):
-    """Each removable unit: a line with its indented children. `mk` and `tr` stay."""
+    """Each removable unit: a line with its indented children. `mk`, `tr` and `grow` stay."""
     out = []
     keep = False
     for i, line in enumerate(lines):
         if line.startswith("def "):
-            keep = line.startswith(("def mk", "def tr"))
+            keep = line.startswith(("def mk", "def tr", "def grow"))
         if keep or not line.strip():
             continue
         ind = len(line) - len(line.lstrip())
@@ -127,6 +132,7 @@ class Stats:
         self.same = 0
         self.seconds = 0.0
         self.outcomes: dict[str, int] = {}
+        self.known_hits: dict[str, int] = {}
 
 
 def main():
@@ -134,7 +140,9 @@ def main():
     ap.add_argument("--n", type=int, default=2000, help="programs to generate in total")
     ap.add_argument("--ignore", action="append", default=[], help="signature to treat as known")
     ap.add_argument("--max-rounds", type=int, default=30)
-    ap.add_argument("--avoid", default="", help="comma-separated: boolleft,mismatch (gen.AVOID)")
+    ap.add_argument("--samples", default=None,
+                    help="directory for up to 5 unshrunk examples of each known signature")
+    ap.add_argument("--avoid", default="", help="comma-separated names from gen.AVOID")
     args = ap.parse_args()
     G.AVOID |= {a for a in args.avoid.split(",") if a}
 
@@ -178,6 +186,13 @@ def main():
                 return
             sig = signature(py, lo)
             if sig in known:
+                if not shrinking[0]:
+                    n = stats.known_hits.get(sig, 0)
+                    stats.known_hits[sig] = n + 1
+                    if args.samples and n < 5:
+                        d = Path(args.samples)
+                        d.mkdir(parents=True, exist_ok=True)
+                        save_to(d, sig, src, py, lo, n)
                 return
             shrinking[0] = True
             raise Diff(sig, src, py, lo)
@@ -202,6 +217,7 @@ def main():
           f"{stats.generated / wall:.1f} programs/s (wall, with generation and shrinking), "
           f"{stats.runs} runs with shrinking")
     print("CPython outcomes:", dict(sorted(stats.outcomes.items(), key=lambda kv: -kv[1])))
+    print("known signatures seen:", stats.known_hits)
     for sig, path in found:
         print(f"  {sig}: {path.name}")
     sys.exit(1 if found else 0)

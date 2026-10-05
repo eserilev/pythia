@@ -21,6 +21,10 @@ INT, BOOL, BOOLEAN, NONE = ("int",), ("bool",), ("Boolean",), ("none",)
 # Known differences that a campaign can switch off, so that it looks for new ones:
 # - "boolleft": a Python `bool` operand in arithmetic and comparisons with uints.
 # - "mismatch": writes, appends and constructor arguments of a deliberately wrong type.
+# - "ctorlen": `List(data=...)` over the limit and `Vector(data=...)` of the wrong length.
+# - "livecomp": a comprehension that appends to the list it iterates (`grow`).
+# - "pycopy": `.copy()` of a Python list.
+# - "shortcircuit": `any` and `all` over a generator with side effects or errors.
 AVOID: set[str] = set()
 
 
@@ -369,8 +373,14 @@ class Gen:
             return f"({self.expr(BOOL, sc, d - 1)} {ch.pick(['and', 'or'])} " \
                    f"{self.expr(BOOL, sc, d - 1)})"
         if k == "anyall":
-            r = self.path_of(sc, lambda t: is_seq(t) and elem(t) == C(H.Pt))
             fn = ch.pick(["any", "all"])
+            if "shortcircuit" not in AVOID and ch.flip(40):
+                r = self.path_of(sc, lambda t: is_seq(t) and elem(t)[0] in ("uint", "int"))
+                if r:
+                    body = ch.pick([f"{self.trace('x')} > 0", "1 // x > 0", "x > 0",
+                                    f"{self.trace('x == 0')}"])
+                    return f"{fn}({body} for x in {r[0]})"
+            r = self.path_of(sc, lambda t: is_seq(t) and elem(t) == C(H.Pt))
             if r:
                 return f"{fn}(x.f for x in {r[0]})"
             r = self.path_of(sc, lambda t: is_seq(t) and elem(t)[0] == "uint")
@@ -473,20 +483,31 @@ class Gen:
             p = self.path_eq(sc, T)
             if p:
                 return f"{p}.copy()"
+        bad = 0 if "ctorlen" in AVOID else 1
         if issubclass(c, (H.Vector, H.BitVector)):
-            n = c.LENGTH if ch.flip(95) else ch.pick([0, c.LENGTH + 1])
+            n = ch.pick([0, c.LENGTH + 1]) if ch.flip(5 * bad) else c.LENGTH
         else:
             size = getattr(c, "LIMIT", None) or 3
-            n = ch.weighted([(3, size), (2, 0), (3, 1), (1, size + 1)])
+            n = ch.weighted([(3, size), (2, 0), (3, 1), (bad, size + 1)])
         return f"{name}(data=[{self.elems(E, sc, d, n)}])"
 
     def pylist_expr(self, T, sc, d):
         ch = self.ch
         E = elem(T)
         k = ch.weighted([(3, "lit"), (3, "comp"), (1, "list"), (1, "sorted"), (1, "key"),
-                         (1, "filter"), (1, "vecslice")])
+                         (1, "filter"), (1, "vecslice"),
+                         (0 if "livecomp" in AVOID else 1, "grow"),
+                         (0 if "pycopy" in AVOID else 1, "copy")])
         if d <= 0 or k == "lit":
             return f"[{self.elems(E, sc, d, ch.int(0, 3))}]"
+        if k == "grow":
+            r = self.path_of(sc, lambda t: growable(t) and elem(t) == E)
+            if r:
+                return f"[grow({r[0]}, x) for x in {r[0]}]"
+        if k == "copy":
+            p = self.path_eq(sc, T)
+            if p:
+                return f"{p}.copy()"
         if k == "comp":
             r = self.path_of(sc, lambda t: is_seq(t) and elem(t) == E)
             if r:
@@ -732,7 +753,7 @@ class Gen:
             inner.vars[x] = elem(T)
             inner.vars[y] = elem(r2[1])
         elif k == "range":
-            self.emit(f"for {x} in range({ch.pick([f'len({p})', '3', '0', '1, 3'])}):")
+            self.emit(f"for {x} in range({ch.pick([f'len({p})', '3', '0', '1, 3', '0, 4, 2', '3, 0, -1'])}):")
             inner.vars[x] = INT
         elif k == "sorted" and numeric(elem(T)):
             self.emit(f"for {x} in sorted({p}):")
@@ -820,7 +841,12 @@ class Gen:
         self.indent = 1
         self.ret_type = ret
         self.block(sc, n_stmts, False)
-        self.emit(f"return {self.expr(ret, sc)}")
+        locs = [v for v in sc.vars if v not in dict(params)]
+        if not in_helper and locs and self.ch.flip(50):
+            # Return every local, so that sharing between locals and arguments shows.
+            self.emit(f"return ({', '.join(locs)},)")
+        else:
+            self.emit(f"return {self.expr(ret, sc)}")
         self.lines.append("")
         self.lines.append("")
 
@@ -867,6 +893,12 @@ def mk_value(ch, T, lines, objs, d=0):
 
 TR = '''def tr(log, k, v):
     log.append(k)
+    return v
+
+
+def grow(xs, v):
+    if len(xs) < 5:
+        xs.append(v)
     return v
 
 '''
