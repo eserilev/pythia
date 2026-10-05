@@ -512,6 +512,11 @@ def containers : List (Name × List (Name × SszTy)) := [
   (150, [(141, (.bytes 66 32)), (142, (.bytes 42 32)), (65, (.bytes 66 32)), (143, (.bytes 72 32)), (135, (.bytes 126 20)), (144, (.uint (.width 64))), (136, (.uint (.nominal 130 64))), (43, (.uint (.nominal 44 64))), (145, (.uint (.nominal 38 64))), (146, (.uint (.nominal 38 64))), (147, (.list .progressiveList (.bytes 148 48) none)), (149, (.bytes 42 32))]),
   (153, [(2, (.uint (.nominal 98 64))), (116, (.uint (.nominal 54 64))), (152, (.bytes 126 20)), (111, (.uint (.nominal 38 64)))])]
 
+/-- The layout of each progressive container: one bit per position (EIP-7495). -/
+def activeFields : List (Name × List Nat) := [
+  (150, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+  (155, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])]
+
 def globals : List (Name × Global) := [
   (6, (.fn fn_decrease_balance)),
   (11, (.fn fn_get_max_effective_balance)),

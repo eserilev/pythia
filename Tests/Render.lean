@@ -59,6 +59,7 @@ def errTag : SpecError → String
   | .valueError => "valueError" | .divisionByZero => "divisionByZero"
   | .typeError => "typeError" | .keyError => "keyError" | .nameError => "nameError"
   | .raised => "raised" | .unsupported => "unsupported" | .outOfFuel => "outOfFuel"
+  | .other c => "other." ++ c
 
 /-- The test oracle: real SHA-256. `hash_tree_root` and BLS are not in the construct tests. -/
 def testOracle : Oracle where

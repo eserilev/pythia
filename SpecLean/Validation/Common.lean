@@ -80,7 +80,7 @@ theorem call_enumerate (n : Nat) (a : Value) (h : Heap) :
 theorem callValue_fn {env : Env} (n : Nat) {g : Name} {d : FunctionDef} (vs : List Value)
     (h : Heap) (hg : env.globals.lookup g = some (.fn d)) :
     callValue env n (.glob g) vs [] h = callFn env n d.params (.stmts d.body) Locals.empty vs [] h := by
-  rw [callValue.eq_def]; simp only [hg]
+  rw [callValue.eq_def]; simp only [hg, frame_eq]
 
 end SpecLean.Validation
 

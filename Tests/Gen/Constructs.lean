@@ -148,6 +148,9 @@ def names : Array String := #[
   "reverse",
   "filter",
   "t_lambda_sorted_filter",
+  "t_list_concat",
+  "t_list_concat_type_error",
+  "t_list_iadd_in_place",
   "eth1_data_votes",
   "Eth1Data",
   "t_list_limit",
@@ -179,10 +182,19 @@ def names : Array String := #[
   "t_spec_shuffle",
   "xor",
   "t_spec_sqrt_and_xor",
+  "r",
+  "t_ssz_list_concat",
+  "t_ssz_list_concat_shares",
+  "t_ssz_list_iadd_rebinds",
+  "t_ssz_list_repeat_type_error",
+  "t_uint_of_bool_error",
+  "t_uint_of_boolean",
   "t_uint_range",
   "t_underflow",
   "t_unops",
   "t_unpack_error",
+  "block_roots",
+  "t_vector_concat_type_error",
   "t_vector_resize",
   "t_zip_strict_error",
   "bytes_1",
@@ -200,7 +212,6 @@ def names : Array String := #[
   "state_root",
   "body_root",
   "BeaconBlockHeader",
-  "block_roots",
   "state_roots",
   "historical_roots",
   "eth1_data",
@@ -288,6 +299,7 @@ def names : Array String := #[
   "address",
   "Withdrawal",
   "ptc_window",
+  "*",
   "hash_tree_root",
   "dict"]
 
@@ -434,148 +446,160 @@ abbrev «key» : Name := 138
 abbrev «reverse» : Name := 139
 abbrev «filter» : Name := 140
 abbrev «t_lambda_sorted_filter» : Name := 141
-abbrev «eth1_data_votes» : Name := 142
-abbrev «Eth1Data» : Name := 143
-abbrev «t_list_limit» : Name := 144
-abbrev «t_list_write_coercion» : Name := 145
-abbrev «t_list_write_sibling» : Name := 146
-abbrev «t_literals» : Name := 147
-abbrev «t_max_empty» : Name := 148
-abbrev «extend» : Name := 149
-abbrev «count» : Name := 150
-abbrev «union» : Name := 151
-abbrev «intersection» : Name := 152
-abbrev «t_methods» : Name := 153
-abbrev «total» : Name := 154
-abbrev «operation» : Name := 155
-abbrev «operations» : Name := 156
-abbrev «args» : Name := 157
-abbrev «fn» : Name := 158
-abbrev «for_ops» : Name := 159
-abbrev «t_nested_def» : Name := 160
-abbrev «t_overflow» : Name := 161
-abbrev «t_positional_model» : Name := 162
-abbrev «t_return_none» : Name := 163
-abbrev «Slot» : Name := 164
-abbrev «t_sibling_types» : Name := 165
-abbrev «proposer_lookahead» : Name := 166
-abbrev «justification_bits» : Name := 167
-abbrev «t_slice» : Name := 168
-abbrev «t_slice_assign» : Name := 169
-abbrev «t_spec_shuffle» : Name := 170
-abbrev «xor» : Name := 171
-abbrev «t_spec_sqrt_and_xor» : Name := 172
-abbrev «t_uint_range» : Name := 173
-abbrev «t_underflow» : Name := 174
-abbrev «t_unops» : Name := 175
-abbrev «t_unpack_error» : Name := 176
-abbrev «t_vector_resize» : Name := 177
-abbrev «t_zip_strict_error» : Name := 178
-abbrev «bytes_1» : Name := 179
-abbrev «bytes_2» : Name := 180
-abbrev «genesis_time» : Name := 181
-abbrev «genesis_validators_root» : Name := 182
-abbrev «Root» : Name := 183
-abbrev «fork» : Name := 184
-abbrev «previous_version» : Name := 185
-abbrev «Version» : Name := 186
-abbrev «current_version» : Name := 187
-abbrev «latest_block_header» : Name := 188
-abbrev «proposer_index» : Name := 189
-abbrev «parent_root» : Name := 190
-abbrev «state_root» : Name := 191
-abbrev «body_root» : Name := 192
-abbrev «BeaconBlockHeader» : Name := 193
-abbrev «block_roots» : Name := 194
-abbrev «state_roots» : Name := 195
-abbrev «historical_roots» : Name := 196
-abbrev «eth1_data» : Name := 197
-abbrev «deposit_root» : Name := 198
-abbrev «deposit_count» : Name := 199
-abbrev «block_hash» : Name := 200
-abbrev «Hash32» : Name := 201
-abbrev «eth1_deposit_index» : Name := 202
-abbrev «pubkey» : Name := 203
-abbrev «BLSPubkey» : Name := 204
-abbrev «withdrawal_credentials» : Name := 205
-abbrev «activation_eligibility_epoch» : Name := 206
-abbrev «activation_epoch» : Name := 207
-abbrev «withdrawable_epoch» : Name := 208
-abbrev «randao_mixes» : Name := 209
-abbrev «slashings» : Name := 210
-abbrev «previous_epoch_participation» : Name := 211
-abbrev «ParticipationFlags» : Name := 212
-abbrev «current_epoch_participation» : Name := 213
-abbrev «previous_justified_checkpoint» : Name := 214
-abbrev «root» : Name := 215
-abbrev «current_justified_checkpoint» : Name := 216
-abbrev «finalized_checkpoint» : Name := 217
-abbrev «inactivity_scores» : Name := 218
-abbrev «current_sync_committee» : Name := 219
-abbrev «pubkeys» : Name := 220
-abbrev «aggregate_pubkey» : Name := 221
-abbrev «SyncCommittee» : Name := 222
-abbrev «next_sync_committee» : Name := 223
-abbrev «latest_block_hash» : Name := 224
-abbrev «next_withdrawal_index» : Name := 225
-abbrev «WithdrawalIndex» : Name := 226
-abbrev «next_withdrawal_validator_index» : Name := 227
-abbrev «historical_summaries» : Name := 228
-abbrev «block_summary_root» : Name := 229
-abbrev «state_summary_root» : Name := 230
-abbrev «HistoricalSummary» : Name := 231
-abbrev «deposit_requests_start_index» : Name := 232
-abbrev «deposit_balance_to_consume» : Name := 233
-abbrev «exit_balance_to_consume» : Name := 234
-abbrev «earliest_exit_epoch» : Name := 235
-abbrev «consolidation_balance_to_consume» : Name := 236
-abbrev «earliest_consolidation_epoch» : Name := 237
-abbrev «pending_deposits» : Name := 238
-abbrev «amount» : Name := 239
-abbrev «signature» : Name := 240
-abbrev «BLSSignature» : Name := 241
-abbrev «PendingDeposit» : Name := 242
-abbrev «pending_partial_withdrawals» : Name := 243
-abbrev «validator_index» : Name := 244
-abbrev «PendingPartialWithdrawal» : Name := 245
-abbrev «pending_consolidations» : Name := 246
-abbrev «source_index» : Name := 247
-abbrev «target_index» : Name := 248
-abbrev «PendingConsolidation» : Name := 249
-abbrev «builders» : Name := 250
-abbrev «version» : Name := 251
-abbrev «execution_address» : Name := 252
-abbrev «ExecutionAddress» : Name := 253
-abbrev «balance» : Name := 254
-abbrev «deposit_epoch» : Name := 255
-abbrev «Builder» : Name := 256
-abbrev «next_withdrawal_builder_index» : Name := 257
-abbrev «BuilderIndex» : Name := 258
-abbrev «execution_payload_availability» : Name := 259
-abbrev «builder_pending_payments» : Name := 260
-abbrev «weight» : Name := 261
-abbrev «withdrawal» : Name := 262
-abbrev «fee_recipient» : Name := 263
-abbrev «builder_index» : Name := 264
-abbrev «BuilderPendingWithdrawal» : Name := 265
-abbrev «builder_pending_withdrawals» : Name := 266
-abbrev «latest_execution_payload_bid» : Name := 267
-abbrev «parent_block_hash» : Name := 268
-abbrev «parent_block_root» : Name := 269
-abbrev «prev_randao» : Name := 270
-abbrev «gas_limit» : Name := 271
-abbrev «value» : Name := 272
-abbrev «execution_payment» : Name := 273
-abbrev «blob_kzg_commitments» : Name := 274
-abbrev «KZGCommitment» : Name := 275
-abbrev «execution_requests_root» : Name := 276
-abbrev «ExecutionPayloadBid» : Name := 277
-abbrev «payload_expected_withdrawals» : Name := 278
-abbrev «address» : Name := 279
-abbrev «Withdrawal» : Name := 280
-abbrev «ptc_window» : Name := 281
-abbrev «hash_tree_root» : Name := 282
-abbrev «dict» : Name := 283
+abbrev «t_list_concat» : Name := 142
+abbrev «t_list_concat_type_error» : Name := 143
+abbrev «t_list_iadd_in_place» : Name := 144
+abbrev «eth1_data_votes» : Name := 145
+abbrev «Eth1Data» : Name := 146
+abbrev «t_list_limit» : Name := 147
+abbrev «t_list_write_coercion» : Name := 148
+abbrev «t_list_write_sibling» : Name := 149
+abbrev «t_literals» : Name := 150
+abbrev «t_max_empty» : Name := 151
+abbrev «extend» : Name := 152
+abbrev «count» : Name := 153
+abbrev «union» : Name := 154
+abbrev «intersection» : Name := 155
+abbrev «t_methods» : Name := 156
+abbrev «total» : Name := 157
+abbrev «operation» : Name := 158
+abbrev «operations» : Name := 159
+abbrev «args» : Name := 160
+abbrev «fn» : Name := 161
+abbrev «for_ops» : Name := 162
+abbrev «t_nested_def» : Name := 163
+abbrev «t_overflow» : Name := 164
+abbrev «t_positional_model» : Name := 165
+abbrev «t_return_none» : Name := 166
+abbrev «Slot» : Name := 167
+abbrev «t_sibling_types» : Name := 168
+abbrev «proposer_lookahead» : Name := 169
+abbrev «justification_bits» : Name := 170
+abbrev «t_slice» : Name := 171
+abbrev «t_slice_assign» : Name := 172
+abbrev «t_spec_shuffle» : Name := 173
+abbrev «xor» : Name := 174
+abbrev «t_spec_sqrt_and_xor» : Name := 175
+abbrev «r» : Name := 176
+abbrev «t_ssz_list_concat» : Name := 177
+abbrev «t_ssz_list_concat_shares» : Name := 178
+abbrev «t_ssz_list_iadd_rebinds» : Name := 179
+abbrev «t_ssz_list_repeat_type_error» : Name := 180
+abbrev «t_uint_of_bool_error» : Name := 181
+abbrev «t_uint_of_boolean» : Name := 182
+abbrev «t_uint_range» : Name := 183
+abbrev «t_underflow» : Name := 184
+abbrev «t_unops» : Name := 185
+abbrev «t_unpack_error» : Name := 186
+abbrev «block_roots» : Name := 187
+abbrev «t_vector_concat_type_error» : Name := 188
+abbrev «t_vector_resize» : Name := 189
+abbrev «t_zip_strict_error» : Name := 190
+abbrev «bytes_1» : Name := 191
+abbrev «bytes_2» : Name := 192
+abbrev «genesis_time» : Name := 193
+abbrev «genesis_validators_root» : Name := 194
+abbrev «Root» : Name := 195
+abbrev «fork» : Name := 196
+abbrev «previous_version» : Name := 197
+abbrev «Version» : Name := 198
+abbrev «current_version» : Name := 199
+abbrev «latest_block_header» : Name := 200
+abbrev «proposer_index» : Name := 201
+abbrev «parent_root» : Name := 202
+abbrev «state_root» : Name := 203
+abbrev «body_root» : Name := 204
+abbrev «BeaconBlockHeader» : Name := 205
+abbrev «state_roots» : Name := 206
+abbrev «historical_roots» : Name := 207
+abbrev «eth1_data» : Name := 208
+abbrev «deposit_root» : Name := 209
+abbrev «deposit_count» : Name := 210
+abbrev «block_hash» : Name := 211
+abbrev «Hash32» : Name := 212
+abbrev «eth1_deposit_index» : Name := 213
+abbrev «pubkey» : Name := 214
+abbrev «BLSPubkey» : Name := 215
+abbrev «withdrawal_credentials» : Name := 216
+abbrev «activation_eligibility_epoch» : Name := 217
+abbrev «activation_epoch» : Name := 218
+abbrev «withdrawable_epoch» : Name := 219
+abbrev «randao_mixes» : Name := 220
+abbrev «slashings» : Name := 221
+abbrev «previous_epoch_participation» : Name := 222
+abbrev «ParticipationFlags» : Name := 223
+abbrev «current_epoch_participation» : Name := 224
+abbrev «previous_justified_checkpoint» : Name := 225
+abbrev «root» : Name := 226
+abbrev «current_justified_checkpoint» : Name := 227
+abbrev «finalized_checkpoint» : Name := 228
+abbrev «inactivity_scores» : Name := 229
+abbrev «current_sync_committee» : Name := 230
+abbrev «pubkeys» : Name := 231
+abbrev «aggregate_pubkey» : Name := 232
+abbrev «SyncCommittee» : Name := 233
+abbrev «next_sync_committee» : Name := 234
+abbrev «latest_block_hash» : Name := 235
+abbrev «next_withdrawal_index» : Name := 236
+abbrev «WithdrawalIndex» : Name := 237
+abbrev «next_withdrawal_validator_index» : Name := 238
+abbrev «historical_summaries» : Name := 239
+abbrev «block_summary_root» : Name := 240
+abbrev «state_summary_root» : Name := 241
+abbrev «HistoricalSummary» : Name := 242
+abbrev «deposit_requests_start_index» : Name := 243
+abbrev «deposit_balance_to_consume» : Name := 244
+abbrev «exit_balance_to_consume» : Name := 245
+abbrev «earliest_exit_epoch» : Name := 246
+abbrev «consolidation_balance_to_consume» : Name := 247
+abbrev «earliest_consolidation_epoch» : Name := 248
+abbrev «pending_deposits» : Name := 249
+abbrev «amount» : Name := 250
+abbrev «signature» : Name := 251
+abbrev «BLSSignature» : Name := 252
+abbrev «PendingDeposit» : Name := 253
+abbrev «pending_partial_withdrawals» : Name := 254
+abbrev «validator_index» : Name := 255
+abbrev «PendingPartialWithdrawal» : Name := 256
+abbrev «pending_consolidations» : Name := 257
+abbrev «source_index» : Name := 258
+abbrev «target_index» : Name := 259
+abbrev «PendingConsolidation» : Name := 260
+abbrev «builders» : Name := 261
+abbrev «version» : Name := 262
+abbrev «execution_address» : Name := 263
+abbrev «ExecutionAddress» : Name := 264
+abbrev «balance» : Name := 265
+abbrev «deposit_epoch» : Name := 266
+abbrev «Builder» : Name := 267
+abbrev «next_withdrawal_builder_index» : Name := 268
+abbrev «BuilderIndex» : Name := 269
+abbrev «execution_payload_availability» : Name := 270
+abbrev «builder_pending_payments» : Name := 271
+abbrev «weight» : Name := 272
+abbrev «withdrawal» : Name := 273
+abbrev «fee_recipient» : Name := 274
+abbrev «builder_index» : Name := 275
+abbrev «BuilderPendingWithdrawal» : Name := 276
+abbrev «builder_pending_withdrawals» : Name := 277
+abbrev «latest_execution_payload_bid» : Name := 278
+abbrev «parent_block_hash» : Name := 279
+abbrev «parent_block_root» : Name := 280
+abbrev «prev_randao» : Name := 281
+abbrev «gas_limit» : Name := 282
+abbrev «value» : Name := 283
+abbrev «execution_payment» : Name := 284
+abbrev «blob_kzg_commitments» : Name := 285
+abbrev «KZGCommitment» : Name := 286
+abbrev «execution_requests_root» : Name := 287
+abbrev «ExecutionPayloadBid» : Name := 288
+abbrev «payload_expected_withdrawals» : Name := 289
+abbrev «address» : Name := 290
+abbrev «Withdrawal» : Name := 291
+abbrev «ptc_window» : Name := 292
+abbrev «*» : Name := 293
+abbrev «hash_tree_root» : Name := 294
+abbrev «dict» : Name := 295
 end Id
 
 open SpecLean
@@ -1288,6 +1312,60 @@ def fn_t_lambda_sorted_filter : FunctionDef where
     (.assign 139 [(.name 139 70)] (.list 139 [(.call 139 (.name 139 9) [(.pos (.int 139 (3)))]), (.call 139 (.name 139 9) [(.pos (.int 139 (1)))]), (.call 139 (.name 139 9) [(.pos (.int 139 (2)))])])),
     (.ret 140 (some (.tuple 140 [(.call 140 (.name 140 86) [(.pos (.name 140 70))]), (.call 140 (.name 140 86) [(.pos (.name 140 70)), (.kw 138 (.lambda 140 [2] (.unop 140 .neg (.name 140 2))))]), (.call 140 (.name 140 86) [(.pos (.name 140 70)), (.kw 139 (.bool 140 true))]), (.call 141 (.name 141 77) [(.pos (.call 141 (.name 141 140) [(.pos (.lambda 141 [2] (.compare 141 (.name 141 2) [(.notEq, (.int 141 (2)))]))), (.pos (.name 141 70))]))]), (.call 141 (.name 141 86) [(.pos (.list 141 [(.tuple 141 [(.int 141 (2)), (.str 141 "b")]), (.tuple 141 [(.int 141 (1)), (.str 141 "a")])])), (.kw 138 (.lambda 141 [107] (.index 141 (.name 141 107) (.int 141 (0)))))])])))]
 
+/-- `constructs.py:380`
+```python
+def t_list_concat():
+    a = [Uint64(1)]
+    b = a + [Uint64(2)]
+    c = [Gwei(0)] * 3
+    d = 2 * [Uint64(4)]
+    return (a, b, c, d)
+``` -/
+def fn_t_list_concat : FunctionDef where
+  name := 142
+  params := { names := [], defaults := [], vararg := none }
+  line := 380
+  body := [
+    (.assign 381 [(.name 381 35)] (.list 381 [(.call 381 (.name 381 9) [(.pos (.int 381 (1)))])])),
+    (.assign 382 [(.name 382 36)] (.binop 382 .add (.name 382 35) (.list 382 [(.call 382 (.name 382 9) [(.pos (.int 382 (2)))])]))),
+    (.assign 383 [(.name 383 55)] (.binop 383 .mul (.list 383 [(.call 383 (.name 383 61) [(.pos (.int 383 (0)))])]) (.int 383 (3)))),
+    (.assign 384 [(.name 384 56)] (.binop 384 .mul (.int 384 (2)) (.list 384 [(.call 384 (.name 384 9) [(.pos (.int 384 (4)))])]))),
+    (.ret 385 (some (.tuple 385 [(.name 385 35), (.name 385 36), (.name 385 55), (.name 385 56)])))]
+
+/-- `constructs.py:404`
+```python
+def t_list_concat_type_error():
+    state = BeaconState()
+    return [] + state.balances
+``` -/
+def fn_t_list_concat_type_error : FunctionDef where
+  name := 143
+  params := { names := [], defaults := [], vararg := none }
+  line := 404
+  body := [
+    (.assign 405 [(.name 405 44)] (.call 405 (.name 405 45) [])),
+    (.ret 406 (some (.binop 406 .add (.list 406 []) (.attr 406 (.name 406 44) 62))))]
+
+/-- `constructs.py:419`
+```python
+def t_list_iadd_in_place():
+    a = [Uint64(1)]
+    b = a
+    a += [Uint64(2)]
+    a += (Uint64(3),)
+    return (a, b)
+``` -/
+def fn_t_list_iadd_in_place : FunctionDef where
+  name := 144
+  params := { names := [], defaults := [], vararg := none }
+  line := 419
+  body := [
+    (.assign 420 [(.name 420 35)] (.list 420 [(.call 420 (.name 420 9) [(.pos (.int 420 (1)))])])),
+    (.assign 421 [(.name 421 36)] (.name 421 35)),
+    (.augAssign 422 (.name 422 35) .add (.list 422 [(.call 422 (.name 422 9) [(.pos (.int 422 (2)))])])),
+    (.augAssign 423 (.name 423 35) .add (.tuple 423 [(.call 423 (.name 423 9) [(.pos (.int 423 (3)))])])),
+    (.ret 424 (some (.tuple 424 [(.name 424 35), (.name 424 36)])))]
+
 /-- `constructs.py:289`
 ```python
 def t_list_limit():
@@ -1297,13 +1375,13 @@ def t_list_limit():
     return 0
 ``` -/
 def fn_t_list_limit : FunctionDef where
-  name := 144
+  name := 147
   params := { names := [], defaults := [], vararg := none }
   line := 289
   body := [
     (.assign 290 [(.name 290 44)] (.call 290 (.name 290 45) [])),
-    (.forStmt 291 (.name 291 17) (.call 291 (.name 291 18) [(.pos (.binop 291 .add (.call 291 (.name 291 71) [(.pos (.attr 291 (.name 291 44) 142))]) (.int 291 (100))))]) [
-      (.exprStmt 292 (.call 292 (.attr 292 (.attr 292 (.name 292 44) 142) 48) [(.pos (.call 292 (.name 292 143) []))]))]),
+    (.forStmt 291 (.name 291 17) (.call 291 (.name 291 18) [(.pos (.binop 291 .add (.call 291 (.name 291 71) [(.pos (.attr 291 (.name 291 44) 145))]) (.int 291 (100))))]) [
+      (.exprStmt 292 (.call 292 (.attr 292 (.attr 292 (.name 292 44) 145) 48) [(.pos (.call 292 (.name 292 146) []))]))]),
     (.ret 293 (some (.int 293 (0))))]
 
 /-- `constructs.py:329`
@@ -1315,7 +1393,7 @@ def t_list_write_coercion():
     return state.balances
 ``` -/
 def fn_t_list_write_coercion : FunctionDef where
-  name := 145
+  name := 148
   params := { names := [], defaults := [], vararg := none }
   line := 329
   body := [
@@ -1332,7 +1410,7 @@ def t_list_write_sibling():
     return 0
 ``` -/
 def fn_t_list_write_sibling : FunctionDef where
-  name := 146
+  name := 149
   params := { names := [], defaults := [], vararg := none }
   line := 336
   body := [
@@ -1346,7 +1424,7 @@ def t_literals():
     return (1, -2, True, False, None, "s", b"\x01\x02", UINT64_MAX)
 ``` -/
 def fn_t_literals : FunctionDef where
-  name := 147
+  name := 150
   params := { names := [], defaults := [], vararg := none }
   line := 8
   body := [
@@ -1358,7 +1436,7 @@ def t_max_empty():
     return max([])
 ``` -/
 def fn_t_max_empty : FunctionDef where
-  name := 148
+  name := 151
   params := { names := [], defaults := [], vararg := none }
   line := 272
   body := [
@@ -1375,14 +1453,14 @@ def t_methods():
             int.from_bytes(b"\x01\x02", "big"))
 ``` -/
 def fn_t_methods : FunctionDef where
-  name := 153
+  name := 156
   params := { names := [], defaults := [], vararg := none }
   line := 276
   body := [
     (.assign 277 [(.name 277 70)] (.list 277 [(.call 277 (.name 277 9) [(.pos (.int 277 (1)))]), (.call 277 (.name 277 9) [(.pos (.int 277 (2)))]), (.call 277 (.name 277 9) [(.pos (.int 277 (2)))])])),
-    (.exprStmt 278 (.call 278 (.attr 278 (.name 278 70) 149) [(.pos (.list 278 [(.call 278 (.name 278 9) [(.pos (.int 278 (3)))])]))])),
+    (.exprStmt 278 (.call 278 (.attr 278 (.name 278 70) 152) [(.pos (.list 278 [(.call 278 (.name 278 9) [(.pos (.int 278 (3)))])]))])),
     (.assign 279 [(.name 279 35)] (.call 279 (.name 279 84) [(.pos (.list 279 [(.call 279 (.name 279 9) [(.pos (.int 279 (1)))]), (.call 279 (.name 279 9) [(.pos (.int 279 (2)))])]))])),
-    (.ret 280 (some (.tuple 280 [(.call 280 (.attr 280 (.name 280 70) 11) [(.pos (.call 280 (.name 280 9) [(.pos (.int 280 (2)))]))]), (.call 280 (.attr 280 (.name 280 70) 150) [(.pos (.call 280 (.name 280 9) [(.pos (.int 280 (2)))]))]), (.call 280 (.name 280 86) [(.pos (.call 280 (.attr 280 (.name 280 35) 151) [(.pos (.list 280 [(.call 280 (.name 280 9) [(.pos (.int 280 (5)))])]))]))]), (.call 281 (.name 281 86) [(.pos (.call 281 (.attr 281 (.name 281 35) 152) [(.pos (.list 281 [(.call 281 (.name 281 9) [(.pos (.int 281 (2)))]), (.call 281 (.name 281 9) [(.pos (.int 281 (9)))])]))]))]), (.call 281 (.attr 281 (.name 281 7) 8) [(.pos (.bytes 281 [1, 2])), (.pos (.str 281 "little"))]), (.call 282 (.attr 282 (.name 282 7) 8) [(.pos (.bytes 282 [1, 2])), (.pos (.str 282 "big"))])])))]
+    (.ret 280 (some (.tuple 280 [(.call 280 (.attr 280 (.name 280 70) 11) [(.pos (.call 280 (.name 280 9) [(.pos (.int 280 (2)))]))]), (.call 280 (.attr 280 (.name 280 70) 153) [(.pos (.call 280 (.name 280 9) [(.pos (.int 280 (2)))]))]), (.call 280 (.name 280 86) [(.pos (.call 280 (.attr 280 (.name 280 35) 154) [(.pos (.list 280 [(.call 280 (.name 280 9) [(.pos (.int 280 (5)))])]))]))]), (.call 281 (.name 281 86) [(.pos (.call 281 (.attr 281 (.name 281 35) 155) [(.pos (.list 281 [(.call 281 (.name 281 9) [(.pos (.int 281 (2)))]), (.call 281 (.name 281 9) [(.pos (.int 281 (9)))])]))]))]), (.call 281 (.attr 281 (.name 281 7) 8) [(.pos (.bytes 281 [1, 2])), (.pos (.str 281 "little"))]), (.call 282 (.attr 282 (.name 282 7) 8) [(.pos (.bytes 282 [1, 2])), (.pos (.str 282 "big"))])])))]
 
 /-- `constructs.py:144`
 ```python
@@ -1397,16 +1475,16 @@ def t_nested_def():
     return total
 ``` -/
 def fn_t_nested_def : FunctionDef where
-  name := 160
+  name := 163
   params := { names := [], defaults := [], vararg := none }
   line := 144
   body := [
-    (.assign 145 [(.name 145 154)] (.list 145 [(.int 145 (0))])),
-    (.funDef 147 159 { names := [156, 158], defaults := [], vararg := (some 157) } [
-      (.forStmt 148 (.name 148 155) (.name 148 156) [
-        (.exprStmt 149 (.call 149 (.name 149 158) [(.pos (.name 149 154)), (.pos (.name 149 155)), (.starred (.name 149 157))]))])]),
-    (.exprStmt 151 (.call 151 (.name 151 159) [(.pos (.list 151 [(.int 151 (1)), (.int 151 (2)), (.int 151 (3))])), (.pos (.name 151 4)), (.pos (.int 151 (10)))])),
-    (.ret 152 (some (.name 152 154)))]
+    (.assign 145 [(.name 145 157)] (.list 145 [(.int 145 (0))])),
+    (.funDef 147 162 { names := [159, 161], defaults := [], vararg := (some 160) } [
+      (.forStmt 148 (.name 148 158) (.name 148 159) [
+        (.exprStmt 149 (.call 149 (.name 149 161) [(.pos (.name 149 157)), (.pos (.name 149 158)), (.starred (.name 149 160))]))])]),
+    (.exprStmt 151 (.call 151 (.name 151 162) [(.pos (.list 151 [(.int 151 (1)), (.int 151 (2)), (.int 151 (3))])), (.pos (.name 151 4)), (.pos (.int 151 (10)))])),
+    (.ret 152 (some (.name 152 157)))]
 
 /-- `constructs.py:30`
 ```python
@@ -1414,7 +1492,7 @@ def t_overflow():
     return Uint64(2**64 - 1) + 1
 ``` -/
 def fn_t_overflow : FunctionDef where
-  name := 161
+  name := 164
   params := { names := [], defaults := [], vararg := none }
   line := 30
   body := [
@@ -1426,7 +1504,7 @@ def t_positional_model():
     return Checkpoint(Epoch(3))
 ``` -/
 def fn_t_positional_model : FunctionDef where
-  name := 162
+  name := 165
   params := { names := [], defaults := [], vararg := none }
   line := 308
   body := [
@@ -1438,7 +1516,7 @@ def t_return_none():
     x = 1
 ``` -/
 def fn_t_return_none : FunctionDef where
-  name := 163
+  name := 166
   params := { names := [], defaults := [], vararg := none }
   line := 258
   body := [
@@ -1450,11 +1528,11 @@ def t_sibling_types():
     return Slot(1) + Epoch(1)
 ``` -/
 def fn_t_sibling_types : FunctionDef where
-  name := 165
+  name := 168
   params := { names := [], defaults := [], vararg := none }
   line := 42
   body := [
-    (.ret 43 (some (.binop 43 .add (.call 43 (.name 43 164) [(.pos (.int 43 (1)))]) (.call 43 (.name 43 103) [(.pos (.int 43 (1)))]))))]
+    (.ret 43 (some (.binop 43 .add (.call 43 (.name 43 167) [(.pos (.int 43 (1)))]) (.call 43 (.name 43 103) [(.pos (.int 43 (1)))]))))]
 
 /-- `constructs.py:99`
 ```python
@@ -1468,7 +1546,7 @@ def t_slice():
             state.justification_bits[1:3], (1, 2, 3)[1:])
 ``` -/
 def fn_t_slice : FunctionDef where
-  name := 168
+  name := 171
   params := { names := [], defaults := [], vararg := none }
   line := 99
   body := [
@@ -1477,7 +1555,7 @@ def fn_t_slice : FunctionDef where
     (.exprStmt 102 (.call 102 (.attr 102 (.attr 102 (.name 102 44) 62) 48) [(.pos (.call 102 (.name 102 61) [(.pos (.int 102 (2)))]))])),
     (.exprStmt 103 (.call 103 (.attr 103 (.attr 103 (.name 103 44) 62) 48) [(.pos (.call 103 (.name 103 61) [(.pos (.int 103 (3)))]))])),
     (.assign 104 [(.name 104 36)] (.call 104 (.name 104 112) [(.pos (.binop 104 .mul (.bytes 104 [1]) (.int 104 (32))))])),
-    (.ret 105 (some (.tuple 105 [(.slice 105 (.name 105 36) (some (.int 105 (0))) (some (.int 105 (4))) none), (.slice 105 (.name 105 36) none (some (.int 105 (1))) none), (.slice 105 (.attr 105 (.name 105 44) 62) (some (.int 105 (1))) none none), (.slice 105 (.attr 105 (.name 105 44) 166) (some (.int 105 (0))) (some (.int 105 (2))) none), (.slice 106 (.attr 106 (.name 106 44) 167) (some (.int 106 (1))) (some (.int 106 (3))) none), (.slice 106 (.tuple 106 [(.int 106 (1)), (.int 106 (2)), (.int 106 (3))]) (some (.int 106 (1))) none none)])))]
+    (.ret 105 (some (.tuple 105 [(.slice 105 (.name 105 36) (some (.int 105 (0))) (some (.int 105 (4))) none), (.slice 105 (.name 105 36) none (some (.int 105 (1))) none), (.slice 105 (.attr 105 (.name 105 44) 62) (some (.int 105 (1))) none none), (.slice 105 (.attr 105 (.name 105 44) 169) (some (.int 105 (0))) (some (.int 105 (2))) none), (.slice 106 (.attr 106 (.name 106 44) 170) (some (.int 106 (1))) (some (.int 106 (3))) none), (.slice 106 (.tuple 106 [(.int 106 (1)), (.int 106 (2)), (.int 106 (3))]) (some (.int 106 (1))) none none)])))]
 
 /-- `constructs.py:109`
 ```python
@@ -1489,41 +1567,137 @@ def t_slice_assign():
     return (state.justification_bits, state.proposer_lookahead[0:4])
 ``` -/
 def fn_t_slice_assign : FunctionDef where
-  name := 169
+  name := 172
   params := { names := [], defaults := [], vararg := none }
   line := 109
   body := [
     (.assign 110 [(.name 110 44)] (.call 110 (.name 110 45) [])),
-    (.assign 111 [(.index 111 (.attr 111 (.name 111 44) 167) (.int 111 (0)))] (.bool 111 true)),
-    (.assign 112 [(.slice 112 (.attr 112 (.name 112 44) 167) (some (.int 112 (1))) none)] (.slice 112 (.attr 112 (.name 112 44) 167) none (some (.int 112 (3))) none)),
-    (.assign 113 [(.slice 113 (.attr 113 (.name 113 44) 166) none (some (.int 113 (2))))] (.list 113 [(.call 113 (.name 113 66) [(.pos (.int 113 (7)))]), (.call 113 (.name 113 66) [(.pos (.int 113 (8)))])])),
-    (.ret 114 (some (.tuple 114 [(.attr 114 (.name 114 44) 167), (.slice 114 (.attr 114 (.name 114 44) 166) (some (.int 114 (0))) (some (.int 114 (4))) none)])))]
+    (.assign 111 [(.index 111 (.attr 111 (.name 111 44) 170) (.int 111 (0)))] (.bool 111 true)),
+    (.assign 112 [(.slice 112 (.attr 112 (.name 112 44) 170) (some (.int 112 (1))) none)] (.slice 112 (.attr 112 (.name 112 44) 170) none (some (.int 112 (3))) none)),
+    (.assign 113 [(.slice 113 (.attr 113 (.name 113 44) 169) none (some (.int 113 (2))))] (.list 113 [(.call 113 (.name 113 66) [(.pos (.int 113 (7)))]), (.call 113 (.name 113 66) [(.pos (.int 113 (8)))])])),
+    (.ret 114 (some (.tuple 114 [(.attr 114 (.name 114 44) 170), (.slice 114 (.attr 114 (.name 114 44) 169) (some (.int 114 (0))) (some (.int 114 (4))) none)])))]
 
-/-- `constructs.py:380`
+/-- `constructs.py:445`
 ```python
 def t_spec_shuffle():
     seed = Bytes32(b"\x07" * 32)
     return [compute_shuffled_index(Uint64(i), Uint64(10), seed) for i in range(10)]
 ``` -/
 def fn_t_spec_shuffle : FunctionDef where
-  name := 170
+  name := 173
   params := { names := [], defaults := [], vararg := none }
-  line := 380
+  line := 445
   body := [
-    (.assign 381 [(.name 381 13)] (.call 381 (.name 381 112) [(.pos (.binop 381 .mul (.bytes 381 [7]) (.int 381 (32))))])),
-    (.ret 382 (some (.comp 382 .list (.call 382 (.name 382 15) [(.pos (.call 382 (.name 382 9) [(.pos (.name 382 17))])), (.pos (.call 382 (.name 382 9) [(.pos (.int 382 (10)))])), (.pos (.name 382 13))]) [(.mk (.name 382 17) (.call 382 (.name 382 18) [(.pos (.int 382 (10)))]) [])])))]
+    (.assign 446 [(.name 446 13)] (.call 446 (.name 446 112) [(.pos (.binop 446 .mul (.bytes 446 [7]) (.int 446 (32))))])),
+    (.ret 447 (some (.comp 447 .list (.call 447 (.name 447 15) [(.pos (.call 447 (.name 447 9) [(.pos (.name 447 17))])), (.pos (.call 447 (.name 447 9) [(.pos (.int 447 (10)))])), (.pos (.name 447 13))]) [(.mk (.name 447 17) (.call 447 (.name 447 18) [(.pos (.int 447 (10)))]) [])])))]
 
-/-- `constructs.py:385`
+/-- `constructs.py:450`
 ```python
 def t_spec_sqrt_and_xor():
     return (integer_squareroot(Uint64(10**10)), xor(Bytes32(b"\x0f" * 32), Bytes32(b"\xf0" * 32)))
 ``` -/
 def fn_t_spec_sqrt_and_xor : FunctionDef where
-  name := 172
+  name := 175
   params := { names := [], defaults := [], vararg := none }
-  line := 385
+  line := 450
   body := [
-    (.ret 386 (some (.tuple 386 [(.call 386 (.name 386 43) [(.pos (.call 386 (.name 386 9) [(.pos (.binop 386 .pow (.int 386 (10)) (.int 386 (10))))]))]), (.call 386 (.name 386 171) [(.pos (.call 386 (.name 386 112) [(.pos (.binop 386 .mul (.bytes 386 [15]) (.int 386 (32))))])), (.pos (.call 386 (.name 386 112) [(.pos (.binop 386 .mul (.bytes 386 [240]) (.int 386 (32))))]))])])))]
+    (.ret 451 (some (.tuple 451 [(.call 451 (.name 451 43) [(.pos (.call 451 (.name 451 9) [(.pos (.binop 451 .pow (.int 451 (10)) (.int 451 (10))))]))]), (.call 451 (.name 451 174) [(.pos (.call 451 (.name 451 112) [(.pos (.binop 451 .mul (.bytes 451 [15]) (.int 451 (32))))])), (.pos (.call 451 (.name 451 112) [(.pos (.binop 451 .mul (.bytes 451 [240]) (.int 451 (32))))]))])])))]
+
+/-- `constructs.py:388`
+```python
+def t_ssz_list_concat():
+    state = BeaconState()
+    state.balances.append(Gwei(1))
+    r = state.balances + [Gwei(2)]
+    s = state.balances[0:] + state.balances
+    return (r, s, state.balances)
+``` -/
+def fn_t_ssz_list_concat : FunctionDef where
+  name := 177
+  params := { names := [], defaults := [], vararg := none }
+  line := 388
+  body := [
+    (.assign 389 [(.name 389 44)] (.call 389 (.name 389 45) [])),
+    (.exprStmt 390 (.call 390 (.attr 390 (.attr 390 (.name 390 44) 62) 48) [(.pos (.call 390 (.name 390 61) [(.pos (.int 390 (1)))]))])),
+    (.assign 391 [(.name 391 176)] (.binop 391 .add (.attr 391 (.name 391 44) 62) (.list 391 [(.call 391 (.name 391 61) [(.pos (.int 391 (2)))])]))),
+    (.assign 392 [(.name 392 83)] (.binop 392 .add (.slice 392 (.attr 392 (.name 392 44) 62) (some (.int 392 (0))) none none) (.attr 392 (.name 392 44) 62))),
+    (.ret 393 (some (.tuple 393 [(.name 393 176), (.name 393 83), (.attr 393 (.name 393 44) 62)])))]
+
+/-- `constructs.py:396`
+```python
+def t_ssz_list_concat_shares():
+    state = BeaconState()
+    state.validators.append(Validator())
+    r = state.validators + []
+    r[0].slashed = True
+    return state.validators[0].slashed
+``` -/
+def fn_t_ssz_list_concat_shares : FunctionDef where
+  name := 178
+  params := { names := [], defaults := [], vararg := none }
+  line := 396
+  body := [
+    (.assign 397 [(.name 397 44)] (.call 397 (.name 397 45) [])),
+    (.exprStmt 398 (.call 398 (.attr 398 (.attr 398 (.name 398 44) 47) 48) [(.pos (.call 398 (.name 398 46) []))])),
+    (.assign 399 [(.name 399 176)] (.binop 399 .add (.attr 399 (.name 399 44) 47) (.list 399 []))),
+    (.assign 400 [(.attr 400 (.index 400 (.name 400 176) (.int 400 (0))) 50)] (.bool 400 true)),
+    (.ret 401 (some (.attr 401 (.index 401 (.attr 401 (.name 401 44) 47) (.int 401 (0))) 50)))]
+
+/-- `constructs.py:427`
+```python
+def t_ssz_list_iadd_rebinds():
+    state = BeaconState()
+    b = state.balances
+    b += [Gwei(5)]
+    return (b, state.balances)
+``` -/
+def fn_t_ssz_list_iadd_rebinds : FunctionDef where
+  name := 179
+  params := { names := [], defaults := [], vararg := none }
+  line := 427
+  body := [
+    (.assign 428 [(.name 428 44)] (.call 428 (.name 428 45) [])),
+    (.assign 429 [(.name 429 36)] (.attr 429 (.name 429 44) 62)),
+    (.augAssign 430 (.name 430 36) .add (.list 430 [(.call 430 (.name 430 61) [(.pos (.int 430 (5)))])])),
+    (.ret 431 (some (.tuple 431 [(.name 431 36), (.attr 431 (.name 431 44) 62)])))]
+
+/-- `constructs.py:414`
+```python
+def t_ssz_list_repeat_type_error():
+    state = BeaconState()
+    return state.balances * 2
+``` -/
+def fn_t_ssz_list_repeat_type_error : FunctionDef where
+  name := 180
+  params := { names := [], defaults := [], vararg := none }
+  line := 414
+  body := [
+    (.assign 415 [(.name 415 44)] (.call 415 (.name 415 45) [])),
+    (.ret 416 (some (.binop 416 .mul (.attr 416 (.name 416 44) 62) (.int 416 (2)))))]
+
+/-- `constructs.py:438`
+```python
+def t_uint_of_bool_error():
+    return Uint64(True)
+``` -/
+def fn_t_uint_of_bool_error : FunctionDef where
+  name := 181
+  params := { names := [], defaults := [], vararg := none }
+  line := 438
+  body := [
+    (.ret 439 (some (.call 439 (.name 439 9) [(.pos (.bool 439 true))])))]
+
+/-- `constructs.py:434`
+```python
+def t_uint_of_boolean():
+    return (Uint64(Boolean(True)), Gwei(Boolean(False)))
+``` -/
+def fn_t_uint_of_boolean : FunctionDef where
+  name := 182
+  params := { names := [], defaults := [], vararg := none }
+  line := 434
+  body := [
+    (.ret 435 (some (.tuple 435 [(.call 435 (.name 435 9) [(.pos (.call 435 (.name 435 106) [(.pos (.bool 435 true))]))]), (.call 435 (.name 435 61) [(.pos (.call 435 (.name 435 106) [(.pos (.bool 435 false))]))])])))]
 
 /-- `constructs.py:312`
 ```python
@@ -1531,7 +1705,7 @@ def t_uint_range():
     return Uint8(256)
 ``` -/
 def fn_t_uint_range : FunctionDef where
-  name := 173
+  name := 183
   params := { names := [], defaults := [], vararg := none }
   line := 312
   body := [
@@ -1543,7 +1717,7 @@ def t_underflow():
     return Gwei(1) - Gwei(2)
 ``` -/
 def fn_t_underflow : FunctionDef where
-  name := 174
+  name := 184
   params := { names := [], defaults := [], vararg := none }
   line := 34
   body := [
@@ -1555,7 +1729,7 @@ def t_unops():
     return (not Uint64(0), -Uint64(3), ~Uint64(5), not [], -True)
 ``` -/
 def fn_t_unops : FunctionDef where
-  name := 175
+  name := 185
   params := { names := [], defaults := [], vararg := none }
   line := 26
   body := [
@@ -1568,12 +1742,26 @@ def t_unpack_error():
     return a
 ``` -/
 def fn_t_unpack_error : FunctionDef where
-  name := 176
+  name := 186
   params := { names := [], defaults := [], vararg := none }
   line := 197
   body := [
     (.assign 198 [(.tuple 198 [(.name 198 35), (.name 198 36)])] (.tuple 198 [(.int 198 (1)), (.int 198 (2)), (.int 198 (3))])),
     (.ret 199 (some (.name 199 35)))]
+
+/-- `constructs.py:409`
+```python
+def t_vector_concat_type_error():
+    state = BeaconState()
+    return state.block_roots + []
+``` -/
+def fn_t_vector_concat_type_error : FunctionDef where
+  name := 188
+  params := { names := [], defaults := [], vararg := none }
+  line := 409
+  body := [
+    (.assign 410 [(.name 410 44)] (.call 410 (.name 410 45) [])),
+    (.ret 411 (some (.binop 411 .add (.attr 411 (.name 411 44) 187) (.list 411 []))))]
 
 /-- `constructs.py:117`
 ```python
@@ -1583,12 +1771,12 @@ def t_vector_resize():
     return 0
 ``` -/
 def fn_t_vector_resize : FunctionDef where
-  name := 177
+  name := 189
   params := { names := [], defaults := [], vararg := none }
   line := 117
   body := [
     (.assign 118 [(.name 118 44)] (.call 118 (.name 118 45) [])),
-    (.assign 119 [(.slice 119 (.attr 119 (.name 119 44) 166) none (some (.int 119 (2))))] (.list 119 [(.call 119 (.name 119 66) [(.pos (.int 119 (7)))])])),
+    (.assign 119 [(.slice 119 (.attr 119 (.name 119 44) 169) none (some (.int 119 (2))))] (.list 119 [(.call 119 (.name 119 66) [(.pos (.int 119 (7)))])])),
     (.ret 120 (some (.int 120 (0))))]
 
 /-- `constructs.py:244`
@@ -1597,7 +1785,7 @@ def t_zip_strict_error():
     return list(zip([1, 2], [3], strict=True))
 ``` -/
 def fn_t_zip_strict_error : FunctionDef where
-  name := 178
+  name := 190
   params := { names := [], defaults := [], vararg := none }
   line := 244
   body := [
@@ -1627,30 +1815,52 @@ def xor(bytes_1: Bytes32, bytes_2: Bytes32) -> Bytes32:
     return Bytes32(a ^ b for a, b in zip(bytes_1, bytes_2, strict=True))
 ``` -/
 def fn_xor : FunctionDef where
-  name := 171
-  params := { names := [179, 180], defaults := [], vararg := none }
+  name := 174
+  params := { names := [191, 192], defaults := [], vararg := none }
   line := 1006
   body := [
-    (.ret 1010 (some (.call 1010 (.name 1010 112) [(.pos (.comp 1010 .gen (.binop 1010 .bitXor (.name 1010 35) (.name 1010 36)) [(.mk (.tuple 1010 [(.name 1010 35), (.name 1010 36)]) (.call 1010 (.name 1010 127) [(.pos (.name 1010 179)), (.pos (.name 1010 180)), (.kw 126 (.bool 1010 true))]) [])]))])))]
+    (.ret 1010 (some (.call 1010 (.name 1010 112) [(.pos (.comp 1010 .gen (.binop 1010 .bitXor (.name 1010 35) (.name 1010 36)) [(.mk (.tuple 1010 [(.name 1010 35), (.name 1010 36)]) (.call 1010 (.name 1010 127) [(.pos (.name 1010 191)), (.pos (.name 1010 192)), (.kw 126 (.bool 1010 true))]) [])]))])))]
 
 def containers : List (Name × List (Name × SszTy)) := [
-  (45, [(181, (.uint (.width 64))), (182, (.bytes 183 32)), (63, (.uint (.nominal 164 64))), (184, (.container 116)), (188, (.container 193)), (194, (.list .vector (.bytes 183 32) (some 64))), (195, (.list .vector (.bytes 183 32) (some 64))), (196, (.list .list (.bytes 183 32) (some 16777216))), (197, (.container 143)), (142, (.list .list (.container 143) (some 32))), (202, (.uint (.width 64))), (47, (.list .progressiveList (.container 46) none)), (62, (.list .progressiveList (.uint (.nominal 61 64)) none)), (209, (.list .vector (.bytes 112 32) (some 64))), (210, (.list .vector (.uint (.nominal 61 64)) (some 64))), (211, (.list .progressiveList (.uint (.nominal 212 8)) none)), (213, (.list .progressiveList (.uint (.nominal 212 8)) none)), (167, (.list .bitvector .boolean (some 4))), (214, (.container 104)), (216, (.container 104)), (217, (.container 104)), (218, (.list .progressiveList (.uint (.width 64)) none)), (219, (.container 222)), (223, (.container 222)), (224, (.bytes 201 32)), (225, (.uint (.nominal 226 64))), (227, (.uint (.nominal 66 64))), (228, (.list .list (.container 231) (some 16777216))), (232, (.uint (.width 64))), (233, (.uint (.nominal 61 64))), (234, (.uint (.nominal 61 64))), (235, (.uint (.nominal 103 64))), (236, (.uint (.nominal 61 64))), (237, (.uint (.nominal 103 64))), (238, (.list .progressiveList (.container 242) none)), (243, (.list .progressiveList (.container 245) none)), (246, (.list .progressiveList (.container 249) none)), (166, (.list .vector (.uint (.nominal 66 64)) (some 16))), (250, (.list .progressiveList (.container 256) none)), (257, (.uint (.nominal 258 64))), (259, (.list .bitvector .boolean (some 64))), (260, (.list .vector (.container 113) (some 16))), (266, (.list .progressiveList (.container 265) none)), (267, (.container 277)), (278, (.list .progressiveList (.container 280) none)), (281, (.list .vector (.list .vector (.uint (.nominal 66 64)) (some 16)) (some 24)))]),
-  (116, [(185, (.bytes 186 4)), (187, (.bytes 186 4)), (102, (.uint (.nominal 103 64)))]),
-  (193, [(63, (.uint (.nominal 164 64))), (189, (.uint (.nominal 66 64))), (190, (.bytes 183 32)), (191, (.bytes 183 32)), (192, (.bytes 183 32))]),
-  (143, [(198, (.bytes 183 32)), (199, (.uint (.width 64))), (200, (.bytes 201 32))]),
-  (46, [(203, (.bytes 204 48)), (205, (.bytes 112 32)), (105, (.uint (.nominal 61 64))), (50, .boolean), (206, (.uint (.nominal 103 64))), (207, (.uint (.nominal 103 64))), (122, (.uint (.nominal 103 64))), (208, (.uint (.nominal 103 64)))]),
-  (104, [(102, (.uint (.nominal 103 64))), (215, (.bytes 183 32))]),
-  (222, [(220, (.list .vector (.bytes 204 48) (some 32))), (221, (.bytes 204 48))]),
-  (231, [(229, (.bytes 183 32)), (230, (.bytes 183 32))]),
-  (242, [(203, (.bytes 204 48)), (205, (.bytes 112 32)), (239, (.uint (.nominal 61 64))), (240, (.bytes 241 96)), (63, (.uint (.nominal 164 64)))]),
-  (245, [(244, (.uint (.nominal 66 64))), (239, (.uint (.nominal 61 64))), (208, (.uint (.nominal 103 64)))]),
-  (249, [(247, (.uint (.nominal 66 64))), (248, (.uint (.nominal 66 64)))]),
-  (256, [(203, (.bytes 204 48)), (251, (.uint (.width 8))), (252, (.bytes 253 20)), (254, (.uint (.nominal 61 64))), (255, (.uint (.nominal 103 64))), (208, (.uint (.nominal 103 64)))]),
-  (113, [(261, (.uint (.nominal 61 64))), (262, (.container 265)), (189, (.uint (.nominal 66 64)))]),
-  (265, [(263, (.bytes 253 20)), (239, (.uint (.nominal 61 64))), (264, (.uint (.nominal 258 64)))]),
-  (277, [(268, (.bytes 201 32)), (269, (.bytes 183 32)), (200, (.bytes 201 32)), (270, (.bytes 112 32)), (263, (.bytes 253 20)), (271, (.uint (.width 64))), (264, (.uint (.nominal 258 64))), (63, (.uint (.nominal 164 64))), (272, (.uint (.nominal 61 64))), (273, (.uint (.nominal 61 64))), (274, (.list .progressiveList (.bytes 275 48) none)), (276, (.bytes 183 32))]),
-  (280, [(11, (.uint (.nominal 226 64))), (244, (.uint (.nominal 66 64))), (279, (.bytes 253 20)), (239, (.uint (.nominal 61 64)))]),
+  (45, [(193, (.uint (.width 64))), (194, (.bytes 195 32)), (63, (.uint (.nominal 167 64))), (196, (.container 116)), (200, (.container 205)), (187, (.list .vector (.bytes 195 32) (some 64))), (206, (.list .vector (.bytes 195 32) (some 64))), (207, (.list .list (.bytes 195 32) (some 16777216))), (208, (.container 146)), (145, (.list .list (.container 146) (some 32))), (213, (.uint (.width 64))), (47, (.list .progressiveList (.container 46) none)), (62, (.list .progressiveList (.uint (.nominal 61 64)) none)), (220, (.list .vector (.bytes 112 32) (some 64))), (221, (.list .vector (.uint (.nominal 61 64)) (some 64))), (222, (.list .progressiveList (.uint (.nominal 223 8)) none)), (224, (.list .progressiveList (.uint (.nominal 223 8)) none)), (170, (.list .bitvector .boolean (some 4))), (225, (.container 104)), (227, (.container 104)), (228, (.container 104)), (229, (.list .progressiveList (.uint (.width 64)) none)), (230, (.container 233)), (234, (.container 233)), (235, (.bytes 212 32)), (236, (.uint (.nominal 237 64))), (238, (.uint (.nominal 66 64))), (239, (.list .list (.container 242) (some 16777216))), (243, (.uint (.width 64))), (244, (.uint (.nominal 61 64))), (245, (.uint (.nominal 61 64))), (246, (.uint (.nominal 103 64))), (247, (.uint (.nominal 61 64))), (248, (.uint (.nominal 103 64))), (249, (.list .progressiveList (.container 253) none)), (254, (.list .progressiveList (.container 256) none)), (257, (.list .progressiveList (.container 260) none)), (169, (.list .vector (.uint (.nominal 66 64)) (some 16))), (261, (.list .progressiveList (.container 267) none)), (268, (.uint (.nominal 269 64))), (270, (.list .bitvector .boolean (some 64))), (271, (.list .vector (.container 113) (some 16))), (277, (.list .progressiveList (.container 276) none)), (278, (.container 288)), (289, (.list .progressiveList (.container 291) none)), (292, (.list .vector (.list .vector (.uint (.nominal 66 64)) (some 16)) (some 24)))]),
+  (116, [(197, (.bytes 198 4)), (199, (.bytes 198 4)), (102, (.uint (.nominal 103 64)))]),
+  (205, [(63, (.uint (.nominal 167 64))), (201, (.uint (.nominal 66 64))), (202, (.bytes 195 32)), (203, (.bytes 195 32)), (204, (.bytes 195 32))]),
+  (146, [(209, (.bytes 195 32)), (210, (.uint (.width 64))), (211, (.bytes 212 32))]),
+  (46, [(214, (.bytes 215 48)), (216, (.bytes 112 32)), (105, (.uint (.nominal 61 64))), (50, .boolean), (217, (.uint (.nominal 103 64))), (218, (.uint (.nominal 103 64))), (122, (.uint (.nominal 103 64))), (219, (.uint (.nominal 103 64)))]),
+  (104, [(102, (.uint (.nominal 103 64))), (226, (.bytes 195 32))]),
+  (233, [(231, (.list .vector (.bytes 215 48) (some 32))), (232, (.bytes 215 48))]),
+  (242, [(240, (.bytes 195 32)), (241, (.bytes 195 32))]),
+  (253, [(214, (.bytes 215 48)), (216, (.bytes 112 32)), (250, (.uint (.nominal 61 64))), (251, (.bytes 252 96)), (63, (.uint (.nominal 167 64)))]),
+  (256, [(255, (.uint (.nominal 66 64))), (250, (.uint (.nominal 61 64))), (219, (.uint (.nominal 103 64)))]),
+  (260, [(258, (.uint (.nominal 66 64))), (259, (.uint (.nominal 66 64)))]),
+  (267, [(214, (.bytes 215 48)), (262, (.uint (.width 8))), (263, (.bytes 264 20)), (265, (.uint (.nominal 61 64))), (266, (.uint (.nominal 103 64))), (219, (.uint (.nominal 103 64)))]),
+  (113, [(272, (.uint (.nominal 61 64))), (273, (.container 276)), (201, (.uint (.nominal 66 64)))]),
+  (276, [(274, (.bytes 264 20)), (250, (.uint (.nominal 61 64))), (275, (.uint (.nominal 269 64)))]),
+  (288, [(279, (.bytes 212 32)), (280, (.bytes 195 32)), (211, (.bytes 212 32)), (281, (.bytes 112 32)), (274, (.bytes 264 20)), (282, (.uint (.width 64))), (275, (.uint (.nominal 269 64))), (63, (.uint (.nominal 167 64))), (283, (.uint (.nominal 61 64))), (284, (.uint (.nominal 61 64))), (285, (.list .progressiveList (.bytes 286 48) none)), (287, (.bytes 195 32))]),
+  (291, [(11, (.uint (.nominal 237 64))), (255, (.uint (.nominal 66 64))), (290, (.bytes 264 20)), (250, (.uint (.nominal 61 64)))]),
   (108, [(102, .any), (111, .any)])]
+
+/-- The layout of each progressive container: one bit per position (EIP-7495). -/
+def activeFields : List (Name × List Nat) := [
+  (288, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+  (45, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])]
+
+/-- FP: the pattern of each object that a function of this build changes in place (SPEC 9.2).
+A pattern is a root type and a list of steps. A step is a field name or `*`, any element. -/
+def footprint : List (Name × List Name) := [
+  (45, []),
+  (45, [62]),
+  (45, [145]),
+  (45, [170]),
+  (45, [169]),
+  (45, [47]),
+  (45, [47, 293]),
+  (46, [])]
+
+/-- `Footprint f` of each function that writes in place: a parameter index and the steps from
+it. A step is a field name or `*`. -/
+def fnFootprint : List (Name × List (Nat × List Name)) := [
+  (4, [(0, [])])]
 
 def globals : List (Name × Global) := [
   (4, (.fn fn_add_into)),
@@ -1694,29 +1904,39 @@ def globals : List (Name × Global) := [
   (136, (.fn fn_t_index_missing)),
   (137, (.fn fn_t_key_error)),
   (141, (.fn fn_t_lambda_sorted_filter)),
-  (144, (.fn fn_t_list_limit)),
-  (145, (.fn fn_t_list_write_coercion)),
-  (146, (.fn fn_t_list_write_sibling)),
-  (147, (.fn fn_t_literals)),
-  (148, (.fn fn_t_max_empty)),
-  (153, (.fn fn_t_methods)),
-  (160, (.fn fn_t_nested_def)),
-  (161, (.fn fn_t_overflow)),
-  (162, (.fn fn_t_positional_model)),
-  (163, (.fn fn_t_return_none)),
-  (165, (.fn fn_t_sibling_types)),
-  (168, (.fn fn_t_slice)),
-  (169, (.fn fn_t_slice_assign)),
-  (170, (.fn fn_t_spec_shuffle)),
-  (172, (.fn fn_t_spec_sqrt_and_xor)),
-  (173, (.fn fn_t_uint_range)),
-  (174, (.fn fn_t_underflow)),
-  (175, (.fn fn_t_unops)),
-  (176, (.fn fn_t_unpack_error)),
-  (177, (.fn fn_t_vector_resize)),
-  (178, (.fn fn_t_zip_strict_error)),
+  (142, (.fn fn_t_list_concat)),
+  (143, (.fn fn_t_list_concat_type_error)),
+  (144, (.fn fn_t_list_iadd_in_place)),
+  (147, (.fn fn_t_list_limit)),
+  (148, (.fn fn_t_list_write_coercion)),
+  (149, (.fn fn_t_list_write_sibling)),
+  (150, (.fn fn_t_literals)),
+  (151, (.fn fn_t_max_empty)),
+  (156, (.fn fn_t_methods)),
+  (163, (.fn fn_t_nested_def)),
+  (164, (.fn fn_t_overflow)),
+  (165, (.fn fn_t_positional_model)),
+  (166, (.fn fn_t_return_none)),
+  (168, (.fn fn_t_sibling_types)),
+  (171, (.fn fn_t_slice)),
+  (172, (.fn fn_t_slice_assign)),
+  (173, (.fn fn_t_spec_shuffle)),
+  (175, (.fn fn_t_spec_sqrt_and_xor)),
+  (177, (.fn fn_t_ssz_list_concat)),
+  (178, (.fn fn_t_ssz_list_concat_shares)),
+  (179, (.fn fn_t_ssz_list_iadd_rebinds)),
+  (180, (.fn fn_t_ssz_list_repeat_type_error)),
+  (181, (.fn fn_t_uint_of_bool_error)),
+  (182, (.fn fn_t_uint_of_boolean)),
+  (183, (.fn fn_t_uint_range)),
+  (184, (.fn fn_t_underflow)),
+  (185, (.fn fn_t_unops)),
+  (186, (.fn fn_t_unpack_error)),
+  (188, (.fn fn_t_vector_concat_type_error)),
+  (189, (.fn fn_t_vector_resize)),
+  (190, (.fn fn_t_zip_strict_error)),
   (23, (.fn fn_uint_to_bytes)),
-  (171, (.fn fn_xor)),
+  (174, (.fn fn_xor)),
   (6, (.const (.str "little"))),
   (9, (.type (.uint (.width 64)))),
   (7, (.builtin .int)),
@@ -1724,7 +1944,7 @@ def globals : List (Name × Global) := [
   (20, (.const (.uint (.width 64) 10))),
   (31, (.type (.uint (.width 32)))),
   (22, (.type (.uint (.width 8)))),
-  (283, (.builtin .dict)),
+  (295, (.builtin .dict)),
   (29, (.builtin .max)),
   (18, (.builtin .range)),
   (25, (.builtin .sha256)),
@@ -1760,32 +1980,32 @@ def globals : List (Name × Global) := [
   (116, (.type (.container 116))),
   (127, (.builtin .zip)),
   (140, (.builtin .filter)),
-  (143, (.type (.container 143))),
-  (164, (.type (.uint (.nominal 164 64))))]
+  (146, (.type (.container 146))),
+  (167, (.type (.uint (.nominal 167 64))))]
 
 def config : List (Name × Value) := [
   (95, (.uint (.nominal 103 64) 18446744073709551615)),
-  (96, (.bytes 186 [0, 0, 0, 1]))]
+  (96, (.bytes 198 [0, 0, 0, 1]))]
 
 def knownNames : KnownNames where
   append  := 48
-  extend  := 149
+  extend  := 152
   index  := 11
-  count  := 150
+  count  := 153
   copy  := 119
-  union  := 151
-  intersection  := 152
+  union  := 154
+  intersection  := 155
   add  := 85
   fromBytes  := 8
   empty  := 114
-  hashTreeRoot  := 282
+  hashTreeRoot  := 294
   data  := 5
   key  := 138
   reverse  := 139
   strict  := 126
   get  := 87
   bytes32  := 112
-  root  := 183
+  root  := 195
 
 /-- The environment of this build. The oracle gives `sha256`, `hash_tree_root` and BLS. -/
 def env (o : Oracle) : Env :=

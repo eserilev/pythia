@@ -59,5 +59,15 @@ def main : IO Unit := do
   runCase names (env testOracle) 100000 "t_alias_path_write" Id.«t_alias_path_write»
   runCase names (env testOracle) 100000 "t_alias_rebound_prefix" Id.«t_alias_rebound_prefix»
   runCase names (env testOracle) 100000 "t_constructor_sharing" Id.«t_constructor_sharing»
+  runCase names (env testOracle) 100000 "t_list_concat" Id.«t_list_concat»
+  runCase names (env testOracle) 100000 "t_ssz_list_concat" Id.«t_ssz_list_concat»
+  runCase names (env testOracle) 100000 "t_ssz_list_concat_shares" Id.«t_ssz_list_concat_shares»
+  runCase names (env testOracle) 100000 "t_list_concat_type_error" Id.«t_list_concat_type_error»
+  runCase names (env testOracle) 100000 "t_vector_concat_type_error" Id.«t_vector_concat_type_error»
+  runCase names (env testOracle) 100000 "t_ssz_list_repeat_type_error" Id.«t_ssz_list_repeat_type_error»
+  runCase names (env testOracle) 100000 "t_list_iadd_in_place" Id.«t_list_iadd_in_place»
+  runCase names (env testOracle) 100000 "t_ssz_list_iadd_rebinds" Id.«t_ssz_list_iadd_rebinds»
+  runCase names (env testOracle) 100000 "t_uint_of_boolean" Id.«t_uint_of_boolean»
+  runCase names (env testOracle) 100000 "t_uint_of_bool_error" Id.«t_uint_of_bool_error»
   runCase names (env testOracle) 100000 "t_spec_shuffle" Id.«t_spec_shuffle»
   runCase names (env testOracle) 100000 "t_spec_sqrt_and_xor" Id.«t_spec_sqrt_and_xor»

@@ -29,6 +29,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from footprint import footprint  # noqa: E402
+
 TOOL_VERSION = "0.2.0"
 
 BUILTINS = {
@@ -39,6 +42,11 @@ BUILTINS = {
 }
 # Spec functions whose bodies use library internals. The oracle gives them (SPEC 8).
 ORACLE_FUNCTIONS = {"sha256": "sha256", "hash_tree_root": "hashTreeRoot"}
+# Spec functions that pyspec replaces with a BLS call (`implement_optimizations`). The
+# markdown text is for show only. They become `bls.<name>` (SPEC 8).
+BLS_FUNCTIONS = {"eth_aggregate_pubkeys": "AggregatePKs"}
+# Data members of the `bls` module. `bls.X` becomes the constant `bls.X`.
+BLS_CONSTANTS = {"G2_POINT_AT_INFINITY"}
 FORK_MODULES = {"phase0", "altair", "bellatrix", "capella", "deneb", "electra", "fulu", "gloas"}
 KNOWN = ["append", "extend", "index", "count", "copy", "union", "intersection", "add",
          "from_bytes", "empty", "hash_tree_root", "data", "key", "reverse", "strict", "get",
@@ -140,6 +148,8 @@ class Emitter:
                 return f"(.bytes {ln} [{', '.join(str(b) for b in v)}])"
             case ast.Constant(value=None):
                 return f"(.noneLit {ln})"
+            case ast.Attribute(value=ast.Name(id="bls"), attr=f) if f in BLS_CONSTANTS:
+                return f"(.name {ln} {self.intern('bls.' + f)})"
             case ast.Attribute(value=o, attr=f):
                 return f"(.attr {ln} {self.expr(o)} {self.intern(f)})"
             case ast.Subscript(value=o, slice=ast.Slice(lower=lo, upper=hi, step=st)):
@@ -201,6 +211,8 @@ class Emitter:
         match t:
             case ast.Name(id=x):
                 return f"(.name {ln} {self.intern(x)})"
+            case ast.Attribute(value=ast.Name(id="bls"), attr=f) if f in BLS_CONSTANTS:
+                return f"(.name {ln} {self.intern('bls.' + f)})"
             case ast.Attribute(value=o, attr=f):
                 return f"(.attr {ln} {self.expr(o)} {self.intern(f)})"
             case ast.Subscript(value=o, slice=ast.Slice(lower=lo, upper=hi, step=None)):
@@ -315,9 +327,19 @@ def config_names(fn: ast.FunctionDef):
 class Types:
     """SSZ types and dataclasses that the code references, emitted as Lean data."""
 
-    def __init__(self, intern, m):
+    def __init__(self, intern, m, spec=None, prev=""):
         self.intern, self.m = intern, m
+        # A class of an older fork that the build does not have gets the fork's prefix, as in
+        # `fulu.BeaconState`.
+        self.spec, self.prev = spec, prev
         self.containers: dict[str, str] = {}
+        self.active: dict[str, str] = {}
+
+    def cname(self, cls) -> str:
+        name = cls.__name__
+        if self.spec is None or getattr(self.spec, name, None) is cls:
+            return name
+        return f"{self.prev}.{name}"
 
     def uint_ty(self, cls) -> str:
         BaseUint = self.m["BaseUint"]
@@ -325,7 +347,7 @@ class Types:
         if parents == [BaseUint]:
             return f"(.width {cls.BITS})"
         if len(parents) == 1 and parents[0].__bases__ == (BaseUint,):
-            return f"(.nominal {self.intern(cls.__name__)} {cls.BITS})"
+            return f"(.nominal {self.intern(self.cname(cls))} {cls.BITS})"
         raise Unsupported(f"uint class depth: {cls.__name__}")
 
     def ssz(self, t) -> str:
@@ -335,10 +357,10 @@ class Types:
         if issubclass(t, m["Boolean"]):
             return ".boolean"
         if issubclass(t, m["ByteVector"]):
-            return f"(.bytes {self.intern(t.__name__)} {t.LENGTH})"
+            return f"(.bytes {self.intern(self.cname(t))} {t.LENGTH})"
         if issubclass(t, m["Container"]) or issubclass(t, m["ProgressiveContainer"]):
             self.container(t)
-            return f"(.container {self.intern(t.__name__)})"
+            return f"(.container {self.intern(self.cname(t))})"
         for kind, base in [("progressiveBitlist", "ProgressiveBitList"), ("bitlist", "BitList"),
                            ("bitvector", "BitVector")]:
             if issubclass(t, m[base]):
@@ -356,12 +378,15 @@ class Types:
         raise Unsupported(f"SSZ type {t}")
 
     def container(self, t):
-        name = t.__name__
+        name = self.cname(t)
         if name in self.containers:
             return
         self.containers[name] = ""
         fields = [f"({self.intern(f)}, {self.ssz(ft)})" for f, ft in t._FIELD_TYPES]
         self.containers[name] = f"({self.intern(name)}, [{', '.join(fields)}])"
+        if issubclass(t, self.m["ProgressiveContainer"]):
+            bits = ", ".join(str(int(b)) for b in t.ACTIVE_FIELDS)
+            self.active[name] = f"({self.intern(name)}, [{bits}])"
 
     def dataclass(self, t):
         name = t.__name__
@@ -408,6 +433,9 @@ def main():
     ap.add_argument("--containers", default="BeaconState",
                     help="container types to emit even if the code does not name them")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--fp-out", default=None, help="write FP and the write sites as text")
+    ap.add_argument("--prev-fork", default=None,
+                    help="also emit the BeaconState of this fork, for the upgrade function")
     args = ap.parse_args()
 
     repo = Path.cwd()
@@ -452,13 +480,14 @@ def main():
     todo, fns = list(roots), {}
     while todo:
         name = todo.pop()
-        if name in fns or name in ORACLE_FUNCTIONS or name not in sources_text:
+        if (name in fns or name in ORACLE_FUNCTIONS or name in BLS_FUNCTIONS
+                or name not in sources_text):
             continue
         tree = ast.parse(sources_text[name]).body[0]
         fns[name] = tree
         todo += [c for c in free_names(tree) if c in sources_text]
 
-    defs, globals_, configs = [], {}, set()
+    defs, globals_, configs, base_lines = [], {}, set(), {}
     for name in sorted(fns):
         tree = fns[name]
         text = sources_text[name]
@@ -468,6 +497,7 @@ def main():
                         if isinstance(n, ast.FunctionDef) and n.name == name)
         else:
             src, line = find_source_line(sources, name, text)
+        base_lines[name] = (src, line)
         em = Emitter(intern, line)
         params = em.params(tree.args)
         body = em.block(strip_docstring(tree.body), 2)
@@ -486,6 +516,10 @@ def main():
                 continue
             if free in ORACLE_FUNCTIONS:
                 globals_[free] = f"(.builtin .{ORACLE_FUNCTIONS[free]})"
+            elif free in BLS_FUNCTIONS:
+                globals_[free] = (f"(.const (.member (.glob {intern('bls')}) "
+                                  f"{intern(BLS_FUNCTIONS[free])}))")
+                globals_.setdefault("bls", "(.module .bls)")
             elif free in BUILTINS:
                 globals_[free] = f"(.builtin .{BUILTINS[free]})"
             elif free == "bls":
@@ -514,8 +548,37 @@ def main():
                 else:
                     raise Unsupported(f"{name}: free name {free}")
 
+    for c in sorted(BLS_CONSTANTS):
+        if f"bls.{c}" in intern.ids:
+            globals_[f"bls.{c}"] = f"(.const {value_term(getattr(spec.bls, c), types)})"
     for c in [c for c in args.containers.split(",") if c]:
         types.ssz(getattr(spec, c))
+    if args.prev_fork:
+        prev = importlib.import_module(f"eth_consensus_specs.{args.prev_fork}.{args.preset}")
+        types.spec, types.prev = spec, args.prev_fork
+        types.ssz(prev.BeaconState)
+    ssz_names = {n for n in dir(spec) if types.is_ssz_class(getattr(spec, n))}
+    def is_heap(t, steps):
+        cls = getattr(spec, t)
+        for x in steps:
+            if x == "*":
+                cls = getattr(cls, "ELEMENT_TYPE", None)
+            else:
+                cls = dict(getattr(cls, "_FIELD_TYPES", [])).get(x)
+            if cls is None:
+                return False
+        return not issubclass(cls, (m["BaseUint"], m["Boolean"], m["ByteVector"]))
+
+    fp, sites, per_fn = footprint(fns, ssz_names, is_heap)
+    fn_fp_terms = [
+        f"({intern(n)}, [{', '.join(f'({j}, [{chr(44).join(str(intern(x)) for x in st)}])' for j, st in ps)}])"
+        for n, ps in sorted(per_fn.items()) if ps]
+    fp_terms = [f"({intern(t)}, [{', '.join(str(intern(x)) for x in steps)}])" for t, steps in fp]
+    if args.fp_out:
+        Path(args.fp_out).write_text(
+            "".join(f"FP {t}{''.join('.' + x for x in steps)}\n" for t, steps in fp)
+            + "".join(f"WRITE {n}:{base_lines[n][0]}:{base_lines[n][1] + line - 1} {t}{''.join('.' + x for x in steps)}\n"
+                      for n, line, t, steps in sites))
     config_terms = [f"({intern(c)}, {value_term(getattr(spec.config, c), types)})"
                     for c in sorted(configs)]
     known = {k: intern(k) for k in KNOWN}
@@ -554,6 +617,20 @@ open SpecLean
 {nl.join(defs)}
 def containers : List (Name × List (Name × SszTy)) := [
   {containers}]
+
+/-- The layout of each progressive container: one bit per position (EIP-7495). -/
+def activeFields : List (Name × List Nat) := [
+  {(','+nl+'  ').join(types.active.values())}]
+
+/-- FP: the pattern of each object that a function of this build changes in place (SPEC 9.2).
+A pattern is a root type and a list of steps. A step is a field name or `*`, any element. -/
+def footprint : List (Name × List Name) := [
+  {(','+nl+'  ').join(fp_terms)}]
+
+/-- `Footprint f` of each function that writes in place: a parameter index and the steps from
+it. A step is a field name or `*`. -/
+def fnFootprint : List (Name × List (Nat × List Name)) := [
+  {(','+nl+'  ').join(fn_fp_terms)}]
 
 def globals : List (Name × Global) := [
 {gl}]

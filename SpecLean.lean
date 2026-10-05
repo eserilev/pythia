@@ -4,6 +4,7 @@ import SpecLean.Heap
 import SpecLean.Interp
 import SpecLean.Gen.Ast
 import SpecLean.Gen.Scope
+import SpecLean.Htr
 import SpecLean.Readable
 import SpecLean.Lemmas
 import SpecLean.Bridge

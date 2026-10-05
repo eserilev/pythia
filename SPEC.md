@@ -355,8 +355,8 @@ def interp (fuel : Nat) (env : Env) (fn : FnId) (args : List Value) (heap : Heap
 
 Probes against CPython fixed these rules:
 
-- Expressions evaluate left to right. A dict literal is the exception: it evaluates all keys, then
-  all values.
+- Expressions evaluate left to right. A dict literal evaluates key 1, value 1, key 2, value 2, and
+  so on.
 - `and` and `or` short-circuit. A chained comparison stops at the first false comparison.
 - Plain assignment `obj[idx] = rhs` evaluates `rhs`, then `obj`, then `idx`, then writes.
 - Augmented assignment `obj[idx] += rhs` evaluates `obj`, then `idx`, then reads `obj[idx]`, then
@@ -694,6 +694,11 @@ The interpreter defines the meaning of the spec, so it gets the heaviest tests.
 - The per-call `WTree` lemma (section 9.2). If the dynamic check finds in-place writes to shared
   objects outside the upgrades, the write condition has to change.
 - Sets. `process_attestation` needs an order-independence proof in version 1.
+- Interpreter speed on mainnet. With a 30-minute limit per case, 7 mainnet cases time out:
+  `finality` (all 5), `sanity/blocks/builder_payment_after_missed_epochs` and
+  `sanity/slots/historical_accumulator`. Heap lists are
+  Lean `List`s, so an index into `randao_mixes` (65536 entries) walks the list. Every uint
+  operation also computes `2 ^ bits` again. Minimal runs in about 1 minute on 16 cores.
 - Fork choice. `store` holds dicts keyed by roots, and `store.blocks` and `store.block_states`
   share objects. The runner also continues after an invalid step. The first version covers the
   state transition only.
@@ -786,4 +791,4 @@ patterns outside them. Draft 3 chose V1, path references.
 | `DecodesArgs` lacked `HeapWF`; set iteration is in version 1 scope; fuzzer and set order | Sections 9.2, 6.3, 11 |
 | Spike: frames do not chain without a reach fact; the fresh-address clause was always true | Section 9.2 |
 | Spike: loops carry `WTree`; index loops need a termination lemma; `rfl` simp lemmas time out | Sections 9.1, 9.3 |
-| Fuzzer: live comprehensions, lazy generators, shallow list `.copy()`, subclass field values, `bool` on the left, dict literal order | Sections 6.1, 6.2, 7.2, 7.4 |
+| Fuzzer: live comprehensions, lazy generators, shallow list `.copy()`, subclass field values, `bool` on the left, dict literal order (key, then value) | Sections 6.1, 6.2, 7.2, 7.4 |

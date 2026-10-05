@@ -16,3 +16,16 @@ name = "Fuzz"
 name = "pythiafuzz"
 root = "Fuzz.Main"
 supportInterpreter = false
+
+[[lean_lib]]
+name = "Runner"
+
+[[lean_exe]]
+name = "efrunner"
+root = "Runner.Minimal"
+supportInterpreter = false
+
+[[lean_exe]]
+name = "efrunner-mainnet"
+root = "Runner.Mainnet"
+supportInterpreter = false

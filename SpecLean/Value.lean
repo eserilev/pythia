@@ -20,6 +20,11 @@ def UintTy.bits : UintTy → Nat
   | .width b => b
   | .nominal _ b => b
 
+/-- `t` is a subclass of `u`: a nominal class of the width class `u`. -/
+def UintTy.subOf : UintTy → UintTy → Bool
+  | .nominal _ b, .width b' => b == b'
+  | _, _ => false
+
 /-- The diagnostic of an error (SPEC 6.4). Proofs compare only the class (`Fail`), never the
 diagnostic. `outOfFuel` is not a Python error and never matches. -/
 inductive SpecError where
@@ -39,6 +44,8 @@ inductive SpecError where
   /-- A construct or a value pair that the interpreter does not model yet. -/
   | unsupported
   | outOfFuel
+  /-- Another Python exception, by class name: `AttributeError`, `MemoryError`. -/
+  | other (cls : String)
   deriving DecidableEq, Repr
 
 abbrev Res := Except SpecError
@@ -120,11 +127,18 @@ def intArith : BinOp → Int → Int → Res Int
   | .floorDiv, a, b => if b = 0 then .error .divisionByZero else .ok (a.fdiv b)
   | .mod, a, b => if b = 0 then .error .divisionByZero else .ok (a.fmod b)
   -- A negative exponent gives a float. No spec code does that.
-  | .pow, a, b => if 0 ≤ b then .ok (a ^ b.toNat) else .error .unsupported
+  -- A result too large to build raises `MemoryError` in CPython. The bound keeps Lean from
+  -- building it.
+  | .pow, a, b =>
+    if b < 0 then .error .unsupported
+    else if a.natAbs ≤ 1 ∨ b < 2 ^ 32 then .ok (a ^ b.toNat) else .error (.other "MemoryError")
   | .bitAnd, a, b => .ok (pyAnd a b)
   | .bitOr, a, b => .ok (pyOr a b)
   | .bitXor, a, b => .ok (pyXor a b)
-  | .lShift, a, b => if 0 ≤ b then .ok (a * 2 ^ b.toNat) else .error .valueError
+  | .lShift, a, b =>
+    if b < 0 then .error .valueError
+    else if a = 0 then .ok 0
+    else if b < 2 ^ 32 then .ok (a * 2 ^ b.toNat) else .error (.other "MemoryError")
   | .rShift, a, b => if 0 ≤ b then .ok (a.fdiv (2 ^ b.toNat)) else .error .valueError
 
 /-- A binary operator. A plain `int` operand takes the class of the uint operand. The class
@@ -141,7 +155,9 @@ def binopVal (op : BinOp) : Value → Value → Res Value
   | .bool a, .int b => .int <$> intArith op (if a then 1 else 0) b
   | .int a, .bool b => .int <$> intArith op a (if b then 1 else 0)
   | .bool a, .bool b => .int <$> intArith op (if a then 1 else 0) (if b then 1 else 0)
-  | .bool _, .uint _ _ | .uint _ _, .bool _ => .error .typeError
+  -- A `bool` on the left uses `int` rules (probed): `True + Uint64(1)` is the `int` 2.
+  | .bool a, .uint _ b => .int <$> intArith op (if a then 1 else 0) b
+  | .uint _ _, .bool _ => .error .typeError
   | .bytes _ a, .bytes _ b =>
     -- `Bytes32 + bytes` gives Python `bytes`. The interpreter names that class `bytes` = 0.
     match op with
@@ -209,6 +225,8 @@ def cmpVal (op : CmpOp) : Value → Value → Res Bool
     | _ => .error .unsupported
   -- `Boolean` is nominal: it does not compare with `bool`, `int` or a uint.
   | .boolean _, _ | _, .boolean _ => .error .typeError
+  -- A `bool` on the left compares as an `int` (probed): `True == Gwei(0)` is `False`.
+  | .bool a, .uint _ b => .ok (cmpInt op (if a then 1 else 0) b)
   -- A uint against any value that is not an `int` or a uint raises (`_require_relation`).
   | .uint _ _, _ | _, .uint _ _ => .error .typeError
   | .bool a, .bool b => .ok (cmpInt op (if a then 1 else 0) (if b then 1 else 0))

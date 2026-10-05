@@ -11,14 +11,64 @@ Sequencing of statements and of arguments costs nothing. Running out of fuel is 
 
 namespace SpecLean
 
-def Locals.empty : Locals := fun _ => none
+def Locals.empty : Locals := ⟨fun _ => none, .nil⟩
 
+/-- Watches for the EF vector runner (SPEC 9.4): a local binding, and the entry and exit of a
+call. The semantics never read them. Each returns `0`. -/
+initialize bindWatch : IO.Ref (Value → BaseIO Nat) ← IO.mkRef fun _ => pure 0
+initialize enterWatch : IO.Ref (Name → List Value → Heap → BaseIO Nat) ←
+  IO.mkRef fun _ _ _ => pure 0
+initialize exitWatch : IO.Ref (Name → List Value → Res (Value × Heap) → BaseIO Nat) ←
+  IO.mkRef fun _ _ _ => pure 0
+
+/-- `Locals.set` for execution: it reads the store, and it calls the watch. The watch returns
+`0`. `get` equals `store.get`, so this is `Locals.set`. -/
+@[noinline] unsafe def Locals.setFast (L : Locals) (x : Name) (v : Value) : Locals :=
+  let z := unsafeBaseIO do (← bindWatch.get) v
+  let m := L.store.insert (x + z + 1) x v
+  ⟨m.get, m⟩
+
+@[implemented_by Locals.setFast]
 def Locals.set (L : Locals) (x : Name) (v : Value) : Locals :=
-  fun y => if y = x then some v else L y
+  ⟨fun y => if y = x then some v else L y, L.store.insert (x + 1) x v⟩
 
 @[simp] theorem Locals.set_apply (L : Locals) (x : Name) (v : Value) (y : Name) :
     L.set x v y = if y = x then some v else L y := by
   simp only [Locals.set]
+
+/-- `frame` with the watch. The watches return `0`, so this is `k ()`. -/
+@[noinline] unsafe def frameWatched (f : Name) (vs : List Value) (h : Heap)
+    (k : Unit → Res (Value × Heap)) : Res (Value × Heap) :=
+  unsafeBaseIO do
+    let z ← (← enterWatch.get) f vs h
+    let r := if z = 0 then k () else .error .unsupported
+    let z' ← (← exitWatch.get) f vs r
+    pure (if z' = 0 then r else .error .unsupported)
+
+/-- A call of the function `f` (`0` for a closure) on `vs`. It is `k ()`. The runner watches
+calls through it. -/
+@[implemented_by frameWatched]
+def frame (_f : Name) (_vs : List Value) (_h : Heap) (k : Unit → Res (Value × Heap)) :
+    Res (Value × Heap) :=
+  k ()
+
+@[simp] theorem frame_eq (f : Name) (vs : List Value) (h : Heap)
+    (k : Unit → Res (Value × Heap)) : frame f vs h k = k () := by
+  simp only [frame]
+
+/-- `any` (`some true`) or `all` (`some false`), else none. -/
+def anyAll (env : Env) : Value → Option Bool
+  | .glob g =>
+    match env.globals.lookup g with
+    | some (.builtin .any) => some true
+    | some (.builtin .all) => some false
+    | _ => none
+  | _ => none
+
+/-- `[k1, v1, k2, v2, ...]` as pairs. -/
+def pairUp : List Value → List (Value × Value)
+  | k :: v :: rest => (k, v) :: pairUp rest
+  | _ => []
 
 /-- How a statement ends. -/
 inductive Outcome where
@@ -99,8 +149,11 @@ def evalExpr (env : Env) : Nat → Locals → Heap → Expr → Res (Value × He
     | .binop _ op a b => do
       let (x, h1) ← evalExpr env n L h a
       let (y, h2) ← evalExpr env n L h1 b
-      let v ← binopVal op x y
-      pure (v, h2)
+      match seqBinop env h2 op x y with
+      | some r => r
+      | none => do
+        let v ← binopVal op x y
+        pure (v, h2)
     | .unop _ .not a => do
       let (x, h1) ← evalExpr env n L h a
       pure (.bool !(← truthyH h1 x), h1)
@@ -114,13 +167,20 @@ def evalExpr (env : Env) : Nat → Locals → Heap → Expr → Res (Value × He
     | .boolop _ op args => evalBoolOp env n L h op args
     | .call _ fn args => do
       let (fv, h1) ← evalExpr env n L h fn
-      let (vs, kws, h2) ← evalArgs env n L h1 args
-      callValue env n fv vs kws h2
+      match anyAll env fv, args with
+      -- `any` and `all` of a generator stop at the first item that decides them. Later items
+      -- are never evaluated.
+      | some b, [.pos (.comp _ .gen elt gens)] => do
+        let (_, st, h2) ← compLoop env n L h1 gens elt (some b)
+        pure (.bool (if st then b else !b), h2)
+      | _, _ => do
+        let (vs, kws, h2) ← evalArgs env n L h1 args
+        callValue env n fv vs kws h2
     | .ifExp _ c a b => do
       let (cv, h1) ← evalExpr env n L h c
       if ← truthyH h1 cv then evalExpr env n L h1 a else evalExpr env n L h1 b
     | .comp _ kind elt gens => do
-      let (vs, h1) ← compLoop env n L h gens elt
+      let (vs, _, h1) ← compLoop env n L h gens elt none
       match kind with
       | .list => pure (allocPyList h1 vs)
       | .gen => pure (.tuple vs, h1)
@@ -138,11 +198,11 @@ def evalExpr (env : Env) : Nat → Locals → Heap → Expr → Res (Value × He
       let (vs, h1) ← evalList env n L h es
       pure (.tuple vs, h1)
     | .dict _ kvs => do
-      let (ks, h1) ← evalList env n L h (kvs.map (·.1))
-      let (vs, h2) ← evalList env n L h1 (kvs.map (·.2))
-      let (a, h3) := h2.alloc (.dict [])
-      let h4 ← (ks.zip vs).foldlM (fun h (k, v) => setItem env h (.ref a) k v) h3
-      pure (.ref a, h4)
+      -- Each key, then its value (probed).
+      let (xs, h1) ← evalList env n L h (kvs.flatMap fun (k, v) => [k, v])
+      let (a, h2) := h1.alloc (.dict [])
+      let h3 ← (pairUp xs).foldlM (fun h (k, v) => setItem env h (.ref a) k v) h2
+      pure (.ref a, h3)
 termination_by n _ _ _ => (n, 0, 0)
 
 def evalOpt (env : Env) : Nat → Locals → Heap → Option Expr → Res (Option Value × Heap)
@@ -204,30 +264,39 @@ def evalBoolOp (env : Env) : Nat → Locals → Heap → BoolOp → List Expr �
     | _, _ => evalBoolOp env n L h1 op es
 termination_by n _ _ _ es => (n, 1, es.length)
 
-/-- The items of a comprehension. Its names do not leak into the enclosing frame. -/
-def compLoop (env : Env) : Nat → Locals → Heap → List Comprehension → Expr →
-    Res (List Value × Heap)
-  | n, L, h, [], elt => do
+/-- The items of a comprehension. Its names do not leak into the enclosing frame. It iterates
+live, like `for`. `stop` is for `any` (`some true`) and
+`all` (`some false`): the loop ends at the first item whose truth is `stop`, and the flag says
+that it ended there. -/
+def compLoop (env : Env) : Nat → Locals → Heap → List Comprehension → Expr → Option Bool →
+    Res (List Value × Bool × Heap)
+  | n, L, h, [], elt, stop => do
     let (v, h1) ← evalExpr env n L h elt
-    pure ([v], h1)
-  | n, L, h, .mk t it ifs :: rest, elt => do
+    match stop with
+    | some b => pure ([v], (← truthyH h1 v) == b, h1)
+    | none => pure ([v], false, h1)
+  | n, L, h, .mk t it ifs :: rest, elt, stop => do
     let (iv, h1) ← evalExpr env n L h it
-    let xs ← iterElems h1 iv
-    compItems env n L h1 t ifs rest elt xs
-termination_by n _ _ gens _ => (n, 3, gens.length)
+    let src ← iterSource h1 iv
+    compItems env n L h1 t ifs rest elt stop src 0
+termination_by n _ _ gens _ _ => (n, 3, gens.length)
 
-/-- One comprehension item costs one unit of fuel. -/
+/-- Item `i` of a comprehension and the items after it. Each item costs one unit of fuel. -/
 def compItems (env : Env) : Nat → Locals → Heap → Target → List Expr → List Comprehension →
-    Expr → List Value → Res (List Value × Heap)
-  | 0, _, _, _, _, _, _, _ => .error .outOfFuel
-  | _ + 1, _, h, _, _, _, _, [] => pure ([], h)
-  | n + 1, L, h, t, ifs, rest, elt, x :: xs => do
-    let (L1, h1) ← assignTarget env n L h t x
-    let (keep, h2) ← evalIfs env n L1 h1 ifs
-    let (vs1, h3) ← if keep then compLoop env n L1 h2 rest elt else pure ([], h2)
-    let (vs2, h4) ← compItems env (n + 1) L1 h3 t ifs rest elt xs
-    pure (vs1 ++ vs2, h4)
-termination_by n _ _ _ _ _ _ xs => (n, 2, xs.length)
+    Expr → Option Bool → IterSrc → Nat → Res (List Value × Bool × Heap)
+  | 0, _, _, _, _, _, _, _, _, _ => .error .outOfFuel
+  | n + 1, L, h, t, ifs, rest, elt, stop, src, i => do
+    match ← iterItem h src i with
+    | none => pure ([], false, h)
+    | some x =>
+      let (L1, h1) ← assignTarget env n L h t x
+      let (keep, h2) ← evalIfs env n L1 h1 ifs
+      let (vs1, st, h3) ← if keep then compLoop env n L1 h2 rest elt stop
+        else pure ([], false, h2)
+      if st then pure (vs1, true, h3) else do
+        let (vs2, st2, h4) ← compItems env n L1 h3 t ifs rest elt stop src (i + 1)
+        pure (vs1 ++ vs2, st2, h4)
+termination_by n _ _ _ _ _ _ _ _ _ => (n, 2, 0)
 
 def evalIfs (env : Env) : Nat → Locals → Heap → List Expr → Res (Bool × Heap)
   | _, _, h, [] => pure (true, h)
@@ -243,7 +312,8 @@ def callValue (env : Env) : Nat → Value → List Value → List (Name × Value
     match f with
     | .glob g =>
       match env.globals.lookup g with
-      | some (.fn d) => callFn env n d.params (.stmts d.body) Locals.empty vs kws h
+      | some (.fn d) =>
+        frame d.name vs h fun _ => callFn env n d.params (.stmts d.body) Locals.empty vs kws h
       | some (.builtin .filter) =>
         match vs with
         | [fn, it] => do
@@ -266,7 +336,8 @@ def callValue (env : Env) : Nat → Value → List Value → List (Name × Value
       | _ => .error .typeError
     | .ref a =>
       match h.objs a with
-      | some (.closure ps body captured) => callFn env n ps body captured vs kws h
+      | some (.closure ps body captured) =>
+        frame 0 vs h fun _ => callFn env n ps body captured vs kws h
       | _ => .error .typeError
     | .member base m =>
       if kws.isEmpty then applyMethod env h base m vs else .error .unsupported
@@ -382,8 +453,13 @@ def execStmt (env : Env) : Nat → Locals → Heap → Stmt → Res (Outcome × 
       | .name _ x => do
         let cur ← lookupName env L x
         let (r, h1) ← evalExpr env n L h e
-        let v ← binopVal op cur r
-        pure (.normal, L.set x v, h1)
+        match seqAugAdd h1 op cur r, seqBinop env h1 op cur r with
+        | some res, _ | none, some res => do
+          let (v, h2) ← res
+          pure (.normal, L.set x v, h2)
+        | none, none => do
+          let v ← binopVal op cur r
+          pure (.normal, L.set x v, h1)
       | .attr _ o f => do
         let (ov, h1) ← evalExpr env n L h o
         let cur ← getAttr env h1 ov f

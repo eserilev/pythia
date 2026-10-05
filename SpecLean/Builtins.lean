@@ -261,7 +261,8 @@ mutual
 
 /-- Coerce a value into an SSZ type, for a list element (`fieldErr = false`) or a container
 field (`fieldErr = true`). A heap object passes when its type matches, and then it is shared,
-as in Python. A Python list or a tuple for an SSZ list type becomes a new SSZ list. -/
+as in Python. A Python list or a tuple for an SSZ list type becomes a new SSZ list in a list
+element, and raises `ValidationError` in a field. -/
 def coerceH (env : Env) (fieldErr : Bool) : Nat → Heap → SszTy → Value → Res (Value × Heap)
   | 0, _, _, _ => .error .unsupported
   | d + 1, h, t, v =>
@@ -275,10 +276,14 @@ def coerceH (env : Env) (fieldErr : Bool) : Nat → Heap → SszTy → Value →
       match h.objs a with
       | some (.list k' e' l' xs) =>
         if k' = k ∧ e' = e ∧ l' = l then .ok (v, h)
-        else if k' = .pyList then newList env d h k e l xs
+        -- pydantic rejects a Python list for an SSZ list field (probed). A list element
+        -- takes it.
+        else if k' = .pyList then
+          if fieldErr then .error .validation else newList env d h k e l xs
         else .error bad
       | _ => .error bad
-    | .list k e l, .tuple xs => newList env d h k e l xs
+    | .list k e l, .tuple xs =>
+      if fieldErr then .error .validation else newList env d h k e l xs
     | .any, _ => .ok (v, h)
     | _, .ref _ => .error bad
     | _, _ => do
@@ -330,6 +335,8 @@ def getAttr (env : Env) (h : Heap) : Value → Name → Res Value
       | none => .error .nameError
     | some (.module .fork) => .ok (.glob f)
     | _ => .ok (.member (.glob g) f)
+  -- A number has no attributes that spec code reads (probed).
+  | .uint _ _, _ | .int _, _ | .bool _, _ | .boolean _, _ => .error (.other "AttributeError")
   | v, f => .ok (.member v f)
 
 def lookupPairs (h : Heap) (k : Value) (kvs : List (Value × Value)) : Res Value := do
@@ -482,9 +489,62 @@ def leBytes (n width : Nat) : List UInt8 :=
 
 def kwArg (kws : List (Name × Value)) (k : Name) : Option Value := kws.lookup k
 
+def isPyList (h : Heap) (a : Nat) : Bool :=
+  match h.objs a with
+  | some (.list .pyList _ _ _) => true
+  | _ => false
+
 def allocPyList (h : Heap) (xs : List Value) : Value × Heap :=
   let (a, h1) := h.alloc (.list .pyList .any none xs)
   (.ref a, h1)
+
+def isBitlist : ListKind → Bool
+  | .bitlist | .progressiveBitlist => true
+  | _ => false
+
+/-- `x + y` and `x * n` where an operand is a list in the heap. `none` when neither operand is
+a heap object. A Python list concatenates with a Python list. An SSZ list concatenates with a
+list or a tuple into a new list of its own type, through the constructor. A Python list
+repeats. Every other pair raises `TypeError`. -/
+def seqBinop (env : Env) (h : Heap) (op : BinOp) (x y : Value) : Option (Res (Value × Heap)) :=
+  let list := fun (v : Value) => match v with
+    | .ref a => match h.objs a with
+      | some (.list k _ _ xs) => some (k, xs)
+      | _ => none
+    | _ => none
+  match x, y with
+  | .ref _, _ | _, .ref _ => some <|
+    match op, list x, list y, y, x with
+    | .add, some (.pyList, xs), some (.pyList, ys), _, _ => .ok (allocPyList h (xs ++ ys))
+    | .add, some (k, xs), some (k', ys), _, .ref a =>
+      match h.objs a with
+      | some (.list _ e l _) =>
+        if (k = .list ∨ k = .progressiveList) ∧ (k' = .list ∨ k' = .progressiveList ∨ k' = .pyList)
+          ∨ isBitlist k ∧ isBitlist k' then newList env depthBound h k e l (xs ++ ys)
+        else .error .typeError
+      | _ => .error .typeError
+    | .add, some (k, xs), none, .tuple ys, .ref a =>
+      match h.objs a with
+      | some (.list _ e l _) =>
+        if k = .list ∨ k = .progressiveList then newList env depthBound h k e l (xs ++ ys)
+        else .error .typeError
+      | _ => .error .typeError
+    | .mul, some (.pyList, xs), none, .int n, _ | .mul, none, some (.pyList, xs), _, .int n =>
+      .ok (allocPyList h (List.replicate n.toNat xs).flatten)
+    | _, _, _, _, _ => .error .typeError
+  | _, _ => none
+
+/-- `x += y` where `x` is a Python list: it extends `x` in place, from any iterable. `none`
+otherwise: then `x += y` is `x = x + y`. -/
+def seqAugAdd (h : Heap) (op : BinOp) (x y : Value) : Option (Res (Value × Heap)) :=
+  match op, x with
+  | .add, .ref a =>
+    match h.objs a with
+    | some (.list .pyList e l xs) => some do
+      let ys ← iterElems h y
+      pure (x, h.set a (.list .pyList e l (xs ++ ys)))
+    | _ => none
+  | _, _ => none
 
 def dedupe (h : Heap) : List Value → List Value → Res (List Value)
   | acc, [] => .ok acc
@@ -513,9 +573,10 @@ def applyBuiltin (env : Env) (h : Heap) (b : Builtin) (args : List Value)
       | [a, b] => pure (a, b, 1)
       | [a, b, c] => pure (a, b, c)
       | _ => .error .typeError
-    if step ≤ 0 then .error .unsupported
+    if step = 0 then .error .valueError
     else
-      let count := ((hi - lo + step - 1) / step).toNat
+      let count := if step > 0 then ((hi - lo + step - 1) / step).toNat
+        else ((lo - hi - step - 1) / (-step)).toNat
       pure (.tuple ((List.range count).map fun (i : Nat) => Value.int (lo + step * (i : Int))), h)
   | .enumerate, [v] =>
     match v with
@@ -598,6 +659,8 @@ def applyType (env : Env) (h : Heap) (t : SszTy) (args : List Value)
   match t, args with
   | .uint u, [.int n] => do pure (← wrapUint u n, h)
   | .uint u, [.uint _ n] => do pure (← wrapUint u n, h)
+  -- An SSZ `Boolean` converts. A Python `bool` raises `SSZTypeError` (probed).
+  | .uint u, [.boolean b] => .ok (.uint u (if b then 1 else 0), h)
   | .uint _, _ => .error .typeError
   | .boolean, [v] => do pure (← coerceElem .boolean v, h)
   | .boolean, [] => .ok (.boolean false, h)
@@ -630,7 +693,11 @@ def applyType (env : Env) (h : Heap) (t : SszTy) (args : List Value)
     | none => .error .unsupported
   | .list k e l, [] =>
     match kwArg kws env.nm.data with
-    | some v => do newList env depthBound h k e l (← iterElems h v)
+    | some v => do
+      -- pydantic checks `data`: a wrong length raises `ValidationError` (probed).
+      match newList env depthBound h k e l (← iterElems h v) with
+      | .error .sszValue => .error .validation
+      | r => r
     | none => defaultOf env depthBound h t
   | .list _ _ _, _ :: _ => .error .typeError
   | _, _ => .error .unsupported
@@ -691,6 +758,8 @@ def applyMethod (env : Env) (h : Heap) (self : Value) (m : Name) (args : List Va
         | [v] => do pure (.none, ← appendItem env h a v)
         | _ => .error .typeError
       else if m = env.nm.extend then
+        -- An SSZ list has no `extend` (probed).
+        if !isPyList h a then .error (.other "AttributeError") else
         match args with
         | [v] => do
           let ys ← iterElems h v
@@ -708,7 +777,9 @@ def applyMethod (env : Env) (h : Heap) (self : Value) (m : Name) (args : List Va
         match args with
         | [v] => do pure (.int (← countOf h v xs), h)
         | _ => .error .typeError
-      else if m = env.nm.copy then deepCopy depthBound h self
+      -- `.copy()` of a Python list is shallow (probed). Of an SSZ list it is deep.
+      else if m = env.nm.copy then
+        if isPyList h a then .ok (allocPyList h xs) else deepCopy depthBound h self
       else if m = env.nm.hashTreeRoot then
         do pure (.bytes env.nm.root (← env.hashTreeRoot h self), h)
       else .error .unsupported

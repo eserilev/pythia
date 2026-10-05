@@ -374,6 +374,71 @@ def t_constructor_sharing():
     return pre.balances[0]
 
 
+# ---- List operators (step 3)
+
+
+def t_list_concat():
+    a = [Uint64(1)]
+    b = a + [Uint64(2)]
+    c = [Gwei(0)] * 3
+    d = 2 * [Uint64(4)]
+    return (a, b, c, d)
+
+
+def t_ssz_list_concat():
+    state = BeaconState()
+    state.balances.append(Gwei(1))
+    r = state.balances + [Gwei(2)]
+    s = state.balances[0:] + state.balances
+    return (r, s, state.balances)
+
+
+def t_ssz_list_concat_shares():
+    state = BeaconState()
+    state.validators.append(Validator())
+    r = state.validators + []
+    r[0].slashed = True
+    return state.validators[0].slashed
+
+
+def t_list_concat_type_error():
+    state = BeaconState()
+    return [] + state.balances
+
+
+def t_vector_concat_type_error():
+    state = BeaconState()
+    return state.block_roots + []
+
+
+def t_ssz_list_repeat_type_error():
+    state = BeaconState()
+    return state.balances * 2
+
+
+def t_list_iadd_in_place():
+    a = [Uint64(1)]
+    b = a
+    a += [Uint64(2)]
+    a += (Uint64(3),)
+    return (a, b)
+
+
+def t_ssz_list_iadd_rebinds():
+    state = BeaconState()
+    b = state.balances
+    b += [Gwei(5)]
+    return (b, state.balances)
+
+
+def t_uint_of_boolean():
+    return (Uint64(Boolean(True)), Gwei(Boolean(False)))
+
+
+def t_uint_of_bool_error():
+    return Uint64(True)
+
+
 # ---- Spec code through the oracle
 
 

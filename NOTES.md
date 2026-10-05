@@ -384,7 +384,7 @@ objects are shared.
   - Generator expressions are lazy. `any` and `all` stop early, so later items never run.
   - `.copy()` of a plain Python list is shallow. We said every copy was deep.
 - The other eight were interpreter bugs. Examples: a `Slot` stored in a `Uint64` field stays a
-  `Slot`. `True + Uint64(1)` is the int `2`. A dict literal evaluates all keys before any value.
+  `Slot`. `True + Uint64(1)` is the int `2`. A dict literal evaluates each key, then its value.
 
 Lesson: the spec rules that "everyone knows" were the ones we never probed. The fuzzer found
 them in minutes.

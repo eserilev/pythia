@@ -97,6 +97,7 @@ def errTag : SpecError → String
   | .valueError => "valueError" | .divisionByZero => "divisionByZero"
   | .typeError => "typeError" | .keyError => "keyError" | .nameError => "nameError"
   | .raised => "raised" | .unsupported => "unsupported" | .outOfFuel => "outOfFuel"
+  | .other c => "other." ++ c
 
 def failTag : SpecError → String
   | .outOfFuel => "outOfFuel"

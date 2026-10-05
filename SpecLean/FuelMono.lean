@@ -43,9 +43,11 @@ structure Level (n : Nat) : Prop where
   args : ∀ L h as, Agree (evalArgs env n L h as) (evalArgs env (n + 1) L h as)
   cmp : ∀ L h x rest, Agree (evalCmp env n L h x rest) (evalCmp env (n + 1) L h x rest)
   boolop : ∀ L h op es, Agree (evalBoolOp env n L h op es) (evalBoolOp env (n + 1) L h op es)
-  comp : ∀ L h gs elt, Agree (compLoop env n L h gs elt) (compLoop env (n + 1) L h gs elt)
-  items : ∀ L h t ifs rest elt xs,
-    Agree (compItems env n L h t ifs rest elt xs) (compItems env (n + 1) L h t ifs rest elt xs)
+  comp : ∀ L h gs elt st,
+    Agree (compLoop env n L h gs elt st) (compLoop env (n + 1) L h gs elt st)
+  items : ∀ L h t ifs rest elt st src i,
+    Agree (compItems env n L h t ifs rest elt st src i)
+      (compItems env (n + 1) L h t ifs rest elt st src i)
   ifs : ∀ L h cs, Agree (evalIfs env n L h cs) (evalIfs env (n + 1) L h cs)
   call : ∀ f vs kws h, Agree (callValue env n f vs kws h) (callValue env (n + 1) f vs kws h)
   fn : ∀ ps body base vs kws h,
@@ -141,16 +143,17 @@ theorem ifs_of : ∀ L h cs, Agree (evalIfs env n L h cs) (evalIfs env (n + 1) L
     · exact ih _ _
 
 theorem comp_of
-    (hI : ∀ L h t ifs rest elt xs,
-      Agree (compItems env n L h t ifs rest elt xs) (compItems env (n + 1) L h t ifs rest elt xs)) :
-    ∀ L h gs elt, Agree (compLoop env n L h gs elt) (compLoop env (n + 1) L h gs elt) := by
-  intro L h gs elt
+    (hI : ∀ L h t ifs rest elt st src i,
+      Agree (compItems env n L h t ifs rest elt st src i)
+        (compItems env (n + 1) L h t ifs rest elt st src i)) :
+    ∀ L h gs elt st, Agree (compLoop env n L h gs elt st) (compLoop env (n + 1) L h gs elt st) := by
+  intro L h gs elt st
   cases gs with
   | nil => simp only [compLoop]; exact agree_bind (hE _ _ _) fun _ => agree_refl _
   | cons g gs =>
     obtain ⟨t, it, ifs⟩ := g
     simp only [compLoop]
-    exact agree_bind (hE _ _ _) fun _ => agree_bind (agree_refl _) fun _ => hI _ _ _ _ _ _ _
+    exact agree_bind (hE _ _ _) fun _ => agree_bind (agree_refl _) fun _ => hI _ _ _ _ _ _ _ _ _
 
 end same
 
@@ -235,34 +238,43 @@ theorem expr_succ : ∀ L h e, Agree (evalExpr env (n + 1) L h e) (evalExpr env 
   | compare l a rest => exact agree_bind (ih.expr _ _ _) fun _ => ih.cmp _ _ _ _
   | boolop l op args => exact ih.boolop _ _ _ _
   | call l fn args =>
-    exact agree_bind (ih.expr _ _ _) fun _ => agree_bind (ih.args _ _ _) fun _ => ih.call _ _ _ _
+    refine agree_bind (ih.expr _ _ _) fun p => ?_
+    obtain ⟨fv, h1⟩ := p
+    dsimp only
+    split
+    · exact agree_bind (ih.comp _ _ _ _ _) fun _ => agree_refl _
+    · exact agree_bind (ih.args _ _ _) fun _ => ih.call _ _ _ _
   | ifExp l c a b =>
     refine agree_bind (ih.expr _ _ _) fun _ => agree_bind (agree_refl _) fun b => ?_
     cases b <;> exact ih.expr _ _ _
-  | comp l kind elt gens => exact agree_bind (ih.comp _ _ _ _) fun _ => agree_refl _
+  | comp l kind elt gens => exact agree_bind (ih.comp _ _ _ _ _) fun _ => agree_refl _
   | list l es => exact agree_bind (ih.list _ _ _) fun _ => agree_refl _
   | tuple l es => exact agree_bind (ih.list _ _ _) fun _ => agree_refl _
-  | dict l kvs =>
-    exact agree_bind (ih.list _ _ _) fun _ => agree_bind (ih.list _ _ _) fun _ => agree_refl _
+  | dict l kvs => exact agree_bind (ih.list _ _ _) fun _ => agree_refl _
   | _ => exact agree_refl _
 
-theorem items_succ : ∀ L h t ifs rest elt xs,
-    Agree (compItems env (n + 1) L h t ifs rest elt xs)
-      (compItems env (n + 2) L h t ifs rest elt xs) := by
-  intro L h t ifs rest elt xs
-  induction xs generalizing L h with
-  | nil => simp only [compItems]; exact agree_refl _
-  | cons x xs ihx =>
-    rw [compItems.eq_3 env L h t ifs rest elt n x xs,
-      compItems.eq_3 env L h t ifs rest elt (n + 1) x xs]
+theorem items_succ : ∀ L h t ifs rest elt st src i,
+    Agree (compItems env (n + 1) L h t ifs rest elt st src i)
+      (compItems env (n + 2) L h t ifs rest elt st src i) := by
+  intro L h t ifs rest elt st src i
+  rw [compItems.eq_2 env L h t ifs rest elt st src i n,
+    compItems.eq_2 env L h t ifs rest elt st src i (n + 1)]
+  refine agree_bind (agree_refl _) fun x => ?_
+  cases x with
+  | none => exact agree_refl _
+  | some x =>
     refine agree_bind (ih.target _ _ _ _) fun _ => agree_bind (ih.ifs _ _ _) fun p => ?_
     obtain ⟨keep, h2⟩ := p
     dsimp only
     cases keep
     · simp only [Bool.false_eq_true, ↓reduceIte, Except.pure_ok', Except.bind_ok']
-      exact agree_bind (ihx _ _) fun _ => agree_refl _
+      exact agree_bind (ih.items _ _ _ _ _ _ _ _ _) fun _ => agree_refl _
     · simp only [↓reduceIte]
-      exact agree_bind (ih.comp _ _ _ _) fun _ => agree_bind (ihx _ _) fun _ => agree_refl _
+      refine agree_bind (ih.comp _ _ _ _ _) fun q => ?_
+      obtain ⟨vs1, b, h3⟩ := q
+      cases b
+      · exact agree_bind (ih.items _ _ _ _ _ _ _ _ _) fun _ => agree_refl _
+      · exact agree_refl _
 
 theorem fn_succ : ∀ ps body base vs kws h,
     Agree (callFn env (n + 1) ps body base vs kws h) (callFn env (n + 2) ps body base vs kws h) := by
@@ -328,8 +340,7 @@ theorem stmt_succ : ∀ L h s, Agree (execStmt env (n + 1) L h s) (execStmt env 
   | augAssign l t op e =>
     cases t with
     | name =>
-      exact agree_bind (agree_refl _) fun _ => agree_bind (ih.expr _ _ _) fun _ =>
-        agree_bind (agree_refl _) fun _ => agree_refl _
+      exact agree_bind (agree_refl _) fun _ => agree_bind (ih.expr _ _ _) fun _ => agree_refl _
     | attr =>
       exact agree_bind (ih.expr _ _ _) fun _ => agree_bind (agree_refl _) fun _ =>
         agree_bind (ih.expr _ _ _) fun _ => agree_bind (agree_refl _) fun _ =>
@@ -385,8 +396,9 @@ end succ
 /-- A level from the functions that lower the fuel. -/
 theorem level_of (n : Nat)
     (hE : ∀ L h e, Agree (evalExpr env n L h e) (evalExpr env (n + 1) L h e))
-    (hI : ∀ L h t ifs rest elt xs,
-      Agree (compItems env n L h t ifs rest elt xs) (compItems env (n + 1) L h t ifs rest elt xs))
+    (hI : ∀ L h t ifs rest elt st src i,
+      Agree (compItems env n L h t ifs rest elt st src i)
+        (compItems env (n + 1) L h t ifs rest elt st src i))
     (hF : ∀ ps body base vs kws h,
       Agree (callFn env n ps body base vs kws h) (callFn env (n + 1) ps body base vs kws h))
     (hFi : ∀ f xs h, Agree (filterItems env n f xs h) (filterItems env (n + 1) f xs h))
@@ -407,7 +419,7 @@ theorem level_of (n : Nat)
 theorem level_zero : Level env 0 := by
   apply level_of
   · intro L h e; simp only [evalExpr]; exact agree_oof _
-  · intro L h t ifs rest elt xs; simp only [compItems]; exact agree_oof _
+  · intro L h t ifs rest elt st src i; simp only [compItems]; exact agree_oof _
   · intro ps body base vs kws h; simp only [callFn]; exact agree_oof _
   · intro f xs h; simp only [filterItems]; exact agree_oof _
   · intro f xs h; simp only [mapItems]; exact agree_oof _

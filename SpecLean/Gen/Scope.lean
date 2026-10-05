@@ -208,14 +208,9 @@ def names : Array String := #[
   "BuilderIndex",
   "delta",
   "pubkeys",
-  "bls",
-  "KeyValidate",
-  "all",
-  "result",
-  "copy",
-  "eth_aggregate_pubkeys",
   "message",
   "G2_POINT_AT_INFINITY",
+  "bls",
   "FastAggregateVerify",
   "eth_fast_aggregate_verify",
   "churn",
@@ -376,6 +371,7 @@ def names : Array String := #[
   "get_next_sync_committee_indices",
   "SyncCommitteePubkeys",
   "aggregate_pubkey",
+  "eth_aggregate_pubkeys",
   "SyncCommittee",
   "get_next_sync_committee",
   "DOMAIN_SYNC_COMMITTEE",
@@ -567,6 +563,7 @@ def names : Array String := #[
   "signed_bid",
   "bid",
   "BUILDER_INDEX_SELF_BUILD",
+  "bls.G2_POINT_AT_INFINITY",
   "verify_execution_payload_bid_signature",
   "max_blobs_per_block",
   "blob_kzg_commitments",
@@ -751,6 +748,7 @@ def names : Array String := #[
   "old_current_justified_checkpoint",
   "JUSTIFICATION_BITS_LENGTH",
   "Checkpoint",
+  "all",
   "bytes_1",
   "bytes_2",
   "Version",
@@ -762,6 +760,7 @@ def names : Array String := #[
   "payload_present",
   "blob_data_available",
   "PayloadAttestationData",
+  "AggregatePKs",
   "Bytes1",
   "deposit_root",
   "deposit_count",
@@ -773,6 +772,40 @@ def names : Array String := #[
   "BuilderDepositRequest",
   "BuilderExitRequest",
   "KZGCommitment",
+  "graffiti",
+  "SignedBeaconBlockHeader",
+  "ProposerSlashing",
+  "AttesterSlashing",
+  "Attestation",
+  "proof",
+  "DepositData",
+  "Deposit",
+  "VoluntaryExit",
+  "SignedVoluntaryExit",
+  "SyncAggregate",
+  "BLSToExecutionChange",
+  "SignedBLSToExecutionChange",
+  "SignedExecutionPayloadBid",
+  "PayloadAttestation",
+  "BeaconBlockBody",
+  "BeaconBlock",
+  "SignedBeaconBlock",
+  "receipts_root",
+  "logs_bloom",
+  "LogsBloom",
+  "block_number",
+  "gas_used",
+  "timestamp",
+  "extra_data",
+  "base_fee_per_gas",
+  "transactions_root",
+  "withdrawals_root",
+  "blob_gas_used",
+  "excess_blob_gas",
+  "fulu.ExecutionPayloadHeader",
+  "fulu.BeaconState",
+  "*",
+  "copy",
   "get",
   "dict"]
 
@@ -979,573 +1012,606 @@ abbrev «convert_builder_index_to_validator_index» : Name := 198
 abbrev «BuilderIndex» : Name := 199
 abbrev «delta» : Name := 200
 abbrev «pubkeys» : Name := 201
-abbrev «bls» : Name := 202
-abbrev «KeyValidate» : Name := 203
-abbrev «all» : Name := 204
-abbrev «result» : Name := 205
-abbrev «copy» : Name := 206
-abbrev «eth_aggregate_pubkeys» : Name := 207
-abbrev «message» : Name := 208
-abbrev «G2_POINT_AT_INFINITY» : Name := 209
-abbrev «FastAggregateVerify» : Name := 210
-abbrev «eth_fast_aggregate_verify» : Name := 211
-abbrev «churn» : Name := 212
-abbrev «MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA» : Name := 213
-abbrev «get_total_active_balance» : Name := 214
-abbrev «CHURN_LIMIT_QUOTIENT_GLOAS» : Name := 215
-abbrev «EFFECTIVE_BALANCE_INCREMENT» : Name := 216
-abbrev «MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS» : Name := 217
-abbrev «min» : Name := 218
-abbrev «get_activation_churn_limit» : Name := 219
-abbrev «is_active_validator» : Name := 220
-abbrev «enumerate» : Name := 221
-abbrev «get_active_validator_indices» : Name := 222
-abbrev «inclusion_delay» : Name := 223
-abbrev «target» : Name := 224
-abbrev «justified_checkpoint» : Name := 225
-abbrev «current_justified_checkpoint» : Name := 226
-abbrev «previous_justified_checkpoint» : Name := 227
-abbrev «is_matching_source» : Name := 228
-abbrev «target_root» : Name := 229
-abbrev «get_block_root» : Name := 230
-abbrev «target_root_matches» : Name := 231
-abbrev «root» : Name := 232
-abbrev «is_matching_target» : Name := 233
-abbrev «is_attestation_same_slot» : Name := 234
-abbrev «payload_matches» : Name := 235
-abbrev «slot_index» : Name := 236
-abbrev «payload_index» : Name := 237
-abbrev «head_root» : Name := 238
-abbrev «get_block_root_at_slot» : Name := 239
-abbrev «head_root_matches» : Name := 240
-abbrev «beacon_block_root» : Name := 241
-abbrev «is_matching_head» : Name := 242
-abbrev «participation_flag_indices» : Name := 243
-abbrev «integer_squareroot» : Name := 244
-abbrev «TIMELY_SOURCE_FLAG_INDEX» : Name := 245
-abbrev «TIMELY_TARGET_FLAG_INDEX» : Name := 246
-abbrev «MIN_ATTESTATION_INCLUSION_DELAY» : Name := 247
-abbrev «TIMELY_HEAD_FLAG_INDEX» : Name := 248
-abbrev «get_attestation_participation_flag_indices» : Name := 249
-abbrev «attestation» : Name := 250
-abbrev «output» : Name := 251
-abbrev «set» : Name := 252
-abbrev «committee_indices» : Name := 253
-abbrev «committee_bits» : Name := 254
-abbrev «get_committee_indices» : Name := 255
-abbrev «committee_offset» : Name := 256
-abbrev «committee_index» : Name := 257
-abbrev «committee_attesters» : Name := 258
-abbrev «aggregation_bits» : Name := 259
-abbrev «attester_index» : Name := 260
-abbrev «union» : Name := 261
-abbrev «get_attesting_indices» : Name := 262
-abbrev «withdrawn» : Name := 263
-abbrev «sum» : Name := 264
-abbrev «get_balance_after_withdrawals» : Name := 265
-abbrev «increments» : Name := 266
-abbrev «get_base_reward_per_increment» : Name := 267
-abbrev «get_base_reward» : Name := 268
-abbrev «BASE_REWARD_FACTOR» : Name := 269
-abbrev «Gwei» : Name := 270
-abbrev «DOMAIN_BEACON_ATTESTER» : Name := 271
-abbrev «proposer_lookahead» : Name := 272
-abbrev «get_beacon_proposer_index» : Name := 273
-abbrev «slashed» : Name := 274
-abbrev «DOMAIN_BEACON_PROPOSER» : Name := 275
-abbrev «get_beacon_proposer_indices» : Name := 276
-abbrev «entry» : Name := 277
-abbrev «BLOB_SCHEDULE» : Name := 278
-abbrev «key» : Name := 279
-abbrev «e» : Name := 280
-abbrev «reverse» : Name := 281
-abbrev «sorted» : Name := 282
-abbrev «BlobParameters» : Name := 283
-abbrev «ELECTRA_FORK_EPOCH» : Name := 284
-abbrev «MAX_BLOBS_PER_BLOCK_ELECTRA» : Name := 285
-abbrev «get_blob_parameters» : Name := 286
-abbrev «block_roots» : Name := 287
-abbrev «per_slot_balance» : Name := 288
-abbrev «quorum» : Name := 289
-abbrev «BUILDER_PAYMENT_THRESHOLD_NUMERATOR» : Name := 290
-abbrev «BUILDER_PAYMENT_THRESHOLD_DENOMINATOR» : Name := 291
-abbrev «get_builder_payment_quorum_threshold» : Name := 292
-abbrev «withdrawal_index» : Name := 293
-abbrev «prior_withdrawals» : Name := 294
-abbrev «withdrawals_limit» : Name := 295
-abbrev «MAX_WITHDRAWALS_PER_PAYLOAD» : Name := 296
-abbrev «processed_count» : Name := 297
-abbrev «all_withdrawals» : Name := 298
-abbrev «list» : Name := 299
-abbrev «has_reached_limit» : Name := 300
-abbrev «address» : Name := 301
-abbrev «Withdrawal» : Name := 302
-abbrev «get_builder_withdrawals» : Name := 303
-abbrev «builders_limit» : Name := 304
-abbrev «MAX_BUILDERS_PER_WITHDRAWALS_SWEEP» : Name := 305
-abbrev «next_withdrawal_builder_index» : Name := 306
-abbrev «_» : Name := 307
-abbrev «builder» : Name := 308
-abbrev «get_builders_sweep_withdrawals» : Name := 309
-abbrev «MAX_COMMITTEES_PER_SLOT» : Name := 310
-abbrev «TARGET_COMMITTEE_SIZE» : Name := 311
-abbrev «CONSOLIDATION_CHURN_LIMIT_QUOTIENT» : Name := 312
-abbrev «fork» : Name := 313
-abbrev «previous_version» : Name := 314
-abbrev «get_domain» : Name := 315
-abbrev «previous_epoch» : Name := 316
-abbrev «get_eligible_validator_indices» : Name := 317
-abbrev «next_withdrawal_index» : Name := 318
-abbrev «builder_withdrawals» : Name := 319
-abbrev «processed_builder_withdrawals_count» : Name := 320
-abbrev «partial_withdrawals» : Name := 321
-abbrev «processed_partial_withdrawals_count» : Name := 322
-abbrev «get_pending_partial_withdrawals» : Name := 323
-abbrev «builders_sweep_withdrawals» : Name := 324
-abbrev «processed_builders_sweep_count» : Name := 325
-abbrev «validators_sweep_withdrawals» : Name := 326
-abbrev «processed_validators_sweep_count» : Name := 327
-abbrev «get_validators_sweep_withdrawals» : Name := 328
-abbrev «ExpectedWithdrawals» : Name := 329
-abbrev «get_expected_withdrawals» : Name := 330
-abbrev «finalized_checkpoint» : Name := 331
-abbrev «get_finality_delay» : Name := 332
-abbrev «rewards» : Name := 333
-abbrev «penalties» : Name := 334
-abbrev «unslashed_participating_indices» : Name := 335
-abbrev «get_unslashed_participating_indices» : Name := 336
-abbrev «PARTICIPATION_FLAG_WEIGHTS» : Name := 337
-abbrev «unslashed_participating_balance» : Name := 338
-abbrev «get_total_balance» : Name := 339
-abbrev «unslashed_participating_increments» : Name := 340
-abbrev «active_increments» : Name := 341
-abbrev «base_reward» : Name := 342
-abbrev «is_in_inactivity_leak» : Name := 343
-abbrev «reward_numerator» : Name := 344
-abbrev «WEIGHT_DENOMINATOR» : Name := 345
-abbrev «get_flag_index_deltas» : Name := 346
-abbrev «matching_target_indices» : Name := 347
-abbrev «penalty_numerator» : Name := 348
-abbrev «penalty_denominator» : Name := 349
-abbrev «INACTIVITY_SCORE_BIAS» : Name := 350
-abbrev «INACTIVITY_PENALTY_QUOTIENT_BELLATRIX» : Name := 351
-abbrev «get_inactivity_penalty_deltas» : Name := 352
-abbrev «attesting_indices» : Name := 353
-abbrev «AttestingIndices» : Name := 354
-abbrev «IndexedAttestation» : Name := 355
-abbrev «get_indexed_attestation» : Name := 356
-abbrev «payload_attestation» : Name := 357
-abbrev «ptc» : Name := 358
-abbrev «get_ptc» : Name := 359
-abbrev «bits» : Name := 360
-abbrev «PayloadTimelinessCommitteeIndices» : Name := 361
-abbrev «IndexedPayloadAttestation» : Name := 362
-abbrev «get_indexed_payload_attestation» : Name := 363
-abbrev «has_compounding_withdrawal_credential» : Name := 364
-abbrev «MIN_ACTIVATION_BALANCE» : Name := 365
-abbrev «get_max_effective_balance» : Name := 366
-abbrev «get_next_sync_committee_indices» : Name := 367
-abbrev «SyncCommitteePubkeys» : Name := 368
-abbrev «aggregate_pubkey» : Name := 369
-abbrev «SyncCommittee» : Name := 370
-abbrev «get_next_sync_committee» : Name := 371
-abbrev «DOMAIN_SYNC_COMMITTEE» : Name := 372
-abbrev «SYNC_COMMITTEE_SIZE» : Name := 373
-abbrev «pending_partial_withdrawals» : Name := 374
-abbrev «get_pending_balance_to_withdraw» : Name := 375
-abbrev «payment» : Name := 376
-abbrev «builder_pending_payments» : Name := 377
-abbrev «MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP» : Name := 378
-abbrev «is_withdrawable» : Name := 379
-abbrev «is_eligible_for_partial_withdrawals» : Name := 380
-abbrev «withdrawal_amount» : Name := 381
-abbrev «ExecutionAddress» : Name := 382
-abbrev «GLOAS_FORK_EPOCH» : Name := 383
-abbrev «state_epoch» : Name := 384
-abbrev «ptc_window» : Name := 385
-abbrev «MIN_SEED_LOOKAHEAD» : Name := 386
-abbrev «randao_mixes» : Name := 387
-abbrev «EPOCHS_PER_HISTORICAL_VECTOR» : Name := 388
-abbrev «get_randao_mix» : Name := 389
-abbrev «mix» : Name := 390
-abbrev «get_set_bit_count» : Name := 391
-abbrev «epoch_participation» : Name := 392
-abbrev «active_validator_indices» : Name := 393
-abbrev «participating_indices» : Name := 394
-abbrev «has_flag» : Name := 395
-abbrev «filter» : Name := 396
-abbrev «activation_eligibility_epoch» : Name := 397
-abbrev «activation_epoch» : Name := 398
-abbrev «exit_epoch» : Name := 399
-abbrev «Validator» : Name := 400
-abbrev «max_effective_balance» : Name := 401
-abbrev «validators_limit» : Name := 402
-abbrev «MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP» : Name := 403
-abbrev «next_withdrawal_validator_index» : Name := 404
-abbrev «is_fully_withdrawable_validator» : Name := 405
-abbrev «is_partially_withdrawable_validator» : Name := 406
-abbrev «is_compounding_withdrawal_credential» : Name := 407
-abbrev «ETH1_ADDRESS_WITHDRAWAL_PREFIX» : Name := 408
-abbrev «has_eth1_withdrawal_credential» : Name := 409
-abbrev «has_execution_withdrawal_credential» : Name := 410
-abbrev «empty_previous_epoch» : Name := 411
-abbrev «ptcs» : Name := 412
-abbrev «current_epoch» : Name := 413
-abbrev «PayloadTimelinessCommitteeWindow» : Name := 414
-abbrev «initialize_ptc_window» : Name := 415
-abbrev «MIN_BUILDER_WITHDRAWABILITY_DELAY» : Name := 416
-abbrev «initiate_builder_exit» : Name := 417
-abbrev «exit_queue_epoch» : Name := 418
-abbrev «MIN_VALIDATOR_WITHDRAWABILITY_DELAY» : Name := 419
-abbrev «initiate_validator_exit» : Name := 420
-abbrev «n» : Name := 421
-abbrev «UINT64_MAX» : Name := 422
-abbrev «UINT64_MAX_SQRT» : Name := 423
-abbrev «x» : Name := 424
-abbrev «y» : Name := 425
-abbrev «is_active_builder» : Name := 426
-abbrev «blockroot» : Name := 427
-abbrev «slot_blockroot» : Name := 428
-abbrev «prev_blockroot» : Name := 429
-abbrev «BUILDER_WITHDRAWAL_PREFIX» : Name := 430
-abbrev «is_builder_withdrawal_credential» : Name := 431
-abbrev «COMPOUNDING_WITHDRAWAL_PREFIX» : Name := 432
-abbrev «is_eligible_for_activation» : Name := 433
-abbrev «is_eligible_for_activation_queue» : Name := 434
-abbrev «has_sufficient_effective_balance» : Name := 435
-abbrev «has_excess_balance» : Name := 436
-abbrev «MIN_EPOCHS_TO_INACTIVITY_PENALTY» : Name := 437
-abbrev «has_max_effective_balance» : Name := 438
-abbrev «pending_deposits» : Name := 439
-abbrev «pending_deposit» : Name := 440
-abbrev «is_pending_validator» : Name := 441
-abbrev «data_1» : Name := 442
-abbrev «data_2» : Name := 443
-abbrev «is_slashable_attestation_data» : Name := 444
-abbrev «is_slashable_validator» : Name := 445
-abbrev «request» : Name := 446
-abbrev «deposit_message» : Name := 447
-abbrev «DepositMessage» : Name := 448
-abbrev «DOMAIN_BUILDER_DEPOSIT» : Name := 449
-abbrev «signing_root» : Name := 450
-abbrev «Verify» : Name := 451
-abbrev «is_valid_builder_deposit_signature» : Name := 452
-abbrev «DOMAIN_DEPOSIT» : Name := 453
-abbrev «indexed_attestation» : Name := 454
-abbrev «MAX_VALIDATORS_PER_COMMITTEE» : Name := 455
-abbrev «is_valid_indexed_attestation» : Name := 456
-abbrev «is_valid_indexed_payload_attestation» : Name := 457
-abbrev «consolidation_request» : Name := 458
-abbrev «target_pubkey» : Name := 459
-abbrev «source_pubkey» : Name := 460
-abbrev «source_validator» : Name := 461
-abbrev «source_address» : Name := 462
-abbrev «is_valid_switch_to_compounding_request» : Name := 463
-abbrev «PendingDeposits» : Name := 464
-abbrev «builder_pubkeys» : Name := 465
-abbrev «b» : Name := 466
-abbrev «PAYLOAD_BUILDER_VERSION» : Name := 467
-abbrev «onboard_builders_from_pending_deposits» : Name := 468
-abbrev «current_epoch_target» : Name := 469
-abbrev «proposer_reward_numerator» : Name := 470
-abbrev «had_no_participation» : Name := 471
-abbrev «will_set_new_flag» : Name := 472
-abbrev «proposer_reward_denominator» : Name := 473
-abbrev «PROPOSER_WEIGHT» : Name := 474
-abbrev «proposer_reward» : Name := 475
-abbrev «process_attestation» : Name := 476
-abbrev «attester_slashing» : Name := 477
-abbrev «attestation_1» : Name := 478
-abbrev «attestation_2» : Name := 479
-abbrev «slashed_any» : Name := 480
-abbrev «intersection» : Name := 481
-abbrev «slash_validator» : Name := 482
-abbrev «process_attester_slashing» : Name := 483
-abbrev «block» : Name := 484
-abbrev «process_parent_execution_payload» : Name := 485
-abbrev «process_block_header» : Name := 486
-abbrev «process_withdrawals» : Name := 487
-abbrev «body» : Name := 488
-abbrev «signed_execution_payload_bid» : Name := 489
-abbrev «process_execution_payload_bid» : Name := 490
-abbrev «process_randao» : Name := 491
-abbrev «process_eth1_data» : Name := 492
-abbrev «process_operations» : Name := 493
-abbrev «sync_aggregate» : Name := 494
-abbrev «process_sync_aggregate» : Name := 495
-abbrev «process_block» : Name := 496
-abbrev «proposer_index» : Name := 497
-abbrev «parent_root» : Name := 498
-abbrev «state_root» : Name := 499
-abbrev «body_root» : Name := 500
-abbrev «BeaconBlockHeader» : Name := 501
-abbrev «proposer» : Name := 502
-abbrev «signed_address_change» : Name := 503
-abbrev «address_change» : Name := 504
-abbrev «BLS_WITHDRAWAL_PREFIX» : Name := 505
-abbrev «from_bls_pubkey» : Name := 506
-abbrev «DOMAIN_BLS_TO_EXECUTION_CHANGE» : Name := 507
-abbrev «to_execution_address» : Name := 508
-abbrev «Bytes32» : Name := 509
-abbrev «process_bls_to_execution_change» : Name := 510
-abbrev «old_payments» : Name := 511
-abbrev «new_payments» : Name := 512
-abbrev «BuilderPendingPayment» : Name := 513
-abbrev «empty» : Name := 514
-abbrev «process_builder_pending_payments» : Name := 515
-abbrev «request_source_pubkey» : Name := 516
-abbrev «source_index» : Name := 517
-abbrev «switch_to_compounding_validator» : Name := 518
-abbrev «PENDING_CONSOLIDATIONS_LIMIT» : Name := 519
-abbrev «pending_consolidations» : Name := 520
-abbrev «request_target_pubkey» : Name := 521
-abbrev «target_index» : Name := 522
-abbrev «target_validator» : Name := 523
-abbrev «has_correct_credential» : Name := 524
-abbrev «is_correct_source_address» : Name := 525
-abbrev «SHARD_COMMITTEE_PERIOD» : Name := 526
-abbrev «PendingConsolidation» : Name := 527
-abbrev «deposit_request» : Name := 528
-abbrev «PendingDeposit» : Name := 529
-abbrev «HYSTERESIS_INCREMENT» : Name := 530
-abbrev «HYSTERESIS_QUOTIENT» : Name := 531
-abbrev «DOWNWARD_THRESHOLD» : Name := 532
-abbrev «HYSTERESIS_DOWNWARD_MULTIPLIER» : Name := 533
-abbrev «UPWARD_THRESHOLD» : Name := 534
-abbrev «HYSTERESIS_UPWARD_MULTIPLIER» : Name := 535
-abbrev «process_effective_balance_updates» : Name := 536
-abbrev «process_justification_and_finalization» : Name := 537
-abbrev «process_inactivity_updates» : Name := 538
-abbrev «process_rewards_and_penalties» : Name := 539
-abbrev «process_registry_updates» : Name := 540
-abbrev «process_slashings» : Name := 541
-abbrev «process_eth1_data_reset» : Name := 542
-abbrev «process_pending_deposits» : Name := 543
-abbrev «process_pending_consolidations» : Name := 544
-abbrev «process_slashings_reset» : Name := 545
-abbrev «process_randao_mixes_reset» : Name := 546
-abbrev «process_historical_summaries_update» : Name := 547
-abbrev «process_participation_flag_updates» : Name := 548
-abbrev «process_sync_committee_updates» : Name := 549
-abbrev «process_proposer_lookahead» : Name := 550
-abbrev «process_ptc_window» : Name := 551
-abbrev «process_epoch» : Name := 552
-abbrev «eth1_data» : Name := 553
-abbrev «eth1_data_votes» : Name := 554
-abbrev «EPOCHS_PER_ETH1_VOTING_PERIOD» : Name := 555
-abbrev «next_epoch» : Name := 556
-abbrev «Eth1DataVotes» : Name := 557
-abbrev «signed_bid» : Name := 558
-abbrev «bid» : Name := 559
-abbrev «BUILDER_INDEX_SELF_BUILD» : Name := 560
-abbrev «verify_execution_payload_bid_signature» : Name := 561
-abbrev «max_blobs_per_block» : Name := 562
-abbrev «blob_kzg_commitments» : Name := 563
-abbrev «GENESIS_SLOT» : Name := 564
-abbrev «parent_block_hash» : Name := 565
-abbrev «parent_block_root» : Name := 566
-abbrev «prev_randao» : Name := 567
-abbrev «pending_payment» : Name := 568
-abbrev «historical_summary» : Name := 569
-abbrev «block_summary_root» : Name := 570
-abbrev «state_summary_root» : Name := 571
-abbrev «state_roots» : Name := 572
-abbrev «HistoricalSummary» : Name := 573
-abbrev «historical_summaries» : Name := 574
-abbrev «GENESIS_EPOCH» : Name := 575
-abbrev «INACTIVITY_SCORE_RECOVERY_RATE» : Name := 576
-abbrev «previous_indices» : Name := 577
-abbrev «current_indices» : Name := 578
-abbrev «total_active_balance» : Name := 579
-abbrev «previous_target_balance» : Name := 580
-abbrev «current_target_balance» : Name := 581
-abbrev «weigh_justification_and_finalization» : Name := 582
-abbrev «args» : Name := 583
-abbrev «MAX_PROPOSER_SLASHINGS» : Name := 584
-abbrev «proposer_slashings» : Name := 585
-abbrev «MAX_ATTESTER_SLASHINGS_ELECTRA» : Name := 586
-abbrev «attester_slashings» : Name := 587
-abbrev «MAX_ATTESTATIONS_ELECTRA» : Name := 588
-abbrev «attestations» : Name := 589
-abbrev «MAX_VOLUNTARY_EXITS» : Name := 590
-abbrev «voluntary_exits» : Name := 591
-abbrev «MAX_BLS_TO_EXECUTION_CHANGES» : Name := 592
-abbrev «bls_to_execution_changes» : Name := 593
-abbrev «MAX_PAYLOAD_ATTESTATIONS» : Name := 594
-abbrev «payload_attestations» : Name := 595
-abbrev «process_proposer_slashing» : Name := 596
-abbrev «process_voluntary_exit» : Name := 597
-abbrev «process_payload_attestation» : Name := 598
-abbrev «parent_execution_requests» : Name := 599
-abbrev «ExecutionRequests» : Name := 600
-abbrev «execution_requests_root» : Name := 601
-abbrev «EpochParticipation» : Name := 602
-abbrev «indexed_payload_attestation» : Name := 603
-abbrev «next_pending_consolidation» : Name := 604
-abbrev «pending_consolidation» : Name := 605
-abbrev «source_effective_balance» : Name := 606
-abbrev «available_for_processing» : Name := 607
-abbrev «deposit_balance_to_consume» : Name := 608
-abbrev «processed_amount» : Name := 609
-abbrev «next_deposit_index» : Name := 610
-abbrev «deposits_to_postpone» : Name := 611
-abbrev «is_churn_limit_reached» : Name := 612
-abbrev «finalized_slot» : Name := 613
-abbrev «MAX_PENDING_DEPOSITS_PER_EPOCH» : Name := 614
-abbrev «is_validator_exited» : Name := 615
-abbrev «is_validator_withdrawn» : Name := 616
-abbrev «last_epoch_start» : Name := 617
-abbrev «last_epoch_proposers» : Name := 618
-abbrev «proposer_slashing» : Name := 619
-abbrev «header_1» : Name := 620
-abbrev «signed_header_1» : Name := 621
-abbrev «header_2» : Name := 622
-abbrev «signed_header_2» : Name := 623
-abbrev «signed_header» : Name := 624
-abbrev «proposal_epoch» : Name := 625
-abbrev «DOMAIN_RANDAO» : Name := 626
-abbrev «randao_reveal» : Name := 627
-abbrev «xor» : Name := 628
-abbrev «EJECTION_BALANCE» : Name := 629
-abbrev «flag_deltas» : Name := 630
-abbrev «deltas» : Name := 631
-abbrev «total_balance» : Name := 632
-abbrev «adjusted_total_slashing_balance» : Name := 633
-abbrev «slashings» : Name := 634
-abbrev «PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX» : Name := 635
-abbrev «increment» : Name := 636
-abbrev «penalty_per_effective_balance_increment» : Name := 637
-abbrev «EPOCHS_PER_SLASHINGS_VECTOR» : Name := 638
-abbrev «effective_balance_increments» : Name := 639
-abbrev «penalty» : Name := 640
-abbrev «previous_state_root» : Name := 641
-abbrev «previous_block_root» : Name := 642
-abbrev «next_slot_index» : Name := 643
-abbrev «process_slot» : Name := 644
-abbrev «process_slots» : Name := 645
-abbrev «committee_pubkeys» : Name := 646
-abbrev «current_sync_committee» : Name := 647
-abbrev «sync_committee_bits» : Name := 648
-abbrev «participant_pubkeys» : Name := 649
-abbrev «non_participant_pubkeys» : Name := 650
-abbrev «strict» : Name := 651
-abbrev «zip» : Name := 652
-abbrev «non_participant_aggregate» : Name := 653
-abbrev «participant_pubkey» : Name := 654
-abbrev «bytes48_to_G1» : Name := 655
-abbrev «neg» : Name := 656
-abbrev «add» : Name := 657
-abbrev «G1_to_bytes48» : Name := 658
-abbrev «BLSPubkey» : Name := 659
-abbrev «previous_slot» : Name := 660
-abbrev «sync_committee_signature» : Name := 661
-abbrev «total_active_increments» : Name := 662
-abbrev «total_base_rewards» : Name := 663
-abbrev «max_participant_rewards» : Name := 664
-abbrev «SYNC_REWARD_WEIGHT» : Name := 665
-abbrev «participant_reward» : Name := 666
-abbrev «all_pubkeys» : Name := 667
-abbrev «participant_index» : Name := 668
-abbrev «participation_bit» : Name := 669
-abbrev «EPOCHS_PER_SYNC_COMMITTEE_PERIOD» : Name := 670
-abbrev «next_sync_committee» : Name := 671
-abbrev «signed_voluntary_exit» : Name := 672
-abbrev «voluntary_exit» : Name := 673
-abbrev «DOMAIN_VOLUNTARY_EXIT» : Name := 674
-abbrev «CAPELLA_FORK_VERSION» : Name := 675
-abbrev «withdrawal_request» : Name := 676
-abbrev «is_full_exit_request» : Name := 677
-abbrev «FULL_EXIT_REQUEST_AMOUNT» : Name := 678
-abbrev «PENDING_PARTIAL_WITHDRAWALS_LIMIT» : Name := 679
-abbrev «request_pubkey» : Name := 680
-abbrev «validator_pubkey» : Name := 681
-abbrev «pending_balance_to_withdraw» : Name := 682
-abbrev «to_withdraw» : Name := 683
-abbrev «PendingPartialWithdrawal» : Name := 684
-abbrev «expected» : Name := 685
-abbrev «update_next_withdrawal_index» : Name := 686
-abbrev «update_payload_expected_withdrawals» : Name := 687
-abbrev «update_builder_pending_withdrawals» : Name := 688
-abbrev «update_pending_partial_withdrawals» : Name := 689
-abbrev «update_next_withdrawal_builder_index» : Name := 690
-abbrev «update_next_withdrawal_validator_index» : Name := 691
-abbrev «excess_balance» : Name := 692
-abbrev «queue_excess_active_balance» : Name := 693
-abbrev «a» : Name := 694
-abbrev «slashed_index» : Name := 695
-abbrev «whistleblower_index» : Name := 696
-abbrev «slashing_penalty» : Name := 697
-abbrev «MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA» : Name := 698
-abbrev «whistleblower_reward» : Name := 699
-abbrev «WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA» : Name := 700
-abbrev «signed_block» : Name := 701
-abbrev «validate_result» : Name := 702
-abbrev «verify_block_signature» : Name := 703
-abbrev «state_transition» : Name := 704
-abbrev «ssz_serialize» : Name := 705
-abbrev «next_builder_index» : Name := 706
-abbrev «latest_withdrawal» : Name := 707
-abbrev «next_validator_index» : Name := 708
-abbrev «payload_expected_withdrawals» : Name := 709
-abbrev «Withdrawals» : Name := 710
-abbrev «pre» : Name := 711
-abbrev «fulu» : Name := 712
-abbrev «post» : Name := 713
-abbrev «genesis_time» : Name := 714
-abbrev «GLOAS_FORK_VERSION» : Name := 715
-abbrev «Fork» : Name := 716
-abbrev «historical_roots» : Name := 717
-abbrev «eth1_deposit_index» : Name := 718
-abbrev «Validators» : Name := 719
-abbrev «Balances» : Name := 720
-abbrev «justification_bits» : Name := 721
-abbrev «InactivityScores» : Name := 722
-abbrev «latest_execution_payload_header» : Name := 723
-abbrev «deposit_requests_start_index» : Name := 724
-abbrev «PendingPartialWithdrawals» : Name := 725
-abbrev «PendingConsolidations» : Name := 726
-abbrev «Builders» : Name := 727
-abbrev «ExecutionPayloadAvailability» : Name := 728
-abbrev «BuilderPendingPayments» : Name := 729
-abbrev «BuilderPendingWithdrawals» : Name := 730
-abbrev «parent_hash» : Name := 731
-abbrev «gas_limit» : Name := 732
-abbrev «execution_payment» : Name := 733
-abbrev «BlobKZGCommitments» : Name := 734
-abbrev «ExecutionPayloadBid» : Name := 735
-abbrev «BeaconState» : Name := 736
-abbrev «upgrade_to_gloas» : Name := 737
-abbrev «DOMAIN_BEACON_BUILDER» : Name := 738
-abbrev «previous_epoch_target_balance» : Name := 739
-abbrev «current_epoch_target_balance» : Name := 740
-abbrev «old_previous_justified_checkpoint» : Name := 741
-abbrev «old_current_justified_checkpoint» : Name := 742
-abbrev «JUSTIFICATION_BITS_LENGTH» : Name := 743
-abbrev «Checkpoint» : Name := 744
-abbrev «bytes_1» : Name := 745
-abbrev «bytes_2» : Name := 746
-abbrev «Version» : Name := 747
-abbrev «DomainType» : Name := 748
-abbrev «BLSSignature» : Name := 749
-abbrev «WithdrawalIndex» : Name := 750
-abbrev «processed_sweep_withdrawals_count» : Name := 751
-abbrev «AttestationData» : Name := 752
-abbrev «payload_present» : Name := 753
-abbrev «blob_data_available» : Name := 754
-abbrev «PayloadAttestationData» : Name := 755
-abbrev «Bytes1» : Name := 756
-abbrev «deposit_root» : Name := 757
-abbrev «deposit_count» : Name := 758
-abbrev «Hash32» : Name := 759
-abbrev «Eth1Data» : Name := 760
-abbrev «DepositRequest» : Name := 761
-abbrev «WithdrawalRequest» : Name := 762
-abbrev «ConsolidationRequest» : Name := 763
-abbrev «BuilderDepositRequest» : Name := 764
-abbrev «BuilderExitRequest» : Name := 765
-abbrev «KZGCommitment» : Name := 766
-abbrev «get» : Name := 767
-abbrev «dict» : Name := 768
+abbrev «message» : Name := 202
+abbrev «G2_POINT_AT_INFINITY» : Name := 203
+abbrev «bls» : Name := 204
+abbrev «FastAggregateVerify» : Name := 205
+abbrev «eth_fast_aggregate_verify» : Name := 206
+abbrev «churn» : Name := 207
+abbrev «MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA» : Name := 208
+abbrev «get_total_active_balance» : Name := 209
+abbrev «CHURN_LIMIT_QUOTIENT_GLOAS» : Name := 210
+abbrev «EFFECTIVE_BALANCE_INCREMENT» : Name := 211
+abbrev «MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS» : Name := 212
+abbrev «min» : Name := 213
+abbrev «get_activation_churn_limit» : Name := 214
+abbrev «is_active_validator» : Name := 215
+abbrev «enumerate» : Name := 216
+abbrev «get_active_validator_indices» : Name := 217
+abbrev «inclusion_delay» : Name := 218
+abbrev «target» : Name := 219
+abbrev «justified_checkpoint» : Name := 220
+abbrev «current_justified_checkpoint» : Name := 221
+abbrev «previous_justified_checkpoint» : Name := 222
+abbrev «is_matching_source» : Name := 223
+abbrev «target_root» : Name := 224
+abbrev «get_block_root» : Name := 225
+abbrev «target_root_matches» : Name := 226
+abbrev «root» : Name := 227
+abbrev «is_matching_target» : Name := 228
+abbrev «is_attestation_same_slot» : Name := 229
+abbrev «payload_matches» : Name := 230
+abbrev «slot_index» : Name := 231
+abbrev «payload_index» : Name := 232
+abbrev «head_root» : Name := 233
+abbrev «get_block_root_at_slot» : Name := 234
+abbrev «head_root_matches» : Name := 235
+abbrev «beacon_block_root» : Name := 236
+abbrev «is_matching_head» : Name := 237
+abbrev «participation_flag_indices» : Name := 238
+abbrev «integer_squareroot» : Name := 239
+abbrev «TIMELY_SOURCE_FLAG_INDEX» : Name := 240
+abbrev «TIMELY_TARGET_FLAG_INDEX» : Name := 241
+abbrev «MIN_ATTESTATION_INCLUSION_DELAY» : Name := 242
+abbrev «TIMELY_HEAD_FLAG_INDEX» : Name := 243
+abbrev «get_attestation_participation_flag_indices» : Name := 244
+abbrev «attestation» : Name := 245
+abbrev «output» : Name := 246
+abbrev «set» : Name := 247
+abbrev «committee_indices» : Name := 248
+abbrev «committee_bits» : Name := 249
+abbrev «get_committee_indices» : Name := 250
+abbrev «committee_offset» : Name := 251
+abbrev «committee_index» : Name := 252
+abbrev «committee_attesters» : Name := 253
+abbrev «aggregation_bits» : Name := 254
+abbrev «attester_index» : Name := 255
+abbrev «union» : Name := 256
+abbrev «get_attesting_indices» : Name := 257
+abbrev «withdrawn» : Name := 258
+abbrev «sum» : Name := 259
+abbrev «get_balance_after_withdrawals» : Name := 260
+abbrev «increments» : Name := 261
+abbrev «get_base_reward_per_increment» : Name := 262
+abbrev «get_base_reward» : Name := 263
+abbrev «BASE_REWARD_FACTOR» : Name := 264
+abbrev «Gwei» : Name := 265
+abbrev «DOMAIN_BEACON_ATTESTER» : Name := 266
+abbrev «proposer_lookahead» : Name := 267
+abbrev «get_beacon_proposer_index» : Name := 268
+abbrev «slashed» : Name := 269
+abbrev «DOMAIN_BEACON_PROPOSER» : Name := 270
+abbrev «get_beacon_proposer_indices» : Name := 271
+abbrev «entry» : Name := 272
+abbrev «BLOB_SCHEDULE» : Name := 273
+abbrev «key» : Name := 274
+abbrev «e» : Name := 275
+abbrev «reverse» : Name := 276
+abbrev «sorted» : Name := 277
+abbrev «BlobParameters» : Name := 278
+abbrev «ELECTRA_FORK_EPOCH» : Name := 279
+abbrev «MAX_BLOBS_PER_BLOCK_ELECTRA» : Name := 280
+abbrev «get_blob_parameters» : Name := 281
+abbrev «block_roots» : Name := 282
+abbrev «per_slot_balance» : Name := 283
+abbrev «quorum» : Name := 284
+abbrev «BUILDER_PAYMENT_THRESHOLD_NUMERATOR» : Name := 285
+abbrev «BUILDER_PAYMENT_THRESHOLD_DENOMINATOR» : Name := 286
+abbrev «get_builder_payment_quorum_threshold» : Name := 287
+abbrev «withdrawal_index» : Name := 288
+abbrev «prior_withdrawals» : Name := 289
+abbrev «withdrawals_limit» : Name := 290
+abbrev «MAX_WITHDRAWALS_PER_PAYLOAD» : Name := 291
+abbrev «processed_count» : Name := 292
+abbrev «all_withdrawals» : Name := 293
+abbrev «list» : Name := 294
+abbrev «has_reached_limit» : Name := 295
+abbrev «address» : Name := 296
+abbrev «Withdrawal» : Name := 297
+abbrev «get_builder_withdrawals» : Name := 298
+abbrev «builders_limit» : Name := 299
+abbrev «MAX_BUILDERS_PER_WITHDRAWALS_SWEEP» : Name := 300
+abbrev «next_withdrawal_builder_index» : Name := 301
+abbrev «_» : Name := 302
+abbrev «builder» : Name := 303
+abbrev «get_builders_sweep_withdrawals» : Name := 304
+abbrev «MAX_COMMITTEES_PER_SLOT» : Name := 305
+abbrev «TARGET_COMMITTEE_SIZE» : Name := 306
+abbrev «CONSOLIDATION_CHURN_LIMIT_QUOTIENT» : Name := 307
+abbrev «fork» : Name := 308
+abbrev «previous_version» : Name := 309
+abbrev «get_domain» : Name := 310
+abbrev «previous_epoch» : Name := 311
+abbrev «get_eligible_validator_indices» : Name := 312
+abbrev «next_withdrawal_index» : Name := 313
+abbrev «builder_withdrawals» : Name := 314
+abbrev «processed_builder_withdrawals_count» : Name := 315
+abbrev «partial_withdrawals» : Name := 316
+abbrev «processed_partial_withdrawals_count» : Name := 317
+abbrev «get_pending_partial_withdrawals» : Name := 318
+abbrev «builders_sweep_withdrawals» : Name := 319
+abbrev «processed_builders_sweep_count» : Name := 320
+abbrev «validators_sweep_withdrawals» : Name := 321
+abbrev «processed_validators_sweep_count» : Name := 322
+abbrev «get_validators_sweep_withdrawals» : Name := 323
+abbrev «ExpectedWithdrawals» : Name := 324
+abbrev «get_expected_withdrawals» : Name := 325
+abbrev «finalized_checkpoint» : Name := 326
+abbrev «get_finality_delay» : Name := 327
+abbrev «rewards» : Name := 328
+abbrev «penalties» : Name := 329
+abbrev «unslashed_participating_indices» : Name := 330
+abbrev «get_unslashed_participating_indices» : Name := 331
+abbrev «PARTICIPATION_FLAG_WEIGHTS» : Name := 332
+abbrev «unslashed_participating_balance» : Name := 333
+abbrev «get_total_balance» : Name := 334
+abbrev «unslashed_participating_increments» : Name := 335
+abbrev «active_increments» : Name := 336
+abbrev «base_reward» : Name := 337
+abbrev «is_in_inactivity_leak» : Name := 338
+abbrev «reward_numerator» : Name := 339
+abbrev «WEIGHT_DENOMINATOR» : Name := 340
+abbrev «get_flag_index_deltas» : Name := 341
+abbrev «matching_target_indices» : Name := 342
+abbrev «penalty_numerator» : Name := 343
+abbrev «penalty_denominator» : Name := 344
+abbrev «INACTIVITY_SCORE_BIAS» : Name := 345
+abbrev «INACTIVITY_PENALTY_QUOTIENT_BELLATRIX» : Name := 346
+abbrev «get_inactivity_penalty_deltas» : Name := 347
+abbrev «attesting_indices» : Name := 348
+abbrev «AttestingIndices» : Name := 349
+abbrev «IndexedAttestation» : Name := 350
+abbrev «get_indexed_attestation» : Name := 351
+abbrev «payload_attestation» : Name := 352
+abbrev «ptc» : Name := 353
+abbrev «get_ptc» : Name := 354
+abbrev «bits» : Name := 355
+abbrev «PayloadTimelinessCommitteeIndices» : Name := 356
+abbrev «IndexedPayloadAttestation» : Name := 357
+abbrev «get_indexed_payload_attestation» : Name := 358
+abbrev «has_compounding_withdrawal_credential» : Name := 359
+abbrev «MIN_ACTIVATION_BALANCE» : Name := 360
+abbrev «get_max_effective_balance» : Name := 361
+abbrev «get_next_sync_committee_indices» : Name := 362
+abbrev «SyncCommitteePubkeys» : Name := 363
+abbrev «aggregate_pubkey» : Name := 364
+abbrev «eth_aggregate_pubkeys» : Name := 365
+abbrev «SyncCommittee» : Name := 366
+abbrev «get_next_sync_committee» : Name := 367
+abbrev «DOMAIN_SYNC_COMMITTEE» : Name := 368
+abbrev «SYNC_COMMITTEE_SIZE» : Name := 369
+abbrev «pending_partial_withdrawals» : Name := 370
+abbrev «get_pending_balance_to_withdraw» : Name := 371
+abbrev «payment» : Name := 372
+abbrev «builder_pending_payments» : Name := 373
+abbrev «MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP» : Name := 374
+abbrev «is_withdrawable» : Name := 375
+abbrev «is_eligible_for_partial_withdrawals» : Name := 376
+abbrev «withdrawal_amount» : Name := 377
+abbrev «ExecutionAddress» : Name := 378
+abbrev «GLOAS_FORK_EPOCH» : Name := 379
+abbrev «state_epoch» : Name := 380
+abbrev «ptc_window» : Name := 381
+abbrev «MIN_SEED_LOOKAHEAD» : Name := 382
+abbrev «randao_mixes» : Name := 383
+abbrev «EPOCHS_PER_HISTORICAL_VECTOR» : Name := 384
+abbrev «get_randao_mix» : Name := 385
+abbrev «mix» : Name := 386
+abbrev «get_set_bit_count» : Name := 387
+abbrev «epoch_participation» : Name := 388
+abbrev «active_validator_indices» : Name := 389
+abbrev «participating_indices» : Name := 390
+abbrev «has_flag» : Name := 391
+abbrev «filter» : Name := 392
+abbrev «activation_eligibility_epoch» : Name := 393
+abbrev «activation_epoch» : Name := 394
+abbrev «exit_epoch» : Name := 395
+abbrev «Validator» : Name := 396
+abbrev «max_effective_balance» : Name := 397
+abbrev «validators_limit» : Name := 398
+abbrev «MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP» : Name := 399
+abbrev «next_withdrawal_validator_index» : Name := 400
+abbrev «is_fully_withdrawable_validator» : Name := 401
+abbrev «is_partially_withdrawable_validator» : Name := 402
+abbrev «is_compounding_withdrawal_credential» : Name := 403
+abbrev «ETH1_ADDRESS_WITHDRAWAL_PREFIX» : Name := 404
+abbrev «has_eth1_withdrawal_credential» : Name := 405
+abbrev «has_execution_withdrawal_credential» : Name := 406
+abbrev «empty_previous_epoch» : Name := 407
+abbrev «ptcs» : Name := 408
+abbrev «current_epoch» : Name := 409
+abbrev «PayloadTimelinessCommitteeWindow» : Name := 410
+abbrev «initialize_ptc_window» : Name := 411
+abbrev «MIN_BUILDER_WITHDRAWABILITY_DELAY» : Name := 412
+abbrev «initiate_builder_exit» : Name := 413
+abbrev «exit_queue_epoch» : Name := 414
+abbrev «MIN_VALIDATOR_WITHDRAWABILITY_DELAY» : Name := 415
+abbrev «initiate_validator_exit» : Name := 416
+abbrev «n» : Name := 417
+abbrev «UINT64_MAX» : Name := 418
+abbrev «UINT64_MAX_SQRT» : Name := 419
+abbrev «x» : Name := 420
+abbrev «y» : Name := 421
+abbrev «is_active_builder» : Name := 422
+abbrev «blockroot» : Name := 423
+abbrev «slot_blockroot» : Name := 424
+abbrev «prev_blockroot» : Name := 425
+abbrev «BUILDER_WITHDRAWAL_PREFIX» : Name := 426
+abbrev «is_builder_withdrawal_credential» : Name := 427
+abbrev «COMPOUNDING_WITHDRAWAL_PREFIX» : Name := 428
+abbrev «is_eligible_for_activation» : Name := 429
+abbrev «is_eligible_for_activation_queue» : Name := 430
+abbrev «has_sufficient_effective_balance» : Name := 431
+abbrev «has_excess_balance» : Name := 432
+abbrev «MIN_EPOCHS_TO_INACTIVITY_PENALTY» : Name := 433
+abbrev «has_max_effective_balance» : Name := 434
+abbrev «pending_deposits» : Name := 435
+abbrev «pending_deposit» : Name := 436
+abbrev «is_pending_validator» : Name := 437
+abbrev «data_1» : Name := 438
+abbrev «data_2» : Name := 439
+abbrev «is_slashable_attestation_data» : Name := 440
+abbrev «is_slashable_validator» : Name := 441
+abbrev «request» : Name := 442
+abbrev «deposit_message» : Name := 443
+abbrev «DepositMessage» : Name := 444
+abbrev «DOMAIN_BUILDER_DEPOSIT» : Name := 445
+abbrev «signing_root» : Name := 446
+abbrev «Verify» : Name := 447
+abbrev «is_valid_builder_deposit_signature» : Name := 448
+abbrev «DOMAIN_DEPOSIT» : Name := 449
+abbrev «indexed_attestation» : Name := 450
+abbrev «MAX_VALIDATORS_PER_COMMITTEE» : Name := 451
+abbrev «is_valid_indexed_attestation» : Name := 452
+abbrev «is_valid_indexed_payload_attestation» : Name := 453
+abbrev «consolidation_request» : Name := 454
+abbrev «target_pubkey» : Name := 455
+abbrev «source_pubkey» : Name := 456
+abbrev «source_validator» : Name := 457
+abbrev «source_address» : Name := 458
+abbrev «is_valid_switch_to_compounding_request» : Name := 459
+abbrev «PendingDeposits» : Name := 460
+abbrev «builder_pubkeys» : Name := 461
+abbrev «b» : Name := 462
+abbrev «PAYLOAD_BUILDER_VERSION» : Name := 463
+abbrev «onboard_builders_from_pending_deposits» : Name := 464
+abbrev «current_epoch_target» : Name := 465
+abbrev «proposer_reward_numerator» : Name := 466
+abbrev «had_no_participation» : Name := 467
+abbrev «will_set_new_flag» : Name := 468
+abbrev «proposer_reward_denominator» : Name := 469
+abbrev «PROPOSER_WEIGHT» : Name := 470
+abbrev «proposer_reward» : Name := 471
+abbrev «process_attestation» : Name := 472
+abbrev «attester_slashing» : Name := 473
+abbrev «attestation_1» : Name := 474
+abbrev «attestation_2» : Name := 475
+abbrev «slashed_any» : Name := 476
+abbrev «intersection» : Name := 477
+abbrev «slash_validator» : Name := 478
+abbrev «process_attester_slashing» : Name := 479
+abbrev «block» : Name := 480
+abbrev «process_parent_execution_payload» : Name := 481
+abbrev «process_block_header» : Name := 482
+abbrev «process_withdrawals» : Name := 483
+abbrev «body» : Name := 484
+abbrev «signed_execution_payload_bid» : Name := 485
+abbrev «process_execution_payload_bid» : Name := 486
+abbrev «process_randao» : Name := 487
+abbrev «process_eth1_data» : Name := 488
+abbrev «process_operations» : Name := 489
+abbrev «sync_aggregate» : Name := 490
+abbrev «process_sync_aggregate» : Name := 491
+abbrev «process_block» : Name := 492
+abbrev «proposer_index» : Name := 493
+abbrev «parent_root» : Name := 494
+abbrev «state_root» : Name := 495
+abbrev «body_root» : Name := 496
+abbrev «BeaconBlockHeader» : Name := 497
+abbrev «proposer» : Name := 498
+abbrev «signed_address_change» : Name := 499
+abbrev «address_change» : Name := 500
+abbrev «BLS_WITHDRAWAL_PREFIX» : Name := 501
+abbrev «from_bls_pubkey» : Name := 502
+abbrev «DOMAIN_BLS_TO_EXECUTION_CHANGE» : Name := 503
+abbrev «to_execution_address» : Name := 504
+abbrev «Bytes32» : Name := 505
+abbrev «process_bls_to_execution_change» : Name := 506
+abbrev «old_payments» : Name := 507
+abbrev «new_payments» : Name := 508
+abbrev «BuilderPendingPayment» : Name := 509
+abbrev «empty» : Name := 510
+abbrev «process_builder_pending_payments» : Name := 511
+abbrev «request_source_pubkey» : Name := 512
+abbrev «source_index» : Name := 513
+abbrev «switch_to_compounding_validator» : Name := 514
+abbrev «PENDING_CONSOLIDATIONS_LIMIT» : Name := 515
+abbrev «pending_consolidations» : Name := 516
+abbrev «request_target_pubkey» : Name := 517
+abbrev «target_index» : Name := 518
+abbrev «target_validator» : Name := 519
+abbrev «has_correct_credential» : Name := 520
+abbrev «is_correct_source_address» : Name := 521
+abbrev «SHARD_COMMITTEE_PERIOD» : Name := 522
+abbrev «PendingConsolidation» : Name := 523
+abbrev «deposit_request» : Name := 524
+abbrev «PendingDeposit» : Name := 525
+abbrev «HYSTERESIS_INCREMENT» : Name := 526
+abbrev «HYSTERESIS_QUOTIENT» : Name := 527
+abbrev «DOWNWARD_THRESHOLD» : Name := 528
+abbrev «HYSTERESIS_DOWNWARD_MULTIPLIER» : Name := 529
+abbrev «UPWARD_THRESHOLD» : Name := 530
+abbrev «HYSTERESIS_UPWARD_MULTIPLIER» : Name := 531
+abbrev «process_effective_balance_updates» : Name := 532
+abbrev «process_justification_and_finalization» : Name := 533
+abbrev «process_inactivity_updates» : Name := 534
+abbrev «process_rewards_and_penalties» : Name := 535
+abbrev «process_registry_updates» : Name := 536
+abbrev «process_slashings» : Name := 537
+abbrev «process_eth1_data_reset» : Name := 538
+abbrev «process_pending_deposits» : Name := 539
+abbrev «process_pending_consolidations» : Name := 540
+abbrev «process_slashings_reset» : Name := 541
+abbrev «process_randao_mixes_reset» : Name := 542
+abbrev «process_historical_summaries_update» : Name := 543
+abbrev «process_participation_flag_updates» : Name := 544
+abbrev «process_sync_committee_updates» : Name := 545
+abbrev «process_proposer_lookahead» : Name := 546
+abbrev «process_ptc_window» : Name := 547
+abbrev «process_epoch» : Name := 548
+abbrev «eth1_data» : Name := 549
+abbrev «eth1_data_votes» : Name := 550
+abbrev «EPOCHS_PER_ETH1_VOTING_PERIOD» : Name := 551
+abbrev «next_epoch» : Name := 552
+abbrev «Eth1DataVotes» : Name := 553
+abbrev «signed_bid» : Name := 554
+abbrev «bid» : Name := 555
+abbrev «BUILDER_INDEX_SELF_BUILD» : Name := 556
+abbrev «bls.G2_POINT_AT_INFINITY» : Name := 557
+abbrev «verify_execution_payload_bid_signature» : Name := 558
+abbrev «max_blobs_per_block» : Name := 559
+abbrev «blob_kzg_commitments» : Name := 560
+abbrev «GENESIS_SLOT» : Name := 561
+abbrev «parent_block_hash» : Name := 562
+abbrev «parent_block_root» : Name := 563
+abbrev «prev_randao» : Name := 564
+abbrev «pending_payment» : Name := 565
+abbrev «historical_summary» : Name := 566
+abbrev «block_summary_root» : Name := 567
+abbrev «state_summary_root» : Name := 568
+abbrev «state_roots» : Name := 569
+abbrev «HistoricalSummary» : Name := 570
+abbrev «historical_summaries» : Name := 571
+abbrev «GENESIS_EPOCH» : Name := 572
+abbrev «INACTIVITY_SCORE_RECOVERY_RATE» : Name := 573
+abbrev «previous_indices» : Name := 574
+abbrev «current_indices» : Name := 575
+abbrev «total_active_balance» : Name := 576
+abbrev «previous_target_balance» : Name := 577
+abbrev «current_target_balance» : Name := 578
+abbrev «weigh_justification_and_finalization» : Name := 579
+abbrev «args» : Name := 580
+abbrev «MAX_PROPOSER_SLASHINGS» : Name := 581
+abbrev «proposer_slashings» : Name := 582
+abbrev «MAX_ATTESTER_SLASHINGS_ELECTRA» : Name := 583
+abbrev «attester_slashings» : Name := 584
+abbrev «MAX_ATTESTATIONS_ELECTRA» : Name := 585
+abbrev «attestations» : Name := 586
+abbrev «MAX_VOLUNTARY_EXITS» : Name := 587
+abbrev «voluntary_exits» : Name := 588
+abbrev «MAX_BLS_TO_EXECUTION_CHANGES» : Name := 589
+abbrev «bls_to_execution_changes» : Name := 590
+abbrev «MAX_PAYLOAD_ATTESTATIONS» : Name := 591
+abbrev «payload_attestations» : Name := 592
+abbrev «process_proposer_slashing» : Name := 593
+abbrev «process_voluntary_exit» : Name := 594
+abbrev «process_payload_attestation» : Name := 595
+abbrev «parent_execution_requests» : Name := 596
+abbrev «ExecutionRequests» : Name := 597
+abbrev «execution_requests_root» : Name := 598
+abbrev «EpochParticipation» : Name := 599
+abbrev «indexed_payload_attestation» : Name := 600
+abbrev «next_pending_consolidation» : Name := 601
+abbrev «pending_consolidation» : Name := 602
+abbrev «source_effective_balance» : Name := 603
+abbrev «available_for_processing» : Name := 604
+abbrev «deposit_balance_to_consume» : Name := 605
+abbrev «processed_amount» : Name := 606
+abbrev «next_deposit_index» : Name := 607
+abbrev «deposits_to_postpone» : Name := 608
+abbrev «is_churn_limit_reached» : Name := 609
+abbrev «finalized_slot» : Name := 610
+abbrev «MAX_PENDING_DEPOSITS_PER_EPOCH» : Name := 611
+abbrev «is_validator_exited» : Name := 612
+abbrev «is_validator_withdrawn» : Name := 613
+abbrev «last_epoch_start» : Name := 614
+abbrev «last_epoch_proposers» : Name := 615
+abbrev «proposer_slashing» : Name := 616
+abbrev «header_1» : Name := 617
+abbrev «signed_header_1» : Name := 618
+abbrev «header_2» : Name := 619
+abbrev «signed_header_2» : Name := 620
+abbrev «signed_header» : Name := 621
+abbrev «proposal_epoch» : Name := 622
+abbrev «DOMAIN_RANDAO» : Name := 623
+abbrev «randao_reveal» : Name := 624
+abbrev «xor» : Name := 625
+abbrev «EJECTION_BALANCE» : Name := 626
+abbrev «flag_deltas» : Name := 627
+abbrev «deltas» : Name := 628
+abbrev «total_balance» : Name := 629
+abbrev «adjusted_total_slashing_balance» : Name := 630
+abbrev «slashings» : Name := 631
+abbrev «PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX» : Name := 632
+abbrev «increment» : Name := 633
+abbrev «penalty_per_effective_balance_increment» : Name := 634
+abbrev «EPOCHS_PER_SLASHINGS_VECTOR» : Name := 635
+abbrev «effective_balance_increments» : Name := 636
+abbrev «penalty» : Name := 637
+abbrev «previous_state_root» : Name := 638
+abbrev «previous_block_root» : Name := 639
+abbrev «next_slot_index» : Name := 640
+abbrev «process_slot» : Name := 641
+abbrev «process_slots» : Name := 642
+abbrev «committee_pubkeys» : Name := 643
+abbrev «current_sync_committee» : Name := 644
+abbrev «sync_committee_bits» : Name := 645
+abbrev «participant_pubkeys» : Name := 646
+abbrev «non_participant_pubkeys» : Name := 647
+abbrev «strict» : Name := 648
+abbrev «zip» : Name := 649
+abbrev «non_participant_aggregate» : Name := 650
+abbrev «participant_pubkey» : Name := 651
+abbrev «bytes48_to_G1» : Name := 652
+abbrev «neg» : Name := 653
+abbrev «add» : Name := 654
+abbrev «G1_to_bytes48» : Name := 655
+abbrev «BLSPubkey» : Name := 656
+abbrev «previous_slot» : Name := 657
+abbrev «sync_committee_signature» : Name := 658
+abbrev «total_active_increments» : Name := 659
+abbrev «total_base_rewards» : Name := 660
+abbrev «max_participant_rewards» : Name := 661
+abbrev «SYNC_REWARD_WEIGHT» : Name := 662
+abbrev «participant_reward» : Name := 663
+abbrev «all_pubkeys» : Name := 664
+abbrev «participant_index» : Name := 665
+abbrev «participation_bit» : Name := 666
+abbrev «EPOCHS_PER_SYNC_COMMITTEE_PERIOD» : Name := 667
+abbrev «next_sync_committee» : Name := 668
+abbrev «signed_voluntary_exit» : Name := 669
+abbrev «voluntary_exit» : Name := 670
+abbrev «DOMAIN_VOLUNTARY_EXIT» : Name := 671
+abbrev «CAPELLA_FORK_VERSION» : Name := 672
+abbrev «withdrawal_request» : Name := 673
+abbrev «is_full_exit_request» : Name := 674
+abbrev «FULL_EXIT_REQUEST_AMOUNT» : Name := 675
+abbrev «PENDING_PARTIAL_WITHDRAWALS_LIMIT» : Name := 676
+abbrev «request_pubkey» : Name := 677
+abbrev «validator_pubkey» : Name := 678
+abbrev «pending_balance_to_withdraw» : Name := 679
+abbrev «to_withdraw» : Name := 680
+abbrev «PendingPartialWithdrawal» : Name := 681
+abbrev «expected» : Name := 682
+abbrev «update_next_withdrawal_index» : Name := 683
+abbrev «update_payload_expected_withdrawals» : Name := 684
+abbrev «update_builder_pending_withdrawals» : Name := 685
+abbrev «update_pending_partial_withdrawals» : Name := 686
+abbrev «update_next_withdrawal_builder_index» : Name := 687
+abbrev «update_next_withdrawal_validator_index» : Name := 688
+abbrev «excess_balance» : Name := 689
+abbrev «queue_excess_active_balance» : Name := 690
+abbrev «a» : Name := 691
+abbrev «slashed_index» : Name := 692
+abbrev «whistleblower_index» : Name := 693
+abbrev «slashing_penalty» : Name := 694
+abbrev «MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA» : Name := 695
+abbrev «whistleblower_reward» : Name := 696
+abbrev «WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA» : Name := 697
+abbrev «signed_block» : Name := 698
+abbrev «validate_result» : Name := 699
+abbrev «verify_block_signature» : Name := 700
+abbrev «state_transition» : Name := 701
+abbrev «ssz_serialize» : Name := 702
+abbrev «next_builder_index» : Name := 703
+abbrev «latest_withdrawal» : Name := 704
+abbrev «next_validator_index» : Name := 705
+abbrev «payload_expected_withdrawals» : Name := 706
+abbrev «Withdrawals» : Name := 707
+abbrev «pre» : Name := 708
+abbrev «fulu» : Name := 709
+abbrev «post» : Name := 710
+abbrev «genesis_time» : Name := 711
+abbrev «GLOAS_FORK_VERSION» : Name := 712
+abbrev «Fork» : Name := 713
+abbrev «historical_roots» : Name := 714
+abbrev «eth1_deposit_index» : Name := 715
+abbrev «Validators» : Name := 716
+abbrev «Balances» : Name := 717
+abbrev «justification_bits» : Name := 718
+abbrev «InactivityScores» : Name := 719
+abbrev «latest_execution_payload_header» : Name := 720
+abbrev «deposit_requests_start_index» : Name := 721
+abbrev «PendingPartialWithdrawals» : Name := 722
+abbrev «PendingConsolidations» : Name := 723
+abbrev «Builders» : Name := 724
+abbrev «ExecutionPayloadAvailability» : Name := 725
+abbrev «BuilderPendingPayments» : Name := 726
+abbrev «BuilderPendingWithdrawals» : Name := 727
+abbrev «parent_hash» : Name := 728
+abbrev «gas_limit» : Name := 729
+abbrev «execution_payment» : Name := 730
+abbrev «BlobKZGCommitments» : Name := 731
+abbrev «ExecutionPayloadBid» : Name := 732
+abbrev «BeaconState» : Name := 733
+abbrev «upgrade_to_gloas» : Name := 734
+abbrev «DOMAIN_BEACON_BUILDER» : Name := 735
+abbrev «previous_epoch_target_balance» : Name := 736
+abbrev «current_epoch_target_balance» : Name := 737
+abbrev «old_previous_justified_checkpoint» : Name := 738
+abbrev «old_current_justified_checkpoint» : Name := 739
+abbrev «JUSTIFICATION_BITS_LENGTH» : Name := 740
+abbrev «Checkpoint» : Name := 741
+abbrev «all» : Name := 742
+abbrev «bytes_1» : Name := 743
+abbrev «bytes_2» : Name := 744
+abbrev «Version» : Name := 745
+abbrev «DomainType» : Name := 746
+abbrev «BLSSignature» : Name := 747
+abbrev «WithdrawalIndex» : Name := 748
+abbrev «processed_sweep_withdrawals_count» : Name := 749
+abbrev «AttestationData» : Name := 750
+abbrev «payload_present» : Name := 751
+abbrev «blob_data_available» : Name := 752
+abbrev «PayloadAttestationData» : Name := 753
+abbrev «AggregatePKs» : Name := 754
+abbrev «Bytes1» : Name := 755
+abbrev «deposit_root» : Name := 756
+abbrev «deposit_count» : Name := 757
+abbrev «Hash32» : Name := 758
+abbrev «Eth1Data» : Name := 759
+abbrev «DepositRequest» : Name := 760
+abbrev «WithdrawalRequest» : Name := 761
+abbrev «ConsolidationRequest» : Name := 762
+abbrev «BuilderDepositRequest» : Name := 763
+abbrev «BuilderExitRequest» : Name := 764
+abbrev «KZGCommitment» : Name := 765
+abbrev «graffiti» : Name := 766
+abbrev «SignedBeaconBlockHeader» : Name := 767
+abbrev «ProposerSlashing» : Name := 768
+abbrev «AttesterSlashing» : Name := 769
+abbrev «Attestation» : Name := 770
+abbrev «proof» : Name := 771
+abbrev «DepositData» : Name := 772
+abbrev «Deposit» : Name := 773
+abbrev «VoluntaryExit» : Name := 774
+abbrev «SignedVoluntaryExit» : Name := 775
+abbrev «SyncAggregate» : Name := 776
+abbrev «BLSToExecutionChange» : Name := 777
+abbrev «SignedBLSToExecutionChange» : Name := 778
+abbrev «SignedExecutionPayloadBid» : Name := 779
+abbrev «PayloadAttestation» : Name := 780
+abbrev «BeaconBlockBody» : Name := 781
+abbrev «BeaconBlock» : Name := 782
+abbrev «SignedBeaconBlock» : Name := 783
+abbrev «receipts_root» : Name := 784
+abbrev «logs_bloom» : Name := 785
+abbrev «LogsBloom» : Name := 786
+abbrev «block_number» : Name := 787
+abbrev «gas_used» : Name := 788
+abbrev «timestamp» : Name := 789
+abbrev «extra_data» : Name := 790
+abbrev «base_fee_per_gas» : Name := 791
+abbrev «transactions_root» : Name := 792
+abbrev «withdrawals_root» : Name := 793
+abbrev «blob_gas_used» : Name := 794
+abbrev «excess_blob_gas» : Name := 795
+abbrev «fulu.ExecutionPayloadHeader» : Name := 796
+abbrev «fulu.BeaconState» : Name := 797
+abbrev «*» : Name := 798
+abbrev «copy» : Name := 799
+abbrev «get» : Name := 800
+abbrev «dict» : Name := 801
 end Id
 
 open SpecLean
@@ -2266,38 +2332,6 @@ def fn_decrease_balance : FunctionDef where
   body := [
     (.assign 1657 [(.index 1657 (.attr 1657 (.name 1657 1) 28) (.name 1657 23))] (.call 1657 (.name 1657 88) [(.pos (.index 1657 (.attr 1657 (.name 1657 1) 28) (.name 1657 23))), (.pos (.name 1657 200))]))]
 
-/-- `specs/altair/bls.md:36`
-```python
-def eth_aggregate_pubkeys(pubkeys: Sequence[BLSPubkey]) -> BLSPubkey:
-    """
-    Return the aggregate public key for the public keys in ``pubkeys``.
-
-    Note: the ``+`` operation should be interpreted as elliptic curve point addition, which takes as input
-    elliptic curve points that must be decoded from the input ``BLSPubkey``s.
-    This implementation is for demonstrative purposes only and ignores encoding/decoding concerns.
-    Refer to the BLS signature draft standard for more information.
-    """
-    assert len(pubkeys) > 0
-    # Ensure that the given inputs are valid pubkeys
-    assert all(bls.KeyValidate(pubkey) for pubkey in pubkeys)
-
-    result = pubkeys[0].copy()
-    for pubkey in pubkeys[1:]:
-        result += pubkey
-    return result
-``` -/
-def fn_eth_aggregate_pubkeys : FunctionDef where
-  name := 207
-  params := { names := [201], defaults := [], vararg := none }
-  line := 36
-  body := [
-    (.assert 45 (.compare 45 (.call 45 (.name 45 42) [(.pos (.name 45 201))]) [(.gt, (.int 45 (0)))])),
-    (.assert 47 (.call 47 (.name 47 204) [(.pos (.comp 47 .gen (.call 47 (.attr 47 (.name 47 202) 203) [(.pos (.name 47 2))]) [(.mk (.name 47 2) (.name 47 201) [])]))])),
-    (.assign 49 [(.name 49 205)] (.call 49 (.attr 49 (.index 49 (.name 49 201) (.int 49 (0))) 206) [])),
-    (.forStmt 50 (.name 50 2) (.slice 50 (.name 50 201) (some (.int 50 (1))) none none) [
-      (.augAssign 51 (.name 51 205) .add (.name 51 2))]),
-    (.ret 52 (some (.name 52 205)))]
-
 /-- `specs/altair/bls.md:58`
 ```python
 def eth_fast_aggregate_verify(
@@ -2311,13 +2345,13 @@ def eth_fast_aggregate_verify(
     return bls.FastAggregateVerify(pubkeys, message, signature)
 ``` -/
 def fn_eth_fast_aggregate_verify : FunctionDef where
-  name := 211
-  params := { names := [201, 208, 79], defaults := [], vararg := none }
+  name := 206
+  params := { names := [201, 202, 79], defaults := [], vararg := none }
   line := 58
   body := [
-    (.ifStmt 64 (.boolop 64 .and [(.compare 64 (.call 64 (.name 64 42) [(.pos (.name 64 201))]) [(.eq, (.int 64 (0)))]), (.compare 64 (.name 64 79) [(.eq, (.name 64 209))])]) [
+    (.ifStmt 64 (.boolop 64 .and [(.compare 64 (.call 64 (.name 64 42) [(.pos (.name 64 201))]) [(.eq, (.int 64 (0)))]), (.compare 64 (.name 64 79) [(.eq, (.name 64 203))])]) [
       (.ret 65 (some (.bool 65 true)))] []),
-    (.ret 66 (some (.call 66 (.attr 66 (.name 66 202) 210) [(.pos (.name 66 201)), (.pos (.name 66 208)), (.pos (.name 66 79))])))]
+    (.ret 66 (some (.call 66 (.attr 66 (.name 66 204) 205) [(.pos (.name 66 201)), (.pos (.name 66 202)), (.pos (.name 66 79))])))]
 
 /-- `specs/gloas/beacon-chain.md:1443`
 ```python
@@ -2334,13 +2368,13 @@ def get_activation_churn_limit(state: BeaconState) -> Gwei:
     return min(MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS, churn)
 ``` -/
 def fn_get_activation_churn_limit : FunctionDef where
-  name := 219
+  name := 214
   params := { names := [1], defaults := [], vararg := none }
   line := 1443
   body := [
-    (.assign 1448 [(.name 1448 212)] (.call 1448 (.name 1448 134) [(.pos (.name 1449 213)), (.pos (.binop 1450 .floorDiv (.call 1450 (.name 1450 214) [(.pos (.name 1450 1))]) (.name 1450 215)))])),
-    (.assign 1452 [(.name 1452 212)] (.binop 1452 .sub (.name 1452 212) (.binop 1452 .mod (.name 1452 212) (.name 1452 216)))),
-    (.ret 1453 (some (.call 1453 (.name 1453 218) [(.pos (.name 1453 217)), (.pos (.name 1453 212))])))]
+    (.assign 1448 [(.name 1448 207)] (.call 1448 (.name 1448 134) [(.pos (.name 1449 208)), (.pos (.binop 1450 .floorDiv (.call 1450 (.name 1450 209) [(.pos (.name 1450 1))]) (.name 1450 210)))])),
+    (.assign 1452 [(.name 1452 207)] (.binop 1452 .sub (.name 1452 207) (.binop 1452 .mod (.name 1452 207) (.name 1452 211)))),
+    (.ret 1453 (some (.call 1453 (.name 1453 213) [(.pos (.name 1453 212)), (.pos (.name 1453 207))])))]
 
 /-- `specs/phase0/beacon-chain.md:1469`
 ```python
@@ -2353,11 +2387,11 @@ def get_active_validator_indices(state: BeaconState, epoch: Epoch) -> Sequence[V
     ]
 ``` -/
 def fn_get_active_validator_indices : FunctionDef where
-  name := 222
+  name := 217
   params := { names := [1, 103], defaults := [], vararg := none }
   line := 1469
   body := [
-    (.ret 1473 (some (.comp 1473 .list (.call 1474 (.name 1474 82) [(.pos (.name 1474 115))]) [(.mk (.tuple 1474 [(.name 1474 115), (.name 1474 78)]) (.call 1474 (.name 1474 221) [(.pos (.attr 1474 (.name 1474 1) 27))]) [(.call 1474 (.name 1474 220) [(.pos (.name 1474 78)), (.pos (.name 1474 103))])])])))]
+    (.ret 1473 (some (.comp 1473 .list (.call 1474 (.name 1474 82) [(.pos (.name 1474 115))]) [(.mk (.tuple 1474 [(.name 1474 115), (.name 1474 78)]) (.call 1474 (.name 1474 216) [(.pos (.attr 1474 (.name 1474 1) 27))]) [(.call 1474 (.name 1474 215) [(.pos (.name 1474 78)), (.pos (.name 1474 103))])])])))]
 
 /-- `specs/gloas/beacon-chain.md:1339`
 ```python
@@ -2411,35 +2445,35 @@ def get_attestation_participation_flag_indices(
     return participation_flag_indices
 ``` -/
 def fn_get_attestation_participation_flag_indices : FunctionDef where
-  name := 249
-  params := { names := [1, 91, 223, 37], defaults := [], vararg := none }
+  name := 244
+  params := { names := [1, 91, 218, 37], defaults := [], vararg := none }
   line := 1339
   body := [
-    (.ifStmt 1350 (.compare 1350 (.attr 1350 (.attr 1350 (.name 1350 91) 224) 103) [(.eq, (.call 1350 (.name 1350 59) [(.pos (.name 1350 1))]))]) [
-      (.assign 1351 [(.name 1351 225)] (.attr 1351 (.name 1351 1) 226))] [
-      (.assign 1353 [(.name 1353 225)] (.attr 1353 (.name 1353 1) 227))]),
-    (.assign 1354 [(.name 1354 228)] (.compare 1354 (.attr 1354 (.name 1354 91) 188) [(.eq, (.name 1354 225))])),
-    (.assign 1357 [(.name 1357 229)] (.call 1357 (.name 1357 230) [(.pos (.name 1357 1)), (.pos (.attr 1357 (.attr 1357 (.name 1357 91) 224) 103))])),
-    (.assign 1358 [(.name 1358 231)] (.compare 1358 (.attr 1358 (.attr 1358 (.name 1358 91) 224) 232) [(.eq, (.name 1358 229))])),
-    (.assign 1359 [(.name 1359 233)] (.boolop 1359 .and [(.name 1359 228), (.name 1359 231)])),
-    (.ifStmt 1362 (.call 1362 (.name 1362 234) [(.pos (.name 1362 1)), (.pos (.name 1362 91))]) [
+    (.ifStmt 1350 (.compare 1350 (.attr 1350 (.attr 1350 (.name 1350 91) 219) 103) [(.eq, (.call 1350 (.name 1350 59) [(.pos (.name 1350 1))]))]) [
+      (.assign 1351 [(.name 1351 220)] (.attr 1351 (.name 1351 1) 221))] [
+      (.assign 1353 [(.name 1353 220)] (.attr 1353 (.name 1353 1) 222))]),
+    (.assign 1354 [(.name 1354 223)] (.compare 1354 (.attr 1354 (.name 1354 91) 188) [(.eq, (.name 1354 220))])),
+    (.assign 1357 [(.name 1357 224)] (.call 1357 (.name 1357 225) [(.pos (.name 1357 1)), (.pos (.attr 1357 (.attr 1357 (.name 1357 91) 219) 103))])),
+    (.assign 1358 [(.name 1358 226)] (.compare 1358 (.attr 1358 (.attr 1358 (.name 1358 91) 219) 227) [(.eq, (.name 1358 224))])),
+    (.assign 1359 [(.name 1359 228)] (.boolop 1359 .and [(.name 1359 223), (.name 1359 226)])),
+    (.ifStmt 1362 (.call 1362 (.name 1362 229) [(.pos (.name 1362 1)), (.pos (.name 1362 91))]) [
       (.assert 1363 (.compare 1363 (.attr 1363 (.name 1363 91) 23) [(.eq, (.int 1363 (0)))])),
-      (.assign 1364 [(.name 1364 235)] (.bool 1364 true))] [
-      (.assign 1366 [(.name 1366 236)] (.binop 1366 .mod (.name 1366 37) (.name 1366 71))),
-      (.assign 1367 [(.name 1367 237)] (.index 1367 (.attr 1367 (.name 1367 1) 70) (.name 1367 236))),
-      (.assign 1368 [(.name 1368 235)] (.compare 1368 (.call 1368 (.name 1368 32) [(.pos (.attr 1368 (.name 1368 91) 23))]) [(.eq, (.call 1368 (.name 1368 32) [(.pos (.name 1368 237))]))]))]),
-    (.assign 1371 [(.name 1371 238)] (.call 1371 (.name 1371 239) [(.pos (.name 1371 1)), (.pos (.attr 1371 (.name 1371 91) 6))])),
-    (.assign 1372 [(.name 1372 240)] (.compare 1372 (.attr 1372 (.name 1372 91) 241) [(.eq, (.name 1372 238))])),
-    (.assign 1374 [(.name 1374 242)] (.boolop 1374 .and [(.name 1374 233), (.name 1374 240), (.name 1374 235)])),
-    (.assert 1376 (.name 1376 228)),
-    (.assign 1378 [(.name 1378 243)] (.list 1378 [])),
-    (.ifStmt 1379 (.boolop 1379 .and [(.name 1379 228), (.compare 1379 (.name 1379 223) [(.ltE, (.call 1379 (.name 1379 244) [(.pos (.name 1379 61))]))])]) [
-      (.exprStmt 1380 (.call 1380 (.attr 1380 (.name 1380 243) 69) [(.pos (.name 1380 245))]))] []),
-    (.ifStmt 1381 (.name 1381 233) [
-      (.exprStmt 1382 (.call 1382 (.attr 1382 (.name 1382 243) 69) [(.pos (.name 1382 246))]))] []),
-    (.ifStmt 1383 (.boolop 1383 .and [(.name 1383 242), (.compare 1383 (.name 1383 223) [(.eq, (.name 1383 247))])]) [
-      (.exprStmt 1384 (.call 1384 (.attr 1384 (.name 1384 243) 69) [(.pos (.name 1384 248))]))] []),
-    (.ret 1386 (some (.name 1386 243)))]
+      (.assign 1364 [(.name 1364 230)] (.bool 1364 true))] [
+      (.assign 1366 [(.name 1366 231)] (.binop 1366 .mod (.name 1366 37) (.name 1366 71))),
+      (.assign 1367 [(.name 1367 232)] (.index 1367 (.attr 1367 (.name 1367 1) 70) (.name 1367 231))),
+      (.assign 1368 [(.name 1368 230)] (.compare 1368 (.call 1368 (.name 1368 32) [(.pos (.attr 1368 (.name 1368 91) 23))]) [(.eq, (.call 1368 (.name 1368 32) [(.pos (.name 1368 232))]))]))]),
+    (.assign 1371 [(.name 1371 233)] (.call 1371 (.name 1371 234) [(.pos (.name 1371 1)), (.pos (.attr 1371 (.name 1371 91) 6))])),
+    (.assign 1372 [(.name 1372 235)] (.compare 1372 (.attr 1372 (.name 1372 91) 236) [(.eq, (.name 1372 233))])),
+    (.assign 1374 [(.name 1374 237)] (.boolop 1374 .and [(.name 1374 228), (.name 1374 235), (.name 1374 230)])),
+    (.assert 1376 (.name 1376 223)),
+    (.assign 1378 [(.name 1378 238)] (.list 1378 [])),
+    (.ifStmt 1379 (.boolop 1379 .and [(.name 1379 223), (.compare 1379 (.name 1379 218) [(.ltE, (.call 1379 (.name 1379 239) [(.pos (.name 1379 61))]))])]) [
+      (.exprStmt 1380 (.call 1380 (.attr 1380 (.name 1380 238) 69) [(.pos (.name 1380 240))]))] []),
+    (.ifStmt 1381 (.name 1381 228) [
+      (.exprStmt 1382 (.call 1382 (.attr 1382 (.name 1382 238) 69) [(.pos (.name 1382 241))]))] []),
+    (.ifStmt 1383 (.boolop 1383 .and [(.name 1383 237), (.compare 1383 (.name 1383 218) [(.eq, (.name 1383 242))])]) [
+      (.exprStmt 1384 (.call 1384 (.attr 1384 (.name 1384 238) 69) [(.pos (.name 1384 243))]))] []),
+    (.ret 1386 (some (.name 1386 238)))]
 
 /-- `specs/electra/beacon-chain.md:801`
 ```python
@@ -2464,19 +2498,19 @@ def get_attesting_indices(state: BeaconState, attestation: Attestation) -> set[V
     return output
 ``` -/
 def fn_get_attesting_indices : FunctionDef where
-  name := 262
-  params := { names := [1, 250], defaults := [], vararg := none }
+  name := 257
+  params := { names := [1, 245], defaults := [], vararg := none }
   line := 801
   body := [
-    (.annAssign 805 (.name 805 251) (.call 805 (.name 805 252) [])),
-    (.assign 806 [(.name 806 253)] (.call 806 (.name 806 255) [(.pos (.attr 806 (.name 806 250) 254))])),
-    (.assign 807 [(.name 807 256)] (.int 807 (0))),
-    (.forStmt 808 (.name 808 257) (.name 808 253) [
-      (.assign 809 [(.name 809 169)] (.call 809 (.name 809 171) [(.pos (.name 809 1)), (.pos (.attr 809 (.attr 809 (.name 809 250) 91) 6)), (.pos (.name 809 257))])),
-      (.assign 810 [(.name 810 258)] (.comp 810 .set (.name 811 260) [(.mk (.tuple 812 [(.name 812 115), (.name 812 260)]) (.call 812 (.name 812 221) [(.pos (.name 812 169))]) [(.index 813 (.attr 813 (.name 813 250) 259) (.binop 813 .add (.name 813 256) (.name 813 115)))])])),
-      (.assign 815 [(.name 815 251)] (.call 815 (.attr 815 (.name 815 251) 261) [(.pos (.name 815 258))])),
-      (.augAssign 817 (.name 817 256) .add (.call 817 (.name 817 42) [(.pos (.name 817 169))]))]),
-    (.ret 819 (some (.name 819 251)))]
+    (.annAssign 805 (.name 805 246) (.call 805 (.name 805 247) [])),
+    (.assign 806 [(.name 806 248)] (.call 806 (.name 806 250) [(.pos (.attr 806 (.name 806 245) 249))])),
+    (.assign 807 [(.name 807 251)] (.int 807 (0))),
+    (.forStmt 808 (.name 808 252) (.name 808 248) [
+      (.assign 809 [(.name 809 169)] (.call 809 (.name 809 171) [(.pos (.name 809 1)), (.pos (.attr 809 (.attr 809 (.name 809 245) 91) 6)), (.pos (.name 809 252))])),
+      (.assign 810 [(.name 810 253)] (.comp 810 .set (.name 811 255) [(.mk (.tuple 812 [(.name 812 115), (.name 812 255)]) (.call 812 (.name 812 216) [(.pos (.name 812 169))]) [(.index 813 (.attr 813 (.name 813 245) 254) (.binop 813 .add (.name 813 251) (.name 813 115)))])])),
+      (.assign 815 [(.name 815 246)] (.call 815 (.attr 815 (.name 815 246) 256) [(.pos (.name 815 253))])),
+      (.augAssign 817 (.name 817 251) .add (.call 817 (.name 817 42) [(.pos (.name 817 169))]))]),
+    (.ret 819 (some (.name 819 246)))]
 
 /-- `specs/capella/beacon-chain.md:411`
 ```python
@@ -2493,12 +2527,12 @@ def get_balance_after_withdrawals(
     return state.balances[validator_index] - withdrawn
 ``` -/
 def fn_get_balance_after_withdrawals : FunctionDef where
-  name := 265
+  name := 260
   params := { names := [1, 81, 41], defaults := [], vararg := none }
   line := 411
   body := [
-    (.assign 416 [(.name 416 263)] (.call 416 (.name 416 264) [(.pos (.comp 416 .gen (.attr 417 (.name 417 85) 5) [(.mk (.name 418 85) (.name 418 41) [(.compare 419 (.attr 419 (.name 419 85) 81) [(.eq, (.name 419 81))])])]))])),
-    (.ret 421 (some (.binop 421 .sub (.index 421 (.attr 421 (.name 421 1) 28) (.name 421 81)) (.name 421 263))))]
+    (.assign 416 [(.name 416 258)] (.call 416 (.name 416 259) [(.pos (.comp 416 .gen (.attr 417 (.name 417 85) 5) [(.mk (.name 418 85) (.name 418 41) [(.compare 419 (.attr 419 (.name 419 85) 81) [(.eq, (.name 419 81))])])]))])),
+    (.ret 421 (some (.binop 421 .sub (.index 421 (.attr 421 (.name 421 1) 28) (.name 421 81)) (.name 421 258))))]
 
 /-- `specs/altair/beacon-chain.md:386`
 ```python
@@ -2510,12 +2544,12 @@ def get_base_reward(state: BeaconState, index: ValidatorIndex) -> Gwei:
     return increments * get_base_reward_per_increment(state)
 ``` -/
 def fn_get_base_reward : FunctionDef where
-  name := 268
+  name := 263
   params := { names := [1, 23], defaults := [], vararg := none }
   line := 386
   body := [
-    (.assign 390 [(.name 390 266)] (.binop 390 .floorDiv (.attr 390 (.index 390 (.attr 390 (.name 390 1) 27) (.name 390 23)) 113) (.name 390 216))),
-    (.ret 391 (some (.binop 391 .mul (.name 391 266) (.call 391 (.name 391 267) [(.pos (.name 391 1))]))))]
+    (.assign 390 [(.name 390 261)] (.binop 390 .floorDiv (.attr 390 (.index 390 (.attr 390 (.name 390 1) 27) (.name 390 23)) 113) (.name 390 211))),
+    (.ret 391 (some (.binop 391 .mul (.name 391 261) (.call 391 (.name 391 262) [(.pos (.name 391 1))]))))]
 
 /-- `specs/altair/beacon-chain.md:369`
 ```python
@@ -2527,11 +2561,11 @@ def get_base_reward_per_increment(state: BeaconState) -> Gwei:
     )
 ``` -/
 def fn_get_base_reward_per_increment : FunctionDef where
-  name := 267
+  name := 262
   params := { names := [1], defaults := [], vararg := none }
   line := 369
   body := [
-    (.ret 370 (some (.call 370 (.name 370 270) [(.pos (.binop 371 .floorDiv (.binop 371 .mul (.name 371 216) (.name 372 269)) (.call 373 (.name 373 244) [(.pos (.call 373 (.name 373 214) [(.pos (.name 373 1))]))])))])))]
+    (.ret 370 (some (.call 370 (.name 370 265) [(.pos (.binop 371 .floorDiv (.binop 371 .mul (.name 371 211) (.name 372 264)) (.call 373 (.name 373 239) [(.pos (.call 373 (.name 373 209) [(.pos (.name 373 1))]))])))])))]
 
 /-- `specs/phase0/beacon-chain.md:1525`
 ```python
@@ -2557,7 +2591,7 @@ def fn_get_beacon_committee : FunctionDef where
   body := [
     (.assign 1531 [(.name 1531 103)] (.call 1531 (.name 1531 11) [(.pos (.name 1531 6))])),
     (.assign 1532 [(.name 1532 167)] (.call 1532 (.name 1532 168) [(.pos (.name 1532 1)), (.pos (.name 1532 103))])),
-    (.ret 1533 (some (.call 1533 (.name 1533 131) [(.kw 106 (.call 1534 (.name 1534 222) [(.pos (.name 1534 1)), (.pos (.name 1534 103))])), (.kw 107 (.call 1535 (.name 1535 166) [(.pos (.name 1535 1)), (.pos (.name 1535 103)), (.pos (.name 1535 271))])), (.kw 23 (.binop 1536 .add (.binop 1536 .mul (.call 1536 (.name 1536 32) [(.pos (.binop 1536 .mod (.name 1536 6) (.name 1536 61)))]) (.name 1536 167)) (.name 1536 23))), (.kw 127 (.binop 1537 .mul (.name 1537 167) (.call 1537 (.name 1537 32) [(.pos (.name 1537 61))])))])))]
+    (.ret 1533 (some (.call 1533 (.name 1533 131) [(.kw 106 (.call 1534 (.name 1534 217) [(.pos (.name 1534 1)), (.pos (.name 1534 103))])), (.kw 107 (.call 1535 (.name 1535 166) [(.pos (.name 1535 1)), (.pos (.name 1535 103)), (.pos (.name 1535 266))])), (.kw 23 (.binop 1536 .add (.binop 1536 .mul (.call 1536 (.name 1536 32) [(.pos (.binop 1536 .mod (.name 1536 6) (.name 1536 61)))]) (.name 1536 167)) (.name 1536 23))), (.kw 127 (.binop 1537 .mul (.name 1537 167) (.call 1537 (.name 1537 32) [(.pos (.name 1537 61))])))])))]
 
 /-- `specs/fulu/beacon-chain.md:362`
 ```python
@@ -2568,11 +2602,11 @@ def get_beacon_proposer_index(state: BeaconState) -> ValidatorIndex:
     return state.proposer_lookahead[state.slot % SLOTS_PER_EPOCH]
 ``` -/
 def fn_get_beacon_proposer_index : FunctionDef where
-  name := 273
+  name := 268
   params := { names := [1], defaults := [], vararg := none }
   line := 362
   body := [
-    (.ret 366 (some (.index 366 (.attr 366 (.name 366 1) 272) (.binop 366 .mod (.attr 366 (.name 366 1) 6) (.name 366 61)))))]
+    (.ret 366 (some (.index 366 (.attr 366 (.name 366 1) 267) (.binop 366 .mod (.attr 366 (.name 366 1) 6) (.name 366 61)))))]
 
 /-- `specs/gloas/beacon-chain.md:1294`
 ```python
@@ -2590,12 +2624,12 @@ def get_beacon_proposer_indices(state: BeaconState, epoch: Epoch) -> ProposerInd
     return compute_proposer_indices(state, epoch, seed, indices)
 ``` -/
 def fn_get_beacon_proposer_indices : FunctionDef where
-  name := 276
+  name := 271
   params := { names := [1, 103], defaults := [], vararg := none }
   line := 1294
   body := [
-    (.assign 1299 [(.name 1299 106)] (.comp 1299 .list (.name 1300 23) [(.mk (.name 1301 23) (.call 1301 (.name 1301 222) [(.pos (.name 1301 1)), (.pos (.name 1301 103))]) [(.unop 1302 .not (.attr 1302 (.index 1302 (.attr 1302 (.name 1302 1) 27) (.name 1302 23)) 274))])])),
-    (.assign 1304 [(.name 1304 107)] (.call 1304 (.name 1304 166) [(.pos (.name 1304 1)), (.pos (.name 1304 103)), (.pos (.name 1304 275))])),
+    (.assign 1299 [(.name 1299 106)] (.comp 1299 .list (.name 1300 23) [(.mk (.name 1301 23) (.call 1301 (.name 1301 217) [(.pos (.name 1301 1)), (.pos (.name 1301 103))]) [(.unop 1302 .not (.attr 1302 (.index 1302 (.attr 1302 (.name 1302 1) 27) (.name 1302 23)) 269))])])),
+    (.assign 1304 [(.name 1304 107)] (.call 1304 (.name 1304 166) [(.pos (.name 1304 1)), (.pos (.name 1304 103)), (.pos (.name 1304 270))])),
     (.ret 1305 (some (.call 1305 (.name 1305 164) [(.pos (.name 1305 1)), (.pos (.name 1305 103)), (.pos (.name 1305 107)), (.pos (.name 1305 106))])))]
 
 /-- `specs/fulu/beacon-chain.md:293`
@@ -2610,14 +2644,14 @@ def get_blob_parameters(epoch: Epoch) -> BlobParameters:
     return BlobParameters(ELECTRA_FORK_EPOCH, MAX_BLOBS_PER_BLOCK_ELECTRA)
 ``` -/
 def fn_get_blob_parameters : FunctionDef where
-  name := 286
+  name := 281
   params := { names := [103], defaults := [], vararg := none }
   line := 293
   body := [
-    (.forStmt 297 (.name 297 277) (.call 297 (.name 297 282) [(.pos (.name 297 278)), (.kw 279 (.lambda 297 [280] (.index 297 (.name 297 280) (.str 297 "EPOCH")))), (.kw 281 (.bool 297 true))]) [
-      (.ifStmt 298 (.compare 298 (.name 298 103) [(.gtE, (.index 298 (.name 298 277) (.str 298 "EPOCH")))]) [
-        (.ret 299 (some (.call 299 (.name 299 283) [(.pos (.index 299 (.name 299 277) (.str 299 "EPOCH"))), (.pos (.index 299 (.name 299 277) (.str 299 "MAX_BLOBS_PER_BLOCK")))])))] [])]),
-    (.ret 300 (some (.call 300 (.name 300 283) [(.pos (.name 300 284)), (.pos (.name 300 285))])))]
+    (.forStmt 297 (.name 297 272) (.call 297 (.name 297 277) [(.pos (.name 297 273)), (.kw 274 (.lambda 297 [275] (.index 297 (.name 297 275) (.str 297 "EPOCH")))), (.kw 276 (.bool 297 true))]) [
+      (.ifStmt 298 (.compare 298 (.name 298 103) [(.gtE, (.index 298 (.name 298 272) (.str 298 "EPOCH")))]) [
+        (.ret 299 (some (.call 299 (.name 299 278) [(.pos (.index 299 (.name 299 272) (.str 299 "EPOCH"))), (.pos (.index 299 (.name 299 272) (.str 299 "MAX_BLOBS_PER_BLOCK")))])))] [])]),
+    (.ret 300 (some (.call 300 (.name 300 278) [(.pos (.name 300 279)), (.pos (.name 300 280))])))]
 
 /-- `specs/phase0/beacon-chain.md:1438`
 ```python
@@ -2628,11 +2662,11 @@ def get_block_root(state: BeaconState, epoch: Epoch) -> Root:
     return get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 ``` -/
 def fn_get_block_root : FunctionDef where
-  name := 230
+  name := 225
   params := { names := [1, 103], defaults := [], vararg := none }
   line := 1438
   body := [
-    (.ret 1442 (some (.call 1442 (.name 1442 239) [(.pos (.name 1442 1)), (.pos (.call 1442 (.name 1442 161) [(.pos (.name 1442 103))]))])))]
+    (.ret 1442 (some (.call 1442 (.name 1442 234) [(.pos (.name 1442 1)), (.pos (.call 1442 (.name 1442 161) [(.pos (.name 1442 103))]))])))]
 
 /-- `specs/phase0/beacon-chain.md:1448`
 ```python
@@ -2644,12 +2678,12 @@ def get_block_root_at_slot(state: BeaconState, slot: Slot) -> Root:
     return state.block_roots[slot % SLOTS_PER_HISTORICAL_ROOT]
 ``` -/
 def fn_get_block_root_at_slot : FunctionDef where
-  name := 239
+  name := 234
   params := { names := [1, 6], defaults := [], vararg := none }
   line := 1448
   body := [
     (.assert 1452 (.compare 1452 (.name 1452 6) [(.lt, (.attr 1452 (.name 1452 1) 6)), (.ltE, (.binop 1452 .add (.name 1452 6) (.name 1452 71)))])),
-    (.ret 1453 (some (.index 1453 (.attr 1453 (.name 1453 1) 287) (.binop 1453 .mod (.name 1453 6) (.name 1453 71)))))]
+    (.ret 1453 (some (.index 1453 (.attr 1453 (.name 1453 1) 282) (.binop 1453 .mod (.name 1453 6) (.name 1453 71)))))]
 
 /-- `specs/gloas/beacon-chain.md:1431`
 ```python
@@ -2662,13 +2696,13 @@ def get_builder_payment_quorum_threshold(state: BeaconState) -> Gwei:
     return quorum // BUILDER_PAYMENT_THRESHOLD_DENOMINATOR
 ``` -/
 def fn_get_builder_payment_quorum_threshold : FunctionDef where
-  name := 292
+  name := 287
   params := { names := [1], defaults := [], vararg := none }
   line := 1431
   body := [
-    (.assign 1435 [(.name 1435 288)] (.binop 1435 .floorDiv (.call 1435 (.name 1435 214) [(.pos (.name 1435 1))]) (.call 1435 (.name 1435 32) [(.pos (.name 1435 61))]))),
-    (.assign 1436 [(.name 1436 289)] (.binop 1436 .mul (.name 1436 288) (.name 1436 290))),
-    (.ret 1437 (some (.binop 1437 .floorDiv (.name 1437 289) (.name 1437 291))))]
+    (.assign 1435 [(.name 1435 283)] (.binop 1435 .floorDiv (.call 1435 (.name 1435 209) [(.pos (.name 1435 1))]) (.call 1435 (.name 1435 32) [(.pos (.name 1435 61))]))),
+    (.assign 1436 [(.name 1436 284)] (.binop 1436 .mul (.name 1436 283) (.name 1436 285))),
+    (.ret 1437 (some (.binop 1437 .floorDiv (.name 1437 284) (.name 1437 286))))]
 
 /-- `specs/gloas/beacon-chain.md:1820`
 ```python
@@ -2703,24 +2737,24 @@ def get_builder_withdrawals(
     return withdrawals, withdrawal_index, processed_count
 ``` -/
 def fn_get_builder_withdrawals : FunctionDef where
-  name := 303
-  params := { names := [1, 293, 294], defaults := [], vararg := none }
+  name := 298
+  params := { names := [1, 288, 289], defaults := [], vararg := none }
   line := 1820
   body := [
-    (.assign 1825 [(.name 1825 295)] (.binop 1825 .sub (.name 1825 296) (.int 1825 (1)))),
-    (.assert 1826 (.compare 1826 (.call 1826 (.name 1826 42) [(.pos (.name 1826 294))]) [(.ltE, (.name 1826 295))])),
-    (.assign 1828 [(.name 1828 297)] (.call 1828 (.name 1828 32) [(.pos (.int 1828 (0)))])),
+    (.assign 1825 [(.name 1825 290)] (.binop 1825 .sub (.name 1825 291) (.int 1825 (1)))),
+    (.assert 1826 (.compare 1826 (.call 1826 (.name 1826 42) [(.pos (.name 1826 289))]) [(.ltE, (.name 1826 290))])),
+    (.assign 1828 [(.name 1828 292)] (.call 1828 (.name 1828 32) [(.pos (.int 1828 (0)))])),
     (.annAssign 1829 (.name 1829 41) (.list 1829 [])),
     (.forStmt 1830 (.name 1830 85) (.attr 1830 (.name 1830 1) 68) [
-      (.assign 1831 [(.name 1831 298)] (.binop 1831 .add (.call 1831 (.name 1831 299) [(.pos (.name 1831 294))]) (.name 1831 41))),
-      (.assign 1832 [(.name 1832 300)] (.compare 1832 (.call 1832 (.name 1832 42) [(.pos (.name 1832 298))]) [(.gtE, (.name 1832 295))])),
-      (.ifStmt 1833 (.name 1833 300) [
+      (.assign 1831 [(.name 1831 293)] (.binop 1831 .add (.call 1831 (.name 1831 294) [(.pos (.name 1831 289))]) (.name 1831 41))),
+      (.assign 1832 [(.name 1832 295)] (.compare 1832 (.call 1832 (.name 1832 42) [(.pos (.name 1832 293))]) [(.gtE, (.name 1832 290))])),
+      (.ifStmt 1833 (.name 1833 295) [
         (.brk 1834)] []),
       (.assign 1836 [(.name 1836 66)] (.attr 1836 (.name 1836 85) 66)),
-      (.exprStmt 1837 (.call 1837 (.attr 1837 (.name 1837 41) 69) [(.pos (.call 1838 (.name 1838 302) [(.kw 23 (.name 1839 293)), (.kw 81 (.call 1840 (.name 1840 198) [(.pos (.name 1840 66))])), (.kw 301 (.attr 1841 (.name 1841 85) 65)), (.kw 5 (.attr 1842 (.name 1842 85) 5))]))])),
-      (.augAssign 1845 (.name 1845 293) .add (.int 1845 (1))),
-      (.augAssign 1846 (.name 1846 297) .add (.int 1846 (1)))]),
-    (.ret 1848 (some (.tuple 1848 [(.name 1848 41), (.name 1848 293), (.name 1848 297)])))]
+      (.exprStmt 1837 (.call 1837 (.attr 1837 (.name 1837 41) 69) [(.pos (.call 1838 (.name 1838 297) [(.kw 23 (.name 1839 288)), (.kw 81 (.call 1840 (.name 1840 198) [(.pos (.name 1840 66))])), (.kw 296 (.attr 1841 (.name 1841 85) 65)), (.kw 5 (.attr 1842 (.name 1842 85) 5))]))])),
+      (.augAssign 1845 (.name 1845 288) .add (.int 1845 (1))),
+      (.augAssign 1846 (.name 1846 292) .add (.int 1846 (1)))]),
+    (.ret 1848 (some (.tuple 1848 [(.name 1848 41), (.name 1848 288), (.name 1848 292)])))]
 
 /-- `specs/gloas/beacon-chain.md:1854`
 ```python
@@ -2761,29 +2795,29 @@ def get_builders_sweep_withdrawals(
     return withdrawals, withdrawal_index, processed_count
 ``` -/
 def fn_get_builders_sweep_withdrawals : FunctionDef where
-  name := 309
-  params := { names := [1, 293, 294], defaults := [], vararg := none }
+  name := 304
+  params := { names := [1, 288, 289], defaults := [], vararg := none }
   line := 1854
   body := [
     (.assign 1859 [(.name 1859 103)] (.call 1859 (.name 1859 59) [(.pos (.name 1859 1))])),
-    (.assign 1860 [(.name 1860 304)] (.call 1860 (.name 1860 218) [(.pos (.call 1860 (.name 1860 42) [(.pos (.attr 1860 (.name 1860 1) 7))])), (.pos (.name 1860 305))])),
-    (.assign 1861 [(.name 1861 295)] (.binop 1861 .sub (.name 1861 296) (.int 1861 (1)))),
-    (.assert 1862 (.compare 1862 (.call 1862 (.name 1862 42) [(.pos (.name 1862 294))]) [(.ltE, (.name 1862 295))])),
-    (.assign 1864 [(.name 1864 297)] (.call 1864 (.name 1864 32) [(.pos (.int 1864 (0)))])),
+    (.assign 1860 [(.name 1860 299)] (.call 1860 (.name 1860 213) [(.pos (.call 1860 (.name 1860 42) [(.pos (.attr 1860 (.name 1860 1) 7))])), (.pos (.name 1860 300))])),
+    (.assign 1861 [(.name 1861 290)] (.binop 1861 .sub (.name 1861 291) (.int 1861 (1)))),
+    (.assert 1862 (.compare 1862 (.call 1862 (.name 1862 42) [(.pos (.name 1862 289))]) [(.ltE, (.name 1862 290))])),
+    (.assign 1864 [(.name 1864 292)] (.call 1864 (.name 1864 32) [(.pos (.int 1864 (0)))])),
     (.annAssign 1865 (.name 1865 41) (.list 1865 [])),
-    (.assign 1866 [(.name 1866 66)] (.attr 1866 (.name 1866 1) 306)),
-    (.forStmt 1867 (.name 1867 307) (.call 1867 (.name 1867 130) [(.pos (.name 1867 304))]) [
-      (.assign 1868 [(.name 1868 298)] (.binop 1868 .add (.call 1868 (.name 1868 299) [(.pos (.name 1868 294))]) (.name 1868 41))),
-      (.assign 1869 [(.name 1869 300)] (.compare 1869 (.call 1869 (.name 1869 42) [(.pos (.name 1869 298))]) [(.gtE, (.name 1869 295))])),
-      (.ifStmt 1870 (.name 1870 300) [
+    (.assign 1866 [(.name 1866 66)] (.attr 1866 (.name 1866 1) 301)),
+    (.forStmt 1867 (.name 1867 302) (.call 1867 (.name 1867 130) [(.pos (.name 1867 299))]) [
+      (.assign 1868 [(.name 1868 293)] (.binop 1868 .add (.call 1868 (.name 1868 294) [(.pos (.name 1868 289))]) (.name 1868 41))),
+      (.assign 1869 [(.name 1869 295)] (.compare 1869 (.call 1869 (.name 1869 42) [(.pos (.name 1869 293))]) [(.gtE, (.name 1869 290))])),
+      (.ifStmt 1870 (.name 1870 295) [
         (.brk 1871)] []),
-      (.assign 1873 [(.name 1873 308)] (.index 1873 (.attr 1873 (.name 1873 1) 7) (.name 1873 66))),
-      (.ifStmt 1874 (.boolop 1874 .and [(.compare 1874 (.attr 1874 (.name 1874 308) 12) [(.ltE, (.name 1874 103))]), (.compare 1874 (.attr 1874 (.name 1874 308) 9) [(.gt, (.int 1874 (0)))])]) [
-        (.exprStmt 1875 (.call 1875 (.attr 1875 (.name 1875 41) 69) [(.pos (.call 1876 (.name 1876 302) [(.kw 23 (.name 1877 293)), (.kw 81 (.call 1878 (.name 1878 198) [(.pos (.name 1878 66))])), (.kw 301 (.attr 1879 (.name 1879 308) 4)), (.kw 5 (.attr 1880 (.name 1880 308) 9))]))])),
-        (.augAssign 1883 (.name 1883 293) .add (.int 1883 (1)))] []),
+      (.assign 1873 [(.name 1873 303)] (.index 1873 (.attr 1873 (.name 1873 1) 7) (.name 1873 66))),
+      (.ifStmt 1874 (.boolop 1874 .and [(.compare 1874 (.attr 1874 (.name 1874 303) 12) [(.ltE, (.name 1874 103))]), (.compare 1874 (.attr 1874 (.name 1874 303) 9) [(.gt, (.int 1874 (0)))])]) [
+        (.exprStmt 1875 (.call 1875 (.attr 1875 (.name 1875 41) 69) [(.pos (.call 1876 (.name 1876 297) [(.kw 23 (.name 1877 288)), (.kw 81 (.call 1878 (.name 1878 198) [(.pos (.name 1878 66))])), (.kw 296 (.attr 1879 (.name 1879 303) 4)), (.kw 5 (.attr 1880 (.name 1880 303) 9))]))])),
+        (.augAssign 1883 (.name 1883 288) .add (.int 1883 (1)))] []),
       (.assign 1885 [(.name 1885 66)] (.binop 1885 .mod (.binop 1885 .add (.name 1885 66) (.int 1885 (1))) (.call 1885 (.name 1885 42) [(.pos (.attr 1885 (.name 1885 1) 7))]))),
-      (.augAssign 1886 (.name 1886 297) .add (.int 1886 (1)))]),
-    (.ret 1888 (some (.tuple 1888 [(.name 1888 41), (.name 1888 293), (.name 1888 297)])))]
+      (.augAssign 1886 (.name 1886 292) .add (.int 1886 (1)))]),
+    (.ret 1888 (some (.tuple 1888 [(.name 1888 41), (.name 1888 288), (.name 1888 292)])))]
 
 /-- `specs/phase0/beacon-chain.md:1507`
 ```python
@@ -2806,7 +2840,7 @@ def fn_get_committee_count_per_slot : FunctionDef where
   params := { names := [1, 103], defaults := [], vararg := none }
   line := 1507
   body := [
-    (.ret 1511 (some (.call 1511 (.name 1511 134) [(.pos (.call 1512 (.name 1512 32) [(.pos (.int 1512 (1)))])), (.pos (.call 1513 (.name 1513 218) [(.pos (.name 1514 310)), (.pos (.binop 1515 .floorDiv (.binop 1515 .floorDiv (.call 1515 (.name 1515 32) [(.pos (.call 1515 (.name 1515 42) [(.pos (.call 1515 (.name 1515 222) [(.pos (.name 1515 1)), (.pos (.name 1515 103))]))]))]) (.call 1516 (.name 1516 32) [(.pos (.name 1516 61))])) (.name 1517 311)))]))])))]
+    (.ret 1511 (some (.call 1511 (.name 1511 134) [(.pos (.call 1512 (.name 1512 32) [(.pos (.int 1512 (1)))])), (.pos (.call 1513 (.name 1513 213) [(.pos (.name 1514 305)), (.pos (.binop 1515 .floorDiv (.binop 1515 .floorDiv (.call 1515 (.name 1515 32) [(.pos (.call 1515 (.name 1515 42) [(.pos (.call 1515 (.name 1515 217) [(.pos (.name 1515 1)), (.pos (.name 1515 103))]))]))]) (.call 1516 (.name 1516 32) [(.pos (.name 1516 61))])) (.name 1517 306)))]))])))]
 
 /-- `specs/electra/beacon-chain.md:736`
 ```python
@@ -2814,11 +2848,11 @@ def get_committee_indices(committee_bits: BitVector) -> Sequence[CommitteeIndex]
     return [CommitteeIndex(index) for index, bit in enumerate(committee_bits) if bit]
 ``` -/
 def fn_get_committee_indices : FunctionDef where
-  name := 255
-  params := { names := [254], defaults := [], vararg := none }
+  name := 250
+  params := { names := [249], defaults := [], vararg := none }
   line := 736
   body := [
-    (.ret 737 (some (.comp 737 .list (.call 737 (.name 737 170) [(.pos (.name 737 23))]) [(.mk (.tuple 737 [(.name 737 23), (.name 737 190)]) (.call 737 (.name 737 221) [(.pos (.name 737 254))]) [(.name 737 190)])])))]
+    (.ret 737 (some (.comp 737 .list (.call 737 (.name 737 170) [(.pos (.name 737 23))]) [(.mk (.tuple 737 [(.name 737 23), (.name 737 190)]) (.call 737 (.name 737 216) [(.pos (.name 737 249))]) [(.name 737 190)])])))]
 
 /-- `specs/gloas/beacon-chain.md:1477`
 ```python
@@ -2836,8 +2870,8 @@ def fn_get_consolidation_churn_limit : FunctionDef where
   params := { names := [1], defaults := [], vararg := none }
   line := 1477
   body := [
-    (.assign 1483 [(.name 1483 212)] (.binop 1483 .floorDiv (.call 1483 (.name 1483 214) [(.pos (.name 1483 1))]) (.name 1483 312))),
-    (.ret 1484 (some (.binop 1484 .sub (.name 1484 212) (.binop 1484 .mod (.name 1484 212) (.name 1484 216)))))]
+    (.assign 1483 [(.name 1483 207)] (.binop 1483 .floorDiv (.call 1483 (.name 1483 209) [(.pos (.name 1483 1))]) (.name 1483 307))),
+    (.ret 1484 (some (.binop 1484 .sub (.name 1484 207) (.binop 1484 .mod (.name 1484 207) (.name 1484 211)))))]
 
 /-- `specs/phase0/beacon-chain.md:1418`
 ```python
@@ -2867,12 +2901,12 @@ def get_domain(state: BeaconState, domain_type: DomainType, epoch: Epoch | None 
     return compute_domain(domain_type, fork_version, state.genesis_validators_root)
 ``` -/
 def fn_get_domain : FunctionDef where
-  name := 315
+  name := 310
   params := { names := [1, 142, 103], defaults := [(.noneLit 1587)], vararg := none }
   line := 1587
   body := [
     (.assign 1591 [(.name 1591 103)] (.ifExp 1591 (.compare 1591 (.name 1591 103) [(.is, (.noneLit 1591))]) (.call 1591 (.name 1591 59) [(.pos (.name 1591 1))]) (.name 1591 103))),
-    (.assign 1592 [(.name 1592 143)] (.ifExp 1593 (.compare 1593 (.name 1593 103) [(.lt, (.attr 1593 (.attr 1593 (.name 1593 1) 313) 103))]) (.attr 1593 (.attr 1593 (.name 1593 1) 313) 314) (.attr 1593 (.attr 1593 (.name 1593 1) 313) 157))),
+    (.assign 1592 [(.name 1592 143)] (.ifExp 1593 (.compare 1593 (.name 1593 103) [(.lt, (.attr 1593 (.attr 1593 (.name 1593 1) 308) 103))]) (.attr 1593 (.attr 1593 (.name 1593 1) 308) 309) (.attr 1593 (.attr 1593 (.name 1593 1) 308) 157))),
     (.ret 1595 (some (.call 1595 (.name 1595 150) [(.pos (.name 1595 142)), (.pos (.name 1595 143)), (.pos (.attr 1595 (.name 1595 1) 144))])))]
 
 /-- `specs/phase0/beacon-chain.md:2020`
@@ -2887,12 +2921,12 @@ def get_eligible_validator_indices(state: BeaconState) -> Sequence[ValidatorInde
     ]
 ``` -/
 def fn_get_eligible_validator_indices : FunctionDef where
-  name := 317
+  name := 312
   params := { names := [1], defaults := [], vararg := none }
   line := 2020
   body := [
-    (.assign 2021 [(.name 2021 316)] (.call 2021 (.name 2021 63) [(.pos (.name 2021 1))])),
-    (.ret 2022 (some (.comp 2022 .list (.call 2023 (.name 2023 82) [(.pos (.name 2023 23))]) [(.mk (.tuple 2024 [(.name 2024 23), (.name 2024 78)]) (.call 2024 (.name 2024 221) [(.pos (.attr 2024 (.name 2024 1) 27))]) [(.boolop 2025 .or [(.call 2025 (.name 2025 220) [(.pos (.name 2025 78)), (.pos (.name 2025 316))]), (.boolop 2026 .and [(.attr 2026 (.name 2026 78) 274), (.compare 2026 (.binop 2026 .add (.name 2026 316) (.int 2026 (1))) [(.lt, (.attr 2026 (.name 2026 78) 12))])])])])])))]
+    (.assign 2021 [(.name 2021 311)] (.call 2021 (.name 2021 63) [(.pos (.name 2021 1))])),
+    (.ret 2022 (some (.comp 2022 .list (.call 2023 (.name 2023 82) [(.pos (.name 2023 23))]) [(.mk (.tuple 2024 [(.name 2024 23), (.name 2024 78)]) (.call 2024 (.name 2024 216) [(.pos (.attr 2024 (.name 2024 1) 27))]) [(.boolop 2025 .or [(.call 2025 (.name 2025 215) [(.pos (.name 2025 78)), (.pos (.name 2025 311))]), (.boolop 2026 .and [(.attr 2026 (.name 2026 78) 269), (.compare 2026 (.binop 2026 .add (.name 2026 311) (.int 2026 (1))) [(.lt, (.attr 2026 (.name 2026 78) 12))])])])])])))]
 
 /-- `specs/gloas/beacon-chain.md:1459`
 ```python
@@ -2912,8 +2946,8 @@ def fn_get_exit_churn_limit : FunctionDef where
   params := { names := [1], defaults := [], vararg := none }
   line := 1459
   body := [
-    (.assign 1464 [(.name 1464 212)] (.call 1464 (.name 1464 134) [(.pos (.name 1465 213)), (.pos (.binop 1466 .floorDiv (.call 1466 (.name 1466 214) [(.pos (.name 1466 1))]) (.name 1466 215)))])),
-    (.ret 1468 (some (.binop 1468 .sub (.name 1468 212) (.binop 1468 .mod (.name 1468 212) (.name 1468 216)))))]
+    (.assign 1464 [(.name 1464 207)] (.call 1464 (.name 1464 134) [(.pos (.name 1465 208)), (.pos (.binop 1466 .floorDiv (.call 1466 (.name 1466 209) [(.pos (.name 1466 1))]) (.name 1466 210)))])),
+    (.ret 1468 (some (.binop 1468 .sub (.name 1468 207) (.binop 1468 .mod (.name 1468 207) (.name 1468 211)))))]
 
 /-- `specs/gloas/beacon-chain.md:1894`
 ```python
@@ -2958,21 +2992,21 @@ def get_expected_withdrawals(state: BeaconState) -> ExpectedWithdrawals:
     )
 ``` -/
 def fn_get_expected_withdrawals : FunctionDef where
-  name := 330
+  name := 325
   params := { names := [1], defaults := [], vararg := none }
   line := 1894
   body := [
-    (.assign 1895 [(.name 1895 293)] (.attr 1895 (.name 1895 1) 318)),
+    (.assign 1895 [(.name 1895 288)] (.attr 1895 (.name 1895 1) 313)),
     (.annAssign 1896 (.name 1896 41) (.list 1896 [])),
-    (.assign 1900 [(.tuple 1900 [(.name 1900 319), (.name 1900 293), (.name 1900 320)])] (.call 1901 (.name 1901 303) [(.pos (.name 1901 1)), (.pos (.name 1901 293)), (.pos (.name 1901 41))])),
-    (.exprStmt 1903 (.call 1903 (.attr 1903 (.name 1903 41) 172) [(.pos (.name 1903 319))])),
-    (.assign 1906 [(.tuple 1906 [(.name 1906 321), (.name 1906 293), (.name 1906 322)])] (.call 1907 (.name 1907 323) [(.pos (.name 1907 1)), (.pos (.name 1907 293)), (.pos (.name 1907 41))])),
-    (.exprStmt 1909 (.call 1909 (.attr 1909 (.name 1909 41) 172) [(.pos (.name 1909 321))])),
-    (.assign 1913 [(.tuple 1913 [(.name 1913 324), (.name 1913 293), (.name 1913 325)])] (.call 1914 (.name 1914 309) [(.pos (.name 1914 1)), (.pos (.name 1914 293)), (.pos (.name 1914 41))])),
-    (.exprStmt 1916 (.call 1916 (.attr 1916 (.name 1916 41) 172) [(.pos (.name 1916 324))])),
-    (.assign 1919 [(.tuple 1919 [(.name 1919 326), (.name 1919 293), (.name 1919 327)])] (.call 1920 (.name 1920 328) [(.pos (.name 1920 1)), (.pos (.name 1920 293)), (.pos (.name 1920 41))])),
-    (.exprStmt 1922 (.call 1922 (.attr 1922 (.name 1922 41) 172) [(.pos (.name 1922 326))])),
-    (.ret 1924 (some (.call 1924 (.name 1924 329) [(.pos (.name 1925 41)), (.pos (.name 1927 320)), (.pos (.name 1928 322)), (.pos (.name 1930 325)), (.pos (.name 1931 327))])))]
+    (.assign 1900 [(.tuple 1900 [(.name 1900 314), (.name 1900 288), (.name 1900 315)])] (.call 1901 (.name 1901 298) [(.pos (.name 1901 1)), (.pos (.name 1901 288)), (.pos (.name 1901 41))])),
+    (.exprStmt 1903 (.call 1903 (.attr 1903 (.name 1903 41) 172) [(.pos (.name 1903 314))])),
+    (.assign 1906 [(.tuple 1906 [(.name 1906 316), (.name 1906 288), (.name 1906 317)])] (.call 1907 (.name 1907 318) [(.pos (.name 1907 1)), (.pos (.name 1907 288)), (.pos (.name 1907 41))])),
+    (.exprStmt 1909 (.call 1909 (.attr 1909 (.name 1909 41) 172) [(.pos (.name 1909 316))])),
+    (.assign 1913 [(.tuple 1913 [(.name 1913 319), (.name 1913 288), (.name 1913 320)])] (.call 1914 (.name 1914 304) [(.pos (.name 1914 1)), (.pos (.name 1914 288)), (.pos (.name 1914 41))])),
+    (.exprStmt 1916 (.call 1916 (.attr 1916 (.name 1916 41) 172) [(.pos (.name 1916 319))])),
+    (.assign 1919 [(.tuple 1919 [(.name 1919 321), (.name 1919 288), (.name 1919 322)])] (.call 1920 (.name 1920 323) [(.pos (.name 1920 1)), (.pos (.name 1920 288)), (.pos (.name 1920 41))])),
+    (.exprStmt 1922 (.call 1922 (.attr 1922 (.name 1922 41) 172) [(.pos (.name 1922 321))])),
+    (.ret 1924 (some (.call 1924 (.name 1924 324) [(.pos (.name 1925 41)), (.pos (.name 1927 315)), (.pos (.name 1928 317)), (.pos (.name 1930 320)), (.pos (.name 1931 322))])))]
 
 /-- `specs/phase0/beacon-chain.md:2010`
 ```python
@@ -2980,11 +3014,11 @@ def get_finality_delay(state: BeaconState) -> Epoch:
     return get_previous_epoch(state) - state.finalized_checkpoint.epoch
 ``` -/
 def fn_get_finality_delay : FunctionDef where
-  name := 332
+  name := 327
   params := { names := [1], defaults := [], vararg := none }
   line := 2010
   body := [
-    (.ret 2011 (some (.binop 2011 .sub (.call 2011 (.name 2011 63) [(.pos (.name 2011 1))]) (.attr 2011 (.attr 2011 (.name 2011 1) 331) 103))))]
+    (.ret 2011 (some (.binop 2011 .sub (.call 2011 (.name 2011 63) [(.pos (.name 2011 1))]) (.attr 2011 (.attr 2011 (.name 2011 1) 326) 103))))]
 
 /-- `specs/altair/beacon-chain.md:457`
 ```python
@@ -3017,27 +3051,27 @@ def get_flag_index_deltas(
     return rewards, penalties
 ``` -/
 def fn_get_flag_index_deltas : FunctionDef where
-  name := 346
+  name := 341
   params := { names := [1, 18], defaults := [], vararg := none }
   line := 457
   body := [
-    (.assign 463 [(.name 463 333)] (.binop 463 .mul (.list 463 [(.call 463 (.name 463 270) [(.pos (.int 463 (0)))])]) (.call 463 (.name 463 42) [(.pos (.attr 463 (.name 463 1) 27))]))),
-    (.assign 464 [(.name 464 334)] (.binop 464 .mul (.list 464 [(.call 464 (.name 464 270) [(.pos (.int 464 (0)))])]) (.call 464 (.name 464 42) [(.pos (.attr 464 (.name 464 1) 27))]))),
-    (.assign 465 [(.name 465 316)] (.call 465 (.name 465 63) [(.pos (.name 465 1))])),
-    (.assign 466 [(.name 466 335)] (.call 466 (.name 466 336) [(.pos (.name 467 1)), (.pos (.name 467 18)), (.pos (.name 467 316))])),
-    (.assign 469 [(.name 469 122)] (.index 469 (.name 469 337) (.name 469 18))),
-    (.assign 470 [(.name 470 338)] (.call 470 (.name 470 339) [(.pos (.name 470 1)), (.pos (.name 470 335))])),
-    (.assign 471 [(.name 471 340)] (.binop 472 .floorDiv (.name 472 338) (.name 472 216))),
-    (.assign 474 [(.name 474 341)] (.binop 474 .floorDiv (.call 474 (.name 474 214) [(.pos (.name 474 1))]) (.name 474 216))),
-    (.forStmt 475 (.name 475 23) (.call 475 (.name 475 317) [(.pos (.name 475 1))]) [
-      (.assign 476 [(.name 476 342)] (.call 476 (.name 476 268) [(.pos (.name 476 1)), (.pos (.name 476 23))])),
-      (.ifStmt 477 (.compare 477 (.name 477 23) [(.isIn, (.name 477 335))]) [
-        (.ifStmt 478 (.unop 478 .not (.call 478 (.name 478 343) [(.pos (.name 478 1))])) [
-          (.assign 479 [(.name 479 344)] (.binop 479 .mul (.binop 479 .mul (.name 479 342) (.name 479 122)) (.name 479 340))),
-          (.augAssign 480 (.index 480 (.name 480 333) (.name 480 23)) .add (.binop 480 .floorDiv (.name 480 344) (.binop 480 .mul (.name 480 341) (.name 480 345))))] [])] [
-        (.ifStmt 481 (.compare 481 (.name 481 18) [(.notEq, (.name 481 248))]) [
-          (.augAssign 482 (.index 482 (.name 482 334) (.name 482 23)) .add (.binop 482 .floorDiv (.binop 482 .mul (.name 482 342) (.name 482 122)) (.name 482 345)))] [])])]),
-    (.ret 483 (some (.tuple 483 [(.name 483 333), (.name 483 334)])))]
+    (.assign 463 [(.name 463 328)] (.binop 463 .mul (.list 463 [(.call 463 (.name 463 265) [(.pos (.int 463 (0)))])]) (.call 463 (.name 463 42) [(.pos (.attr 463 (.name 463 1) 27))]))),
+    (.assign 464 [(.name 464 329)] (.binop 464 .mul (.list 464 [(.call 464 (.name 464 265) [(.pos (.int 464 (0)))])]) (.call 464 (.name 464 42) [(.pos (.attr 464 (.name 464 1) 27))]))),
+    (.assign 465 [(.name 465 311)] (.call 465 (.name 465 63) [(.pos (.name 465 1))])),
+    (.assign 466 [(.name 466 330)] (.call 466 (.name 466 331) [(.pos (.name 467 1)), (.pos (.name 467 18)), (.pos (.name 467 311))])),
+    (.assign 469 [(.name 469 122)] (.index 469 (.name 469 332) (.name 469 18))),
+    (.assign 470 [(.name 470 333)] (.call 470 (.name 470 334) [(.pos (.name 470 1)), (.pos (.name 470 330))])),
+    (.assign 471 [(.name 471 335)] (.binop 472 .floorDiv (.name 472 333) (.name 472 211))),
+    (.assign 474 [(.name 474 336)] (.binop 474 .floorDiv (.call 474 (.name 474 209) [(.pos (.name 474 1))]) (.name 474 211))),
+    (.forStmt 475 (.name 475 23) (.call 475 (.name 475 312) [(.pos (.name 475 1))]) [
+      (.assign 476 [(.name 476 337)] (.call 476 (.name 476 263) [(.pos (.name 476 1)), (.pos (.name 476 23))])),
+      (.ifStmt 477 (.compare 477 (.name 477 23) [(.isIn, (.name 477 330))]) [
+        (.ifStmt 478 (.unop 478 .not (.call 478 (.name 478 338) [(.pos (.name 478 1))])) [
+          (.assign 479 [(.name 479 339)] (.binop 479 .mul (.binop 479 .mul (.name 479 337) (.name 479 122)) (.name 479 335))),
+          (.augAssign 480 (.index 480 (.name 480 328) (.name 480 23)) .add (.binop 480 .floorDiv (.name 480 339) (.binop 480 .mul (.name 480 336) (.name 480 340))))] [])] [
+        (.ifStmt 481 (.compare 481 (.name 481 18) [(.notEq, (.name 481 243))]) [
+          (.augAssign 482 (.index 482 (.name 482 329) (.name 482 23)) .add (.binop 482 .floorDiv (.binop 482 .mul (.name 482 337) (.name 482 122)) (.name 482 340)))] [])])]),
+    (.ret 483 (some (.tuple 483 [(.name 483 328), (.name 483 329)])))]
 
 /-- `specs/bellatrix/beacon-chain.md:292`
 ```python
@@ -3062,20 +3096,20 @@ def get_inactivity_penalty_deltas(state: BeaconState) -> tuple[Sequence[Gwei], S
     return rewards, penalties
 ``` -/
 def fn_get_inactivity_penalty_deltas : FunctionDef where
-  name := 352
+  name := 347
   params := { names := [1], defaults := [], vararg := none }
   line := 292
   body := [
-    (.assign 296 [(.name 296 333)] (.binop 296 .mul (.list 296 [(.call 296 (.name 296 270) [(.pos (.int 296 (0)))])]) (.call 296 (.name 296 42) [(.pos (.attr 296 (.name 296 1) 27))]))),
-    (.assign 297 [(.name 297 334)] (.binop 297 .mul (.list 297 [(.call 297 (.name 297 270) [(.pos (.int 297 (0)))])]) (.call 297 (.name 297 42) [(.pos (.attr 297 (.name 297 1) 27))]))),
-    (.assign 298 [(.name 298 316)] (.call 298 (.name 298 63) [(.pos (.name 298 1))])),
-    (.assign 299 [(.name 299 347)] (.call 299 (.name 299 336) [(.pos (.name 300 1)), (.pos (.name 300 246)), (.pos (.name 300 316))])),
-    (.forStmt 302 (.name 302 23) (.call 302 (.name 302 317) [(.pos (.name 302 1))]) [
-      (.ifStmt 303 (.compare 303 (.name 303 23) [(.notIn, (.name 303 347))]) [
-        (.assign 304 [(.name 304 348)] (.binop 305 .mul (.attr 305 (.index 305 (.attr 305 (.name 305 1) 27) (.name 305 23)) 113) (.index 305 (.attr 305 (.name 305 1) 31) (.name 305 23)))),
-        (.assign 308 [(.name 308 349)] (.binop 308 .mul (.name 308 350) (.name 308 351))),
-        (.augAssign 309 (.index 309 (.name 309 334) (.name 309 23)) .add (.binop 309 .floorDiv (.name 309 348) (.name 309 349)))] [])]),
-    (.ret 310 (some (.tuple 310 [(.name 310 333), (.name 310 334)])))]
+    (.assign 296 [(.name 296 328)] (.binop 296 .mul (.list 296 [(.call 296 (.name 296 265) [(.pos (.int 296 (0)))])]) (.call 296 (.name 296 42) [(.pos (.attr 296 (.name 296 1) 27))]))),
+    (.assign 297 [(.name 297 329)] (.binop 297 .mul (.list 297 [(.call 297 (.name 297 265) [(.pos (.int 297 (0)))])]) (.call 297 (.name 297 42) [(.pos (.attr 297 (.name 297 1) 27))]))),
+    (.assign 298 [(.name 298 311)] (.call 298 (.name 298 63) [(.pos (.name 298 1))])),
+    (.assign 299 [(.name 299 342)] (.call 299 (.name 299 331) [(.pos (.name 300 1)), (.pos (.name 300 241)), (.pos (.name 300 311))])),
+    (.forStmt 302 (.name 302 23) (.call 302 (.name 302 312) [(.pos (.name 302 1))]) [
+      (.ifStmt 303 (.compare 303 (.name 303 23) [(.notIn, (.name 303 342))]) [
+        (.assign 304 [(.name 304 343)] (.binop 305 .mul (.attr 305 (.index 305 (.attr 305 (.name 305 1) 27) (.name 305 23)) 113) (.index 305 (.attr 305 (.name 305 1) 31) (.name 305 23)))),
+        (.assign 308 [(.name 308 344)] (.binop 308 .mul (.name 308 345) (.name 308 346))),
+        (.augAssign 309 (.index 309 (.name 309 329) (.name 309 23)) .add (.binop 309 .floorDiv (.name 309 343) (.name 309 344)))] [])]),
+    (.ret 310 (some (.tuple 310 [(.name 310 328), (.name 310 329)])))]
 
 /-- `specs/gloas/beacon-chain.md:2231`
 ```python
@@ -3090,8 +3124,8 @@ def fn_get_index_for_new_builder : FunctionDef where
   params := { names := [1], defaults := [], vararg := none }
   line := 2231
   body := [
-    (.forStmt 2232 (.tuple 2232 [(.name 2232 23), (.name 2232 308)]) (.call 2232 (.name 2232 221) [(.pos (.attr 2232 (.name 2232 1) 7))]) [
-      (.ifStmt 2233 (.boolop 2233 .and [(.compare 2233 (.attr 2233 (.name 2233 308) 12) [(.ltE, (.call 2233 (.name 2233 59) [(.pos (.name 2233 1))]))]), (.compare 2233 (.attr 2233 (.name 2233 308) 9) [(.eq, (.int 2233 (0)))])]) [
+    (.forStmt 2232 (.tuple 2232 [(.name 2232 23), (.name 2232 303)]) (.call 2232 (.name 2232 216) [(.pos (.attr 2232 (.name 2232 1) 7))]) [
+      (.ifStmt 2233 (.boolop 2233 .and [(.compare 2233 (.attr 2233 (.name 2233 303) 12) [(.ltE, (.call 2233 (.name 2233 59) [(.pos (.name 2233 1))]))]), (.compare 2233 (.attr 2233 (.name 2233 303) 9) [(.eq, (.int 2233 (0)))])]) [
         (.ret 2234 (some (.call 2234 (.name 2234 199) [(.pos (.name 2234 23))])))] [])]),
     (.ret 2235 (some (.call 2235 (.name 2235 199) [(.pos (.call 2235 (.name 2235 42) [(.pos (.attr 2235 (.name 2235 1) 7))]))])))]
 
@@ -3122,12 +3156,12 @@ def get_indexed_attestation(state: BeaconState, attestation: Attestation) -> Ind
     )
 ``` -/
 def fn_get_indexed_attestation : FunctionDef where
-  name := 356
-  params := { names := [1, 250], defaults := [], vararg := none }
+  name := 351
+  params := { names := [1, 245], defaults := [], vararg := none }
   line := 1601
   body := [
-    (.assign 1605 [(.name 1605 353)] (.call 1605 (.name 1605 262) [(.pos (.name 1605 1)), (.pos (.name 1605 250))])),
-    (.ret 1607 (some (.call 1607 (.name 1607 355) [(.kw 353 (.call 1608 (.name 1608 354) [(.kw 91 (.call 1608 (.name 1608 282) [(.pos (.name 1608 353))]))])), (.kw 91 (.attr 1609 (.name 1609 250) 91)), (.kw 79 (.attr 1610 (.name 1610 250) 79))])))]
+    (.assign 1605 [(.name 1605 348)] (.call 1605 (.name 1605 257) [(.pos (.name 1605 1)), (.pos (.name 1605 245))])),
+    (.ret 1607 (some (.call 1607 (.name 1607 350) [(.kw 348 (.call 1608 (.name 1608 349) [(.kw 91 (.call 1608 (.name 1608 277) [(.pos (.name 1608 348))]))])), (.kw 91 (.attr 1609 (.name 1609 245) 91)), (.kw 79 (.attr 1610 (.name 1610 245) 79))])))]
 
 /-- `specs/gloas/beacon-chain.md:1410`
 ```python
@@ -3149,15 +3183,15 @@ def get_indexed_payload_attestation(
     )
 ``` -/
 def fn_get_indexed_payload_attestation : FunctionDef where
-  name := 363
-  params := { names := [1, 357], defaults := [], vararg := none }
+  name := 358
+  params := { names := [1, 352], defaults := [], vararg := none }
   line := 1410
   body := [
-    (.assign 1416 [(.name 1416 6)] (.attr 1416 (.attr 1416 (.name 1416 357) 91) 6)),
-    (.assign 1417 [(.name 1417 358)] (.call 1417 (.name 1417 359) [(.pos (.name 1417 1)), (.pos (.name 1417 6))])),
-    (.assign 1418 [(.name 1418 360)] (.attr 1418 (.name 1418 357) 259)),
-    (.assign 1419 [(.name 1419 353)] (.comp 1419 .list (.name 1419 23) [(.mk (.tuple 1419 [(.name 1419 115), (.name 1419 23)]) (.call 1419 (.name 1419 221) [(.pos (.name 1419 358))]) [(.index 1419 (.name 1419 360) (.name 1419 115))])])),
-    (.ret 1421 (some (.call 1421 (.name 1421 362) [(.kw 353 (.call 1422 (.name 1422 361) [(.kw 91 (.call 1422 (.name 1422 282) [(.pos (.name 1422 353))]))])), (.kw 91 (.attr 1423 (.name 1423 357) 91)), (.kw 79 (.attr 1424 (.name 1424 357) 79))])))]
+    (.assign 1416 [(.name 1416 6)] (.attr 1416 (.attr 1416 (.name 1416 352) 91) 6)),
+    (.assign 1417 [(.name 1417 353)] (.call 1417 (.name 1417 354) [(.pos (.name 1417 1)), (.pos (.name 1417 6))])),
+    (.assign 1418 [(.name 1418 355)] (.attr 1418 (.name 1418 352) 254)),
+    (.assign 1419 [(.name 1419 348)] (.comp 1419 .list (.name 1419 23) [(.mk (.tuple 1419 [(.name 1419 115), (.name 1419 23)]) (.call 1419 (.name 1419 216) [(.pos (.name 1419 353))]) [(.index 1419 (.name 1419 355) (.name 1419 115))])])),
+    (.ret 1421 (some (.call 1421 (.name 1421 357) [(.kw 348 (.call 1422 (.name 1422 356) [(.kw 91 (.call 1422 (.name 1422 277) [(.pos (.name 1422 348))]))])), (.kw 91 (.attr 1423 (.name 1423 352) 91)), (.kw 79 (.attr 1424 (.name 1424 352) 79))])))]
 
 /-- `specs/electra/beacon-chain.md:743`
 ```python
@@ -3171,13 +3205,13 @@ def get_max_effective_balance(validator: Validator) -> Gwei:
         return MIN_ACTIVATION_BALANCE
 ``` -/
 def fn_get_max_effective_balance : FunctionDef where
-  name := 366
+  name := 361
   params := { names := [25], defaults := [], vararg := none }
   line := 743
   body := [
-    (.ifStmt 747 (.call 747 (.name 747 364) [(.pos (.name 747 25))]) [
+    (.ifStmt 747 (.call 747 (.name 747 359) [(.pos (.name 747 25))]) [
       (.ret 748 (some (.name 748 125)))] [
-      (.ret 750 (some (.name 750 365)))])]
+      (.ret 750 (some (.name 750 360)))])]
 
 /-- `specs/altair/beacon-chain.md:356`
 ```python
@@ -3191,14 +3225,14 @@ def get_next_sync_committee(state: BeaconState) -> SyncCommittee:
     return SyncCommittee(pubkeys=pubkeys, aggregate_pubkey=aggregate_pubkey)
 ``` -/
 def fn_get_next_sync_committee : FunctionDef where
-  name := 371
+  name := 367
   params := { names := [1], defaults := [], vararg := none }
   line := 356
   body := [
-    (.assign 360 [(.name 360 106)] (.call 360 (.name 360 367) [(.pos (.name 360 1))])),
-    (.assign 361 [(.name 361 201)] (.call 361 (.name 361 368) [(.kw 91 (.comp 361 .list (.attr 361 (.index 361 (.attr 361 (.name 361 1) 27) (.name 361 23)) 2) [(.mk (.name 361 23) (.name 361 106) [])]))])),
-    (.assign 362 [(.name 362 369)] (.call 362 (.name 362 207) [(.pos (.name 362 201))])),
-    (.ret 363 (some (.call 363 (.name 363 370) [(.kw 201 (.name 363 201)), (.kw 369 (.name 363 369))])))]
+    (.assign 360 [(.name 360 106)] (.call 360 (.name 360 362) [(.pos (.name 360 1))])),
+    (.assign 361 [(.name 361 201)] (.call 361 (.name 361 363) [(.kw 91 (.comp 361 .list (.attr 361 (.index 361 (.attr 361 (.name 361 1) 27) (.name 361 23)) 2) [(.mk (.name 361 23) (.name 361 106) [])]))])),
+    (.assign 362 [(.name 362 364)] (.call 362 (.name 362 365) [(.pos (.name 362 201))])),
+    (.ret 363 (some (.call 363 (.name 363 366) [(.kw 201 (.name 363 201)), (.kw 364 (.name 363 364))])))]
 
 /-- `specs/gloas/beacon-chain.md:1315`
 ```python
@@ -3214,14 +3248,14 @@ def get_next_sync_committee_indices(state: BeaconState) -> Sequence[ValidatorInd
     )
 ``` -/
 def fn_get_next_sync_committee_indices : FunctionDef where
-  name := 367
+  name := 362
   params := { names := [1], defaults := [], vararg := none }
   line := 1315
   body := [
     (.assign 1319 [(.name 1319 103)] (.binop 1319 .add (.call 1319 (.name 1319 59) [(.pos (.name 1319 1))]) (.int 1319 (1)))),
-    (.assign 1320 [(.name 1320 107)] (.call 1320 (.name 1320 166) [(.pos (.name 1320 1)), (.pos (.name 1320 103)), (.pos (.name 1320 372))])),
-    (.assign 1321 [(.name 1321 106)] (.call 1321 (.name 1321 222) [(.pos (.name 1321 1)), (.pos (.name 1321 103))])),
-    (.ret 1322 (some (.call 1322 (.name 1322 126) [(.pos (.name 1323 1)), (.pos (.name 1323 106)), (.pos (.name 1323 107)), (.kw 108 (.name 1323 373)), (.kw 109 (.bool 1323 true))])))]
+    (.assign 1320 [(.name 1320 107)] (.call 1320 (.name 1320 166) [(.pos (.name 1320 1)), (.pos (.name 1320 103)), (.pos (.name 1320 368))])),
+    (.assign 1321 [(.name 1321 106)] (.call 1321 (.name 1321 217) [(.pos (.name 1321 1)), (.pos (.name 1321 103))])),
+    (.ret 1322 (some (.call 1322 (.name 1322 126) [(.pos (.name 1323 1)), (.pos (.name 1323 106)), (.pos (.name 1323 107)), (.kw 108 (.name 1323 369)), (.kw 109 (.bool 1323 true))])))]
 
 /-- `specs/electra/beacon-chain.md:788`
 ```python
@@ -3233,12 +3267,12 @@ def get_pending_balance_to_withdraw(state: BeaconState, validator_index: Validat
     return balance
 ``` -/
 def fn_get_pending_balance_to_withdraw : FunctionDef where
-  name := 375
+  name := 371
   params := { names := [1, 81], defaults := [], vararg := none }
   line := 788
   body := [
-    (.assign 789 [(.name 789 9)] (.call 789 (.name 789 270) [(.pos (.int 789 (0)))])),
-    (.forStmt 790 (.name 790 85) (.attr 790 (.name 790 1) 374) [
+    (.assign 789 [(.name 789 9)] (.call 789 (.name 789 265) [(.pos (.int 789 (0)))])),
+    (.forStmt 790 (.name 790 85) (.attr 790 (.name 790 1) 370) [
       (.ifStmt 791 (.compare 791 (.attr 791 (.name 791 85) 81) [(.eq, (.name 791 81))]) [
         (.augAssign 792 (.name 792 9) .add (.attr 792 (.name 792 85) 5))] [])]),
     (.ret 793 (some (.name 793 9)))]
@@ -3262,13 +3296,13 @@ def fn_get_pending_balance_to_withdraw_for_builder : FunctionDef where
   params := { names := [1, 66], defaults := [], vararg := none }
   line := 1168
   body := [
-    (.assign 1171 [(.name 1171 9)] (.call 1171 (.name 1171 270) [(.pos (.int 1171 (0)))])),
+    (.assign 1171 [(.name 1171 9)] (.call 1171 (.name 1171 265) [(.pos (.int 1171 (0)))])),
     (.forStmt 1172 (.name 1172 85) (.attr 1172 (.name 1172 1) 68) [
       (.ifStmt 1173 (.compare 1173 (.attr 1173 (.name 1173 85) 66) [(.eq, (.name 1173 66))]) [
         (.augAssign 1174 (.name 1174 9) .add (.attr 1174 (.name 1174 85) 5))] [])]),
-    (.forStmt 1175 (.name 1175 376) (.attr 1175 (.name 1175 1) 377) [
-      (.ifStmt 1176 (.compare 1176 (.attr 1176 (.attr 1176 (.name 1176 376) 85) 66) [(.eq, (.name 1176 66))]) [
-        (.augAssign 1177 (.name 1177 9) .add (.attr 1177 (.attr 1177 (.name 1177 376) 85) 5))] [])]),
+    (.forStmt 1175 (.name 1175 372) (.attr 1175 (.name 1175 1) 373) [
+      (.ifStmt 1176 (.compare 1176 (.attr 1176 (.attr 1176 (.name 1176 372) 85) 66) [(.eq, (.name 1176 66))]) [
+        (.augAssign 1177 (.name 1177 9) .add (.attr 1177 (.attr 1177 (.name 1177 372) 85) 5))] [])]),
     (.ret 1178 (some (.name 1178 9)))]
 
 /-- `specs/electra/beacon-chain.md:1356`
@@ -3314,30 +3348,30 @@ def get_pending_partial_withdrawals(
     return withdrawals, withdrawal_index, processed_count
 ``` -/
 def fn_get_pending_partial_withdrawals : FunctionDef where
-  name := 323
-  params := { names := [1, 293, 294], defaults := [], vararg := none }
+  name := 318
+  params := { names := [1, 288, 289], defaults := [], vararg := none }
   line := 1356
   body := [
     (.assign 1361 [(.name 1361 103)] (.call 1361 (.name 1361 59) [(.pos (.name 1361 1))])),
-    (.assign 1362 [(.name 1362 295)] (.call 1362 (.name 1362 218) [(.pos (.binop 1363 .add (.call 1363 (.name 1363 42) [(.pos (.name 1363 294))]) (.name 1363 378))), (.pos (.binop 1364 .sub (.name 1364 296) (.int 1364 (1))))])),
-    (.assert 1366 (.compare 1366 (.call 1366 (.name 1366 42) [(.pos (.name 1366 294))]) [(.ltE, (.name 1366 295))])),
-    (.assign 1368 [(.name 1368 297)] (.call 1368 (.name 1368 32) [(.pos (.int 1368 (0)))])),
+    (.assign 1362 [(.name 1362 290)] (.call 1362 (.name 1362 213) [(.pos (.binop 1363 .add (.call 1363 (.name 1363 42) [(.pos (.name 1363 289))]) (.name 1363 374))), (.pos (.binop 1364 .sub (.name 1364 291) (.int 1364 (1))))])),
+    (.assert 1366 (.compare 1366 (.call 1366 (.name 1366 42) [(.pos (.name 1366 289))]) [(.ltE, (.name 1366 290))])),
+    (.assign 1368 [(.name 1368 292)] (.call 1368 (.name 1368 32) [(.pos (.int 1368 (0)))])),
     (.annAssign 1369 (.name 1369 41) (.list 1369 [])),
-    (.forStmt 1370 (.name 1370 85) (.attr 1370 (.name 1370 1) 374) [
-      (.assign 1371 [(.name 1371 298)] (.binop 1371 .add (.call 1371 (.name 1371 299) [(.pos (.name 1371 294))]) (.name 1371 41))),
-      (.assign 1372 [(.name 1372 379)] (.compare 1372 (.attr 1372 (.name 1372 85) 12) [(.ltE, (.name 1372 103))])),
-      (.assign 1373 [(.name 1373 300)] (.compare 1373 (.call 1373 (.name 1373 42) [(.pos (.name 1373 298))]) [(.gtE, (.name 1373 295))])),
-      (.ifStmt 1374 (.boolop 1374 .or [(.unop 1374 .not (.name 1374 379)), (.name 1374 300)]) [
+    (.forStmt 1370 (.name 1370 85) (.attr 1370 (.name 1370 1) 370) [
+      (.assign 1371 [(.name 1371 293)] (.binop 1371 .add (.call 1371 (.name 1371 294) [(.pos (.name 1371 289))]) (.name 1371 41))),
+      (.assign 1372 [(.name 1372 375)] (.compare 1372 (.attr 1372 (.name 1372 85) 12) [(.ltE, (.name 1372 103))])),
+      (.assign 1373 [(.name 1373 295)] (.compare 1373 (.call 1373 (.name 1373 42) [(.pos (.name 1373 293))]) [(.gtE, (.name 1373 290))])),
+      (.ifStmt 1374 (.boolop 1374 .or [(.unop 1374 .not (.name 1374 375)), (.name 1374 295)]) [
         (.brk 1375)] []),
       (.assign 1377 [(.name 1377 81)] (.attr 1377 (.name 1377 85) 81)),
       (.assign 1378 [(.name 1378 25)] (.index 1378 (.attr 1378 (.name 1378 1) 27) (.name 1378 81))),
-      (.assign 1379 [(.name 1379 9)] (.call 1379 (.name 1379 265) [(.pos (.name 1379 1)), (.pos (.name 1379 81)), (.pos (.name 1379 298))])),
-      (.ifStmt 1380 (.call 1380 (.name 1380 380) [(.pos (.name 1380 25)), (.pos (.name 1380 9))]) [
-        (.assign 1381 [(.name 1381 381)] (.call 1381 (.name 1381 218) [(.pos (.binop 1381 .sub (.name 1381 9) (.name 1381 365))), (.pos (.attr 1381 (.name 1381 85) 5))])),
-        (.exprStmt 1382 (.call 1382 (.attr 1382 (.name 1382 41) 69) [(.pos (.call 1383 (.name 1383 302) [(.kw 23 (.name 1384 293)), (.kw 81 (.name 1385 81)), (.kw 301 (.call 1386 (.name 1386 382) [(.pos (.slice 1386 (.attr 1386 (.name 1386 25) 22) (some (.int 1386 (12))) none none))])), (.kw 5 (.name 1387 381))]))])),
-        (.augAssign 1390 (.name 1390 293) .add (.int 1390 (1)))] []),
-      (.augAssign 1392 (.name 1392 297) .add (.int 1392 (1)))]),
-    (.ret 1394 (some (.tuple 1394 [(.name 1394 41), (.name 1394 293), (.name 1394 297)])))]
+      (.assign 1379 [(.name 1379 9)] (.call 1379 (.name 1379 260) [(.pos (.name 1379 1)), (.pos (.name 1379 81)), (.pos (.name 1379 293))])),
+      (.ifStmt 1380 (.call 1380 (.name 1380 376) [(.pos (.name 1380 25)), (.pos (.name 1380 9))]) [
+        (.assign 1381 [(.name 1381 377)] (.call 1381 (.name 1381 213) [(.pos (.binop 1381 .sub (.name 1381 9) (.name 1381 360))), (.pos (.attr 1381 (.name 1381 85) 5))])),
+        (.exprStmt 1382 (.call 1382 (.attr 1382 (.name 1382 41) 69) [(.pos (.call 1383 (.name 1383 297) [(.kw 23 (.name 1384 288)), (.kw 81 (.name 1385 81)), (.kw 296 (.call 1386 (.name 1386 378) [(.pos (.slice 1386 (.attr 1386 (.name 1386 25) 22) (some (.int 1386 (12))) none none))])), (.kw 5 (.name 1387 377))]))])),
+        (.augAssign 1390 (.name 1390 288) .add (.int 1390 (1)))] []),
+      (.augAssign 1392 (.name 1392 292) .add (.int 1392 (1)))]),
+    (.ret 1394 (some (.tuple 1394 [(.name 1394 41), (.name 1394 288), (.name 1394 292)])))]
 
 /-- `specs/phase0/beacon-chain.md:1428`
 ```python
@@ -3371,19 +3405,19 @@ def get_ptc(state: BeaconState, slot: Slot) -> PayloadTimelinessCommittee:
     return state.ptc_window[offset + slot % SLOTS_PER_EPOCH]
 ``` -/
 def fn_get_ptc : FunctionDef where
-  name := 359
+  name := 354
   params := { names := [1, 6], defaults := [], vararg := none }
   line := 1392
   body := [
     (.assign 1396 [(.name 1396 103)] (.call 1396 (.name 1396 11) [(.pos (.name 1396 6))])),
-    (.assert 1397 (.compare 1397 (.name 1397 103) [(.gtE, (.name 1397 383))])),
-    (.assign 1398 [(.name 1398 384)] (.call 1398 (.name 1398 59) [(.pos (.name 1398 1))])),
-    (.ifStmt 1399 (.compare 1399 (.name 1399 103) [(.lt, (.name 1399 384))]) [
-      (.assert 1400 (.compare 1400 (.binop 1400 .add (.name 1400 103) (.int 1400 (1))) [(.eq, (.name 1400 384))])),
-      (.ret 1401 (some (.index 1401 (.attr 1401 (.name 1401 1) 385) (.binop 1401 .mod (.name 1401 6) (.name 1401 61)))))] []),
-    (.assert 1402 (.compare 1402 (.name 1402 103) [(.ltE, (.binop 1402 .add (.name 1402 384) (.name 1402 386)))])),
-    (.assign 1403 [(.name 1403 116)] (.binop 1403 .mul (.call 1403 (.name 1403 32) [(.pos (.binop 1403 .add (.binop 1403 .sub (.name 1403 103) (.name 1403 384)) (.int 1403 (1))))]) (.name 1403 61))),
-    (.ret 1404 (some (.index 1404 (.attr 1404 (.name 1404 1) 385) (.binop 1404 .add (.name 1404 116) (.binop 1404 .mod (.name 1404 6) (.name 1404 61))))))]
+    (.assert 1397 (.compare 1397 (.name 1397 103) [(.gtE, (.name 1397 379))])),
+    (.assign 1398 [(.name 1398 380)] (.call 1398 (.name 1398 59) [(.pos (.name 1398 1))])),
+    (.ifStmt 1399 (.compare 1399 (.name 1399 103) [(.lt, (.name 1399 380))]) [
+      (.assert 1400 (.compare 1400 (.binop 1400 .add (.name 1400 103) (.int 1400 (1))) [(.eq, (.name 1400 380))])),
+      (.ret 1401 (some (.index 1401 (.attr 1401 (.name 1401 1) 381) (.binop 1401 .mod (.name 1401 6) (.name 1401 61)))))] []),
+    (.assert 1402 (.compare 1402 (.name 1402 103) [(.ltE, (.binop 1402 .add (.name 1402 380) (.name 1402 382)))])),
+    (.assign 1403 [(.name 1403 116)] (.binop 1403 .mul (.call 1403 (.name 1403 32) [(.pos (.binop 1403 .add (.binop 1403 .sub (.name 1403 103) (.name 1403 380)) (.int 1403 (1))))]) (.name 1403 61))),
+    (.ret 1404 (some (.index 1404 (.attr 1404 (.name 1404 1) 381) (.binop 1404 .add (.name 1404 116) (.binop 1404 .mod (.name 1404 6) (.name 1404 61))))))]
 
 /-- `specs/phase0/beacon-chain.md:1459`
 ```python
@@ -3394,11 +3428,11 @@ def get_randao_mix(state: BeaconState, epoch: Epoch) -> Bytes32:
     return state.randao_mixes[epoch % EPOCHS_PER_HISTORICAL_VECTOR]
 ``` -/
 def fn_get_randao_mix : FunctionDef where
-  name := 389
+  name := 385
   params := { names := [1, 103], defaults := [], vararg := none }
   line := 1459
   body := [
-    (.ret 1463 (some (.index 1463 (.attr 1463 (.name 1463 1) 387) (.binop 1463 .mod (.name 1463 103) (.name 1463 388)))))]
+    (.ret 1463 (some (.index 1463 (.attr 1463 (.name 1463 1) 383) (.binop 1463 .mod (.name 1463 103) (.name 1463 384)))))]
 
 /-- `specs/phase0/beacon-chain.md:1494`
 ```python
@@ -3416,8 +3450,8 @@ def fn_get_seed : FunctionDef where
   params := { names := [1, 103, 142], defaults := [], vararg := none }
   line := 1494
   body := [
-    (.assign 1498 [(.name 1498 390)] (.call 1498 (.name 1498 389) [(.pos (.name 1499 1)), (.pos (.binop 1499 .sub (.binop 1499 .sub (.binop 1499 .add (.name 1499 103) (.name 1499 388)) (.name 1499 386)) (.int 1499 (1))))])),
-    (.ret 1501 (some (.call 1501 (.name 1501 119) [(.pos (.binop 1501 .add (.binop 1501 .add (.name 1501 142) (.call 1501 (.name 1501 118) [(.pos (.name 1501 103))])) (.name 1501 390)))])))]
+    (.assign 1498 [(.name 1498 386)] (.call 1498 (.name 1498 385) [(.pos (.name 1499 1)), (.pos (.binop 1499 .sub (.binop 1499 .sub (.binop 1499 .add (.name 1499 103) (.name 1499 384)) (.name 1499 382)) (.int 1499 (1))))])),
+    (.ret 1501 (some (.call 1501 (.name 1501 119) [(.pos (.binop 1501 .add (.binop 1501 .add (.name 1501 142) (.call 1501 (.name 1501 118) [(.pos (.name 1501 103))])) (.name 1501 386)))])))]
 
 /-- `specs/phase0/beacon-chain.md:979`
 ```python
@@ -3428,11 +3462,11 @@ def get_set_bit_count(bits: Sequence[Boolean]) -> Uint64:
     return Uint64(sum(1 for bit in bits if bit))
 ``` -/
 def fn_get_set_bit_count : FunctionDef where
-  name := 391
-  params := { names := [360], defaults := [], vararg := none }
+  name := 387
+  params := { names := [355], defaults := [], vararg := none }
   line := 979
   body := [
-    (.ret 983 (some (.call 983 (.name 983 32) [(.pos (.call 983 (.name 983 264) [(.pos (.comp 983 .gen (.int 983 (1)) [(.mk (.name 983 190) (.name 983 360) [(.name 983 190)])]))]))])))]
+    (.ret 983 (some (.call 983 (.name 983 32) [(.pos (.call 983 (.name 983 259) [(.pos (.comp 983 .gen (.int 983 (1)) [(.mk (.name 983 190) (.name 983 355) [(.name 983 190)])]))]))])))]
 
 /-- `specs/phase0/beacon-chain.md:1574`
 ```python
@@ -3446,11 +3480,11 @@ def get_total_active_balance(state: BeaconState) -> Gwei:
     )
 ``` -/
 def fn_get_total_active_balance : FunctionDef where
-  name := 214
+  name := 209
   params := { names := [1], defaults := [], vararg := none }
   line := 1574
   body := [
-    (.ret 1579 (some (.call 1579 (.name 1579 339) [(.pos (.name 1580 1)), (.pos (.call 1580 (.name 1580 252) [(.pos (.call 1580 (.name 1580 222) [(.pos (.name 1580 1)), (.pos (.call 1580 (.name 1580 59) [(.pos (.name 1580 1))]))]))]))])))]
+    (.ret 1579 (some (.call 1579 (.name 1579 334) [(.pos (.name 1580 1)), (.pos (.call 1580 (.name 1580 247) [(.pos (.call 1580 (.name 1580 217) [(.pos (.name 1580 1)), (.pos (.call 1580 (.name 1580 59) [(.pos (.name 1580 1))]))]))]))])))]
 
 /-- `specs/phase0/beacon-chain.md:1557`
 ```python
@@ -3468,11 +3502,11 @@ def get_total_balance(state: BeaconState, indices: set[ValidatorIndex]) -> Gwei:
     )
 ``` -/
 def fn_get_total_balance : FunctionDef where
-  name := 339
+  name := 334
   params := { names := [1, 106], defaults := [], vararg := none }
   line := 1557
   body := [
-    (.ret 1563 (some (.call 1563 (.name 1563 270) [(.pos (.call 1564 (.name 1564 134) [(.pos (.name 1565 216)), (.pos (.call 1566 (.name 1566 264) [(.pos (.comp 1566 .list (.attr 1566 (.index 1566 (.attr 1566 (.name 1566 1) 27) (.name 1566 23)) 113) [(.mk (.name 1566 23) (.name 1566 106) [])]))]))]))])))]
+    (.ret 1563 (some (.call 1563 (.name 1563 265) [(.pos (.call 1564 (.name 1564 134) [(.pos (.name 1565 211)), (.pos (.call 1566 (.name 1566 259) [(.pos (.comp 1566 .list (.attr 1566 (.index 1566 (.attr 1566 (.name 1566 1) 27) (.name 1566 23)) 113) [(.mk (.name 1566 23) (.name 1566 106) [])]))]))]))])))]
 
 /-- `specs/altair/beacon-chain.md:397`
 ```python
@@ -3494,17 +3528,17 @@ def get_unslashed_participating_indices(
     return set(filter(lambda index: not state.validators[index].slashed, participating_indices))
 ``` -/
 def fn_get_unslashed_participating_indices : FunctionDef where
-  name := 336
+  name := 331
   params := { names := [1, 18, 103], defaults := [], vararg := none }
   line := 397
   body := [
     (.assert 403 (.compare 403 (.name 403 103) [(.isIn, (.tuple 403 [(.call 403 (.name 403 63) [(.pos (.name 403 1))]), (.call 403 (.name 403 59) [(.pos (.name 403 1))])]))])),
     (.ifStmt 404 (.compare 404 (.name 404 103) [(.eq, (.call 404 (.name 404 59) [(.pos (.name 404 1))]))]) [
-      (.assign 405 [(.name 405 392)] (.attr 405 (.name 405 1) 30))] [
-      (.assign 407 [(.name 407 392)] (.attr 407 (.name 407 1) 29))]),
-    (.assign 408 [(.name 408 393)] (.call 408 (.name 408 222) [(.pos (.name 408 1)), (.pos (.name 408 103))])),
-    (.assign 409 [(.name 409 394)] (.comp 409 .list (.name 410 115) [(.mk (.name 410 115) (.name 410 393) [(.call 410 (.name 410 395) [(.pos (.index 410 (.name 410 392) (.name 410 115))), (.pos (.name 410 18))])])])),
-    (.ret 412 (some (.call 412 (.name 412 252) [(.pos (.call 412 (.name 412 396) [(.pos (.lambda 412 [23] (.unop 412 .not (.attr 412 (.index 412 (.attr 412 (.name 412 1) 27) (.name 412 23)) 274)))), (.pos (.name 412 394))]))])))]
+      (.assign 405 [(.name 405 388)] (.attr 405 (.name 405 1) 30))] [
+      (.assign 407 [(.name 407 388)] (.attr 407 (.name 407 1) 29))]),
+    (.assign 408 [(.name 408 389)] (.call 408 (.name 408 217) [(.pos (.name 408 1)), (.pos (.name 408 103))])),
+    (.assign 409 [(.name 409 390)] (.comp 409 .list (.name 410 115) [(.mk (.name 410 115) (.name 410 389) [(.call 410 (.name 410 391) [(.pos (.index 410 (.name 410 388) (.name 410 115))), (.pos (.name 410 18))])])])),
+    (.ret 412 (some (.call 412 (.name 412 247) [(.pos (.call 412 (.name 412 392) [(.pos (.lambda 412 [23] (.unop 412 .not (.attr 412 (.index 412 (.attr 412 (.name 412 1) 27) (.name 412 23)) 269)))), (.pos (.name 412 390))]))])))]
 
 /-- `specs/electra/beacon-chain.md:1707`
 ```python
@@ -3535,9 +3569,9 @@ def fn_get_validator_from_deposit : FunctionDef where
   params := { names := [2, 22, 5], defaults := [], vararg := none }
   line := 1707
   body := [
-    (.assign 1710 [(.name 1710 25)] (.call 1710 (.name 1710 400) [(.kw 2 (.name 1711 2)), (.kw 22 (.name 1712 22)), (.kw 113 (.call 1713 (.name 1713 270) [(.pos (.int 1713 (0)))])), (.kw 274 (.call 1714 (.name 1714 72) [(.pos (.bool 1714 false))])), (.kw 397 (.name 1715 13)), (.kw 398 (.name 1716 13)), (.kw 399 (.name 1717 13)), (.kw 12 (.name 1718 13))])),
-    (.assign 1722 [(.name 1722 401)] (.call 1722 (.name 1722 366) [(.pos (.name 1722 25))])),
-    (.assign 1723 [(.attr 1723 (.name 1723 25) 113)] (.call 1723 (.name 1723 218) [(.pos (.binop 1724 .sub (.name 1724 5) (.binop 1724 .mod (.name 1724 5) (.name 1724 216)))), (.pos (.name 1724 401))])),
+    (.assign 1710 [(.name 1710 25)] (.call 1710 (.name 1710 396) [(.kw 2 (.name 1711 2)), (.kw 22 (.name 1712 22)), (.kw 113 (.call 1713 (.name 1713 265) [(.pos (.int 1713 (0)))])), (.kw 269 (.call 1714 (.name 1714 72) [(.pos (.bool 1714 false))])), (.kw 393 (.name 1715 13)), (.kw 394 (.name 1716 13)), (.kw 395 (.name 1717 13)), (.kw 12 (.name 1718 13))])),
+    (.assign 1722 [(.name 1722 397)] (.call 1722 (.name 1722 361) [(.pos (.name 1722 25))])),
+    (.assign 1723 [(.attr 1723 (.name 1723 25) 113)] (.call 1723 (.name 1723 213) [(.pos (.binop 1724 .sub (.name 1724 5) (.binop 1724 .mod (.name 1724 5) (.name 1724 211)))), (.pos (.name 1724 397))])),
     (.ret 1727 (some (.name 1727 25)))]
 
 /-- `specs/electra/beacon-chain.md:1403`
@@ -3592,33 +3626,33 @@ def get_validators_sweep_withdrawals(
     return withdrawals, withdrawal_index, processed_count
 ``` -/
 def fn_get_validators_sweep_withdrawals : FunctionDef where
-  name := 328
-  params := { names := [1, 293, 294], defaults := [], vararg := none }
+  name := 323
+  params := { names := [1, 288, 289], defaults := [], vararg := none }
   line := 1403
   body := [
     (.assign 1408 [(.name 1408 103)] (.call 1408 (.name 1408 59) [(.pos (.name 1408 1))])),
-    (.assign 1409 [(.name 1409 402)] (.call 1409 (.name 1409 218) [(.pos (.call 1409 (.name 1409 42) [(.pos (.attr 1409 (.name 1409 1) 27))])), (.pos (.name 1409 403))])),
-    (.assign 1410 [(.name 1410 295)] (.name 1410 296)),
-    (.assert 1412 (.compare 1412 (.call 1412 (.name 1412 42) [(.pos (.name 1412 294))]) [(.lt, (.name 1412 295))])),
-    (.assign 1414 [(.name 1414 297)] (.call 1414 (.name 1414 32) [(.pos (.int 1414 (0)))])),
+    (.assign 1409 [(.name 1409 398)] (.call 1409 (.name 1409 213) [(.pos (.call 1409 (.name 1409 42) [(.pos (.attr 1409 (.name 1409 1) 27))])), (.pos (.name 1409 399))])),
+    (.assign 1410 [(.name 1410 290)] (.name 1410 291)),
+    (.assert 1412 (.compare 1412 (.call 1412 (.name 1412 42) [(.pos (.name 1412 289))]) [(.lt, (.name 1412 290))])),
+    (.assign 1414 [(.name 1414 292)] (.call 1414 (.name 1414 32) [(.pos (.int 1414 (0)))])),
     (.annAssign 1415 (.name 1415 41) (.list 1415 [])),
-    (.assign 1416 [(.name 1416 81)] (.attr 1416 (.name 1416 1) 404)),
-    (.forStmt 1417 (.name 1417 307) (.call 1417 (.name 1417 130) [(.pos (.name 1417 402))]) [
-      (.assign 1418 [(.name 1418 298)] (.binop 1418 .add (.call 1418 (.name 1418 299) [(.pos (.name 1418 294))]) (.name 1418 41))),
-      (.assign 1419 [(.name 1419 300)] (.compare 1419 (.call 1419 (.name 1419 42) [(.pos (.name 1419 298))]) [(.gtE, (.name 1419 295))])),
-      (.ifStmt 1420 (.name 1420 300) [
+    (.assign 1416 [(.name 1416 81)] (.attr 1416 (.name 1416 1) 400)),
+    (.forStmt 1417 (.name 1417 302) (.call 1417 (.name 1417 130) [(.pos (.name 1417 398))]) [
+      (.assign 1418 [(.name 1418 293)] (.binop 1418 .add (.call 1418 (.name 1418 294) [(.pos (.name 1418 289))]) (.name 1418 41))),
+      (.assign 1419 [(.name 1419 295)] (.compare 1419 (.call 1419 (.name 1419 42) [(.pos (.name 1419 293))]) [(.gtE, (.name 1419 290))])),
+      (.ifStmt 1420 (.name 1420 295) [
         (.brk 1421)] []),
       (.assign 1423 [(.name 1423 25)] (.index 1423 (.attr 1423 (.name 1423 1) 27) (.name 1423 81))),
-      (.assign 1424 [(.name 1424 9)] (.call 1424 (.name 1424 265) [(.pos (.name 1424 1)), (.pos (.name 1424 81)), (.pos (.name 1424 298))])),
-      (.ifStmt 1425 (.call 1425 (.name 1425 405) [(.pos (.name 1425 25)), (.pos (.name 1425 9)), (.pos (.name 1425 103))]) [
-        (.exprStmt 1426 (.call 1426 (.attr 1426 (.name 1426 41) 69) [(.pos (.call 1427 (.name 1427 302) [(.kw 23 (.name 1428 293)), (.kw 81 (.name 1429 81)), (.kw 301 (.call 1430 (.name 1430 382) [(.pos (.slice 1430 (.attr 1430 (.name 1430 25) 22) (some (.int 1430 (12))) none none))])), (.kw 5 (.name 1431 9))]))])),
-        (.augAssign 1434 (.name 1434 293) .add (.int 1434 (1)))] [
-        (.ifStmt 1435 (.call 1435 (.name 1435 406) [(.pos (.name 1435 25)), (.pos (.name 1435 9))]) [
-          (.exprStmt 1436 (.call 1436 (.attr 1436 (.name 1436 41) 69) [(.pos (.call 1437 (.name 1437 302) [(.kw 23 (.name 1438 293)), (.kw 81 (.name 1439 81)), (.kw 301 (.call 1440 (.name 1440 382) [(.pos (.slice 1440 (.attr 1440 (.name 1440 25) 22) (some (.int 1440 (12))) none none))])), (.kw 5 (.binop 1442 .sub (.name 1442 9) (.call 1442 (.name 1442 366) [(.pos (.name 1442 25))])))]))])),
-          (.augAssign 1445 (.name 1445 293) .add (.int 1445 (1)))] [])]),
+      (.assign 1424 [(.name 1424 9)] (.call 1424 (.name 1424 260) [(.pos (.name 1424 1)), (.pos (.name 1424 81)), (.pos (.name 1424 293))])),
+      (.ifStmt 1425 (.call 1425 (.name 1425 401) [(.pos (.name 1425 25)), (.pos (.name 1425 9)), (.pos (.name 1425 103))]) [
+        (.exprStmt 1426 (.call 1426 (.attr 1426 (.name 1426 41) 69) [(.pos (.call 1427 (.name 1427 297) [(.kw 23 (.name 1428 288)), (.kw 81 (.name 1429 81)), (.kw 296 (.call 1430 (.name 1430 378) [(.pos (.slice 1430 (.attr 1430 (.name 1430 25) 22) (some (.int 1430 (12))) none none))])), (.kw 5 (.name 1431 9))]))])),
+        (.augAssign 1434 (.name 1434 288) .add (.int 1434 (1)))] [
+        (.ifStmt 1435 (.call 1435 (.name 1435 402) [(.pos (.name 1435 25)), (.pos (.name 1435 9))]) [
+          (.exprStmt 1436 (.call 1436 (.attr 1436 (.name 1436 41) 69) [(.pos (.call 1437 (.name 1437 297) [(.kw 23 (.name 1438 288)), (.kw 81 (.name 1439 81)), (.kw 296 (.call 1440 (.name 1440 378) [(.pos (.slice 1440 (.attr 1440 (.name 1440 25) 22) (some (.int 1440 (12))) none none))])), (.kw 5 (.binop 1442 .sub (.name 1442 9) (.call 1442 (.name 1442 361) [(.pos (.name 1442 25))])))]))])),
+          (.augAssign 1445 (.name 1445 288) .add (.int 1445 (1)))] [])]),
       (.assign 1447 [(.name 1447 81)] (.binop 1447 .mod (.binop 1447 .add (.name 1447 81) (.int 1447 (1))) (.call 1447 (.name 1447 42) [(.pos (.attr 1447 (.name 1447 1) 27))]))),
-      (.augAssign 1448 (.name 1448 297) .add (.int 1448 (1)))]),
-    (.ret 1450 (some (.tuple 1450 [(.name 1450 41), (.name 1450 293), (.name 1450 297)])))]
+      (.augAssign 1448 (.name 1448 292) .add (.int 1448 (1)))]),
+    (.ret 1450 (some (.tuple 1450 [(.name 1450 41), (.name 1450 288), (.name 1450 292)])))]
 
 /-- `specs/electra/beacon-chain.md:651`
 ```python
@@ -3629,11 +3663,11 @@ def has_compounding_withdrawal_credential(validator: Validator) -> bool:
     return is_compounding_withdrawal_credential(validator.withdrawal_credentials)
 ``` -/
 def fn_has_compounding_withdrawal_credential : FunctionDef where
-  name := 364
+  name := 359
   params := { names := [25], defaults := [], vararg := none }
   line := 651
   body := [
-    (.ret 655 (some (.call 655 (.name 655 407) [(.pos (.attr 655 (.name 655 25) 22))])))]
+    (.ret 655 (some (.call 655 (.name 655 403) [(.pos (.attr 655 (.name 655 25) 22))])))]
 
 /-- `specs/capella/beacon-chain.md:313`
 ```python
@@ -3644,11 +3678,11 @@ def has_eth1_withdrawal_credential(validator: Validator) -> bool:
     return validator.withdrawal_credentials[:1] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
 ``` -/
 def fn_has_eth1_withdrawal_credential : FunctionDef where
-  name := 409
+  name := 405
   params := { names := [25], defaults := [], vararg := none }
   line := 313
   body := [
-    (.ret 317 (some (.compare 317 (.slice 317 (.attr 317 (.name 317 25) 22) none (some (.int 317 (1))) none) [(.eq, (.name 317 408))])))]
+    (.ret 317 (some (.compare 317 (.slice 317 (.attr 317 (.name 317 25) 22) none (some (.int 317 (1))) none) [(.eq, (.name 317 404))])))]
 
 /-- `specs/electra/beacon-chain.md:661`
 ```python
@@ -3662,11 +3696,11 @@ def has_execution_withdrawal_credential(validator: Validator) -> bool:
     )
 ``` -/
 def fn_has_execution_withdrawal_credential : FunctionDef where
-  name := 410
+  name := 406
   params := { names := [25], defaults := [], vararg := none }
   line := 661
   body := [
-    (.ret 665 (some (.boolop 666 .or [(.call 666 (.name 666 409) [(.pos (.name 666 25))]), (.call 667 (.name 667 364) [(.pos (.name 667 25))])])))]
+    (.ret 665 (some (.boolop 666 .or [(.call 666 (.name 666 405) [(.pos (.name 666 25))]), (.call 667 (.name 667 359) [(.pos (.name 667 25))])])))]
 
 /-- `specs/altair/beacon-chain.md:290`
 ```python
@@ -3678,7 +3712,7 @@ def has_flag(flags: ParticipationFlags, flag_index: int) -> bool:
     return flags & flag == flag
 ``` -/
 def fn_has_flag : FunctionDef where
-  name := 395
+  name := 391
   params := { names := [17, 18], defaults := [], vararg := none }
   line := 290
   body := [
@@ -3724,18 +3758,18 @@ def initialize_ptc_window(
     return PayloadTimelinessCommitteeWindow(data=empty_previous_epoch + ptcs)
 ``` -/
 def fn_initialize_ptc_window : FunctionDef where
-  name := 415
+  name := 411
   params := { names := [1], defaults := [], vararg := none }
   line := 37
   body := [
-    (.assign 44 [(.name 44 411)] (.comp 44 .list (.call 45 (.name 45 174) [(.kw 91 (.comp 45 .list (.call 45 (.name 45 82) [(.pos (.int 45 (0)))]) [(.mk (.name 45 307) (.call 45 (.name 45 130) [(.pos (.name 45 173))]) [])]))]) [(.mk (.name 46 307) (.call 46 (.name 46 130) [(.pos (.name 46 61))]) [])])),
-    (.assign 49 [(.name 49 412)] (.list 49 [])),
-    (.assign 50 [(.name 50 413)] (.call 50 (.name 50 59) [(.pos (.name 50 1))])),
-    (.forStmt 51 (.name 51 280) (.call 51 (.name 51 130) [(.pos (.binop 51 .add (.int 51 (1)) (.name 51 386)))]) [
-      (.assign 52 [(.name 52 103)] (.binop 52 .add (.name 52 413) (.name 52 280))),
+    (.assign 44 [(.name 44 407)] (.comp 44 .list (.call 45 (.name 45 174) [(.kw 91 (.comp 45 .list (.call 45 (.name 45 82) [(.pos (.int 45 (0)))]) [(.mk (.name 45 302) (.call 45 (.name 45 130) [(.pos (.name 45 173))]) [])]))]) [(.mk (.name 46 302) (.call 46 (.name 46 130) [(.pos (.name 46 61))]) [])])),
+    (.assign 49 [(.name 49 408)] (.list 49 [])),
+    (.assign 50 [(.name 50 409)] (.call 50 (.name 50 59) [(.pos (.name 50 1))])),
+    (.forStmt 51 (.name 51 275) (.call 51 (.name 51 130) [(.pos (.binop 51 .add (.int 51 (1)) (.name 51 382)))]) [
+      (.assign 52 [(.name 52 103)] (.binop 52 .add (.name 52 409) (.name 52 275))),
       (.assign 53 [(.name 53 160)] (.call 53 (.name 53 161) [(.pos (.name 53 103))])),
-      (.augAssign 54 (.name 54 412) .add (.comp 54 .list (.call 54 (.name 54 175) [(.pos (.name 54 1)), (.pos (.binop 54 .add (.name 54 160) (.name 54 115)))]) [(.mk (.name 54 115) (.call 54 (.name 54 130) [(.pos (.name 54 61))]) [])]))]),
-    (.ret 56 (some (.call 56 (.name 56 414) [(.kw 91 (.binop 56 .add (.name 56 411) (.name 56 412)))])))]
+      (.augAssign 54 (.name 54 408) .add (.comp 54 .list (.call 54 (.name 54 175) [(.pos (.name 54 1)), (.pos (.binop 54 .add (.name 54 160) (.name 54 115)))]) [(.mk (.name 54 115) (.call 54 (.name 54 130) [(.pos (.name 54 61))]) [])]))]),
+    (.ret 56 (some (.call 56 (.name 56 410) [(.kw 91 (.binop 56 .add (.name 56 407) (.name 56 408)))])))]
 
 /-- `specs/gloas/beacon-chain.md:1524`
 ```python
@@ -3748,12 +3782,12 @@ def initiate_builder_exit(state: BeaconState, builder_index: BuilderIndex) -> No
     builder.withdrawable_epoch = get_current_epoch(state) + MIN_BUILDER_WITHDRAWABILITY_DELAY
 ``` -/
 def fn_initiate_builder_exit : FunctionDef where
-  name := 417
+  name := 413
   params := { names := [1, 66], defaults := [], vararg := none }
   line := 1524
   body := [
-    (.assign 1529 [(.name 1529 308)] (.index 1529 (.attr 1529 (.name 1529 1) 7) (.name 1529 66))),
-    (.assign 1530 [(.attr 1530 (.name 1530 308) 12)] (.binop 1530 .add (.call 1530 (.name 1530 59) [(.pos (.name 1530 1))]) (.name 1530 416)))]
+    (.assign 1529 [(.name 1529 303)] (.index 1529 (.attr 1529 (.name 1529 1) 7) (.name 1529 66))),
+    (.assign 1530 [(.attr 1530 (.name 1530 303) 12)] (.binop 1530 .add (.call 1530 (.name 1530 59) [(.pos (.name 1530 1))]) (.name 1530 412)))]
 
 /-- `specs/electra/beacon-chain.md:867`
 ```python
@@ -3774,16 +3808,16 @@ def initiate_validator_exit(state: BeaconState, index: ValidatorIndex) -> None:
     validator.withdrawable_epoch = validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 ``` -/
 def fn_initiate_validator_exit : FunctionDef where
-  name := 420
+  name := 416
   params := { names := [1, 23], defaults := [], vararg := none }
   line := 867
   body := [
     (.assign 872 [(.name 872 25)] (.index 872 (.attr 872 (.name 872 1) 27) (.name 872 23))),
-    (.ifStmt 873 (.compare 873 (.attr 873 (.name 873 25) 399) [(.notEq, (.name 873 13))]) [
+    (.ifStmt 873 (.compare 873 (.attr 873 (.name 873 25) 395) [(.notEq, (.name 873 13))]) [
       (.ret 874 none)] []),
-    (.assign 877 [(.name 877 418)] (.call 877 (.name 877 156) [(.pos (.name 877 1)), (.pos (.attr 877 (.name 877 25) 113))])),
-    (.assign 880 [(.attr 880 (.name 880 25) 399)] (.name 880 418)),
-    (.assign 881 [(.attr 881 (.name 881 25) 12)] (.binop 881 .add (.attr 881 (.name 881 25) 399) (.name 881 419)))]
+    (.assign 877 [(.name 877 414)] (.call 877 (.name 877 156) [(.pos (.name 877 1)), (.pos (.attr 877 (.name 877 25) 113))])),
+    (.assign 880 [(.attr 880 (.name 880 25) 395)] (.name 880 414)),
+    (.assign 881 [(.attr 881 (.name 881 25) 12)] (.binop 881 .add (.attr 881 (.name 881 25) 395) (.name 881 415)))]
 
 /-- `specs/phase0/beacon-chain.md:989`
 ```python
@@ -3801,18 +3835,18 @@ def integer_squareroot(n: Uint64) -> Uint64:
     return x
 ``` -/
 def fn_integer_squareroot : FunctionDef where
-  name := 244
-  params := { names := [421], defaults := [], vararg := none }
+  name := 239
+  params := { names := [417], defaults := [], vararg := none }
   line := 989
   body := [
-    (.ifStmt 993 (.compare 993 (.name 993 421) [(.eq, (.name 993 422))]) [
-      (.ret 994 (some (.name 994 423)))] []),
-    (.assign 995 [(.name 995 424)] (.name 995 421)),
-    (.assign 996 [(.name 996 425)] (.binop 996 .floorDiv (.binop 996 .add (.name 996 424) (.int 996 (1))) (.int 996 (2)))),
-    (.whileStmt 997 (.compare 997 (.name 997 425) [(.lt, (.name 997 424))]) [
-      (.assign 998 [(.name 998 424)] (.name 998 425)),
-      (.assign 999 [(.name 999 425)] (.binop 999 .floorDiv (.binop 999 .add (.name 999 424) (.binop 999 .floorDiv (.name 999 421) (.name 999 424))) (.int 999 (2))))]),
-    (.ret 1000 (some (.name 1000 424)))]
+    (.ifStmt 993 (.compare 993 (.name 993 417) [(.eq, (.name 993 418))]) [
+      (.ret 994 (some (.name 994 419)))] []),
+    (.assign 995 [(.name 995 420)] (.name 995 417)),
+    (.assign 996 [(.name 996 421)] (.binop 996 .floorDiv (.binop 996 .add (.name 996 420) (.int 996 (1))) (.int 996 (2)))),
+    (.whileStmt 997 (.compare 997 (.name 997 421) [(.lt, (.name 997 420))]) [
+      (.assign 998 [(.name 998 420)] (.name 998 421)),
+      (.assign 999 [(.name 999 421)] (.binop 999 .floorDiv (.binop 999 .add (.name 999 420) (.binop 999 .floorDiv (.name 999 417) (.name 999 420))) (.int 999 (2))))]),
+    (.ret 1000 (some (.name 1000 420)))]
 
 /-- `specs/gloas/beacon-chain.md:1054`
 ```python
@@ -3829,12 +3863,12 @@ def is_active_builder(state: BeaconState, builder_index: BuilderIndex) -> bool:
     )
 ``` -/
 def fn_is_active_builder : FunctionDef where
-  name := 426
+  name := 422
   params := { names := [1, 66], defaults := [], vararg := none }
   line := 1054
   body := [
-    (.assign 1058 [(.name 1058 308)] (.index 1058 (.attr 1058 (.name 1058 1) 7) (.name 1058 66))),
-    (.ret 1059 (some (.boolop 1061 .and [(.compare 1061 (.attr 1061 (.name 1061 308) 10) [(.lt, (.attr 1061 (.attr 1061 (.name 1061 1) 331) 103))]), (.compare 1063 (.attr 1063 (.name 1063 308) 12) [(.eq, (.name 1063 13))])])))]
+    (.assign 1058 [(.name 1058 303)] (.index 1058 (.attr 1058 (.name 1058 1) 7) (.name 1058 66))),
+    (.ret 1059 (some (.boolop 1061 .and [(.compare 1061 (.attr 1061 (.name 1061 303) 10) [(.lt, (.attr 1061 (.attr 1061 (.name 1061 1) 326) 103))]), (.compare 1063 (.attr 1063 (.name 1063 303) 12) [(.eq, (.name 1063 13))])])))]
 
 /-- `specs/phase0/beacon-chain.md:1091`
 ```python
@@ -3845,11 +3879,11 @@ def is_active_validator(validator: Validator, epoch: Epoch) -> bool:
     return validator.activation_epoch <= epoch < validator.exit_epoch
 ``` -/
 def fn_is_active_validator : FunctionDef where
-  name := 220
+  name := 215
   params := { names := [25, 103], defaults := [], vararg := none }
   line := 1091
   body := [
-    (.ret 1095 (some (.compare 1095 (.attr 1095 (.name 1095 25) 398) [(.ltE, (.name 1095 103)), (.lt, (.attr 1095 (.name 1095 25) 399))])))]
+    (.ret 1095 (some (.compare 1095 (.attr 1095 (.name 1095 25) 394) [(.ltE, (.name 1095 103)), (.lt, (.attr 1095 (.name 1095 25) 395))])))]
 
 /-- `specs/gloas/beacon-chain.md:1077`
 ```python
@@ -3867,16 +3901,16 @@ def is_attestation_same_slot(state: BeaconState, data: AttestationData) -> bool:
     return blockroot == slot_blockroot and blockroot != prev_blockroot
 ``` -/
 def fn_is_attestation_same_slot : FunctionDef where
-  name := 234
+  name := 229
   params := { names := [1, 91], defaults := [], vararg := none }
   line := 1077
   body := [
     (.ifStmt 1081 (.compare 1081 (.attr 1081 (.name 1081 91) 6) [(.eq, (.int 1081 (0)))]) [
       (.ret 1082 (some (.bool 1082 true)))] []),
-    (.assign 1084 [(.name 1084 427)] (.attr 1084 (.name 1084 91) 241)),
-    (.assign 1085 [(.name 1085 428)] (.call 1085 (.name 1085 239) [(.pos (.name 1085 1)), (.pos (.attr 1085 (.name 1085 91) 6))])),
-    (.assign 1086 [(.name 1086 429)] (.call 1086 (.name 1086 239) [(.pos (.name 1086 1)), (.pos (.binop 1086 .sub (.attr 1086 (.name 1086 91) 6) (.int 1086 (1))))])),
-    (.ret 1088 (some (.boolop 1088 .and [(.compare 1088 (.name 1088 427) [(.eq, (.name 1088 428))]), (.compare 1088 (.name 1088 427) [(.notEq, (.name 1088 429))])])))]
+    (.assign 1084 [(.name 1084 423)] (.attr 1084 (.name 1084 91) 236)),
+    (.assign 1085 [(.name 1085 424)] (.call 1085 (.name 1085 234) [(.pos (.name 1085 1)), (.pos (.attr 1085 (.name 1085 91) 6))])),
+    (.assign 1086 [(.name 1086 425)] (.call 1086 (.name 1086 234) [(.pos (.name 1086 1)), (.pos (.binop 1086 .sub (.attr 1086 (.name 1086 91) 6) (.int 1086 (1))))])),
+    (.ret 1088 (some (.boolop 1088 .and [(.compare 1088 (.name 1088 423) [(.eq, (.name 1088 424))]), (.compare 1088 (.name 1088 423) [(.notEq, (.name 1088 425))])])))]
 
 /-- `specs/gloas/beacon-chain.md:1047`
 ```python
@@ -3896,11 +3930,11 @@ def is_builder_withdrawal_credential(withdrawal_credentials: Bytes32) -> bool:
     return withdrawal_credentials[:1] == BUILDER_WITHDRAWAL_PREFIX
 ``` -/
 def fn_is_builder_withdrawal_credential : FunctionDef where
-  name := 431
+  name := 427
   params := { names := [22], defaults := [], vararg := none }
   line := 1070
   body := [
-    (.ret 1071 (some (.compare 1071 (.slice 1071 (.name 1071 22) none (some (.int 1071 (1))) none) [(.eq, (.name 1071 430))])))]
+    (.ret 1071 (some (.compare 1071 (.slice 1071 (.name 1071 22) none (some (.int 1071 (1))) none) [(.eq, (.name 1071 426))])))]
 
 /-- `specs/electra/beacon-chain.md:644`
 ```python
@@ -3908,11 +3942,11 @@ def is_compounding_withdrawal_credential(withdrawal_credentials: Bytes32) -> boo
     return withdrawal_credentials[:1] == COMPOUNDING_WITHDRAWAL_PREFIX
 ``` -/
 def fn_is_compounding_withdrawal_credential : FunctionDef where
-  name := 407
+  name := 403
   params := { names := [22], defaults := [], vararg := none }
   line := 644
   body := [
-    (.ret 645 (some (.compare 645 (.slice 645 (.name 645 22) none (some (.int 645 (1))) none) [(.eq, (.name 645 432))])))]
+    (.ret 645 (some (.compare 645 (.slice 645 (.name 645 22) none (some (.int 645 (1))) none) [(.eq, (.name 645 428))])))]
 
 /-- `specs/phase0/beacon-chain.md:1114`
 ```python
@@ -3928,11 +3962,11 @@ def is_eligible_for_activation(state: BeaconState, validator: Validator) -> bool
     )
 ``` -/
 def fn_is_eligible_for_activation : FunctionDef where
-  name := 433
+  name := 429
   params := { names := [1, 25], defaults := [], vararg := none }
   line := 1114
   body := [
-    (.ret 1118 (some (.boolop 1120 .and [(.compare 1120 (.attr 1120 (.name 1120 25) 397) [(.ltE, (.attr 1120 (.attr 1120 (.name 1120 1) 331) 103))]), (.compare 1122 (.attr 1122 (.name 1122 25) 398) [(.eq, (.name 1122 13))])])))]
+    (.ret 1118 (some (.boolop 1120 .and [(.compare 1120 (.attr 1120 (.name 1120 25) 393) [(.ltE, (.attr 1120 (.attr 1120 (.name 1120 1) 326) 103))]), (.compare 1122 (.attr 1122 (.name 1122 25) 394) [(.eq, (.name 1122 13))])])))]
 
 /-- `specs/electra/beacon-chain.md:630`
 ```python
@@ -3947,11 +3981,11 @@ def is_eligible_for_activation_queue(validator: Validator) -> bool:
     )
 ``` -/
 def fn_is_eligible_for_activation_queue : FunctionDef where
-  name := 434
+  name := 430
   params := { names := [25], defaults := [], vararg := none }
   line := 630
   body := [
-    (.ret 634 (some (.boolop 635 .and [(.compare 635 (.attr 635 (.name 635 25) 397) [(.eq, (.name 635 13))]), (.compare 637 (.attr 637 (.name 637 25) 113) [(.gtE, (.name 637 365))])])))]
+    (.ret 634 (some (.boolop 635 .and [(.compare 635 (.attr 635 (.name 635 25) 393) [(.eq, (.name 635 13))]), (.compare 637 (.attr 637 (.name 637 25) 113) [(.gtE, (.name 637 360))])])))]
 
 /-- `specs/electra/beacon-chain.md:718`
 ```python
@@ -3968,13 +4002,13 @@ def is_eligible_for_partial_withdrawals(validator: Validator, balance: Gwei) -> 
     )
 ``` -/
 def fn_is_eligible_for_partial_withdrawals : FunctionDef where
-  name := 380
+  name := 376
   params := { names := [25, 9], defaults := [], vararg := none }
   line := 718
   body := [
-    (.assign 722 [(.name 722 435)] (.compare 722 (.attr 722 (.name 722 25) 113) [(.gtE, (.name 722 365))])),
-    (.assign 723 [(.name 723 436)] (.compare 723 (.name 723 9) [(.gt, (.name 723 365))])),
-    (.ret 724 (some (.boolop 725 .and [(.compare 725 (.attr 725 (.name 725 25) 399) [(.eq, (.name 725 13))]), (.name 726 435), (.name 727 436)])))]
+    (.assign 722 [(.name 722 431)] (.compare 722 (.attr 722 (.name 722 25) 113) [(.gtE, (.name 722 360))])),
+    (.assign 723 [(.name 723 432)] (.compare 723 (.name 723 9) [(.gt, (.name 723 360))])),
+    (.ret 724 (some (.boolop 725 .and [(.compare 725 (.attr 725 (.name 725 25) 395) [(.eq, (.name 725 13))]), (.name 726 431), (.name 727 432)])))]
 
 /-- `specs/electra/beacon-chain.md:678`
 ```python
@@ -3990,11 +4024,11 @@ def is_fully_withdrawable_validator(validator: Validator, balance: Gwei, epoch: 
     )
 ``` -/
 def fn_is_fully_withdrawable_validator : FunctionDef where
-  name := 405
+  name := 401
   params := { names := [25, 9, 103], defaults := [], vararg := none }
   line := 678
   body := [
-    (.ret 682 (some (.boolop 684 .and [(.call 684 (.name 684 410) [(.pos (.name 684 25))]), (.compare 685 (.attr 685 (.name 685 25) 12) [(.ltE, (.name 685 103))]), (.compare 686 (.name 686 9) [(.gt, (.int 686 (0)))])])))]
+    (.ret 682 (some (.boolop 684 .and [(.call 684 (.name 684 406) [(.pos (.name 684 25))]), (.compare 685 (.attr 685 (.name 685 25) 12) [(.ltE, (.name 685 103))]), (.compare 686 (.name 686 9) [(.gt, (.int 686 (0)))])])))]
 
 /-- `specs/phase0/beacon-chain.md:2015`
 ```python
@@ -4002,11 +4036,11 @@ def is_in_inactivity_leak(state: BeaconState) -> bool:
     return get_finality_delay(state) > MIN_EPOCHS_TO_INACTIVITY_PENALTY
 ``` -/
 def fn_is_in_inactivity_leak : FunctionDef where
-  name := 343
+  name := 338
   params := { names := [1], defaults := [], vararg := none }
   line := 2015
   body := [
-    (.ret 2016 (some (.compare 2016 (.call 2016 (.name 2016 332) [(.pos (.name 2016 1))]) [(.gt, (.name 2016 437))])))]
+    (.ret 2016 (some (.compare 2016 (.call 2016 (.name 2016 327) [(.pos (.name 2016 1))]) [(.gt, (.name 2016 433))])))]
 
 /-- `specs/electra/beacon-chain.md:698`
 ```python
@@ -4027,14 +4061,14 @@ def is_partially_withdrawable_validator(validator: Validator, balance: Gwei) -> 
     )
 ``` -/
 def fn_is_partially_withdrawable_validator : FunctionDef where
-  name := 406
+  name := 402
   params := { names := [25, 9], defaults := [], vararg := none }
   line := 698
   body := [
-    (.assign 702 [(.name 702 401)] (.call 702 (.name 702 366) [(.pos (.name 702 25))])),
-    (.assign 704 [(.name 704 438)] (.compare 704 (.attr 704 (.name 704 25) 113) [(.eq, (.name 704 401))])),
-    (.assign 706 [(.name 706 436)] (.compare 706 (.name 706 9) [(.gt, (.name 706 401))])),
-    (.ret 707 (some (.boolop 709 .and [(.call 709 (.name 709 410) [(.pos (.name 709 25))]), (.name 710 438), (.name 711 436)])))]
+    (.assign 702 [(.name 702 397)] (.call 702 (.name 702 361) [(.pos (.name 702 25))])),
+    (.assign 704 [(.name 704 434)] (.compare 704 (.attr 704 (.name 704 25) 113) [(.eq, (.name 704 397))])),
+    (.assign 706 [(.name 706 432)] (.compare 706 (.name 706 9) [(.gt, (.name 706 397))])),
+    (.ret 707 (some (.boolop 709 .and [(.call 709 (.name 709 406) [(.pos (.name 709 25))]), (.name 710 434), (.name 711 432)])))]
 
 /-- `specs/gloas/beacon-chain.md:1119`
 ```python
@@ -4055,14 +4089,14 @@ def is_pending_validator(pending_deposits: Sequence[PendingDeposit], pubkey: BLS
     return False
 ``` -/
 def fn_is_pending_validator : FunctionDef where
-  name := 441
-  params := { names := [439, 2], defaults := [], vararg := none }
+  name := 437
+  params := { names := [435, 2], defaults := [], vararg := none }
   line := 1119
   body := [
-    (.forStmt 1123 (.name 1123 440) (.name 1123 439) [
-      (.ifStmt 1124 (.compare 1124 (.attr 1124 (.name 1124 440) 2) [(.notEq, (.name 1124 2))]) [
+    (.forStmt 1123 (.name 1123 436) (.name 1123 435) [
+      (.ifStmt 1124 (.compare 1124 (.attr 1124 (.name 1124 436) 2) [(.notEq, (.name 1124 2))]) [
         (.cont 1125)] []),
-      (.ifStmt 1126 (.call 1126 (.name 1126 80) [(.pos (.attr 1127 (.name 1127 440) 2)), (.pos (.attr 1128 (.name 1128 440) 22)), (.pos (.attr 1129 (.name 1129 440) 5)), (.pos (.attr 1130 (.name 1130 440) 79))]) [
+      (.ifStmt 1126 (.call 1126 (.name 1126 80) [(.pos (.attr 1127 (.name 1127 436) 2)), (.pos (.attr 1128 (.name 1128 436) 22)), (.pos (.attr 1129 (.name 1129 436) 5)), (.pos (.attr 1130 (.name 1130 436) 79))]) [
         (.ret 1132 (some (.bool 1132 true)))] [])]),
     (.ret 1133 (some (.bool 1133 false)))]
 
@@ -4081,11 +4115,11 @@ def is_slashable_attestation_data(data_1: AttestationData, data_2: AttestationDa
     )
 ``` -/
 def fn_is_slashable_attestation_data : FunctionDef where
-  name := 444
-  params := { names := [442, 443], defaults := [], vararg := none }
+  name := 440
+  params := { names := [438, 439], defaults := [], vararg := none }
   line := 1141
   body := [
-    (.ret 1145 (some (.boolop 1147 .or [(.boolop 1147 .and [(.compare 1147 (.name 1147 442) [(.notEq, (.name 1147 443))]), (.compare 1147 (.attr 1147 (.attr 1147 (.name 1147 442) 224) 103) [(.eq, (.attr 1147 (.attr 1147 (.name 1147 443) 224) 103))])]), (.boolop 1150 .and [(.compare 1150 (.attr 1150 (.attr 1150 (.name 1150 442) 188) 103) [(.lt, (.attr 1150 (.attr 1150 (.name 1150 443) 188) 103))]), (.compare 1150 (.attr 1150 (.attr 1150 (.name 1150 443) 224) 103) [(.lt, (.attr 1150 (.attr 1150 (.name 1150 442) 224) 103))])])])))]
+    (.ret 1145 (some (.boolop 1147 .or [(.boolop 1147 .and [(.compare 1147 (.name 1147 438) [(.notEq, (.name 1147 439))]), (.compare 1147 (.attr 1147 (.attr 1147 (.name 1147 438) 219) 103) [(.eq, (.attr 1147 (.attr 1147 (.name 1147 439) 219) 103))])]), (.boolop 1150 .and [(.compare 1150 (.attr 1150 (.attr 1150 (.name 1150 438) 188) 103) [(.lt, (.attr 1150 (.attr 1150 (.name 1150 439) 188) 103))]), (.compare 1150 (.attr 1150 (.attr 1150 (.name 1150 439) 219) 103) [(.lt, (.attr 1150 (.attr 1150 (.name 1150 438) 219) 103))])])])))]
 
 /-- `specs/phase0/beacon-chain.md:1129`
 ```python
@@ -4098,11 +4132,11 @@ def is_slashable_validator(validator: Validator, epoch: Epoch) -> bool:
     )
 ``` -/
 def fn_is_slashable_validator : FunctionDef where
-  name := 445
+  name := 441
   params := { names := [25, 103], defaults := [], vararg := none }
   line := 1129
   body := [
-    (.ret 1133 (some (.boolop 1133 .and [(.unop 1133 .not (.attr 1133 (.name 1133 25) 274)), (.compare 1134 (.attr 1134 (.name 1134 25) 398) [(.ltE, (.name 1134 103)), (.lt, (.attr 1134 (.name 1134 25) 12))])])))]
+    (.ret 1133 (some (.boolop 1133 .and [(.unop 1133 .not (.attr 1133 (.name 1133 25) 269)), (.compare 1134 (.attr 1134 (.name 1134 25) 394) [(.ltE, (.name 1134 103)), (.lt, (.attr 1134 (.name 1134 25) 12))])])))]
 
 /-- `specs/gloas/beacon-chain.md:2217`
 ```python
@@ -4117,14 +4151,14 @@ def is_valid_builder_deposit_signature(request: BuilderDepositRequest) -> bool:
     return bls.Verify(request.pubkey, signing_root, request.signature)
 ``` -/
 def fn_is_valid_builder_deposit_signature : FunctionDef where
-  name := 452
-  params := { names := [446], defaults := [], vararg := none }
+  name := 448
+  params := { names := [442], defaults := [], vararg := none }
   line := 2217
   body := [
-    (.assign 2218 [(.name 2218 447)] (.call 2218 (.name 2218 448) [(.kw 2 (.attr 2219 (.name 2219 446) 2)), (.kw 22 (.attr 2220 (.name 2220 446) 22)), (.kw 5 (.attr 2221 (.name 2221 446) 5))])),
-    (.assign 2223 [(.name 2223 192)] (.call 2223 (.name 2223 150) [(.pos (.name 2223 449))])),
-    (.assign 2224 [(.name 2224 450)] (.call 2224 (.name 2224 195) [(.pos (.name 2224 447)), (.pos (.name 2224 192))])),
-    (.ret 2225 (some (.call 2225 (.attr 2225 (.name 2225 202) 451) [(.pos (.attr 2225 (.name 2225 446) 2)), (.pos (.name 2225 450)), (.pos (.attr 2225 (.name 2225 446) 79))])))]
+    (.assign 2218 [(.name 2218 443)] (.call 2218 (.name 2218 444) [(.kw 2 (.attr 2219 (.name 2219 442) 2)), (.kw 22 (.attr 2220 (.name 2220 442) 22)), (.kw 5 (.attr 2221 (.name 2221 442) 5))])),
+    (.assign 2223 [(.name 2223 192)] (.call 2223 (.name 2223 150) [(.pos (.name 2223 445))])),
+    (.assign 2224 [(.name 2224 446)] (.call 2224 (.name 2224 195) [(.pos (.name 2224 443)), (.pos (.name 2224 192))])),
+    (.ret 2225 (some (.call 2225 (.attr 2225 (.name 2225 204) 447) [(.pos (.attr 2225 (.name 2225 442) 2)), (.pos (.name 2225 446)), (.pos (.attr 2225 (.name 2225 442) 79))])))]
 
 /-- `specs/electra/beacon-chain.md:1786`
 ```python
@@ -4146,10 +4180,10 @@ def fn_is_valid_deposit_signature : FunctionDef where
   params := { names := [2, 22, 5, 79], defaults := [], vararg := none }
   line := 1786
   body := [
-    (.assign 1789 [(.name 1789 447)] (.call 1789 (.name 1789 448) [(.kw 2 (.name 1790 2)), (.kw 22 (.name 1791 22)), (.kw 5 (.name 1792 5))])),
-    (.assign 1795 [(.name 1795 192)] (.call 1795 (.name 1795 150) [(.pos (.name 1795 453))])),
-    (.assign 1796 [(.name 1796 450)] (.call 1796 (.name 1796 195) [(.pos (.name 1796 447)), (.pos (.name 1796 192))])),
-    (.ret 1797 (some (.call 1797 (.attr 1797 (.name 1797 202) 451) [(.pos (.name 1797 2)), (.pos (.name 1797 450)), (.pos (.name 1797 79))])))]
+    (.assign 1789 [(.name 1789 443)] (.call 1789 (.name 1789 444) [(.kw 2 (.name 1790 2)), (.kw 22 (.name 1791 22)), (.kw 5 (.name 1792 5))])),
+    (.assign 1795 [(.name 1795 192)] (.call 1795 (.name 1795 150) [(.pos (.name 1795 449))])),
+    (.assign 1796 [(.name 1796 446)] (.call 1796 (.name 1796 195) [(.pos (.name 1796 443)), (.pos (.name 1796 192))])),
+    (.ret 1797 (some (.call 1797 (.attr 1797 (.name 1797 204) 447) [(.pos (.name 1797 2)), (.pos (.name 1797 446)), (.pos (.name 1797 79))])))]
 
 /-- `specs/gloas/beacon-chain.md:1022`
 ```python
@@ -4175,17 +4209,17 @@ def is_valid_indexed_attestation(
     return bls.FastAggregateVerify(pubkeys, signing_root, indexed_attestation.signature)
 ``` -/
 def fn_is_valid_indexed_attestation : FunctionDef where
-  name := 456
-  params := { names := [1, 454], defaults := [], vararg := none }
+  name := 452
+  params := { names := [1, 450], defaults := [], vararg := none }
   line := 1022
   body := [
-    (.assign 1029 [(.name 1029 106)] (.attr 1029 (.name 1029 454) 353)),
-    (.ifStmt 1030 (.boolop 1031 .or [(.compare 1031 (.call 1031 (.name 1031 42) [(.pos (.name 1031 106))]) [(.eq, (.int 1031 (0)))]), (.compare 1033 (.call 1033 (.name 1033 42) [(.pos (.name 1033 106))]) [(.gt, (.binop 1033 .mul (.name 1033 455) (.name 1033 310)))]), (.compare 1034 (.call 1034 (.name 1034 299) [(.pos (.name 1034 106))]) [(.notEq, (.call 1034 (.name 1034 282) [(.pos (.call 1034 (.name 1034 252) [(.pos (.name 1034 106))]))]))])]) [
+    (.assign 1029 [(.name 1029 106)] (.attr 1029 (.name 1029 450) 348)),
+    (.ifStmt 1030 (.boolop 1031 .or [(.compare 1031 (.call 1031 (.name 1031 42) [(.pos (.name 1031 106))]) [(.eq, (.int 1031 (0)))]), (.compare 1033 (.call 1033 (.name 1033 42) [(.pos (.name 1033 106))]) [(.gt, (.binop 1033 .mul (.name 1033 451) (.name 1033 305)))]), (.compare 1034 (.call 1034 (.name 1034 294) [(.pos (.name 1034 106))]) [(.notEq, (.call 1034 (.name 1034 277) [(.pos (.call 1034 (.name 1034 247) [(.pos (.name 1034 106))]))]))])]) [
       (.ret 1036 (some (.bool 1036 false)))] []),
     (.assign 1038 [(.name 1038 201)] (.comp 1038 .list (.attr 1038 (.index 1038 (.attr 1038 (.name 1038 1) 27) (.name 1038 115)) 2) [(.mk (.name 1038 115) (.name 1038 106) [])])),
-    (.assign 1039 [(.name 1039 192)] (.call 1039 (.name 1039 315) [(.pos (.name 1039 1)), (.pos (.name 1039 271)), (.pos (.attr 1039 (.attr 1039 (.attr 1039 (.name 1039 454) 91) 224) 103))])),
-    (.assign 1040 [(.name 1040 450)] (.call 1040 (.name 1040 195) [(.pos (.attr 1040 (.name 1040 454) 91)), (.pos (.name 1040 192))])),
-    (.ret 1041 (some (.call 1041 (.attr 1041 (.name 1041 202) 210) [(.pos (.name 1041 201)), (.pos (.name 1041 450)), (.pos (.attr 1041 (.name 1041 454) 79))])))]
+    (.assign 1039 [(.name 1039 192)] (.call 1039 (.name 1039 310) [(.pos (.name 1039 1)), (.pos (.name 1039 266)), (.pos (.attr 1039 (.attr 1039 (.attr 1039 (.name 1039 450) 91) 219) 103))])),
+    (.assign 1040 [(.name 1040 446)] (.call 1040 (.name 1040 195) [(.pos (.attr 1040 (.name 1040 450) 91)), (.pos (.name 1040 192))])),
+    (.ret 1041 (some (.call 1041 (.attr 1041 (.name 1041 204) 205) [(.pos (.name 1041 201)), (.pos (.name 1041 446)), (.pos (.attr 1041 (.name 1041 450) 79))])))]
 
 /-- `specs/gloas/beacon-chain.md:1094`
 ```python
@@ -4208,17 +4242,17 @@ def is_valid_indexed_payload_attestation(
     return bls.FastAggregateVerify(pubkeys, signing_root, attestation.signature)
 ``` -/
 def fn_is_valid_indexed_payload_attestation : FunctionDef where
-  name := 457
-  params := { names := [1, 250], defaults := [], vararg := none }
+  name := 453
+  params := { names := [1, 245], defaults := [], vararg := none }
   line := 1094
   body := [
-    (.assign 1102 [(.name 1102 106)] (.attr 1102 (.name 1102 250) 353)),
-    (.ifStmt 1103 (.boolop 1103 .or [(.compare 1103 (.call 1103 (.name 1103 42) [(.pos (.name 1103 106))]) [(.eq, (.int 1103 (0)))]), (.compare 1103 (.call 1103 (.name 1103 299) [(.pos (.name 1103 106))]) [(.notEq, (.call 1103 (.name 1103 282) [(.pos (.name 1103 106))]))])]) [
+    (.assign 1102 [(.name 1102 106)] (.attr 1102 (.name 1102 245) 348)),
+    (.ifStmt 1103 (.boolop 1103 .or [(.compare 1103 (.call 1103 (.name 1103 42) [(.pos (.name 1103 106))]) [(.eq, (.int 1103 (0)))]), (.compare 1103 (.call 1103 (.name 1103 294) [(.pos (.name 1103 106))]) [(.notEq, (.call 1103 (.name 1103 277) [(.pos (.name 1103 106))]))])]) [
       (.ret 1104 (some (.bool 1104 false)))] []),
     (.assign 1107 [(.name 1107 201)] (.comp 1107 .list (.attr 1107 (.index 1107 (.attr 1107 (.name 1107 1) 27) (.name 1107 115)) 2) [(.mk (.name 1107 115) (.name 1107 106) [])])),
-    (.assign 1108 [(.name 1108 192)] (.call 1108 (.name 1108 315) [(.pos (.name 1108 1)), (.pos (.name 1108 165)), (.pos (.call 1108 (.name 1108 11) [(.pos (.attr 1108 (.attr 1108 (.name 1108 250) 91) 6))]))])),
-    (.assign 1109 [(.name 1109 450)] (.call 1109 (.name 1109 195) [(.pos (.attr 1109 (.name 1109 250) 91)), (.pos (.name 1109 192))])),
-    (.ret 1110 (some (.call 1110 (.attr 1110 (.name 1110 202) 210) [(.pos (.name 1110 201)), (.pos (.name 1110 450)), (.pos (.attr 1110 (.name 1110 250) 79))])))]
+    (.assign 1108 [(.name 1108 192)] (.call 1108 (.name 1108 310) [(.pos (.name 1108 1)), (.pos (.name 1108 165)), (.pos (.call 1108 (.name 1108 11) [(.pos (.attr 1108 (.attr 1108 (.name 1108 245) 91) 6))]))])),
+    (.assign 1109 [(.name 1109 446)] (.call 1109 (.name 1109 195) [(.pos (.attr 1109 (.name 1109 245) 91)), (.pos (.name 1109 192))])),
+    (.ret 1110 (some (.call 1110 (.attr 1110 (.name 1110 204) 205) [(.pos (.name 1110 201)), (.pos (.name 1110 446)), (.pos (.attr 1110 (.name 1110 245) 79))])))]
 
 /-- `specs/electra/beacon-chain.md:1962`
 ```python
@@ -4257,25 +4291,25 @@ def is_valid_switch_to_compounding_request(
     return True
 ``` -/
 def fn_is_valid_switch_to_compounding_request : FunctionDef where
-  name := 463
-  params := { names := [1, 458], defaults := [], vararg := none }
+  name := 459
+  params := { names := [1, 454], defaults := [], vararg := none }
   line := 1962
   body := [
-    (.ifStmt 1966 (.compare 1966 (.attr 1966 (.name 1966 458) 460) [(.notEq, (.attr 1966 (.name 1966 458) 459))]) [
+    (.ifStmt 1966 (.compare 1966 (.attr 1966 (.name 1966 454) 456) [(.notEq, (.attr 1966 (.name 1966 454) 455))]) [
       (.ret 1967 (some (.bool 1967 false)))] []),
-    (.assign 1970 [(.name 1970 460)] (.attr 1970 (.name 1970 458) 460)),
+    (.assign 1970 [(.name 1970 456)] (.attr 1970 (.name 1970 454) 456)),
     (.assign 1971 [(.name 1971 77)] (.comp 1971 .list (.attr 1971 (.name 1971 78) 2) [(.mk (.name 1971 78) (.attr 1971 (.name 1971 1) 27) [])])),
-    (.ifStmt 1972 (.compare 1972 (.name 1972 460) [(.notIn, (.name 1972 77))]) [
+    (.ifStmt 1972 (.compare 1972 (.name 1972 456) [(.notIn, (.name 1972 77))]) [
       (.ret 1973 (some (.bool 1973 false)))] []),
-    (.assign 1975 [(.name 1975 461)] (.index 1975 (.attr 1975 (.name 1975 1) 27) (.call 1975 (.name 1975 82) [(.pos (.call 1975 (.attr 1975 (.name 1975 77) 23) [(.pos (.name 1975 460))]))]))),
-    (.ifStmt 1978 (.compare 1978 (.slice 1978 (.attr 1978 (.name 1978 461) 22) (some (.int 1978 (12))) none none) [(.notEq, (.attr 1978 (.name 1978 458) 462))]) [
+    (.assign 1975 [(.name 1975 457)] (.index 1975 (.attr 1975 (.name 1975 1) 27) (.call 1975 (.name 1975 82) [(.pos (.call 1975 (.attr 1975 (.name 1975 77) 23) [(.pos (.name 1975 456))]))]))),
+    (.ifStmt 1978 (.compare 1978 (.slice 1978 (.attr 1978 (.name 1978 457) 22) (some (.int 1978 (12))) none none) [(.notEq, (.attr 1978 (.name 1978 454) 458))]) [
       (.ret 1979 (some (.bool 1979 false)))] []),
-    (.ifStmt 1982 (.unop 1982 .not (.call 1982 (.name 1982 409) [(.pos (.name 1982 461))])) [
+    (.ifStmt 1982 (.unop 1982 .not (.call 1982 (.name 1982 405) [(.pos (.name 1982 457))])) [
       (.ret 1983 (some (.bool 1983 false)))] []),
-    (.assign 1986 [(.name 1986 413)] (.call 1986 (.name 1986 59) [(.pos (.name 1986 1))])),
-    (.ifStmt 1987 (.unop 1987 .not (.call 1987 (.name 1987 220) [(.pos (.name 1987 461)), (.pos (.name 1987 413))])) [
+    (.assign 1986 [(.name 1986 409)] (.call 1986 (.name 1986 59) [(.pos (.name 1986 1))])),
+    (.ifStmt 1987 (.unop 1987 .not (.call 1987 (.name 1987 215) [(.pos (.name 1987 457)), (.pos (.name 1987 409))])) [
       (.ret 1988 (some (.bool 1988 false)))] []),
-    (.ifStmt 1991 (.compare 1991 (.attr 1991 (.name 1991 461) 399) [(.notEq, (.name 1991 13))]) [
+    (.ifStmt 1991 (.compare 1991 (.attr 1991 (.name 1991 457) 395) [(.notEq, (.name 1991 13))]) [
       (.ret 1992 (some (.bool 1992 false)))] []),
     (.ret 1994 (some (.bool 1994 true)))]
 
@@ -4333,30 +4367,30 @@ def onboard_builders_from_pending_deposits(state: BeaconState) -> None:
     state.pending_deposits = pending_deposits
 ``` -/
 def fn_onboard_builders_from_pending_deposits : FunctionDef where
-  name := 468
+  name := 464
   params := { names := [1], defaults := [], vararg := none }
   line := 70
   body := [
     (.assign 75 [(.name 75 77)] (.comp 75 .list (.attr 75 (.name 75 78) 2) [(.mk (.name 75 78) (.attr 75 (.name 75 1) 27) [])])),
-    (.assign 77 [(.name 77 439)] (.call 77 (.name 77 464) [])),
-    (.forStmt 78 (.name 78 76) (.attr 78 (.name 78 1) 439) [
+    (.assign 77 [(.name 77 435)] (.call 77 (.name 77 460) [])),
+    (.forStmt 78 (.name 78 76) (.attr 78 (.name 78 1) 435) [
       (.ifStmt 80 (.compare 80 (.attr 80 (.name 80 76) 2) [(.isIn, (.name 80 77))]) [
-        (.exprStmt 81 (.call 81 (.attr 81 (.name 81 439) 69) [(.pos (.name 81 76))])),
+        (.exprStmt 81 (.call 81 (.attr 81 (.name 81 435) 69) [(.pos (.name 81 76))])),
         (.cont 82)] []),
-      (.assign 87 [(.name 87 465)] (.comp 87 .list (.attr 87 (.name 87 466) 2) [(.mk (.name 87 466) (.attr 87 (.name 87 1) 7) [])])),
-      (.ifStmt 92 (.compare 92 (.attr 92 (.name 92 76) 2) [(.notIn, (.name 92 465))]) [
-        (.ifStmt 93 (.unop 93 .not (.call 93 (.name 93 431) [(.pos (.attr 93 (.name 93 76) 22))])) [
-          (.exprStmt 94 (.call 94 (.attr 94 (.name 94 439) 69) [(.pos (.name 94 76))])),
+      (.assign 87 [(.name 87 461)] (.comp 87 .list (.attr 87 (.name 87 462) 2) [(.mk (.name 87 462) (.attr 87 (.name 87 1) 7) [])])),
+      (.ifStmt 92 (.compare 92 (.attr 92 (.name 92 76) 2) [(.notIn, (.name 92 461))]) [
+        (.ifStmt 93 (.unop 93 .not (.call 93 (.name 93 427) [(.pos (.attr 93 (.name 93 76) 22))])) [
+          (.exprStmt 94 (.call 94 (.attr 94 (.name 94 435) 69) [(.pos (.name 94 76))])),
           (.cont 95)] []),
-        (.ifStmt 96 (.call 96 (.name 96 441) [(.pos (.name 96 439)), (.pos (.attr 96 (.name 96 76) 2))]) [
-          (.exprStmt 97 (.call 97 (.attr 97 (.name 97 439) 69) [(.pos (.name 97 76))])),
+        (.ifStmt 96 (.call 96 (.name 96 437) [(.pos (.name 96 435)), (.pos (.attr 96 (.name 96 76) 2))]) [
+          (.exprStmt 97 (.call 97 (.attr 97 (.name 97 435) 69) [(.pos (.name 97 76))])),
           (.cont 98)] []),
         (.ifStmt 99 (.unop 99 .not (.call 99 (.name 99 80) [(.pos (.attr 100 (.name 100 76) 2)), (.pos (.attr 101 (.name 101 76) 22)), (.pos (.attr 102 (.name 102 76) 5)), (.pos (.attr 103 (.name 103 76) 79))])) [
           (.cont 105)] []),
-        (.exprStmt 107 (.call 107 (.name 107 16) [(.pos (.name 108 1)), (.pos (.attr 109 (.name 109 76) 2)), (.pos (.name 110 467)), (.pos (.call 111 (.name 111 382) [(.pos (.slice 111 (.attr 111 (.name 111 76) 22) (some (.int 111 (12))) none none))])), (.pos (.attr 112 (.name 112 76) 5)), (.pos (.attr 113 (.name 113 76) 6))]))] [
-        (.assign 116 [(.name 116 66)] (.call 116 (.name 116 199) [(.pos (.call 116 (.attr 116 (.name 116 465) 23) [(.pos (.attr 116 (.name 116 76) 2))]))])),
+        (.exprStmt 107 (.call 107 (.name 107 16) [(.pos (.name 108 1)), (.pos (.attr 109 (.name 109 76) 2)), (.pos (.name 110 463)), (.pos (.call 111 (.name 111 378) [(.pos (.slice 111 (.attr 111 (.name 111 76) 22) (some (.int 111 (12))) none none))])), (.pos (.attr 112 (.name 112 76) 5)), (.pos (.attr 113 (.name 113 76) 6))]))] [
+        (.assign 116 [(.name 116 66)] (.call 116 (.name 116 199) [(.pos (.call 116 (.attr 116 (.name 116 461) 23) [(.pos (.attr 116 (.name 116 76) 2))]))])),
         (.augAssign 117 (.attr 117 (.index 117 (.attr 117 (.name 117 1) 7) (.name 117 66)) 9) .add (.attr 117 (.name 117 76) 5))])]),
-    (.assign 119 [(.attr 119 (.name 119 1) 439)] (.name 119 439))]
+    (.assign 119 [(.attr 119 (.name 119 1) 435)] (.name 119 435))]
 
 /-- `specs/gloas/beacon-chain.md:2337`
 ```python
@@ -4447,50 +4481,50 @@ def process_attestation(
         state.builder_pending_payments[data.slot % SLOTS_PER_EPOCH] = payment
 ``` -/
 def fn_process_attestation : FunctionDef where
-  name := 476
-  params := { names := [1, 250, 37], defaults := [], vararg := none }
+  name := 472
+  params := { names := [1, 245, 37], defaults := [], vararg := none }
   line := 2337
   body := [
-    (.assign 2343 [(.name 2343 91)] (.attr 2343 (.name 2343 250) 91)),
-    (.assert 2344 (.compare 2344 (.attr 2344 (.attr 2344 (.name 2344 91) 224) 103) [(.isIn, (.tuple 2344 [(.call 2344 (.name 2344 63) [(.pos (.name 2344 1))]), (.call 2344 (.name 2344 59) [(.pos (.name 2344 1))])]))])),
-    (.assert 2345 (.compare 2345 (.attr 2345 (.attr 2345 (.name 2345 91) 224) 103) [(.eq, (.call 2345 (.name 2345 11) [(.pos (.attr 2345 (.name 2345 91) 6))]))])),
-    (.assert 2346 (.compare 2346 (.binop 2346 .add (.attr 2346 (.name 2346 91) 6) (.name 2346 247)) [(.ltE, (.attr 2346 (.name 2346 1) 6))])),
+    (.assign 2343 [(.name 2343 91)] (.attr 2343 (.name 2343 245) 91)),
+    (.assert 2344 (.compare 2344 (.attr 2344 (.attr 2344 (.name 2344 91) 219) 103) [(.isIn, (.tuple 2344 [(.call 2344 (.name 2344 63) [(.pos (.name 2344 1))]), (.call 2344 (.name 2344 59) [(.pos (.name 2344 1))])]))])),
+    (.assert 2345 (.compare 2345 (.attr 2345 (.attr 2345 (.name 2345 91) 219) 103) [(.eq, (.call 2345 (.name 2345 11) [(.pos (.attr 2345 (.name 2345 91) 6))]))])),
+    (.assert 2346 (.compare 2346 (.binop 2346 .add (.attr 2346 (.name 2346 91) 6) (.name 2346 242)) [(.ltE, (.attr 2346 (.name 2346 1) 6))])),
     (.assert 2349 (.compare 2349 (.attr 2349 (.name 2349 91) 23) [(.lt, (.int 2349 (2)))])),
-    (.assign 2350 [(.name 2350 253)] (.call 2350 (.name 2350 255) [(.pos (.attr 2350 (.name 2350 250) 254))])),
-    (.assign 2351 [(.name 2351 256)] (.int 2351 (0))),
-    (.forStmt 2352 (.name 2352 257) (.name 2352 253) [
-      (.assert 2353 (.compare 2353 (.name 2353 257) [(.lt, (.call 2353 (.name 2353 168) [(.pos (.name 2353 1)), (.pos (.attr 2353 (.attr 2353 (.name 2353 91) 224) 103))]))])),
-      (.assign 2354 [(.name 2354 169)] (.call 2354 (.name 2354 171) [(.pos (.name 2354 1)), (.pos (.attr 2354 (.name 2354 91) 6)), (.pos (.name 2354 257))])),
-      (.assign 2355 [(.name 2355 258)] (.comp 2355 .set (.name 2356 260) [(.mk (.tuple 2357 [(.name 2357 115), (.name 2357 260)]) (.call 2357 (.name 2357 221) [(.pos (.name 2357 169))]) [(.index 2358 (.attr 2358 (.name 2358 250) 259) (.binop 2358 .add (.name 2358 256) (.name 2358 115)))])])),
-      (.assert 2360 (.compare 2360 (.call 2360 (.name 2360 42) [(.pos (.name 2360 258))]) [(.gt, (.int 2360 (0)))])),
-      (.augAssign 2361 (.name 2361 256) .add (.call 2361 (.name 2361 42) [(.pos (.name 2361 169))]))]),
-    (.assert 2364 (.compare 2364 (.call 2364 (.name 2364 42) [(.pos (.attr 2364 (.name 2364 250) 259))]) [(.eq, (.name 2364 256))])),
-    (.assign 2368 [(.name 2368 243)] (.call 2368 (.name 2368 249) [(.pos (.name 2369 1)), (.pos (.name 2369 91)), (.pos (.binop 2369 .sub (.attr 2369 (.name 2369 1) 6) (.attr 2369 (.name 2369 91) 6))), (.pos (.name 2369 37))])),
-    (.assert 2373 (.call 2373 (.name 2373 456) [(.pos (.name 2373 1)), (.pos (.call 2373 (.name 2373 356) [(.pos (.name 2373 1)), (.pos (.name 2373 250))]))])),
-    (.ifStmt 2376 (.compare 2376 (.attr 2376 (.attr 2376 (.name 2376 91) 224) 103) [(.eq, (.call 2376 (.name 2376 59) [(.pos (.name 2376 1))]))]) [
-      (.assign 2377 [(.name 2377 469)] (.bool 2377 true)),
-      (.assign 2378 [(.name 2378 392)] (.attr 2378 (.name 2378 1) 30)),
-      (.assign 2379 [(.name 2379 376)] (.index 2379 (.attr 2379 (.name 2379 1) 377) (.binop 2379 .add (.name 2379 61) (.binop 2379 .mod (.attr 2379 (.name 2379 91) 6) (.name 2379 61)))))] [
-      (.assign 2381 [(.name 2381 469)] (.bool 2381 false)),
-      (.assign 2382 [(.name 2382 392)] (.attr 2382 (.name 2382 1) 29)),
-      (.assign 2383 [(.name 2383 376)] (.index 2383 (.attr 2383 (.name 2383 1) 377) (.binop 2383 .mod (.attr 2383 (.name 2383 91) 6) (.name 2383 61))))]),
-    (.assign 2385 [(.name 2385 470)] (.int 2385 (0))),
-    (.forStmt 2386 (.name 2386 23) (.call 2386 (.name 2386 262) [(.pos (.name 2386 1)), (.pos (.name 2386 250))]) [
-      (.assign 2388 [(.name 2388 471)] (.compare 2388 (.index 2388 (.name 2388 392) (.name 2388 23)) [(.eq, (.int 2388 (0)))])),
-      (.assign 2389 [(.name 2389 472)] (.bool 2389 false)),
-      (.forStmt 2391 (.tuple 2391 [(.name 2391 18), (.name 2391 122)]) (.call 2391 (.name 2391 221) [(.pos (.name 2391 337))]) [
-        (.ifStmt 2392 (.boolop 2392 .and [(.compare 2392 (.name 2392 18) [(.isIn, (.name 2392 243))]), (.unop 2392 .not (.call 2392 (.name 2392 395) [(.pos (.index 2393 (.name 2393 392) (.name 2393 23))), (.pos (.name 2393 18))]))]) [
-          (.assign 2395 [(.index 2395 (.name 2395 392) (.name 2395 23))] (.call 2395 (.name 2395 21) [(.pos (.index 2395 (.name 2395 392) (.name 2395 23))), (.pos (.name 2395 18))])),
-          (.augAssign 2396 (.name 2396 470) .add (.binop 2396 .mul (.call 2396 (.name 2396 268) [(.pos (.name 2396 1)), (.pos (.name 2396 23))]) (.name 2396 122))),
-          (.assign 2398 [(.name 2398 472)] (.bool 2398 true))] [])]),
-      (.ifStmt 2401 (.boolop 2402 .and [(.name 2402 472), (.name 2403 471), (.call 2404 (.name 2404 234) [(.pos (.name 2404 1)), (.pos (.name 2404 91))]), (.compare 2405 (.attr 2405 (.attr 2405 (.name 2405 376) 85) 5) [(.gt, (.int 2405 (0)))])]) [
-        (.augAssign 2407 (.attr 2407 (.name 2407 376) 122) .add (.attr 2407 (.index 2407 (.attr 2407 (.name 2407 1) 27) (.name 2407 23)) 113))] [])]),
-    (.assign 2410 [(.name 2410 473)] (.binop 2411 .floorDiv (.binop 2411 .mul (.binop 2411 .sub (.name 2411 345) (.name 2411 474)) (.name 2411 345)) (.name 2411 474))),
-    (.assign 2413 [(.name 2413 475)] (.call 2413 (.name 2413 270) [(.pos (.binop 2413 .floorDiv (.name 2413 470) (.name 2413 473)))])),
-    (.exprStmt 2414 (.call 2414 (.name 2414 83) [(.pos (.name 2414 1)), (.pos (.call 2414 (.name 2414 273) [(.pos (.name 2414 1))])), (.pos (.name 2414 475))])),
-    (.ifStmt 2418 (.name 2418 469) [
-      (.assign 2419 [(.index 2419 (.attr 2419 (.name 2419 1) 377) (.binop 2419 .add (.name 2419 61) (.binop 2419 .mod (.attr 2419 (.name 2419 91) 6) (.name 2419 61))))] (.name 2419 376))] [
-      (.assign 2421 [(.index 2421 (.attr 2421 (.name 2421 1) 377) (.binop 2421 .mod (.attr 2421 (.name 2421 91) 6) (.name 2421 61)))] (.name 2421 376))])]
+    (.assign 2350 [(.name 2350 248)] (.call 2350 (.name 2350 250) [(.pos (.attr 2350 (.name 2350 245) 249))])),
+    (.assign 2351 [(.name 2351 251)] (.int 2351 (0))),
+    (.forStmt 2352 (.name 2352 252) (.name 2352 248) [
+      (.assert 2353 (.compare 2353 (.name 2353 252) [(.lt, (.call 2353 (.name 2353 168) [(.pos (.name 2353 1)), (.pos (.attr 2353 (.attr 2353 (.name 2353 91) 219) 103))]))])),
+      (.assign 2354 [(.name 2354 169)] (.call 2354 (.name 2354 171) [(.pos (.name 2354 1)), (.pos (.attr 2354 (.name 2354 91) 6)), (.pos (.name 2354 252))])),
+      (.assign 2355 [(.name 2355 253)] (.comp 2355 .set (.name 2356 255) [(.mk (.tuple 2357 [(.name 2357 115), (.name 2357 255)]) (.call 2357 (.name 2357 216) [(.pos (.name 2357 169))]) [(.index 2358 (.attr 2358 (.name 2358 245) 254) (.binop 2358 .add (.name 2358 251) (.name 2358 115)))])])),
+      (.assert 2360 (.compare 2360 (.call 2360 (.name 2360 42) [(.pos (.name 2360 253))]) [(.gt, (.int 2360 (0)))])),
+      (.augAssign 2361 (.name 2361 251) .add (.call 2361 (.name 2361 42) [(.pos (.name 2361 169))]))]),
+    (.assert 2364 (.compare 2364 (.call 2364 (.name 2364 42) [(.pos (.attr 2364 (.name 2364 245) 254))]) [(.eq, (.name 2364 251))])),
+    (.assign 2368 [(.name 2368 238)] (.call 2368 (.name 2368 244) [(.pos (.name 2369 1)), (.pos (.name 2369 91)), (.pos (.binop 2369 .sub (.attr 2369 (.name 2369 1) 6) (.attr 2369 (.name 2369 91) 6))), (.pos (.name 2369 37))])),
+    (.assert 2373 (.call 2373 (.name 2373 452) [(.pos (.name 2373 1)), (.pos (.call 2373 (.name 2373 351) [(.pos (.name 2373 1)), (.pos (.name 2373 245))]))])),
+    (.ifStmt 2376 (.compare 2376 (.attr 2376 (.attr 2376 (.name 2376 91) 219) 103) [(.eq, (.call 2376 (.name 2376 59) [(.pos (.name 2376 1))]))]) [
+      (.assign 2377 [(.name 2377 465)] (.bool 2377 true)),
+      (.assign 2378 [(.name 2378 388)] (.attr 2378 (.name 2378 1) 30)),
+      (.assign 2379 [(.name 2379 372)] (.index 2379 (.attr 2379 (.name 2379 1) 373) (.binop 2379 .add (.name 2379 61) (.binop 2379 .mod (.attr 2379 (.name 2379 91) 6) (.name 2379 61)))))] [
+      (.assign 2381 [(.name 2381 465)] (.bool 2381 false)),
+      (.assign 2382 [(.name 2382 388)] (.attr 2382 (.name 2382 1) 29)),
+      (.assign 2383 [(.name 2383 372)] (.index 2383 (.attr 2383 (.name 2383 1) 373) (.binop 2383 .mod (.attr 2383 (.name 2383 91) 6) (.name 2383 61))))]),
+    (.assign 2385 [(.name 2385 466)] (.int 2385 (0))),
+    (.forStmt 2386 (.name 2386 23) (.call 2386 (.name 2386 257) [(.pos (.name 2386 1)), (.pos (.name 2386 245))]) [
+      (.assign 2388 [(.name 2388 467)] (.compare 2388 (.index 2388 (.name 2388 388) (.name 2388 23)) [(.eq, (.int 2388 (0)))])),
+      (.assign 2389 [(.name 2389 468)] (.bool 2389 false)),
+      (.forStmt 2391 (.tuple 2391 [(.name 2391 18), (.name 2391 122)]) (.call 2391 (.name 2391 216) [(.pos (.name 2391 332))]) [
+        (.ifStmt 2392 (.boolop 2392 .and [(.compare 2392 (.name 2392 18) [(.isIn, (.name 2392 238))]), (.unop 2392 .not (.call 2392 (.name 2392 391) [(.pos (.index 2393 (.name 2393 388) (.name 2393 23))), (.pos (.name 2393 18))]))]) [
+          (.assign 2395 [(.index 2395 (.name 2395 388) (.name 2395 23))] (.call 2395 (.name 2395 21) [(.pos (.index 2395 (.name 2395 388) (.name 2395 23))), (.pos (.name 2395 18))])),
+          (.augAssign 2396 (.name 2396 466) .add (.binop 2396 .mul (.call 2396 (.name 2396 263) [(.pos (.name 2396 1)), (.pos (.name 2396 23))]) (.name 2396 122))),
+          (.assign 2398 [(.name 2398 468)] (.bool 2398 true))] [])]),
+      (.ifStmt 2401 (.boolop 2402 .and [(.name 2402 468), (.name 2403 467), (.call 2404 (.name 2404 229) [(.pos (.name 2404 1)), (.pos (.name 2404 91))]), (.compare 2405 (.attr 2405 (.attr 2405 (.name 2405 372) 85) 5) [(.gt, (.int 2405 (0)))])]) [
+        (.augAssign 2407 (.attr 2407 (.name 2407 372) 122) .add (.attr 2407 (.index 2407 (.attr 2407 (.name 2407 1) 27) (.name 2407 23)) 113))] [])]),
+    (.assign 2410 [(.name 2410 469)] (.binop 2411 .floorDiv (.binop 2411 .mul (.binop 2411 .sub (.name 2411 340) (.name 2411 470)) (.name 2411 340)) (.name 2411 470))),
+    (.assign 2413 [(.name 2413 471)] (.call 2413 (.name 2413 265) [(.pos (.binop 2413 .floorDiv (.name 2413 466) (.name 2413 469)))])),
+    (.exprStmt 2414 (.call 2414 (.name 2414 83) [(.pos (.name 2414 1)), (.pos (.call 2414 (.name 2414 268) [(.pos (.name 2414 1))])), (.pos (.name 2414 471))])),
+    (.ifStmt 2418 (.name 2418 465) [
+      (.assign 2419 [(.index 2419 (.attr 2419 (.name 2419 1) 373) (.binop 2419 .add (.name 2419 61) (.binop 2419 .mod (.attr 2419 (.name 2419 91) 6) (.name 2419 61))))] (.name 2419 372))] [
+      (.assign 2421 [(.index 2421 (.attr 2421 (.name 2421 1) 373) (.binop 2421 .mod (.attr 2421 (.name 2421 91) 6) (.name 2421 61)))] (.name 2421 372))])]
 
 /-- `specs/phase0/beacon-chain.md:2426`
 ```python
@@ -4510,22 +4544,22 @@ def process_attester_slashing(state: BeaconState, attester_slashing: AttesterSla
     assert slashed_any
 ``` -/
 def fn_process_attester_slashing : FunctionDef where
-  name := 483
-  params := { names := [1, 477], defaults := [], vararg := none }
+  name := 479
+  params := { names := [1, 473], defaults := [], vararg := none }
   line := 2426
   body := [
-    (.assign 2427 [(.name 2427 478)] (.attr 2427 (.name 2427 477) 478)),
-    (.assign 2428 [(.name 2428 479)] (.attr 2428 (.name 2428 477) 479)),
-    (.assert 2429 (.call 2429 (.name 2429 444) [(.pos (.attr 2429 (.name 2429 478) 91)), (.pos (.attr 2429 (.name 2429 479) 91))])),
-    (.assert 2430 (.call 2430 (.name 2430 456) [(.pos (.name 2430 1)), (.pos (.name 2430 478))])),
-    (.assert 2431 (.call 2431 (.name 2431 456) [(.pos (.name 2431 1)), (.pos (.name 2431 479))])),
-    (.assign 2433 [(.name 2433 480)] (.bool 2433 false)),
-    (.assign 2434 [(.name 2434 106)] (.call 2434 (.attr 2434 (.call 2434 (.name 2434 252) [(.pos (.attr 2434 (.name 2434 478) 353))]) 481) [(.pos (.attr 2434 (.name 2434 479) 353))])),
-    (.forStmt 2435 (.name 2435 23) (.call 2435 (.name 2435 282) [(.pos (.name 2435 106))]) [
-      (.ifStmt 2436 (.call 2436 (.name 2436 445) [(.pos (.index 2436 (.attr 2436 (.name 2436 1) 27) (.name 2436 23))), (.pos (.call 2436 (.name 2436 59) [(.pos (.name 2436 1))]))]) [
-        (.exprStmt 2437 (.call 2437 (.name 2437 482) [(.pos (.name 2437 1)), (.pos (.name 2437 23))])),
-        (.assign 2438 [(.name 2438 480)] (.bool 2438 true))] [])]),
-    (.assert 2439 (.name 2439 480))]
+    (.assign 2427 [(.name 2427 474)] (.attr 2427 (.name 2427 473) 474)),
+    (.assign 2428 [(.name 2428 475)] (.attr 2428 (.name 2428 473) 475)),
+    (.assert 2429 (.call 2429 (.name 2429 440) [(.pos (.attr 2429 (.name 2429 474) 91)), (.pos (.attr 2429 (.name 2429 475) 91))])),
+    (.assert 2430 (.call 2430 (.name 2430 452) [(.pos (.name 2430 1)), (.pos (.name 2430 474))])),
+    (.assert 2431 (.call 2431 (.name 2431 452) [(.pos (.name 2431 1)), (.pos (.name 2431 475))])),
+    (.assign 2433 [(.name 2433 476)] (.bool 2433 false)),
+    (.assign 2434 [(.name 2434 106)] (.call 2434 (.attr 2434 (.call 2434 (.name 2434 247) [(.pos (.attr 2434 (.name 2434 474) 348))]) 477) [(.pos (.attr 2434 (.name 2434 475) 348))])),
+    (.forStmt 2435 (.name 2435 23) (.call 2435 (.name 2435 277) [(.pos (.name 2435 106))]) [
+      (.ifStmt 2436 (.call 2436 (.name 2436 441) [(.pos (.index 2436 (.attr 2436 (.name 2436 1) 27) (.name 2436 23))), (.pos (.call 2436 (.name 2436 59) [(.pos (.name 2436 1))]))]) [
+        (.exprStmt 2437 (.call 2437 (.name 2437 478) [(.pos (.name 2437 1)), (.pos (.name 2437 23))])),
+        (.assign 2438 [(.name 2438 476)] (.bool 2438 true))] [])]),
+    (.assert 2439 (.name 2439 476))]
 
 /-- `specs/gloas/beacon-chain.md:1714`
 ```python
@@ -4549,19 +4583,19 @@ def process_block(state: BeaconState, block: BeaconBlock) -> None:
     process_sync_aggregate(state, block.body.sync_aggregate)
 ``` -/
 def fn_process_block : FunctionDef where
-  name := 496
-  params := { names := [1, 484], defaults := [], vararg := none }
+  name := 492
+  params := { names := [1, 480], defaults := [], vararg := none }
   line := 1714
   body := [
     (.assign 1716 [(.name 1716 37)] (.attr 1716 (.attr 1716 (.name 1716 1) 38) 6)),
-    (.exprStmt 1719 (.call 1719 (.name 1719 485) [(.pos (.name 1719 1)), (.pos (.name 1719 484))])),
-    (.exprStmt 1720 (.call 1720 (.name 1720 486) [(.pos (.name 1720 1)), (.pos (.name 1720 484))])),
-    (.exprStmt 1722 (.call 1722 (.name 1722 487) [(.pos (.name 1722 1))])),
-    (.exprStmt 1726 (.call 1726 (.name 1726 490) [(.pos (.name 1726 1)), (.pos (.attr 1726 (.attr 1726 (.name 1726 484) 488) 489))])),
-    (.exprStmt 1727 (.call 1727 (.name 1727 491) [(.pos (.name 1727 1)), (.pos (.attr 1727 (.name 1727 484) 488))])),
-    (.exprStmt 1728 (.call 1728 (.name 1728 492) [(.pos (.name 1728 1)), (.pos (.attr 1728 (.name 1728 484) 488))])),
-    (.exprStmt 1730 (.call 1730 (.name 1730 493) [(.pos (.name 1730 1)), (.pos (.attr 1730 (.name 1730 484) 488)), (.pos (.name 1730 37))])),
-    (.exprStmt 1731 (.call 1731 (.name 1731 495) [(.pos (.name 1731 1)), (.pos (.attr 1731 (.attr 1731 (.name 1731 484) 488) 494))]))]
+    (.exprStmt 1719 (.call 1719 (.name 1719 481) [(.pos (.name 1719 1)), (.pos (.name 1719 480))])),
+    (.exprStmt 1720 (.call 1720 (.name 1720 482) [(.pos (.name 1720 1)), (.pos (.name 1720 480))])),
+    (.exprStmt 1722 (.call 1722 (.name 1722 483) [(.pos (.name 1722 1))])),
+    (.exprStmt 1726 (.call 1726 (.name 1726 486) [(.pos (.name 1726 1)), (.pos (.attr 1726 (.attr 1726 (.name 1726 480) 484) 485))])),
+    (.exprStmt 1727 (.call 1727 (.name 1727 487) [(.pos (.name 1727 1)), (.pos (.attr 1727 (.name 1727 480) 484))])),
+    (.exprStmt 1728 (.call 1728 (.name 1728 488) [(.pos (.name 1728 1)), (.pos (.attr 1728 (.name 1728 480) 484))])),
+    (.exprStmt 1730 (.call 1730 (.name 1730 489) [(.pos (.name 1730 1)), (.pos (.attr 1730 (.name 1730 480) 484)), (.pos (.name 1730 37))])),
+    (.exprStmt 1731 (.call 1731 (.name 1731 491) [(.pos (.name 1731 1)), (.pos (.attr 1731 (.attr 1731 (.name 1731 480) 484) 490))]))]
 
 /-- `specs/phase0/beacon-chain.md:2327`
 ```python
@@ -4588,17 +4622,17 @@ def process_block_header(state: BeaconState, block: BeaconBlock) -> None:
     assert not proposer.slashed
 ``` -/
 def fn_process_block_header : FunctionDef where
-  name := 486
-  params := { names := [1, 484], defaults := [], vararg := none }
+  name := 482
+  params := { names := [1, 480], defaults := [], vararg := none }
   line := 2327
   body := [
-    (.assert 2329 (.compare 2329 (.attr 2329 (.name 2329 484) 6) [(.eq, (.attr 2329 (.name 2329 1) 6))])),
-    (.assert 2331 (.compare 2331 (.attr 2331 (.name 2331 484) 6) [(.gt, (.attr 2331 (.attr 2331 (.name 2331 1) 38) 6))])),
-    (.assert 2333 (.compare 2333 (.attr 2333 (.name 2333 484) 497) [(.eq, (.call 2333 (.name 2333 273) [(.pos (.name 2333 1))]))])),
-    (.assert 2335 (.compare 2335 (.attr 2335 (.name 2335 484) 498) [(.eq, (.call 2335 (.name 2335 159) [(.pos (.attr 2335 (.name 2335 1) 38))]))])),
-    (.assign 2337 [(.attr 2337 (.name 2337 1) 38)] (.call 2337 (.name 2337 501) [(.kw 6 (.attr 2338 (.name 2338 484) 6)), (.kw 497 (.attr 2339 (.name 2339 484) 497)), (.kw 498 (.attr 2340 (.name 2340 484) 498)), (.kw 499 (.call 2341 (.name 2341 146) [])), (.kw 500 (.call 2342 (.name 2342 159) [(.pos (.attr 2342 (.name 2342 484) 488))]))])),
-    (.assign 2346 [(.name 2346 502)] (.index 2346 (.attr 2346 (.name 2346 1) 27) (.attr 2346 (.name 2346 484) 497))),
-    (.assert 2347 (.unop 2347 .not (.attr 2347 (.name 2347 502) 274)))]
+    (.assert 2329 (.compare 2329 (.attr 2329 (.name 2329 480) 6) [(.eq, (.attr 2329 (.name 2329 1) 6))])),
+    (.assert 2331 (.compare 2331 (.attr 2331 (.name 2331 480) 6) [(.gt, (.attr 2331 (.attr 2331 (.name 2331 1) 38) 6))])),
+    (.assert 2333 (.compare 2333 (.attr 2333 (.name 2333 480) 493) [(.eq, (.call 2333 (.name 2333 268) [(.pos (.name 2333 1))]))])),
+    (.assert 2335 (.compare 2335 (.attr 2335 (.name 2335 480) 494) [(.eq, (.call 2335 (.name 2335 159) [(.pos (.attr 2335 (.name 2335 1) 38))]))])),
+    (.assign 2337 [(.attr 2337 (.name 2337 1) 38)] (.call 2337 (.name 2337 497) [(.kw 6 (.attr 2338 (.name 2338 480) 6)), (.kw 493 (.attr 2339 (.name 2339 480) 493)), (.kw 494 (.attr 2340 (.name 2340 480) 494)), (.kw 495 (.call 2341 (.name 2341 146) [])), (.kw 496 (.call 2342 (.name 2342 159) [(.pos (.attr 2342 (.name 2342 480) 484))]))])),
+    (.assign 2346 [(.name 2346 498)] (.index 2346 (.attr 2346 (.name 2346 1) 27) (.attr 2346 (.name 2346 480) 493))),
+    (.assert 2347 (.unop 2347 .not (.attr 2347 (.name 2347 498) 269)))]
 
 /-- `specs/capella/beacon-chain.md:619`
 ```python
@@ -4626,19 +4660,19 @@ def process_bls_to_execution_change(
     )
 ``` -/
 def fn_process_bls_to_execution_change : FunctionDef where
-  name := 510
-  params := { names := [1, 503], defaults := [], vararg := none }
+  name := 506
+  params := { names := [1, 499], defaults := [], vararg := none }
   line := 619
   body := [
-    (.assign 622 [(.name 622 504)] (.attr 622 (.name 622 503) 208)),
-    (.assert 624 (.compare 624 (.attr 624 (.name 624 504) 81) [(.lt, (.call 624 (.name 624 42) [(.pos (.attr 624 (.name 624 1) 27))]))])),
-    (.assign 626 [(.name 626 25)] (.index 626 (.attr 626 (.name 626 1) 27) (.attr 626 (.name 626 504) 81))),
-    (.assert 628 (.compare 628 (.slice 628 (.attr 628 (.name 628 25) 22) none (some (.int 628 (1))) none) [(.eq, (.name 628 505))])),
-    (.assert 629 (.compare 629 (.slice 629 (.attr 629 (.name 629 25) 22) (some (.int 629 (1))) none none) [(.eq, (.slice 629 (.call 629 (.name 629 119) [(.pos (.attr 629 (.name 629 504) 506))]) (some (.int 629 (1))) none none))])),
-    (.assign 632 [(.name 632 192)] (.call 632 (.name 632 150) [(.pos (.name 633 507)), (.kw 144 (.attr 633 (.name 633 1) 144))])),
-    (.assign 635 [(.name 635 450)] (.call 635 (.name 635 195) [(.pos (.name 635 504)), (.pos (.name 635 192))])),
-    (.assert 636 (.call 636 (.attr 636 (.name 636 202) 451) [(.pos (.attr 636 (.name 636 504) 506)), (.pos (.name 636 450)), (.pos (.attr 636 (.name 636 503) 79))])),
-    (.assign 638 [(.attr 638 (.name 638 25) 22)] (.call 638 (.name 638 509) [(.pos (.binop 639 .add (.binop 639 .add (.name 639 408) (.binop 639 .mul (.bytes 639 [0]) (.int 639 (11)))) (.attr 639 (.name 639 504) 508)))]))]
+    (.assign 622 [(.name 622 500)] (.attr 622 (.name 622 499) 202)),
+    (.assert 624 (.compare 624 (.attr 624 (.name 624 500) 81) [(.lt, (.call 624 (.name 624 42) [(.pos (.attr 624 (.name 624 1) 27))]))])),
+    (.assign 626 [(.name 626 25)] (.index 626 (.attr 626 (.name 626 1) 27) (.attr 626 (.name 626 500) 81))),
+    (.assert 628 (.compare 628 (.slice 628 (.attr 628 (.name 628 25) 22) none (some (.int 628 (1))) none) [(.eq, (.name 628 501))])),
+    (.assert 629 (.compare 629 (.slice 629 (.attr 629 (.name 629 25) 22) (some (.int 629 (1))) none none) [(.eq, (.slice 629 (.call 629 (.name 629 119) [(.pos (.attr 629 (.name 629 500) 502))]) (some (.int 629 (1))) none none))])),
+    (.assign 632 [(.name 632 192)] (.call 632 (.name 632 150) [(.pos (.name 633 503)), (.kw 144 (.attr 633 (.name 633 1) 144))])),
+    (.assign 635 [(.name 635 446)] (.call 635 (.name 635 195) [(.pos (.name 635 500)), (.pos (.name 635 192))])),
+    (.assert 636 (.call 636 (.attr 636 (.name 636 204) 447) [(.pos (.attr 636 (.name 636 500) 502)), (.pos (.name 636 446)), (.pos (.attr 636 (.name 636 499) 79))])),
+    (.assign 638 [(.attr 638 (.name 638 25) 22)] (.call 638 (.name 638 505) [(.pos (.binop 639 .add (.binop 639 .add (.name 639 404) (.binop 639 .mul (.bytes 639 [0]) (.int 639 (11)))) (.attr 639 (.name 639 500) 504)))]))]
 
 /-- `specs/gloas/beacon-chain.md:2275`
 ```python
@@ -4672,21 +4706,21 @@ def process_builder_deposit_request(state: BeaconState, request: BuilderDepositR
 ``` -/
 def fn_process_builder_deposit_request : FunctionDef where
   name := 57
-  params := { names := [1, 446], defaults := [], vararg := none }
+  params := { names := [1, 442], defaults := [], vararg := none }
   line := 2275
   body := [
-    (.ifStmt 2277 (.unop 2277 .not (.call 2277 (.name 2277 431) [(.pos (.attr 2277 (.name 2277 446) 22))])) [
+    (.ifStmt 2277 (.unop 2277 .not (.call 2277 (.name 2277 427) [(.pos (.attr 2277 (.name 2277 442) 22))])) [
       (.ret 2278 none)] []),
-    (.assign 2280 [(.name 2280 465)] (.comp 2280 .list (.attr 2280 (.name 2280 466) 2) [(.mk (.name 2280 466) (.attr 2280 (.name 2280 1) 7) [])])),
-    (.ifStmt 2281 (.compare 2281 (.attr 2281 (.name 2281 446) 2) [(.notIn, (.name 2281 465))]) [
-      (.ifStmt 2282 (.call 2282 (.name 2282 452) [(.pos (.name 2282 446))]) [
-        (.exprStmt 2283 (.call 2283 (.name 2283 16) [(.pos (.name 2284 1)), (.pos (.attr 2285 (.name 2285 446) 2)), (.pos (.name 2286 467)), (.pos (.call 2287 (.name 2287 382) [(.pos (.slice 2287 (.attr 2287 (.name 2287 446) 22) (some (.int 2287 (12))) none none))])), (.pos (.attr 2288 (.name 2288 446) 5)), (.pos (.attr 2289 (.name 2289 1) 6))]))] [])] [
-      (.assign 2292 [(.name 2292 66)] (.call 2292 (.name 2292 199) [(.pos (.call 2292 (.attr 2292 (.name 2292 465) 23) [(.pos (.attr 2292 (.name 2292 446) 2))]))])),
-      (.assign 2293 [(.name 2293 308)] (.index 2293 (.attr 2293 (.name 2293 1) 7) (.name 2293 66))),
-      (.ifStmt 2296 (.boolop 2296 .and [(.compare 2296 (.attr 2296 (.name 2296 308) 12) [(.notEq, (.name 2296 13))]), (.compare 2296 (.attr 2296 (.name 2296 308) 9) [(.eq, (.int 2296 (0)))])]) [
+    (.assign 2280 [(.name 2280 461)] (.comp 2280 .list (.attr 2280 (.name 2280 462) 2) [(.mk (.name 2280 462) (.attr 2280 (.name 2280 1) 7) [])])),
+    (.ifStmt 2281 (.compare 2281 (.attr 2281 (.name 2281 442) 2) [(.notIn, (.name 2281 461))]) [
+      (.ifStmt 2282 (.call 2282 (.name 2282 448) [(.pos (.name 2282 442))]) [
+        (.exprStmt 2283 (.call 2283 (.name 2283 16) [(.pos (.name 2284 1)), (.pos (.attr 2285 (.name 2285 442) 2)), (.pos (.name 2286 463)), (.pos (.call 2287 (.name 2287 378) [(.pos (.slice 2287 (.attr 2287 (.name 2287 442) 22) (some (.int 2287 (12))) none none))])), (.pos (.attr 2288 (.name 2288 442) 5)), (.pos (.attr 2289 (.name 2289 1) 6))]))] [])] [
+      (.assign 2292 [(.name 2292 66)] (.call 2292 (.name 2292 199) [(.pos (.call 2292 (.attr 2292 (.name 2292 461) 23) [(.pos (.attr 2292 (.name 2292 442) 2))]))])),
+      (.assign 2293 [(.name 2293 303)] (.index 2293 (.attr 2293 (.name 2293 1) 7) (.name 2293 66))),
+      (.ifStmt 2296 (.boolop 2296 .and [(.compare 2296 (.attr 2296 (.name 2296 303) 12) [(.notEq, (.name 2296 13))]), (.compare 2296 (.attr 2296 (.name 2296 303) 9) [(.eq, (.int 2296 (0)))])]) [
         (.assign 2297 [(.name 2297 103)] (.call 2297 (.name 2297 59) [(.pos (.name 2297 1))])),
-        (.assign 2298 [(.attr 2298 (.name 2298 308) 12)] (.binop 2298 .add (.name 2298 103) (.name 2298 416)))] []),
-      (.augAssign 2301 (.attr 2301 (.name 2301 308) 9) .add (.attr 2301 (.name 2301 446) 5))])]
+        (.assign 2298 [(.attr 2298 (.name 2298 303) 12)] (.binop 2298 .add (.name 2298 103) (.name 2298 412)))] []),
+      (.augAssign 2301 (.attr 2301 (.name 2301 303) 9) .add (.attr 2301 (.name 2301 442) 5))])]
 
 /-- `specs/gloas/beacon-chain.md:2309`
 ```python
@@ -4709,21 +4743,21 @@ def process_builder_exit_request(state: BeaconState, request: BuilderExitRequest
 ``` -/
 def fn_process_builder_exit_request : FunctionDef where
   name := 58
-  params := { names := [1, 446], defaults := [], vararg := none }
+  params := { names := [1, 442], defaults := [], vararg := none }
   line := 2309
   body := [
-    (.assign 2310 [(.name 2310 465)] (.comp 2310 .list (.attr 2310 (.name 2310 466) 2) [(.mk (.name 2310 466) (.attr 2310 (.name 2310 1) 7) [])])),
-    (.ifStmt 2311 (.compare 2311 (.attr 2311 (.name 2311 446) 2) [(.notIn, (.name 2311 465))]) [
+    (.assign 2310 [(.name 2310 461)] (.comp 2310 .list (.attr 2310 (.name 2310 462) 2) [(.mk (.name 2310 462) (.attr 2310 (.name 2310 1) 7) [])])),
+    (.ifStmt 2311 (.compare 2311 (.attr 2311 (.name 2311 442) 2) [(.notIn, (.name 2311 461))]) [
       (.ret 2312 none)] []),
-    (.assign 2314 [(.name 2314 66)] (.call 2314 (.name 2314 199) [(.pos (.call 2314 (.attr 2314 (.name 2314 465) 23) [(.pos (.attr 2314 (.name 2314 446) 2))]))])),
-    (.assign 2315 [(.name 2315 308)] (.index 2315 (.attr 2315 (.name 2315 1) 7) (.name 2315 66))),
-    (.ifStmt 2317 (.unop 2317 .not (.call 2317 (.name 2317 426) [(.pos (.name 2317 1)), (.pos (.name 2317 66))])) [
+    (.assign 2314 [(.name 2314 66)] (.call 2314 (.name 2314 199) [(.pos (.call 2314 (.attr 2314 (.name 2314 461) 23) [(.pos (.attr 2314 (.name 2314 442) 2))]))])),
+    (.assign 2315 [(.name 2315 303)] (.index 2315 (.attr 2315 (.name 2315 1) 7) (.name 2315 66))),
+    (.ifStmt 2317 (.unop 2317 .not (.call 2317 (.name 2317 422) [(.pos (.name 2317 1)), (.pos (.name 2317 66))])) [
       (.ret 2318 none)] []),
-    (.ifStmt 2319 (.compare 2319 (.attr 2319 (.name 2319 308) 4) [(.notEq, (.attr 2319 (.name 2319 446) 462))]) [
+    (.ifStmt 2319 (.compare 2319 (.attr 2319 (.name 2319 303) 4) [(.notEq, (.attr 2319 (.name 2319 442) 458))]) [
       (.ret 2320 none)] []),
     (.ifStmt 2321 (.compare 2321 (.call 2321 (.name 2321 99) [(.pos (.name 2321 1)), (.pos (.name 2321 66))]) [(.notEq, (.int 2321 (0)))]) [
       (.ret 2322 none)] []),
-    (.exprStmt 2324 (.call 2324 (.name 2324 417) [(.pos (.name 2324 1)), (.pos (.name 2324 66))]))]
+    (.exprStmt 2324 (.call 2324 (.name 2324 413) [(.pos (.name 2324 1)), (.pos (.name 2324 66))]))]
 
 /-- `specs/gloas/beacon-chain.md:1679`
 ```python
@@ -4742,18 +4776,18 @@ def process_builder_pending_payments(state: BeaconState) -> None:
     state.builder_pending_payments[SLOTS_PER_EPOCH:] = new_payments
 ``` -/
 def fn_process_builder_pending_payments : FunctionDef where
-  name := 515
+  name := 511
   params := { names := [1], defaults := [], vararg := none }
   line := 1679
   body := [
-    (.assign 1683 [(.name 1683 289)] (.call 1683 (.name 1683 292) [(.pos (.name 1683 1))])),
-    (.forStmt 1684 (.name 1684 376) (.slice 1684 (.attr 1684 (.name 1684 1) 377) none (some (.name 1684 61)) none) [
-      (.ifStmt 1685 (.compare 1685 (.attr 1685 (.name 1685 376) 122) [(.gtE, (.name 1685 289))]) [
-        (.exprStmt 1686 (.call 1686 (.attr 1686 (.attr 1686 (.name 1686 1) 68) 69) [(.pos (.attr 1686 (.name 1686 376) 85))]))] [])]),
-    (.assign 1688 [(.name 1688 511)] (.slice 1688 (.attr 1688 (.name 1688 1) 377) (some (.name 1688 61)) none none)),
-    (.assign 1689 [(.slice 1689 (.attr 1689 (.name 1689 1) 377) none (some (.name 1689 61)))] (.name 1689 511)),
-    (.assign 1690 [(.name 1690 512)] (.comp 1690 .list (.call 1690 (.attr 1690 (.name 1690 513) 514) []) [(.mk (.name 1690 307) (.call 1690 (.name 1690 130) [(.pos (.name 1690 61))]) [])])),
-    (.assign 1691 [(.slice 1691 (.attr 1691 (.name 1691 1) 377) (some (.name 1691 61)) none)] (.name 1691 512))]
+    (.assign 1683 [(.name 1683 284)] (.call 1683 (.name 1683 287) [(.pos (.name 1683 1))])),
+    (.forStmt 1684 (.name 1684 372) (.slice 1684 (.attr 1684 (.name 1684 1) 373) none (some (.name 1684 61)) none) [
+      (.ifStmt 1685 (.compare 1685 (.attr 1685 (.name 1685 372) 122) [(.gtE, (.name 1685 284))]) [
+        (.exprStmt 1686 (.call 1686 (.attr 1686 (.attr 1686 (.name 1686 1) 68) 69) [(.pos (.attr 1686 (.name 1686 372) 85))]))] [])]),
+    (.assign 1688 [(.name 1688 507)] (.slice 1688 (.attr 1688 (.name 1688 1) 373) (some (.name 1688 61)) none none)),
+    (.assign 1689 [(.slice 1689 (.attr 1689 (.name 1689 1) 373) none (some (.name 1689 61)))] (.name 1689 507)),
+    (.assign 1690 [(.name 1690 508)] (.comp 1690 .list (.call 1690 (.attr 1690 (.name 1690 509) 510) []) [(.mk (.name 1690 302) (.call 1690 (.name 1690 130) [(.pos (.name 1690 61))]) [])])),
+    (.assign 1691 [(.slice 1691 (.attr 1691 (.name 1691 1) 373) (some (.name 1691 61)) none)] (.name 1691 508))]
 
 /-- `specs/electra/beacon-chain.md:2000`
 ```python
@@ -4833,54 +4867,54 @@ def process_consolidation_request(
 ``` -/
 def fn_process_consolidation_request : FunctionDef where
   name := 56
-  params := { names := [1, 458], defaults := [], vararg := none }
+  params := { names := [1, 454], defaults := [], vararg := none }
   line := 2000
   body := [
-    (.ifStmt 2003 (.call 2003 (.name 2003 463) [(.pos (.name 2003 1)), (.pos (.name 2003 458))]) [
+    (.ifStmt 2003 (.call 2003 (.name 2003 459) [(.pos (.name 2003 1)), (.pos (.name 2003 454))]) [
       (.assign 2004 [(.name 2004 77)] (.comp 2004 .list (.attr 2004 (.name 2004 78) 2) [(.mk (.name 2004 78) (.attr 2004 (.name 2004 1) 27) [])])),
-      (.assign 2005 [(.name 2005 516)] (.attr 2005 (.name 2005 458) 460)),
-      (.assign 2006 [(.name 2006 517)] (.call 2006 (.name 2006 82) [(.pos (.call 2006 (.attr 2006 (.name 2006 77) 23) [(.pos (.name 2006 516))]))])),
-      (.exprStmt 2007 (.call 2007 (.name 2007 518) [(.pos (.name 2007 1)), (.pos (.name 2007 517))])),
+      (.assign 2005 [(.name 2005 512)] (.attr 2005 (.name 2005 454) 456)),
+      (.assign 2006 [(.name 2006 513)] (.call 2006 (.name 2006 82) [(.pos (.call 2006 (.attr 2006 (.name 2006 77) 23) [(.pos (.name 2006 512))]))])),
+      (.exprStmt 2007 (.call 2007 (.name 2007 514) [(.pos (.name 2007 1)), (.pos (.name 2007 513))])),
       (.ret 2008 none)] []),
-    (.ifStmt 2011 (.compare 2011 (.attr 2011 (.name 2011 458) 460) [(.eq, (.attr 2011 (.name 2011 458) 459))]) [
+    (.ifStmt 2011 (.compare 2011 (.attr 2011 (.name 2011 454) 456) [(.eq, (.attr 2011 (.name 2011 454) 455))]) [
       (.ret 2012 none)] []),
-    (.ifStmt 2014 (.compare 2014 (.call 2014 (.name 2014 42) [(.pos (.attr 2014 (.name 2014 1) 520))]) [(.eq, (.name 2014 519))]) [
+    (.ifStmt 2014 (.compare 2014 (.call 2014 (.name 2014 42) [(.pos (.attr 2014 (.name 2014 1) 516))]) [(.eq, (.name 2014 515))]) [
       (.ret 2015 none)] []),
-    (.ifStmt 2017 (.compare 2017 (.call 2017 (.name 2017 136) [(.pos (.name 2017 1))]) [(.ltE, (.name 2017 365))]) [
+    (.ifStmt 2017 (.compare 2017 (.call 2017 (.name 2017 136) [(.pos (.name 2017 1))]) [(.ltE, (.name 2017 360))]) [
       (.ret 2018 none)] []),
     (.assign 2020 [(.name 2020 77)] (.comp 2020 .list (.attr 2020 (.name 2020 78) 2) [(.mk (.name 2020 78) (.attr 2020 (.name 2020 1) 27) [])])),
-    (.assign 2022 [(.name 2022 516)] (.attr 2022 (.name 2022 458) 460)),
-    (.assign 2023 [(.name 2023 521)] (.attr 2023 (.name 2023 458) 459)),
-    (.ifStmt 2024 (.compare 2024 (.name 2024 516) [(.notIn, (.name 2024 77))]) [
+    (.assign 2022 [(.name 2022 512)] (.attr 2022 (.name 2022 454) 456)),
+    (.assign 2023 [(.name 2023 517)] (.attr 2023 (.name 2023 454) 455)),
+    (.ifStmt 2024 (.compare 2024 (.name 2024 512) [(.notIn, (.name 2024 77))]) [
       (.ret 2025 none)] []),
-    (.ifStmt 2026 (.compare 2026 (.name 2026 521) [(.notIn, (.name 2026 77))]) [
+    (.ifStmt 2026 (.compare 2026 (.name 2026 517) [(.notIn, (.name 2026 77))]) [
       (.ret 2027 none)] []),
-    (.assign 2028 [(.name 2028 517)] (.call 2028 (.name 2028 82) [(.pos (.call 2028 (.attr 2028 (.name 2028 77) 23) [(.pos (.name 2028 516))]))])),
-    (.assign 2029 [(.name 2029 522)] (.call 2029 (.name 2029 82) [(.pos (.call 2029 (.attr 2029 (.name 2029 77) 23) [(.pos (.name 2029 521))]))])),
-    (.assign 2030 [(.name 2030 461)] (.index 2030 (.attr 2030 (.name 2030 1) 27) (.name 2030 517))),
-    (.assign 2031 [(.name 2031 523)] (.index 2031 (.attr 2031 (.name 2031 1) 27) (.name 2031 522))),
-    (.assign 2034 [(.name 2034 524)] (.call 2034 (.name 2034 410) [(.pos (.name 2034 461))])),
-    (.assign 2035 [(.name 2035 525)] (.compare 2036 (.slice 2036 (.attr 2036 (.name 2036 461) 22) (some (.int 2036 (12))) none none) [(.eq, (.attr 2036 (.name 2036 458) 462))])),
-    (.ifStmt 2038 (.unop 2038 .not (.boolop 2038 .and [(.name 2038 524), (.name 2038 525)])) [
+    (.assign 2028 [(.name 2028 513)] (.call 2028 (.name 2028 82) [(.pos (.call 2028 (.attr 2028 (.name 2028 77) 23) [(.pos (.name 2028 512))]))])),
+    (.assign 2029 [(.name 2029 518)] (.call 2029 (.name 2029 82) [(.pos (.call 2029 (.attr 2029 (.name 2029 77) 23) [(.pos (.name 2029 517))]))])),
+    (.assign 2030 [(.name 2030 457)] (.index 2030 (.attr 2030 (.name 2030 1) 27) (.name 2030 513))),
+    (.assign 2031 [(.name 2031 519)] (.index 2031 (.attr 2031 (.name 2031 1) 27) (.name 2031 518))),
+    (.assign 2034 [(.name 2034 520)] (.call 2034 (.name 2034 406) [(.pos (.name 2034 457))])),
+    (.assign 2035 [(.name 2035 521)] (.compare 2036 (.slice 2036 (.attr 2036 (.name 2036 457) 22) (some (.int 2036 (12))) none none) [(.eq, (.attr 2036 (.name 2036 454) 458))])),
+    (.ifStmt 2038 (.unop 2038 .not (.boolop 2038 .and [(.name 2038 520), (.name 2038 521)])) [
       (.ret 2039 none)] []),
-    (.ifStmt 2042 (.unop 2042 .not (.call 2042 (.name 2042 364) [(.pos (.name 2042 523))])) [
+    (.ifStmt 2042 (.unop 2042 .not (.call 2042 (.name 2042 359) [(.pos (.name 2042 519))])) [
       (.ret 2043 none)] []),
-    (.assign 2046 [(.name 2046 413)] (.call 2046 (.name 2046 59) [(.pos (.name 2046 1))])),
-    (.ifStmt 2047 (.unop 2047 .not (.call 2047 (.name 2047 220) [(.pos (.name 2047 461)), (.pos (.name 2047 413))])) [
+    (.assign 2046 [(.name 2046 409)] (.call 2046 (.name 2046 59) [(.pos (.name 2046 1))])),
+    (.ifStmt 2047 (.unop 2047 .not (.call 2047 (.name 2047 215) [(.pos (.name 2047 457)), (.pos (.name 2047 409))])) [
       (.ret 2048 none)] []),
-    (.ifStmt 2049 (.unop 2049 .not (.call 2049 (.name 2049 220) [(.pos (.name 2049 523)), (.pos (.name 2049 413))])) [
+    (.ifStmt 2049 (.unop 2049 .not (.call 2049 (.name 2049 215) [(.pos (.name 2049 519)), (.pos (.name 2049 409))])) [
       (.ret 2050 none)] []),
-    (.ifStmt 2052 (.compare 2052 (.attr 2052 (.name 2052 461) 399) [(.notEq, (.name 2052 13))]) [
+    (.ifStmt 2052 (.compare 2052 (.attr 2052 (.name 2052 457) 395) [(.notEq, (.name 2052 13))]) [
       (.ret 2053 none)] []),
-    (.ifStmt 2054 (.compare 2054 (.attr 2054 (.name 2054 523) 399) [(.notEq, (.name 2054 13))]) [
+    (.ifStmt 2054 (.compare 2054 (.attr 2054 (.name 2054 519) 395) [(.notEq, (.name 2054 13))]) [
       (.ret 2055 none)] []),
-    (.ifStmt 2057 (.compare 2057 (.name 2057 413) [(.lt, (.binop 2057 .add (.attr 2057 (.name 2057 461) 398) (.name 2057 526)))]) [
+    (.ifStmt 2057 (.compare 2057 (.name 2057 409) [(.lt, (.binop 2057 .add (.attr 2057 (.name 2057 457) 394) (.name 2057 522)))]) [
       (.ret 2058 none)] []),
-    (.ifStmt 2060 (.compare 2060 (.call 2060 (.name 2060 375) [(.pos (.name 2060 1)), (.pos (.name 2060 517))]) [(.gt, (.int 2060 (0)))]) [
+    (.ifStmt 2060 (.compare 2060 (.call 2060 (.name 2060 371) [(.pos (.name 2060 1)), (.pos (.name 2060 513))]) [(.gt, (.int 2060 (0)))]) [
       (.ret 2061 none)] []),
-    (.assign 2064 [(.attr 2064 (.name 2064 461) 399)] (.call 2064 (.name 2064 141) [(.pos (.name 2065 1)), (.pos (.attr 2065 (.name 2065 461) 113))])),
-    (.assign 2067 [(.attr 2067 (.name 2067 461) 12)] (.binop 2068 .add (.attr 2068 (.name 2068 461) 399) (.name 2068 419))),
-    (.exprStmt 2070 (.call 2070 (.attr 2070 (.attr 2070 (.name 2070 1) 520) 69) [(.pos (.call 2071 (.name 2071 527) [(.kw 517 (.name 2071 517)), (.kw 522 (.name 2071 522))]))]))]
+    (.assign 2064 [(.attr 2064 (.name 2064 457) 395)] (.call 2064 (.name 2064 141) [(.pos (.name 2065 1)), (.pos (.attr 2065 (.name 2065 457) 113))])),
+    (.assign 2067 [(.attr 2067 (.name 2067 457) 12)] (.binop 2068 .add (.attr 2068 (.name 2068 457) 395) (.name 2068 415))),
+    (.exprStmt 2070 (.call 2070 (.attr 2070 (.attr 2070 (.name 2070 1) 516) 69) [(.pos (.call 2071 (.name 2071 523) [(.kw 513 (.name 2071 513)), (.kw 518 (.name 2071 518))]))]))]
 
 /-- `specs/fulu/beacon-chain.md:206`
 ```python
@@ -4897,10 +4931,10 @@ def process_deposit_request(state: BeaconState, deposit_request: DepositRequest)
 ``` -/
 def fn_process_deposit_request : FunctionDef where
   name := 54
-  params := { names := [1, 528], defaults := [], vararg := none }
+  params := { names := [1, 524], defaults := [], vararg := none }
   line := 206
   body := [
-    (.exprStmt 207 (.call 207 (.attr 207 (.attr 207 (.name 207 1) 439) 69) [(.pos (.call 208 (.name 208 529) [(.kw 2 (.attr 209 (.name 209 528) 2)), (.kw 22 (.attr 210 (.name 210 528) 22)), (.kw 5 (.attr 211 (.name 211 528) 5)), (.kw 79 (.attr 212 (.name 212 528) 79)), (.kw 6 (.attr 213 (.name 213 1) 6))]))]))]
+    (.exprStmt 207 (.call 207 (.attr 207 (.attr 207 (.name 207 1) 435) 69) [(.pos (.call 208 (.name 208 525) [(.kw 2 (.attr 209 (.name 209 524) 2)), (.kw 22 (.attr 210 (.name 210 524) 22)), (.kw 5 (.attr 211 (.name 211 524) 5)), (.kw 79 (.attr 212 (.name 212 524) 79)), (.kw 6 (.attr 213 (.name 213 1) 6))]))]))]
 
 /-- `specs/electra/beacon-chain.md:1238`
 ```python
@@ -4923,18 +4957,18 @@ def process_effective_balance_updates(state: BeaconState) -> None:
             )
 ``` -/
 def fn_process_effective_balance_updates : FunctionDef where
-  name := 536
+  name := 532
   params := { names := [1], defaults := [], vararg := none }
   line := 1238
   body := [
-    (.forStmt 1240 (.tuple 1240 [(.name 1240 23), (.name 1240 25)]) (.call 1240 (.name 1240 221) [(.pos (.attr 1240 (.name 1240 1) 27))]) [
+    (.forStmt 1240 (.tuple 1240 [(.name 1240 23), (.name 1240 25)]) (.call 1240 (.name 1240 216) [(.pos (.attr 1240 (.name 1240 1) 27))]) [
       (.assign 1241 [(.name 1241 9)] (.index 1241 (.attr 1241 (.name 1241 1) 28) (.name 1241 23))),
-      (.assign 1242 [(.name 1242 530)] (.call 1242 (.name 1242 32) [(.pos (.binop 1242 .floorDiv (.name 1242 216) (.name 1242 531)))])),
-      (.assign 1243 [(.name 1243 532)] (.binop 1243 .mul (.name 1243 530) (.name 1243 533))),
-      (.assign 1244 [(.name 1244 534)] (.binop 1244 .mul (.name 1244 530) (.name 1244 535))),
-      (.assign 1246 [(.name 1246 401)] (.call 1246 (.name 1246 366) [(.pos (.name 1246 25))])),
-      (.ifStmt 1248 (.boolop 1249 .or [(.compare 1249 (.binop 1249 .add (.name 1249 9) (.name 1249 532)) [(.lt, (.attr 1249 (.name 1249 25) 113))]), (.compare 1250 (.binop 1250 .add (.attr 1250 (.name 1250 25) 113) (.name 1250 534)) [(.lt, (.name 1250 9))])]) [
-        (.assign 1252 [(.attr 1252 (.name 1252 25) 113)] (.call 1252 (.name 1252 218) [(.pos (.binop 1253 .sub (.name 1253 9) (.binop 1253 .mod (.name 1253 9) (.name 1253 216)))), (.pos (.name 1253 401))]))] [])])]
+      (.assign 1242 [(.name 1242 526)] (.call 1242 (.name 1242 32) [(.pos (.binop 1242 .floorDiv (.name 1242 211) (.name 1242 527)))])),
+      (.assign 1243 [(.name 1243 528)] (.binop 1243 .mul (.name 1243 526) (.name 1243 529))),
+      (.assign 1244 [(.name 1244 530)] (.binop 1244 .mul (.name 1244 526) (.name 1244 531))),
+      (.assign 1246 [(.name 1246 397)] (.call 1246 (.name 1246 361) [(.pos (.name 1246 25))])),
+      (.ifStmt 1248 (.boolop 1249 .or [(.compare 1249 (.binop 1249 .add (.name 1249 9) (.name 1249 528)) [(.lt, (.attr 1249 (.name 1249 25) 113))]), (.compare 1250 (.binop 1250 .add (.attr 1250 (.name 1250 25) 113) (.name 1250 530)) [(.lt, (.name 1250 9))])]) [
+        (.assign 1252 [(.attr 1252 (.name 1252 25) 113)] (.call 1252 (.name 1252 213) [(.pos (.binop 1253 .sub (.name 1253 9) (.binop 1253 .mod (.name 1253 9) (.name 1253 211)))), (.pos (.name 1253 397))]))] [])])]
 
 /-- `specs/gloas/beacon-chain.md:1593`
 ```python
@@ -4961,27 +4995,27 @@ def process_epoch(state: BeaconState) -> None:
     process_ptc_window(state)
 ``` -/
 def fn_process_epoch : FunctionDef where
-  name := 552
+  name := 548
   params := { names := [1], defaults := [], vararg := none }
   line := 1593
   body := [
-    (.exprStmt 1594 (.call 1594 (.name 1594 537) [(.pos (.name 1594 1))])),
-    (.exprStmt 1595 (.call 1595 (.name 1595 538) [(.pos (.name 1595 1))])),
-    (.exprStmt 1596 (.call 1596 (.name 1596 539) [(.pos (.name 1596 1))])),
-    (.exprStmt 1597 (.call 1597 (.name 1597 540) [(.pos (.name 1597 1))])),
-    (.exprStmt 1598 (.call 1598 (.name 1598 541) [(.pos (.name 1598 1))])),
-    (.exprStmt 1599 (.call 1599 (.name 1599 542) [(.pos (.name 1599 1))])),
-    (.exprStmt 1601 (.call 1601 (.name 1601 543) [(.pos (.name 1601 1))])),
-    (.exprStmt 1602 (.call 1602 (.name 1602 544) [(.pos (.name 1602 1))])),
-    (.exprStmt 1604 (.call 1604 (.name 1604 515) [(.pos (.name 1604 1))])),
-    (.exprStmt 1605 (.call 1605 (.name 1605 536) [(.pos (.name 1605 1))])),
-    (.exprStmt 1606 (.call 1606 (.name 1606 545) [(.pos (.name 1606 1))])),
-    (.exprStmt 1607 (.call 1607 (.name 1607 546) [(.pos (.name 1607 1))])),
-    (.exprStmt 1608 (.call 1608 (.name 1608 547) [(.pos (.name 1608 1))])),
-    (.exprStmt 1609 (.call 1609 (.name 1609 548) [(.pos (.name 1609 1))])),
-    (.exprStmt 1610 (.call 1610 (.name 1610 549) [(.pos (.name 1610 1))])),
-    (.exprStmt 1611 (.call 1611 (.name 1611 550) [(.pos (.name 1611 1))])),
-    (.exprStmt 1613 (.call 1613 (.name 1613 551) [(.pos (.name 1613 1))]))]
+    (.exprStmt 1594 (.call 1594 (.name 1594 533) [(.pos (.name 1594 1))])),
+    (.exprStmt 1595 (.call 1595 (.name 1595 534) [(.pos (.name 1595 1))])),
+    (.exprStmt 1596 (.call 1596 (.name 1596 535) [(.pos (.name 1596 1))])),
+    (.exprStmt 1597 (.call 1597 (.name 1597 536) [(.pos (.name 1597 1))])),
+    (.exprStmt 1598 (.call 1598 (.name 1598 537) [(.pos (.name 1598 1))])),
+    (.exprStmt 1599 (.call 1599 (.name 1599 538) [(.pos (.name 1599 1))])),
+    (.exprStmt 1601 (.call 1601 (.name 1601 539) [(.pos (.name 1601 1))])),
+    (.exprStmt 1602 (.call 1602 (.name 1602 540) [(.pos (.name 1602 1))])),
+    (.exprStmt 1604 (.call 1604 (.name 1604 511) [(.pos (.name 1604 1))])),
+    (.exprStmt 1605 (.call 1605 (.name 1605 532) [(.pos (.name 1605 1))])),
+    (.exprStmt 1606 (.call 1606 (.name 1606 541) [(.pos (.name 1606 1))])),
+    (.exprStmt 1607 (.call 1607 (.name 1607 542) [(.pos (.name 1607 1))])),
+    (.exprStmt 1608 (.call 1608 (.name 1608 543) [(.pos (.name 1608 1))])),
+    (.exprStmt 1609 (.call 1609 (.name 1609 544) [(.pos (.name 1609 1))])),
+    (.exprStmt 1610 (.call 1610 (.name 1610 545) [(.pos (.name 1610 1))])),
+    (.exprStmt 1611 (.call 1611 (.name 1611 546) [(.pos (.name 1611 1))])),
+    (.exprStmt 1613 (.call 1613 (.name 1613 547) [(.pos (.name 1613 1))]))]
 
 /-- `specs/phase0/beacon-chain.md:2367`
 ```python
@@ -4994,13 +5028,13 @@ def process_eth1_data(state: BeaconState, body: BeaconBlockBody) -> None:
         state.eth1_data = body.eth1_data
 ``` -/
 def fn_process_eth1_data : FunctionDef where
-  name := 492
-  params := { names := [1, 488], defaults := [], vararg := none }
+  name := 488
+  params := { names := [1, 484], defaults := [], vararg := none }
   line := 2367
   body := [
-    (.exprStmt 2368 (.call 2368 (.attr 2368 (.attr 2368 (.name 2368 1) 554) 69) [(.pos (.attr 2368 (.name 2368 488) 553))])),
-    (.ifStmt 2369 (.compare 2370 (.binop 2370 .mul (.call 2370 (.attr 2370 (.attr 2370 (.name 2370 1) 554) 127) [(.pos (.attr 2370 (.name 2370 488) 553))]) (.int 2370 (2))) [(.gt, (.binop 2371 .mul (.call 2371 (.name 2371 32) [(.pos (.name 2371 555))]) (.name 2371 61)))]) [
-      (.assign 2373 [(.attr 2373 (.name 2373 1) 553)] (.attr 2373 (.name 2373 488) 553))] [])]
+    (.exprStmt 2368 (.call 2368 (.attr 2368 (.attr 2368 (.name 2368 1) 550) 69) [(.pos (.attr 2368 (.name 2368 484) 549))])),
+    (.ifStmt 2369 (.compare 2370 (.binop 2370 .mul (.call 2370 (.attr 2370 (.attr 2370 (.name 2370 1) 550) 127) [(.pos (.attr 2370 (.name 2370 484) 549))]) (.int 2370 (2))) [(.gt, (.binop 2371 .mul (.call 2371 (.name 2371 32) [(.pos (.name 2371 551))]) (.name 2371 61)))]) [
+      (.assign 2373 [(.attr 2373 (.name 2373 1) 549)] (.attr 2373 (.name 2373 484) 549))] [])]
 
 /-- `specs/phase0/beacon-chain.md:2245`
 ```python
@@ -5011,13 +5045,13 @@ def process_eth1_data_reset(state: BeaconState) -> None:
         state.eth1_data_votes = Eth1DataVotes()
 ``` -/
 def fn_process_eth1_data_reset : FunctionDef where
-  name := 542
+  name := 538
   params := { names := [1], defaults := [], vararg := none }
   line := 2245
   body := [
-    (.assign 2246 [(.name 2246 556)] (.binop 2246 .add (.call 2246 (.name 2246 59) [(.pos (.name 2246 1))]) (.int 2246 (1)))),
-    (.ifStmt 2248 (.compare 2248 (.binop 2248 .mod (.name 2248 556) (.name 2248 555)) [(.eq, (.int 2248 (0)))]) [
-      (.assign 2249 [(.attr 2249 (.name 2249 1) 554)] (.call 2249 (.name 2249 557) []))] [])]
+    (.assign 2246 [(.name 2246 552)] (.binop 2246 .add (.call 2246 (.name 2246 59) [(.pos (.name 2246 1))]) (.int 2246 (1)))),
+    (.ifStmt 2248 (.compare 2248 (.binop 2248 .mod (.name 2248 552) (.name 2248 551)) [(.eq, (.int 2248 (0)))]) [
+      (.assign 2249 [(.attr 2249 (.name 2249 1) 550)] (.call 2249 (.name 2249 553) []))] [])]
 
 /-- `specs/gloas/beacon-chain.md:2103`
 ```python
@@ -5077,31 +5111,31 @@ def process_execution_payload_bid(
     state.latest_execution_payload_bid = bid
 ``` -/
 def fn_process_execution_payload_bid : FunctionDef where
-  name := 490
-  params := { names := [1, 558], defaults := [], vararg := none }
+  name := 486
+  params := { names := [1, 554], defaults := [], vararg := none }
   line := 2103
   body := [
-    (.assign 2106 [(.name 2106 559)] (.attr 2106 (.name 2106 558) 208)),
-    (.assign 2107 [(.name 2107 66)] (.attr 2107 (.name 2107 559) 66)),
-    (.assign 2108 [(.name 2108 5)] (.attr 2108 (.name 2108 559) 64)),
-    (.ifStmt 2111 (.compare 2111 (.name 2111 66) [(.eq, (.name 2111 560))]) [
+    (.assign 2106 [(.name 2106 555)] (.attr 2106 (.name 2106 554) 202)),
+    (.assign 2107 [(.name 2107 66)] (.attr 2107 (.name 2107 555) 66)),
+    (.assign 2108 [(.name 2108 5)] (.attr 2108 (.name 2108 555) 64)),
+    (.ifStmt 2111 (.compare 2111 (.name 2111 66) [(.eq, (.name 2111 556))]) [
       (.assert 2112 (.compare 2112 (.name 2112 5) [(.eq, (.int 2112 (0)))])),
-      (.assert 2113 (.compare 2113 (.attr 2113 (.name 2113 558) 79) [(.eq, (.attr 2113 (.name 2113 202) 209))]))] [
-      (.assert 2116 (.call 2116 (.name 2116 426) [(.pos (.name 2116 1)), (.pos (.name 2116 66))])),
-      (.assert 2118 (.compare 2118 (.attr 2118 (.index 2118 (.attr 2118 (.name 2118 1) 7) (.name 2118 66)) 3) [(.eq, (.name 2118 467))])),
+      (.assert 2113 (.compare 2113 (.attr 2113 (.name 2113 554) 79) [(.eq, (.name 2113 557))]))] [
+      (.assert 2116 (.call 2116 (.name 2116 422) [(.pos (.name 2116 1)), (.pos (.name 2116 66))])),
+      (.assert 2118 (.compare 2118 (.attr 2118 (.index 2118 (.attr 2118 (.name 2118 1) 7) (.name 2118 66)) 3) [(.eq, (.name 2118 463))])),
       (.assert 2120 (.call 2120 (.name 2120 102) [(.pos (.name 2120 1)), (.pos (.name 2120 66)), (.pos (.name 2120 5))])),
-      (.assert 2122 (.call 2122 (.name 2122 561) [(.pos (.name 2122 1)), (.pos (.name 2122 558))]))]),
-    (.assert 2125 (.compare 2126 (.call 2126 (.name 2126 42) [(.pos (.attr 2126 (.name 2126 559) 563))]) [(.ltE, (.attr 2127 (.call 2127 (.name 2127 286) [(.pos (.call 2127 (.name 2127 59) [(.pos (.name 2127 1))]))]) 562))])),
-    (.assert 2131 (.compare 2131 (.attr 2131 (.name 2131 559) 6) [(.eq, (.attr 2131 (.name 2131 1) 6))])),
-    (.assert 2132 (.compare 2132 (.attr 2132 (.name 2132 1) 6) [(.gt, (.name 2132 564))])),
-    (.assert 2134 (.compare 2134 (.attr 2134 (.name 2134 559) 565) [(.eq, (.attr 2134 (.name 2134 1) 73))])),
-    (.assert 2136 (.compare 2136 (.attr 2136 (.name 2136 559) 74) [(.notEq, (.attr 2136 (.name 2136 559) 565))])),
-    (.assert 2137 (.compare 2137 (.attr 2137 (.name 2137 559) 566) [(.eq, (.call 2137 (.name 2137 239) [(.pos (.name 2137 1)), (.pos (.binop 2137 .sub (.attr 2137 (.name 2137 1) 6) (.int 2137 (1))))]))])),
-    (.assert 2138 (.compare 2138 (.attr 2138 (.name 2138 559) 567) [(.eq, (.call 2138 (.name 2138 389) [(.pos (.name 2138 1)), (.pos (.call 2138 (.name 2138 59) [(.pos (.name 2138 1))]))]))])),
+      (.assert 2122 (.call 2122 (.name 2122 558) [(.pos (.name 2122 1)), (.pos (.name 2122 554))]))]),
+    (.assert 2125 (.compare 2126 (.call 2126 (.name 2126 42) [(.pos (.attr 2126 (.name 2126 555) 560))]) [(.ltE, (.attr 2127 (.call 2127 (.name 2127 281) [(.pos (.call 2127 (.name 2127 59) [(.pos (.name 2127 1))]))]) 559))])),
+    (.assert 2131 (.compare 2131 (.attr 2131 (.name 2131 555) 6) [(.eq, (.attr 2131 (.name 2131 1) 6))])),
+    (.assert 2132 (.compare 2132 (.attr 2132 (.name 2132 1) 6) [(.gt, (.name 2132 561))])),
+    (.assert 2134 (.compare 2134 (.attr 2134 (.name 2134 555) 562) [(.eq, (.attr 2134 (.name 2134 1) 73))])),
+    (.assert 2136 (.compare 2136 (.attr 2136 (.name 2136 555) 74) [(.notEq, (.attr 2136 (.name 2136 555) 562))])),
+    (.assert 2137 (.compare 2137 (.attr 2137 (.name 2137 555) 563) [(.eq, (.call 2137 (.name 2137 234) [(.pos (.name 2137 1)), (.pos (.binop 2137 .sub (.attr 2137 (.name 2137 1) 6) (.int 2137 (1))))]))])),
+    (.assert 2138 (.compare 2138 (.attr 2138 (.name 2138 555) 564) [(.eq, (.call 2138 (.name 2138 385) [(.pos (.name 2138 1)), (.pos (.call 2138 (.name 2138 59) [(.pos (.name 2138 1))]))]))])),
     (.ifStmt 2141 (.compare 2141 (.name 2141 5) [(.gt, (.int 2141 (0)))]) [
-      (.assign 2142 [(.name 2142 568)] (.call 2142 (.name 2142 513) [(.kw 122 (.call 2143 (.name 2143 270) [(.pos (.int 2143 (0)))])), (.kw 85 (.call 2144 (.name 2144 67) [(.kw 65 (.attr 2145 (.name 2145 559) 65)), (.kw 5 (.name 2146 5)), (.kw 66 (.name 2147 66))])), (.kw 497 (.call 2149 (.name 2149 273) [(.pos (.name 2149 1))]))])),
-      (.assign 2151 [(.index 2151 (.attr 2151 (.name 2151 1) 377) (.binop 2151 .add (.name 2151 61) (.binop 2151 .mod (.attr 2151 (.name 2151 559) 6) (.name 2151 61))))] (.name 2152 568))] []),
-    (.assign 2156 [(.attr 2156 (.name 2156 1) 36)] (.name 2156 559))]
+      (.assign 2142 [(.name 2142 565)] (.call 2142 (.name 2142 509) [(.kw 122 (.call 2143 (.name 2143 265) [(.pos (.int 2143 (0)))])), (.kw 85 (.call 2144 (.name 2144 67) [(.kw 65 (.attr 2145 (.name 2145 555) 65)), (.kw 5 (.name 2146 5)), (.kw 66 (.name 2147 66))])), (.kw 493 (.call 2149 (.name 2149 268) [(.pos (.name 2149 1))]))])),
+      (.assign 2151 [(.index 2151 (.attr 2151 (.name 2151 1) 373) (.binop 2151 .add (.name 2151 61) (.binop 2151 .mod (.attr 2151 (.name 2151 555) 6) (.name 2151 61))))] (.name 2152 565))] []),
+    (.assign 2156 [(.attr 2156 (.name 2156 1) 36)] (.name 2156 555))]
 
 /-- `specs/capella/beacon-chain.md:379`
 ```python
@@ -5116,14 +5150,14 @@ def process_historical_summaries_update(state: BeaconState) -> None:
         state.historical_summaries.append(historical_summary)
 ``` -/
 def fn_process_historical_summaries_update : FunctionDef where
-  name := 547
+  name := 543
   params := { names := [1], defaults := [], vararg := none }
   line := 379
   body := [
-    (.assign 381 [(.name 381 556)] (.binop 381 .add (.call 381 (.name 381 59) [(.pos (.name 381 1))]) (.int 381 (1)))),
-    (.ifStmt 382 (.compare 382 (.binop 382 .mod (.name 382 556) (.call 382 (.name 382 32) [(.pos (.binop 382 .floorDiv (.name 382 71) (.name 382 61)))])) [(.eq, (.int 382 (0)))]) [
-      (.assign 383 [(.name 383 569)] (.call 383 (.name 383 573) [(.kw 570 (.call 384 (.name 384 159) [(.pos (.attr 384 (.name 384 1) 287))])), (.kw 571 (.call 385 (.name 385 159) [(.pos (.attr 385 (.name 385 1) 572))]))])),
-      (.exprStmt 387 (.call 387 (.attr 387 (.attr 387 (.name 387 1) 574) 69) [(.pos (.name 387 569))]))] [])]
+    (.assign 381 [(.name 381 552)] (.binop 381 .add (.call 381 (.name 381 59) [(.pos (.name 381 1))]) (.int 381 (1)))),
+    (.ifStmt 382 (.compare 382 (.binop 382 .mod (.name 382 552) (.call 382 (.name 382 32) [(.pos (.binop 382 .floorDiv (.name 382 71) (.name 382 61)))])) [(.eq, (.int 382 (0)))]) [
+      (.assign 383 [(.name 383 566)] (.call 383 (.name 383 570) [(.kw 567 (.call 384 (.name 384 159) [(.pos (.attr 384 (.name 384 1) 282))])), (.kw 568 (.call 385 (.name 385 159) [(.pos (.attr 385 (.name 385 1) 569))]))])),
+      (.exprStmt 387 (.call 387 (.attr 387 (.attr 387 (.name 387 1) 571) 69) [(.pos (.name 387 566))]))] [])]
 
 /-- `specs/altair/beacon-chain.md:752`
 ```python
@@ -5147,18 +5181,18 @@ def process_inactivity_updates(state: BeaconState) -> None:
             )
 ``` -/
 def fn_process_inactivity_updates : FunctionDef where
-  name := 538
+  name := 534
   params := { names := [1], defaults := [], vararg := none }
   line := 752
   body := [
-    (.ifStmt 754 (.compare 754 (.call 754 (.name 754 59) [(.pos (.name 754 1))]) [(.eq, (.name 754 575))]) [
+    (.ifStmt 754 (.compare 754 (.call 754 (.name 754 59) [(.pos (.name 754 1))]) [(.eq, (.name 754 572))]) [
       (.ret 755 none)] []),
-    (.forStmt 757 (.name 757 23) (.call 757 (.name 757 317) [(.pos (.name 757 1))]) [
-      (.ifStmt 759 (.compare 759 (.name 759 23) [(.isIn, (.call 759 (.name 759 336) [(.pos (.name 760 1)), (.pos (.name 760 246)), (.pos (.call 760 (.name 760 63) [(.pos (.name 760 1))]))]))]) [
+    (.forStmt 757 (.name 757 23) (.call 757 (.name 757 312) [(.pos (.name 757 1))]) [
+      (.ifStmt 759 (.compare 759 (.name 759 23) [(.isIn, (.call 759 (.name 759 331) [(.pos (.name 760 1)), (.pos (.name 760 241)), (.pos (.call 760 (.name 760 63) [(.pos (.name 760 1))]))]))]) [
         (.assign 762 [(.index 762 (.attr 762 (.name 762 1) 31) (.name 762 23))] (.call 762 (.name 762 88) [(.pos (.index 762 (.attr 762 (.name 762 1) 31) (.name 762 23))), (.pos (.int 762 (1)))]))] [
-        (.augAssign 764 (.index 764 (.attr 764 (.name 764 1) 31) (.name 764 23)) .add (.name 764 350))]),
-      (.ifStmt 766 (.unop 766 .not (.call 766 (.name 766 343) [(.pos (.name 766 1))])) [
-        (.assign 767 [(.index 767 (.attr 767 (.name 767 1) 31) (.name 767 23))] (.call 767 (.name 767 88) [(.pos (.index 768 (.attr 768 (.name 768 1) 31) (.name 768 23))), (.pos (.name 768 576))]))] [])])]
+        (.augAssign 764 (.index 764 (.attr 764 (.name 764 1) 31) (.name 764 23)) .add (.name 764 345))]),
+      (.ifStmt 766 (.unop 766 .not (.call 766 (.name 766 338) [(.pos (.name 766 1))])) [
+        (.assign 767 [(.index 767 (.attr 767 (.name 767 1) 31) (.name 767 23))] (.call 767 (.name 767 88) [(.pos (.index 768 (.attr 768 (.name 768 1) 31) (.name 768 23))), (.pos (.name 768 573))]))] [])])]
 
 /-- `specs/altair/beacon-chain.md:728`
 ```python
@@ -5181,18 +5215,18 @@ def process_justification_and_finalization(state: BeaconState) -> None:
     )
 ``` -/
 def fn_process_justification_and_finalization : FunctionDef where
-  name := 537
+  name := 533
   params := { names := [1], defaults := [], vararg := none }
   line := 728
   body := [
-    (.ifStmt 731 (.compare 731 (.call 731 (.name 731 59) [(.pos (.name 731 1))]) [(.ltE, (.binop 731 .add (.name 731 575) (.int 731 (1))))]) [
+    (.ifStmt 731 (.compare 731 (.call 731 (.name 731 59) [(.pos (.name 731 1))]) [(.ltE, (.binop 731 .add (.name 731 572) (.int 731 (1))))]) [
       (.ret 732 none)] []),
-    (.assign 733 [(.name 733 577)] (.call 733 (.name 733 336) [(.pos (.name 734 1)), (.pos (.name 734 246)), (.pos (.call 734 (.name 734 63) [(.pos (.name 734 1))]))])),
-    (.assign 736 [(.name 736 578)] (.call 736 (.name 736 336) [(.pos (.name 737 1)), (.pos (.name 737 246)), (.pos (.call 737 (.name 737 59) [(.pos (.name 737 1))]))])),
-    (.assign 739 [(.name 739 579)] (.call 739 (.name 739 214) [(.pos (.name 739 1))])),
-    (.assign 740 [(.name 740 580)] (.call 740 (.name 740 339) [(.pos (.name 740 1)), (.pos (.name 740 577))])),
-    (.assign 741 [(.name 741 581)] (.call 741 (.name 741 339) [(.pos (.name 741 1)), (.pos (.name 741 578))])),
-    (.exprStmt 742 (.call 742 (.name 742 582) [(.pos (.name 743 1)), (.pos (.name 743 579)), (.pos (.name 743 580)), (.pos (.name 743 581))]))]
+    (.assign 733 [(.name 733 574)] (.call 733 (.name 733 331) [(.pos (.name 734 1)), (.pos (.name 734 241)), (.pos (.call 734 (.name 734 63) [(.pos (.name 734 1))]))])),
+    (.assign 736 [(.name 736 575)] (.call 736 (.name 736 331) [(.pos (.name 737 1)), (.pos (.name 737 241)), (.pos (.call 737 (.name 737 59) [(.pos (.name 737 1))]))])),
+    (.assign 739 [(.name 739 576)] (.call 739 (.name 739 209) [(.pos (.name 739 1))])),
+    (.assign 740 [(.name 740 577)] (.call 740 (.name 740 334) [(.pos (.name 740 1)), (.pos (.name 740 574))])),
+    (.assign 741 [(.name 741 578)] (.call 741 (.name 741 334) [(.pos (.name 741 1)), (.pos (.name 741 575))])),
+    (.exprStmt 742 (.call 742 (.name 742 579) [(.pos (.name 743 1)), (.pos (.name 743 576)), (.pos (.name 743 577)), (.pos (.name 743 578))]))]
 
 /-- `specs/gloas/beacon-chain.md:2169`
 ```python
@@ -5234,26 +5268,26 @@ def process_operations(
     for_ops(body.payload_attestations, process_payload_attestation)
 ``` -/
 def fn_process_operations : FunctionDef where
-  name := 493
-  params := { names := [1, 488, 37], defaults := [], vararg := none }
+  name := 489
+  params := { names := [1, 484, 37], defaults := [], vararg := none }
   line := 2169
   body := [
-    (.assert 2175 (.compare 2175 (.call 2175 (.name 2175 42) [(.pos (.attr 2175 (.name 2175 488) 53))]) [(.eq, (.int 2175 (0)))])),
-    (.funDef 2178 52 { names := [50, 51], defaults := [], vararg := (some 583) } [
+    (.assert 2175 (.compare 2175 (.call 2175 (.name 2175 42) [(.pos (.attr 2175 (.name 2175 484) 53))]) [(.eq, (.int 2175 (0)))])),
+    (.funDef 2178 52 { names := [50, 51], defaults := [], vararg := (some 580) } [
       (.forStmt 2179 (.name 2179 49) (.name 2179 50) [
-        (.exprStmt 2180 (.call 2180 (.name 2180 51) [(.pos (.name 2180 1)), (.pos (.name 2180 49)), (.starred (.name 2180 583))]))])]),
-    (.assert 2183 (.compare 2183 (.call 2183 (.name 2183 42) [(.pos (.attr 2183 (.name 2183 488) 585))]) [(.ltE, (.name 2183 584))])),
-    (.assert 2184 (.compare 2184 (.call 2184 (.name 2184 42) [(.pos (.attr 2184 (.name 2184 488) 587))]) [(.ltE, (.name 2184 586))])),
-    (.assert 2185 (.compare 2185 (.call 2185 (.name 2185 42) [(.pos (.attr 2185 (.name 2185 488) 589))]) [(.ltE, (.name 2185 588))])),
-    (.assert 2186 (.compare 2186 (.call 2186 (.name 2186 42) [(.pos (.attr 2186 (.name 2186 488) 591))]) [(.ltE, (.name 2186 590))])),
-    (.assert 2187 (.compare 2187 (.call 2187 (.name 2187 42) [(.pos (.attr 2187 (.name 2187 488) 593))]) [(.ltE, (.name 2187 592))])),
-    (.assert 2188 (.compare 2188 (.call 2188 (.name 2188 42) [(.pos (.attr 2188 (.name 2188 488) 595))]) [(.ltE, (.name 2188 594))])),
-    (.exprStmt 2191 (.call 2191 (.name 2191 52) [(.pos (.attr 2191 (.name 2191 488) 585)), (.pos (.name 2191 596))])),
-    (.exprStmt 2192 (.call 2192 (.name 2192 52) [(.pos (.attr 2192 (.name 2192 488) 587)), (.pos (.name 2192 483))])),
-    (.exprStmt 2194 (.call 2194 (.name 2194 52) [(.pos (.attr 2194 (.name 2194 488) 589)), (.pos (.name 2194 476)), (.pos (.name 2194 37))])),
-    (.exprStmt 2195 (.call 2195 (.name 2195 52) [(.pos (.attr 2195 (.name 2195 488) 591)), (.pos (.name 2195 597))])),
-    (.exprStmt 2196 (.call 2196 (.name 2196 52) [(.pos (.attr 2196 (.name 2196 488) 593)), (.pos (.name 2196 510))])),
-    (.exprStmt 2204 (.call 2204 (.name 2204 52) [(.pos (.attr 2204 (.name 2204 488) 595)), (.pos (.name 2204 598))]))]
+        (.exprStmt 2180 (.call 2180 (.name 2180 51) [(.pos (.name 2180 1)), (.pos (.name 2180 49)), (.starred (.name 2180 580))]))])]),
+    (.assert 2183 (.compare 2183 (.call 2183 (.name 2183 42) [(.pos (.attr 2183 (.name 2183 484) 582))]) [(.ltE, (.name 2183 581))])),
+    (.assert 2184 (.compare 2184 (.call 2184 (.name 2184 42) [(.pos (.attr 2184 (.name 2184 484) 584))]) [(.ltE, (.name 2184 583))])),
+    (.assert 2185 (.compare 2185 (.call 2185 (.name 2185 42) [(.pos (.attr 2185 (.name 2185 484) 586))]) [(.ltE, (.name 2185 585))])),
+    (.assert 2186 (.compare 2186 (.call 2186 (.name 2186 42) [(.pos (.attr 2186 (.name 2186 484) 588))]) [(.ltE, (.name 2186 587))])),
+    (.assert 2187 (.compare 2187 (.call 2187 (.name 2187 42) [(.pos (.attr 2187 (.name 2187 484) 590))]) [(.ltE, (.name 2187 589))])),
+    (.assert 2188 (.compare 2188 (.call 2188 (.name 2188 42) [(.pos (.attr 2188 (.name 2188 484) 592))]) [(.ltE, (.name 2188 591))])),
+    (.exprStmt 2191 (.call 2191 (.name 2191 52) [(.pos (.attr 2191 (.name 2191 484) 582)), (.pos (.name 2191 593))])),
+    (.exprStmt 2192 (.call 2192 (.name 2192 52) [(.pos (.attr 2192 (.name 2192 484) 584)), (.pos (.name 2192 479))])),
+    (.exprStmt 2194 (.call 2194 (.name 2194 52) [(.pos (.attr 2194 (.name 2194 484) 586)), (.pos (.name 2194 472)), (.pos (.name 2194 37))])),
+    (.exprStmt 2195 (.call 2195 (.name 2195 52) [(.pos (.attr 2195 (.name 2195 484) 588)), (.pos (.name 2195 594))])),
+    (.exprStmt 2196 (.call 2196 (.name 2196 52) [(.pos (.attr 2196 (.name 2196 484) 590)), (.pos (.name 2196 506))])),
+    (.exprStmt 2204 (.call 2204 (.name 2204 52) [(.pos (.attr 2204 (.name 2204 484) 592)), (.pos (.name 2204 595))]))]
 
 /-- `specs/gloas/beacon-chain.md:1800`
 ```python
@@ -5272,17 +5306,17 @@ def process_parent_execution_payload(state: BeaconState, block: BeaconBlock) -> 
     apply_parent_execution_payload(state, requests)
 ``` -/
 def fn_process_parent_execution_payload : FunctionDef where
-  name := 485
-  params := { names := [1, 484], defaults := [], vararg := none }
+  name := 481
+  params := { names := [1, 480], defaults := [], vararg := none }
   line := 1800
   body := [
-    (.assign 1801 [(.name 1801 559)] (.attr 1801 (.attr 1801 (.attr 1801 (.name 1801 484) 488) 489) 208)),
+    (.assign 1801 [(.name 1801 555)] (.attr 1801 (.attr 1801 (.attr 1801 (.name 1801 480) 484) 485) 202)),
     (.assign 1802 [(.name 1802 35)] (.attr 1802 (.name 1802 1) 36)),
-    (.assign 1803 [(.name 1803 34)] (.attr 1803 (.attr 1803 (.name 1803 484) 488) 599)),
-    (.ifStmt 1805 (.compare 1805 (.attr 1805 (.name 1805 559) 565) [(.notEq, (.attr 1805 (.name 1805 35) 74))]) [
-      (.assert 1807 (.compare 1807 (.name 1807 34) [(.eq, (.call 1807 (.attr 1807 (.name 1807 600) 514) []))])),
+    (.assign 1803 [(.name 1803 34)] (.attr 1803 (.attr 1803 (.name 1803 480) 484) 596)),
+    (.ifStmt 1805 (.compare 1805 (.attr 1805 (.name 1805 555) 562) [(.notEq, (.attr 1805 (.name 1805 35) 74))]) [
+      (.assert 1807 (.compare 1807 (.name 1807 34) [(.eq, (.call 1807 (.attr 1807 (.name 1807 597) 510) []))])),
       (.ret 1808 none)] []),
-    (.assert 1811 (.compare 1811 (.call 1811 (.name 1811 159) [(.pos (.name 1811 34))]) [(.eq, (.attr 1811 (.name 1811 35) 601))])),
+    (.assert 1811 (.compare 1811 (.call 1811 (.name 1811 159) [(.pos (.name 1811 34))]) [(.eq, (.attr 1811 (.name 1811 35) 598))])),
     (.exprStmt 1812 (.call 1812 (.name 1812 75) [(.pos (.name 1812 1)), (.pos (.name 1812 34))]))]
 
 /-- `specs/altair/beacon-chain.md:824`
@@ -5294,12 +5328,12 @@ def process_participation_flag_updates(state: BeaconState) -> None:
     )
 ``` -/
 def fn_process_participation_flag_updates : FunctionDef where
-  name := 548
+  name := 544
   params := { names := [1], defaults := [], vararg := none }
   line := 824
   body := [
     (.assign 825 [(.attr 825 (.name 825 1) 29)] (.attr 825 (.name 825 1) 30)),
-    (.assign 826 [(.attr 826 (.name 826 1) 30)] (.call 826 (.name 826 602) [(.kw 91 (.comp 827 .list (.call 827 (.name 827 20) [(.pos (.int 827 (0)))]) [(.mk (.name 827 307) (.call 827 (.name 827 130) [(.pos (.call 827 (.name 827 42) [(.pos (.attr 827 (.name 827 1) 27))]))]) [])]))]))]
+    (.assign 826 [(.attr 826 (.name 826 1) 30)] (.call 826 (.name 826 599) [(.kw 91 (.comp 827 .list (.call 827 (.name 827 20) [(.pos (.int 827 (0)))]) [(.mk (.name 827 302) (.call 827 (.name 827 130) [(.pos (.call 827 (.name 827 42) [(.pos (.attr 827 (.name 827 1) 27))]))]) [])]))]))]
 
 /-- `specs/gloas/beacon-chain.md:2429`
 ```python
@@ -5317,15 +5351,15 @@ def process_payload_attestation(
     assert is_valid_indexed_payload_attestation(state, indexed_payload_attestation)
 ``` -/
 def fn_process_payload_attestation : FunctionDef where
-  name := 598
-  params := { names := [1, 357], defaults := [], vararg := none }
+  name := 595
+  params := { names := [1, 352], defaults := [], vararg := none }
   line := 2429
   body := [
-    (.assign 2432 [(.name 2432 91)] (.attr 2432 (.name 2432 357) 91)),
-    (.assert 2435 (.compare 2435 (.attr 2435 (.name 2435 91) 241) [(.eq, (.attr 2435 (.attr 2435 (.name 2435 1) 38) 498))])),
+    (.assign 2432 [(.name 2432 91)] (.attr 2432 (.name 2432 352) 91)),
+    (.assert 2435 (.compare 2435 (.attr 2435 (.name 2435 91) 236) [(.eq, (.attr 2435 (.attr 2435 (.name 2435 1) 38) 494))])),
     (.assert 2437 (.compare 2437 (.binop 2437 .add (.attr 2437 (.name 2437 91) 6) (.int 2437 (1))) [(.eq, (.attr 2437 (.name 2437 1) 6))])),
-    (.assign 2439 [(.name 2439 603)] (.call 2439 (.name 2439 363) [(.pos (.name 2439 1)), (.pos (.name 2439 357))])),
-    (.assert 2440 (.call 2440 (.name 2440 457) [(.pos (.name 2440 1)), (.pos (.name 2440 603))]))]
+    (.assign 2439 [(.name 2439 600)] (.call 2439 (.name 2439 358) [(.pos (.name 2439 1)), (.pos (.name 2439 352))])),
+    (.assert 2440 (.call 2440 (.name 2440 453) [(.pos (.name 2440 1)), (.pos (.name 2440 600))]))]
 
 /-- `specs/electra/beacon-chain.md:1208`
 ```python
@@ -5353,24 +5387,24 @@ def process_pending_consolidations(state: BeaconState) -> None:
     state.pending_consolidations = state.pending_consolidations[next_pending_consolidation:]
 ``` -/
 def fn_process_pending_consolidations : FunctionDef where
-  name := 544
+  name := 540
   params := { names := [1], defaults := [], vararg := none }
   line := 1208
   body := [
-    (.assign 1209 [(.name 1209 556)] (.binop 1209 .add (.call 1209 (.name 1209 59) [(.pos (.name 1209 1))]) (.int 1209 (1)))),
-    (.assign 1210 [(.name 1210 604)] (.int 1210 (0))),
-    (.forStmt 1211 (.name 1211 605) (.attr 1211 (.name 1211 1) 520) [
-      (.assign 1212 [(.name 1212 461)] (.index 1212 (.attr 1212 (.name 1212 1) 27) (.attr 1212 (.name 1212 605) 517))),
-      (.ifStmt 1213 (.attr 1213 (.name 1213 461) 274) [
-        (.augAssign 1214 (.name 1214 604) .add (.int 1214 (1))),
+    (.assign 1209 [(.name 1209 552)] (.binop 1209 .add (.call 1209 (.name 1209 59) [(.pos (.name 1209 1))]) (.int 1209 (1)))),
+    (.assign 1210 [(.name 1210 601)] (.int 1210 (0))),
+    (.forStmt 1211 (.name 1211 602) (.attr 1211 (.name 1211 1) 516) [
+      (.assign 1212 [(.name 1212 457)] (.index 1212 (.attr 1212 (.name 1212 1) 27) (.attr 1212 (.name 1212 602) 513))),
+      (.ifStmt 1213 (.attr 1213 (.name 1213 457) 269) [
+        (.augAssign 1214 (.name 1214 601) .add (.int 1214 (1))),
         (.cont 1215)] []),
-      (.ifStmt 1216 (.compare 1216 (.attr 1216 (.name 1216 461) 12) [(.gt, (.name 1216 556))]) [
+      (.ifStmt 1216 (.compare 1216 (.attr 1216 (.name 1216 457) 12) [(.gt, (.name 1216 552))]) [
         (.brk 1217)] []),
-      (.assign 1220 [(.name 1220 606)] (.call 1220 (.name 1220 218) [(.pos (.index 1221 (.attr 1221 (.name 1221 1) 28) (.attr 1221 (.name 1221 605) 517))), (.pos (.attr 1221 (.name 1221 461) 113))])),
-      (.exprStmt 1225 (.call 1225 (.name 1225 89) [(.pos (.name 1225 1)), (.pos (.attr 1225 (.name 1225 605) 517)), (.pos (.name 1225 606))])),
-      (.exprStmt 1226 (.call 1226 (.name 1226 83) [(.pos (.name 1226 1)), (.pos (.attr 1226 (.name 1226 605) 522)), (.pos (.name 1226 606))])),
-      (.augAssign 1227 (.name 1227 604) .add (.int 1227 (1)))]),
-    (.assign 1229 [(.attr 1229 (.name 1229 1) 520)] (.slice 1229 (.attr 1229 (.name 1229 1) 520) (some (.name 1229 604)) none none))]
+      (.assign 1220 [(.name 1220 603)] (.call 1220 (.name 1220 213) [(.pos (.index 1221 (.attr 1221 (.name 1221 1) 28) (.attr 1221 (.name 1221 602) 513))), (.pos (.attr 1221 (.name 1221 457) 113))])),
+      (.exprStmt 1225 (.call 1225 (.name 1225 89) [(.pos (.name 1225 1)), (.pos (.attr 1225 (.name 1225 602) 513)), (.pos (.name 1225 603))])),
+      (.exprStmt 1226 (.call 1226 (.name 1226 83) [(.pos (.name 1226 1)), (.pos (.attr 1226 (.name 1226 602) 518)), (.pos (.name 1226 603))])),
+      (.augAssign 1227 (.name 1227 601) .add (.int 1227 (1)))]),
+    (.assign 1229 [(.attr 1229 (.name 1229 1) 516)] (.slice 1229 (.attr 1229 (.name 1229 1) 516) (some (.name 1229 601)) none none))]
 
 /-- `specs/gloas/beacon-chain.md:1619`
 ```python
@@ -5431,43 +5465,43 @@ def process_pending_deposits(state: BeaconState) -> None:
         state.deposit_balance_to_consume = Gwei(0)
 ``` -/
 def fn_process_pending_deposits : FunctionDef where
-  name := 543
+  name := 539
   params := { names := [1], defaults := [], vararg := none }
   line := 1619
   body := [
-    (.assign 1620 [(.name 1620 556)] (.binop 1620 .add (.call 1620 (.name 1620 59) [(.pos (.name 1620 1))]) (.int 1620 (1)))),
-    (.assign 1623 [(.name 1623 607)] (.binop 1623 .add (.attr 1623 (.name 1623 1) 608) (.call 1623 (.name 1623 219) [(.pos (.name 1623 1))]))),
-    (.assign 1624 [(.name 1624 609)] (.int 1624 (0))),
-    (.assign 1625 [(.name 1625 610)] (.int 1625 (0))),
-    (.assign 1626 [(.name 1626 611)] (.list 1626 [])),
-    (.assign 1627 [(.name 1627 612)] (.bool 1627 false)),
-    (.assign 1628 [(.name 1628 613)] (.call 1628 (.name 1628 161) [(.pos (.attr 1628 (.attr 1628 (.name 1628 1) 331) 103))])),
-    (.forStmt 1630 (.name 1630 76) (.attr 1630 (.name 1630 1) 439) [
-      (.ifStmt 1632 (.compare 1632 (.attr 1632 (.name 1632 76) 6) [(.gt, (.name 1632 613))]) [
+    (.assign 1620 [(.name 1620 552)] (.binop 1620 .add (.call 1620 (.name 1620 59) [(.pos (.name 1620 1))]) (.int 1620 (1)))),
+    (.assign 1623 [(.name 1623 604)] (.binop 1623 .add (.attr 1623 (.name 1623 1) 605) (.call 1623 (.name 1623 214) [(.pos (.name 1623 1))]))),
+    (.assign 1624 [(.name 1624 606)] (.int 1624 (0))),
+    (.assign 1625 [(.name 1625 607)] (.int 1625 (0))),
+    (.assign 1626 [(.name 1626 608)] (.list 1626 [])),
+    (.assign 1627 [(.name 1627 609)] (.bool 1627 false)),
+    (.assign 1628 [(.name 1628 610)] (.call 1628 (.name 1628 161) [(.pos (.attr 1628 (.attr 1628 (.name 1628 1) 326) 103))])),
+    (.forStmt 1630 (.name 1630 76) (.attr 1630 (.name 1630 1) 435) [
+      (.ifStmt 1632 (.compare 1632 (.attr 1632 (.name 1632 76) 6) [(.gt, (.name 1632 610))]) [
         (.brk 1633)] []),
-      (.ifStmt 1636 (.compare 1636 (.name 1636 610) [(.gtE, (.name 1636 614))]) [
+      (.ifStmt 1636 (.compare 1636 (.name 1636 607) [(.gtE, (.name 1636 611))]) [
         (.brk 1637)] []),
-      (.assign 1640 [(.name 1640 615)] (.bool 1640 false)),
-      (.assign 1641 [(.name 1641 616)] (.bool 1641 false)),
+      (.assign 1640 [(.name 1640 612)] (.bool 1640 false)),
+      (.assign 1641 [(.name 1641 613)] (.bool 1641 false)),
       (.assign 1642 [(.name 1642 77)] (.comp 1642 .list (.attr 1642 (.name 1642 78) 2) [(.mk (.name 1642 78) (.attr 1642 (.name 1642 1) 27) [])])),
       (.ifStmt 1643 (.compare 1643 (.attr 1643 (.name 1643 76) 2) [(.isIn, (.name 1643 77))]) [
         (.assign 1644 [(.name 1644 25)] (.index 1644 (.attr 1644 (.name 1644 1) 27) (.call 1644 (.name 1644 82) [(.pos (.call 1644 (.attr 1644 (.name 1644 77) 23) [(.pos (.attr 1644 (.name 1644 76) 2))]))]))),
-        (.assign 1645 [(.name 1645 615)] (.compare 1645 (.attr 1645 (.name 1645 25) 399) [(.lt, (.name 1645 13))])),
-        (.assign 1646 [(.name 1646 616)] (.compare 1646 (.attr 1646 (.name 1646 25) 12) [(.lt, (.name 1646 556))]))] []),
-      (.ifStmt 1648 (.name 1648 616) [
+        (.assign 1645 [(.name 1645 612)] (.compare 1645 (.attr 1645 (.name 1645 25) 395) [(.lt, (.name 1645 13))])),
+        (.assign 1646 [(.name 1646 613)] (.compare 1646 (.attr 1646 (.name 1646 25) 12) [(.lt, (.name 1646 552))]))] []),
+      (.ifStmt 1648 (.name 1648 613) [
         (.exprStmt 1650 (.call 1650 (.name 1650 84) [(.pos (.name 1650 1)), (.pos (.name 1650 76))]))] [
-        (.ifStmt 1651 (.name 1651 615) [
-          (.exprStmt 1653 (.call 1653 (.attr 1653 (.name 1653 611) 69) [(.pos (.name 1653 76))]))] [
-          (.assign 1656 [(.name 1656 612)] (.compare 1656 (.binop 1656 .add (.name 1656 609) (.attr 1656 (.name 1656 76) 5)) [(.gt, (.name 1656 607))])),
-          (.ifStmt 1657 (.name 1657 612) [
+        (.ifStmt 1651 (.name 1651 612) [
+          (.exprStmt 1653 (.call 1653 (.attr 1653 (.name 1653 608) 69) [(.pos (.name 1653 76))]))] [
+          (.assign 1656 [(.name 1656 609)] (.compare 1656 (.binop 1656 .add (.name 1656 606) (.attr 1656 (.name 1656 76) 5)) [(.gt, (.name 1656 604))])),
+          (.ifStmt 1657 (.name 1657 609) [
             (.brk 1658)] []),
-          (.augAssign 1661 (.name 1661 609) .add (.attr 1661 (.name 1661 76) 5)),
+          (.augAssign 1661 (.name 1661 606) .add (.attr 1661 (.name 1661 76) 5)),
           (.exprStmt 1662 (.call 1662 (.name 1662 84) [(.pos (.name 1662 1)), (.pos (.name 1662 76))]))])]),
-      (.augAssign 1665 (.name 1665 610) .add (.int 1665 (1)))]),
-    (.assign 1667 [(.attr 1667 (.name 1667 1) 439)] (.binop 1667 .add (.slice 1667 (.attr 1667 (.name 1667 1) 439) (some (.name 1667 610)) none none) (.name 1667 611))),
-    (.ifStmt 1670 (.name 1670 612) [
-      (.assign 1671 [(.attr 1671 (.name 1671 1) 608)] (.binop 1671 .sub (.name 1671 607) (.name 1671 609)))] [
-      (.assign 1673 [(.attr 1673 (.name 1673 1) 608)] (.call 1673 (.name 1673 270) [(.pos (.int 1673 (0)))]))])]
+      (.augAssign 1665 (.name 1665 607) .add (.int 1665 (1)))]),
+    (.assign 1667 [(.attr 1667 (.name 1667 1) 435)] (.binop 1667 .add (.slice 1667 (.attr 1667 (.name 1667 1) 435) (some (.name 1667 607)) none none) (.name 1667 608))),
+    (.ifStmt 1670 (.name 1670 609) [
+      (.assign 1671 [(.attr 1671 (.name 1671 1) 605)] (.binop 1671 .sub (.name 1671 604) (.name 1671 606)))] [
+      (.assign 1673 [(.attr 1673 (.name 1673 1) 605)] (.call 1673 (.name 1673 265) [(.pos (.int 1673 (0)))]))])]
 
 /-- `specs/fulu/beacon-chain.md:481`
 ```python
@@ -5482,14 +5516,14 @@ def process_proposer_lookahead(state: BeaconState) -> None:
     state.proposer_lookahead[last_epoch_start:] = last_epoch_proposers
 ``` -/
 def fn_process_proposer_lookahead : FunctionDef where
-  name := 550
+  name := 546
   params := { names := [1], defaults := [], vararg := none }
   line := 481
   body := [
-    (.assign 482 [(.name 482 617)] (.binop 482 .sub (.call 482 (.name 482 42) [(.pos (.attr 482 (.name 482 1) 272))]) (.name 482 61))),
-    (.assign 484 [(.slice 484 (.attr 484 (.name 484 1) 272) none (some (.name 484 617)))] (.slice 484 (.attr 484 (.name 484 1) 272) (some (.name 484 61)) none none)),
-    (.assign 486 [(.name 486 618)] (.call 486 (.name 486 276) [(.pos (.name 487 1)), (.pos (.binop 487 .add (.binop 487 .add (.call 487 (.name 487 59) [(.pos (.name 487 1))]) (.name 487 386)) (.int 487 (1))))])),
-    (.assign 489 [(.slice 489 (.attr 489 (.name 489 1) 272) (some (.name 489 617)) none)] (.name 489 618))]
+    (.assign 482 [(.name 482 614)] (.binop 482 .sub (.call 482 (.name 482 42) [(.pos (.attr 482 (.name 482 1) 267))]) (.name 482 61))),
+    (.assign 484 [(.slice 484 (.attr 484 (.name 484 1) 267) none (some (.name 484 614)))] (.slice 484 (.attr 484 (.name 484 1) 267) (some (.name 484 61)) none none)),
+    (.assign 486 [(.name 486 615)] (.call 486 (.name 486 271) [(.pos (.name 487 1)), (.pos (.binop 487 .add (.binop 487 .add (.call 487 (.name 487 59) [(.pos (.name 487 1))]) (.name 487 382)) (.int 487 (1))))])),
+    (.assign 489 [(.slice 489 (.attr 489 (.name 489 1) 267) (some (.name 489 614)) none)] (.name 489 615))]
 
 /-- `specs/gloas/beacon-chain.md:2448`
 ```python
@@ -5535,34 +5569,34 @@ def process_proposer_slashing(state: BeaconState, proposer_slashing: ProposerSla
     slash_validator(state, header_1.proposer_index)
 ``` -/
 def fn_process_proposer_slashing : FunctionDef where
-  name := 596
-  params := { names := [1, 619], defaults := [], vararg := none }
+  name := 593
+  params := { names := [1, 616], defaults := [], vararg := none }
   line := 2448
   body := [
-    (.assign 2449 [(.name 2449 620)] (.attr 2449 (.attr 2449 (.name 2449 619) 621) 208)),
-    (.assign 2450 [(.name 2450 622)] (.attr 2450 (.attr 2450 (.name 2450 619) 623) 208)),
-    (.assert 2453 (.compare 2453 (.attr 2453 (.name 2453 620) 6) [(.eq, (.attr 2453 (.name 2453 622) 6))])),
-    (.assert 2455 (.compare 2455 (.attr 2455 (.name 2455 620) 497) [(.eq, (.attr 2455 (.name 2455 622) 497))])),
-    (.assert 2457 (.compare 2457 (.name 2457 620) [(.notEq, (.name 2457 622))])),
-    (.assign 2459 [(.name 2459 502)] (.index 2459 (.attr 2459 (.name 2459 1) 27) (.attr 2459 (.name 2459 620) 497))),
-    (.assert 2460 (.call 2460 (.name 2460 445) [(.pos (.name 2460 502)), (.pos (.call 2460 (.name 2460 59) [(.pos (.name 2460 1))]))])),
-    (.forStmt 2462 (.name 2462 624) (.tuple 2462 [(.attr 2462 (.name 2462 619) 621), (.attr 2462 (.name 2462 619) 623)]) [
-      (.assign 2463 [(.name 2463 192)] (.call 2463 (.name 2463 315) [(.pos (.name 2464 1)), (.pos (.name 2464 275)), (.pos (.call 2464 (.name 2464 11) [(.pos (.attr 2464 (.attr 2464 (.name 2464 624) 208) 6))]))])),
-      (.assign 2466 [(.name 2466 450)] (.call 2466 (.name 2466 195) [(.pos (.attr 2466 (.name 2466 624) 208)), (.pos (.name 2466 192))])),
-      (.assert 2467 (.call 2467 (.attr 2467 (.name 2467 202) 451) [(.pos (.attr 2467 (.name 2467 502) 2)), (.pos (.name 2467 450)), (.pos (.attr 2467 (.name 2467 624) 79))]))]),
-    (.assign 2474 [(.name 2474 6)] (.attr 2474 (.name 2474 620) 6)),
-    (.assign 2475 [(.name 2475 625)] (.call 2475 (.name 2475 11) [(.pos (.name 2475 6))])),
-    (.ifStmt 2476 (.compare 2476 (.name 2476 625) [(.eq, (.call 2476 (.name 2476 59) [(.pos (.name 2476 1))]))]) [
+    (.assign 2449 [(.name 2449 617)] (.attr 2449 (.attr 2449 (.name 2449 616) 618) 202)),
+    (.assign 2450 [(.name 2450 619)] (.attr 2450 (.attr 2450 (.name 2450 616) 620) 202)),
+    (.assert 2453 (.compare 2453 (.attr 2453 (.name 2453 617) 6) [(.eq, (.attr 2453 (.name 2453 619) 6))])),
+    (.assert 2455 (.compare 2455 (.attr 2455 (.name 2455 617) 493) [(.eq, (.attr 2455 (.name 2455 619) 493))])),
+    (.assert 2457 (.compare 2457 (.name 2457 617) [(.notEq, (.name 2457 619))])),
+    (.assign 2459 [(.name 2459 498)] (.index 2459 (.attr 2459 (.name 2459 1) 27) (.attr 2459 (.name 2459 617) 493))),
+    (.assert 2460 (.call 2460 (.name 2460 441) [(.pos (.name 2460 498)), (.pos (.call 2460 (.name 2460 59) [(.pos (.name 2460 1))]))])),
+    (.forStmt 2462 (.name 2462 621) (.tuple 2462 [(.attr 2462 (.name 2462 616) 618), (.attr 2462 (.name 2462 616) 620)]) [
+      (.assign 2463 [(.name 2463 192)] (.call 2463 (.name 2463 310) [(.pos (.name 2464 1)), (.pos (.name 2464 270)), (.pos (.call 2464 (.name 2464 11) [(.pos (.attr 2464 (.attr 2464 (.name 2464 621) 202) 6))]))])),
+      (.assign 2466 [(.name 2466 446)] (.call 2466 (.name 2466 195) [(.pos (.attr 2466 (.name 2466 621) 202)), (.pos (.name 2466 192))])),
+      (.assert 2467 (.call 2467 (.attr 2467 (.name 2467 204) 447) [(.pos (.attr 2467 (.name 2467 498) 2)), (.pos (.name 2467 446)), (.pos (.attr 2467 (.name 2467 621) 79))]))]),
+    (.assign 2474 [(.name 2474 6)] (.attr 2474 (.name 2474 617) 6)),
+    (.assign 2475 [(.name 2475 622)] (.call 2475 (.name 2475 11) [(.pos (.name 2475 6))])),
+    (.ifStmt 2476 (.compare 2476 (.name 2476 622) [(.eq, (.call 2476 (.name 2476 59) [(.pos (.name 2476 1))]))]) [
       (.assign 2477 [(.name 2477 60)] (.binop 2477 .add (.name 2477 61) (.binop 2477 .mod (.name 2477 6) (.name 2477 61)))),
-      (.assign 2478 [(.name 2478 376)] (.index 2478 (.attr 2478 (.name 2478 1) 377) (.name 2478 60))),
-      (.ifStmt 2479 (.compare 2479 (.attr 2479 (.name 2479 376) 497) [(.eq, (.attr 2479 (.name 2479 620) 497))]) [
-        (.assign 2480 [(.index 2480 (.attr 2480 (.name 2480 1) 377) (.name 2480 60))] (.call 2480 (.attr 2480 (.name 2480 513) 514) []))] [])] [
-      (.ifStmt 2481 (.compare 2481 (.name 2481 625) [(.eq, (.call 2481 (.name 2481 63) [(.pos (.name 2481 1))]))]) [
+      (.assign 2478 [(.name 2478 372)] (.index 2478 (.attr 2478 (.name 2478 1) 373) (.name 2478 60))),
+      (.ifStmt 2479 (.compare 2479 (.attr 2479 (.name 2479 372) 493) [(.eq, (.attr 2479 (.name 2479 617) 493))]) [
+        (.assign 2480 [(.index 2480 (.attr 2480 (.name 2480 1) 373) (.name 2480 60))] (.call 2480 (.attr 2480 (.name 2480 509) 510) []))] [])] [
+      (.ifStmt 2481 (.compare 2481 (.name 2481 622) [(.eq, (.call 2481 (.name 2481 63) [(.pos (.name 2481 1))]))]) [
         (.assign 2482 [(.name 2482 60)] (.binop 2482 .mod (.name 2482 6) (.name 2482 61))),
-        (.assign 2483 [(.name 2483 376)] (.index 2483 (.attr 2483 (.name 2483 1) 377) (.name 2483 60))),
-        (.ifStmt 2484 (.compare 2484 (.attr 2484 (.name 2484 376) 497) [(.eq, (.attr 2484 (.name 2484 620) 497))]) [
-          (.assign 2485 [(.index 2485 (.attr 2485 (.name 2485 1) 377) (.name 2485 60))] (.call 2485 (.attr 2485 (.name 2485 513) 514) []))] [])] [])]),
-    (.exprStmt 2487 (.call 2487 (.name 2487 482) [(.pos (.name 2487 1)), (.pos (.attr 2487 (.name 2487 620) 497))]))]
+        (.assign 2483 [(.name 2483 372)] (.index 2483 (.attr 2483 (.name 2483 1) 373) (.name 2483 60))),
+        (.ifStmt 2484 (.compare 2484 (.attr 2484 (.name 2484 372) 493) [(.eq, (.attr 2484 (.name 2484 617) 493))]) [
+          (.assign 2485 [(.index 2485 (.attr 2485 (.name 2485 1) 373) (.name 2485 60))] (.call 2485 (.attr 2485 (.name 2485 509) 510) []))] [])] [])]),
+    (.exprStmt 2487 (.call 2487 (.name 2487 478) [(.pos (.name 2487 1)), (.pos (.attr 2487 (.name 2487 617) 493))]))]
 
 /-- `specs/gloas/beacon-chain.md:1697`
 ```python
@@ -5580,14 +5614,14 @@ def process_ptc_window(state: BeaconState) -> None:
     ]
 ``` -/
 def fn_process_ptc_window : FunctionDef where
-  name := 551
+  name := 547
   params := { names := [1], defaults := [], vararg := none }
   line := 1697
   body := [
-    (.assign 1702 [(.slice 1702 (.attr 1702 (.name 1702 1) 385) none (some (.binop 1702 .sub (.call 1702 (.name 1702 42) [(.pos (.attr 1702 (.name 1702 1) 385))]) (.name 1702 61))))] (.slice 1702 (.attr 1702 (.name 1702 1) 385) (some (.name 1702 61)) none none)),
-    (.assign 1704 [(.name 1704 556)] (.binop 1704 .add (.binop 1704 .add (.call 1704 (.name 1704 59) [(.pos (.name 1704 1))]) (.name 1704 386)) (.int 1704 (1)))),
-    (.assign 1705 [(.name 1705 160)] (.call 1705 (.name 1705 161) [(.pos (.name 1705 556))])),
-    (.assign 1706 [(.slice 1706 (.attr 1706 (.name 1706 1) 385) (some (.binop 1706 .sub (.call 1706 (.name 1706 42) [(.pos (.attr 1706 (.name 1706 1) 385))]) (.name 1706 61))) none)] (.comp 1706 .list (.call 1707 (.name 1707 175) [(.pos (.name 1707 1)), (.pos (.call 1707 (.name 1707 196) [(.pos (.name 1707 6))]))]) [(.mk (.name 1707 6) (.call 1707 (.name 1707 130) [(.pos (.name 1707 160)), (.pos (.binop 1707 .add (.name 1707 160) (.name 1707 61)))]) [])]))]
+    (.assign 1702 [(.slice 1702 (.attr 1702 (.name 1702 1) 381) none (some (.binop 1702 .sub (.call 1702 (.name 1702 42) [(.pos (.attr 1702 (.name 1702 1) 381))]) (.name 1702 61))))] (.slice 1702 (.attr 1702 (.name 1702 1) 381) (some (.name 1702 61)) none none)),
+    (.assign 1704 [(.name 1704 552)] (.binop 1704 .add (.binop 1704 .add (.call 1704 (.name 1704 59) [(.pos (.name 1704 1))]) (.name 1704 382)) (.int 1704 (1)))),
+    (.assign 1705 [(.name 1705 160)] (.call 1705 (.name 1705 161) [(.pos (.name 1705 552))])),
+    (.assign 1706 [(.slice 1706 (.attr 1706 (.name 1706 1) 381) (some (.binop 1706 .sub (.call 1706 (.name 1706 42) [(.pos (.attr 1706 (.name 1706 1) 381))]) (.name 1706 61))) none)] (.comp 1706 .list (.call 1707 (.name 1707 175) [(.pos (.name 1707 1)), (.pos (.call 1707 (.name 1707 196) [(.pos (.name 1707 6))]))]) [(.mk (.name 1707 6) (.call 1707 (.name 1707 130) [(.pos (.name 1707 160)), (.pos (.binop 1707 .add (.name 1707 160) (.name 1707 61)))]) [])]))]
 
 /-- `specs/phase0/beacon-chain.md:2353`
 ```python
@@ -5602,16 +5636,16 @@ def process_randao(state: BeaconState, body: BeaconBlockBody) -> None:
     state.randao_mixes[epoch % EPOCHS_PER_HISTORICAL_VECTOR] = mix
 ``` -/
 def fn_process_randao : FunctionDef where
-  name := 491
-  params := { names := [1, 488], defaults := [], vararg := none }
+  name := 487
+  params := { names := [1, 484], defaults := [], vararg := none }
   line := 2353
   body := [
     (.assign 2354 [(.name 2354 103)] (.call 2354 (.name 2354 59) [(.pos (.name 2354 1))])),
-    (.assign 2356 [(.name 2356 502)] (.index 2356 (.attr 2356 (.name 2356 1) 27) (.call 2356 (.name 2356 273) [(.pos (.name 2356 1))]))),
-    (.assign 2357 [(.name 2357 450)] (.call 2357 (.name 2357 195) [(.pos (.name 2357 103)), (.pos (.call 2357 (.name 2357 315) [(.pos (.name 2357 1)), (.pos (.name 2357 626))]))])),
-    (.assert 2358 (.call 2358 (.attr 2358 (.name 2358 202) 451) [(.pos (.attr 2358 (.name 2358 502) 2)), (.pos (.name 2358 450)), (.pos (.attr 2358 (.name 2358 488) 627))])),
-    (.assign 2360 [(.name 2360 390)] (.call 2360 (.name 2360 628) [(.pos (.call 2360 (.name 2360 389) [(.pos (.name 2360 1)), (.pos (.name 2360 103))])), (.pos (.call 2360 (.name 2360 119) [(.pos (.attr 2360 (.name 2360 488) 627))]))])),
-    (.assign 2361 [(.index 2361 (.attr 2361 (.name 2361 1) 387) (.binop 2361 .mod (.name 2361 103) (.name 2361 388)))] (.name 2361 390))]
+    (.assign 2356 [(.name 2356 498)] (.index 2356 (.attr 2356 (.name 2356 1) 27) (.call 2356 (.name 2356 268) [(.pos (.name 2356 1))]))),
+    (.assign 2357 [(.name 2357 446)] (.call 2357 (.name 2357 195) [(.pos (.name 2357 103)), (.pos (.call 2357 (.name 2357 310) [(.pos (.name 2357 1)), (.pos (.name 2357 623))]))])),
+    (.assert 2358 (.call 2358 (.attr 2358 (.name 2358 204) 447) [(.pos (.attr 2358 (.name 2358 498) 2)), (.pos (.name 2358 446)), (.pos (.attr 2358 (.name 2358 484) 624))])),
+    (.assign 2360 [(.name 2360 386)] (.call 2360 (.name 2360 625) [(.pos (.call 2360 (.name 2360 385) [(.pos (.name 2360 1)), (.pos (.name 2360 103))])), (.pos (.call 2360 (.name 2360 119) [(.pos (.attr 2360 (.name 2360 484) 624))]))])),
+    (.assign 2361 [(.index 2361 (.attr 2361 (.name 2361 1) 383) (.binop 2361 .mod (.name 2361 103) (.name 2361 384)))] (.name 2361 386))]
 
 /-- `specs/phase0/beacon-chain.md:2283`
 ```python
@@ -5624,13 +5658,13 @@ def process_randao_mixes_reset(state: BeaconState) -> None:
     )
 ``` -/
 def fn_process_randao_mixes_reset : FunctionDef where
-  name := 546
+  name := 542
   params := { names := [1], defaults := [], vararg := none }
   line := 2283
   body := [
-    (.assign 2284 [(.name 2284 413)] (.call 2284 (.name 2284 59) [(.pos (.name 2284 1))])),
-    (.assign 2285 [(.name 2285 556)] (.binop 2285 .add (.name 2285 413) (.int 2285 (1)))),
-    (.assign 2287 [(.index 2287 (.attr 2287 (.name 2287 1) 387) (.binop 2287 .mod (.name 2287 556) (.name 2287 388)))] (.call 2287 (.name 2287 389) [(.pos (.name 2288 1)), (.pos (.name 2288 413))]))]
+    (.assign 2284 [(.name 2284 409)] (.call 2284 (.name 2284 59) [(.pos (.name 2284 1))])),
+    (.assign 2285 [(.name 2285 552)] (.binop 2285 .add (.name 2285 409) (.int 2285 (1)))),
+    (.assign 2287 [(.index 2287 (.attr 2287 (.name 2287 1) 383) (.binop 2287 .mod (.name 2287 552) (.name 2287 384)))] (.call 2287 (.name 2287 385) [(.pos (.name 2288 1)), (.pos (.name 2288 409))]))]
 
 /-- `specs/electra/beacon-chain.md:1057`
 ```python
@@ -5653,19 +5687,19 @@ def process_registry_updates(state: BeaconState) -> None:
             validator.activation_epoch = activation_epoch
 ``` -/
 def fn_process_registry_updates : FunctionDef where
-  name := 540
+  name := 536
   params := { names := [1], defaults := [], vararg := none }
   line := 1057
   body := [
-    (.assign 1058 [(.name 1058 413)] (.call 1058 (.name 1058 59) [(.pos (.name 1058 1))])),
-    (.assign 1059 [(.name 1059 398)] (.call 1059 (.name 1059 105) [(.pos (.name 1059 413))])),
-    (.forStmt 1062 (.tuple 1062 [(.name 1062 23), (.name 1062 25)]) (.call 1062 (.name 1062 221) [(.pos (.attr 1062 (.name 1062 1) 27))]) [
-      (.ifStmt 1064 (.call 1064 (.name 1064 434) [(.pos (.name 1064 25))]) [
-        (.assign 1065 [(.attr 1065 (.name 1065 25) 397)] (.binop 1065 .add (.name 1065 413) (.int 1065 (1))))] [
-        (.ifStmt 1066 (.boolop 1067 .and [(.call 1067 (.name 1067 220) [(.pos (.name 1067 25)), (.pos (.name 1067 413))]), (.compare 1068 (.attr 1068 (.name 1068 25) 113) [(.ltE, (.name 1068 629))])]) [
-          (.exprStmt 1071 (.call 1071 (.name 1071 420) [(.pos (.name 1071 1)), (.pos (.call 1071 (.name 1071 82) [(.pos (.name 1071 23))]))]))] [
-          (.ifStmt 1072 (.call 1072 (.name 1072 433) [(.pos (.name 1072 1)), (.pos (.name 1072 25))]) [
-            (.assign 1073 [(.attr 1073 (.name 1073 25) 398)] (.name 1073 398))] [])])])])]
+    (.assign 1058 [(.name 1058 409)] (.call 1058 (.name 1058 59) [(.pos (.name 1058 1))])),
+    (.assign 1059 [(.name 1059 394)] (.call 1059 (.name 1059 105) [(.pos (.name 1059 409))])),
+    (.forStmt 1062 (.tuple 1062 [(.name 1062 23), (.name 1062 25)]) (.call 1062 (.name 1062 216) [(.pos (.attr 1062 (.name 1062 1) 27))]) [
+      (.ifStmt 1064 (.call 1064 (.name 1064 430) [(.pos (.name 1064 25))]) [
+        (.assign 1065 [(.attr 1065 (.name 1065 25) 393)] (.binop 1065 .add (.name 1065 409) (.int 1065 (1))))] [
+        (.ifStmt 1066 (.boolop 1067 .and [(.call 1067 (.name 1067 215) [(.pos (.name 1067 25)), (.pos (.name 1067 409))]), (.compare 1068 (.attr 1068 (.name 1068 25) 113) [(.ltE, (.name 1068 626))])]) [
+          (.exprStmt 1071 (.call 1071 (.name 1071 416) [(.pos (.name 1071 1)), (.pos (.call 1071 (.name 1071 82) [(.pos (.name 1071 23))]))]))] [
+          (.ifStmt 1072 (.call 1072 (.name 1072 429) [(.pos (.name 1072 1)), (.pos (.name 1072 25))]) [
+            (.assign 1073 [(.attr 1073 (.name 1073 25) 394)] (.name 1073 394))] [])])])])]
 
 /-- `specs/altair/beacon-chain.md:778`
 ```python
@@ -5685,18 +5719,18 @@ def process_rewards_and_penalties(state: BeaconState) -> None:
             decrease_balance(state, ValidatorIndex(index), penalties[index])
 ``` -/
 def fn_process_rewards_and_penalties : FunctionDef where
-  name := 539
+  name := 535
   params := { names := [1], defaults := [], vararg := none }
   line := 778
   body := [
-    (.ifStmt 780 (.compare 780 (.call 780 (.name 780 59) [(.pos (.name 780 1))]) [(.eq, (.name 780 575))]) [
+    (.ifStmt 780 (.compare 780 (.call 780 (.name 780 59) [(.pos (.name 780 1))]) [(.eq, (.name 780 572))]) [
       (.ret 781 none)] []),
-    (.assign 783 [(.name 783 630)] (.comp 783 .list (.call 784 (.name 784 346) [(.pos (.name 784 1)), (.pos (.name 784 18))]) [(.mk (.name 785 18) (.call 785 (.name 785 130) [(.pos (.call 785 (.name 785 42) [(.pos (.name 785 337))]))]) [])])),
-    (.assign 787 [(.name 787 631)] (.binop 787 .add (.name 787 630) (.list 787 [(.call 787 (.name 787 352) [(.pos (.name 787 1))])]))),
-    (.forStmt 788 (.tuple 788 [(.name 788 333), (.name 788 334)]) (.name 788 631) [
+    (.assign 783 [(.name 783 627)] (.comp 783 .list (.call 784 (.name 784 341) [(.pos (.name 784 1)), (.pos (.name 784 18))]) [(.mk (.name 785 18) (.call 785 (.name 785 130) [(.pos (.call 785 (.name 785 42) [(.pos (.name 785 332))]))]) [])])),
+    (.assign 787 [(.name 787 628)] (.binop 787 .add (.name 787 627) (.list 787 [(.call 787 (.name 787 347) [(.pos (.name 787 1))])]))),
+    (.forStmt 788 (.tuple 788 [(.name 788 328), (.name 788 329)]) (.name 788 628) [
       (.forStmt 789 (.name 789 23) (.call 789 (.name 789 130) [(.pos (.call 789 (.name 789 42) [(.pos (.attr 789 (.name 789 1) 27))]))]) [
-        (.exprStmt 790 (.call 790 (.name 790 83) [(.pos (.name 790 1)), (.pos (.call 790 (.name 790 82) [(.pos (.name 790 23))])), (.pos (.index 790 (.name 790 333) (.name 790 23)))])),
-        (.exprStmt 791 (.call 791 (.name 791 89) [(.pos (.name 791 1)), (.pos (.call 791 (.name 791 82) [(.pos (.name 791 23))])), (.pos (.index 791 (.name 791 334) (.name 791 23)))]))])])]
+        (.exprStmt 790 (.call 790 (.name 790 83) [(.pos (.name 790 1)), (.pos (.call 790 (.name 790 82) [(.pos (.name 790 23))])), (.pos (.index 790 (.name 790 328) (.name 790 23)))])),
+        (.exprStmt 791 (.call 791 (.name 791 89) [(.pos (.name 791 1)), (.pos (.call 791 (.name 791 82) [(.pos (.name 791 23))])), (.pos (.index 791 (.name 791 329) (.name 791 23)))]))])])]
 
 /-- `specs/electra/beacon-chain.md:1082`
 ```python
@@ -5723,20 +5757,20 @@ def process_slashings(state: BeaconState) -> None:
             decrease_balance(state, ValidatorIndex(index), penalty)
 ``` -/
 def fn_process_slashings : FunctionDef where
-  name := 541
+  name := 537
   params := { names := [1], defaults := [], vararg := none }
   line := 1082
   body := [
     (.assign 1083 [(.name 1083 103)] (.call 1083 (.name 1083 59) [(.pos (.name 1083 1))])),
-    (.assign 1084 [(.name 1084 632)] (.call 1084 (.name 1084 214) [(.pos (.name 1084 1))])),
-    (.assign 1085 [(.name 1085 633)] (.call 1085 (.name 1085 218) [(.pos (.binop 1086 .mul (.call 1086 (.name 1086 270) [(.pos (.call 1086 (.name 1086 264) [(.pos (.attr 1086 (.name 1086 1) 634))]))]) (.name 1086 635))), (.pos (.name 1086 632))])),
-    (.assign 1088 [(.name 1088 636)] (.name 1089 216)),
-    (.assign 1091 [(.name 1091 637)] (.binop 1091 .floorDiv (.name 1091 633) (.binop 1092 .floorDiv (.name 1092 632) (.name 1092 636)))),
-    (.forStmt 1094 (.tuple 1094 [(.name 1094 23), (.name 1094 25)]) (.call 1094 (.name 1094 221) [(.pos (.attr 1094 (.name 1094 1) 27))]) [
-      (.ifStmt 1095 (.boolop 1096 .and [(.attr 1096 (.name 1096 25) 274), (.compare 1097 (.binop 1097 .add (.name 1097 103) (.binop 1097 .floorDiv (.name 1097 638) (.int 1097 (2)))) [(.eq, (.attr 1097 (.name 1097 25) 12))])]) [
-        (.assign 1099 [(.name 1099 639)] (.binop 1099 .floorDiv (.attr 1099 (.name 1099 25) 113) (.name 1099 636))),
-        (.assign 1101 [(.name 1101 640)] (.binop 1101 .mul (.name 1101 637) (.name 1101 639))),
-        (.exprStmt 1102 (.call 1102 (.name 1102 89) [(.pos (.name 1102 1)), (.pos (.call 1102 (.name 1102 82) [(.pos (.name 1102 23))])), (.pos (.name 1102 640))]))] [])])]
+    (.assign 1084 [(.name 1084 629)] (.call 1084 (.name 1084 209) [(.pos (.name 1084 1))])),
+    (.assign 1085 [(.name 1085 630)] (.call 1085 (.name 1085 213) [(.pos (.binop 1086 .mul (.call 1086 (.name 1086 265) [(.pos (.call 1086 (.name 1086 259) [(.pos (.attr 1086 (.name 1086 1) 631))]))]) (.name 1086 632))), (.pos (.name 1086 629))])),
+    (.assign 1088 [(.name 1088 633)] (.name 1089 211)),
+    (.assign 1091 [(.name 1091 634)] (.binop 1091 .floorDiv (.name 1091 630) (.binop 1092 .floorDiv (.name 1092 629) (.name 1092 633)))),
+    (.forStmt 1094 (.tuple 1094 [(.name 1094 23), (.name 1094 25)]) (.call 1094 (.name 1094 216) [(.pos (.attr 1094 (.name 1094 1) 27))]) [
+      (.ifStmt 1095 (.boolop 1096 .and [(.attr 1096 (.name 1096 25) 269), (.compare 1097 (.binop 1097 .add (.name 1097 103) (.binop 1097 .floorDiv (.name 1097 635) (.int 1097 (2)))) [(.eq, (.attr 1097 (.name 1097 25) 12))])]) [
+        (.assign 1099 [(.name 1099 636)] (.binop 1099 .floorDiv (.attr 1099 (.name 1099 25) 113) (.name 1099 633))),
+        (.assign 1101 [(.name 1101 637)] (.binop 1101 .mul (.name 1101 634) (.name 1101 636))),
+        (.exprStmt 1102 (.call 1102 (.name 1102 89) [(.pos (.name 1102 1)), (.pos (.call 1102 (.name 1102 82) [(.pos (.name 1102 23))])), (.pos (.name 1102 637))]))] [])])]
 
 /-- `specs/phase0/beacon-chain.md:2274`
 ```python
@@ -5746,12 +5780,12 @@ def process_slashings_reset(state: BeaconState) -> None:
     state.slashings[next_epoch % EPOCHS_PER_SLASHINGS_VECTOR] = Gwei(0)
 ``` -/
 def fn_process_slashings_reset : FunctionDef where
-  name := 545
+  name := 541
   params := { names := [1], defaults := [], vararg := none }
   line := 2274
   body := [
-    (.assign 2275 [(.name 2275 556)] (.binop 2275 .add (.call 2275 (.name 2275 59) [(.pos (.name 2275 1))]) (.int 2275 (1)))),
-    (.assign 2277 [(.index 2277 (.attr 2277 (.name 2277 1) 634) (.binop 2277 .mod (.name 2277 556) (.name 2277 638)))] (.call 2277 (.name 2277 270) [(.pos (.int 2277 (0)))]))]
+    (.assign 2275 [(.name 2275 552)] (.binop 2275 .add (.call 2275 (.name 2275 59) [(.pos (.name 2275 1))]) (.int 2275 (1)))),
+    (.assign 2277 [(.index 2277 (.attr 2277 (.name 2277 1) 631) (.binop 2277 .mod (.name 2277 552) (.name 2277 635)))] (.call 2277 (.name 2277 265) [(.pos (.int 2277 (0)))]))]
 
 /-- `specs/gloas/beacon-chain.md:1568`
 ```python
@@ -5772,19 +5806,19 @@ def process_slot(state: BeaconState) -> None:
     state.execution_payload_availability[next_slot_index] = Boolean(False)
 ``` -/
 def fn_process_slot : FunctionDef where
-  name := 644
+  name := 641
   params := { names := [1], defaults := [], vararg := none }
   line := 1568
   body := [
-    (.assign 1569 [(.name 1569 236)] (.binop 1569 .mod (.attr 1569 (.name 1569 1) 6) (.name 1569 71))),
-    (.assign 1571 [(.name 1571 641)] (.call 1571 (.name 1571 159) [(.pos (.name 1571 1))])),
-    (.assign 1572 [(.index 1572 (.attr 1572 (.name 1572 1) 572) (.name 1572 236))] (.name 1572 641)),
-    (.ifStmt 1574 (.compare 1574 (.attr 1574 (.attr 1574 (.name 1574 1) 38) 499) [(.eq, (.call 1574 (.name 1574 509) []))]) [
-      (.assign 1575 [(.attr 1575 (.attr 1575 (.name 1575 1) 38) 499)] (.name 1575 641))] []),
-    (.assign 1577 [(.name 1577 642)] (.call 1577 (.name 1577 159) [(.pos (.attr 1577 (.name 1577 1) 38))])),
-    (.assign 1578 [(.index 1578 (.attr 1578 (.name 1578 1) 287) (.name 1578 236))] (.name 1578 642)),
-    (.assign 1581 [(.name 1581 643)] (.binop 1581 .mod (.binop 1581 .add (.attr 1581 (.name 1581 1) 6) (.int 1581 (1))) (.name 1581 71))),
-    (.assign 1582 [(.index 1582 (.attr 1582 (.name 1582 1) 70) (.name 1582 643))] (.call 1582 (.name 1582 72) [(.pos (.bool 1582 false))]))]
+    (.assign 1569 [(.name 1569 231)] (.binop 1569 .mod (.attr 1569 (.name 1569 1) 6) (.name 1569 71))),
+    (.assign 1571 [(.name 1571 638)] (.call 1571 (.name 1571 159) [(.pos (.name 1571 1))])),
+    (.assign 1572 [(.index 1572 (.attr 1572 (.name 1572 1) 569) (.name 1572 231))] (.name 1572 638)),
+    (.ifStmt 1574 (.compare 1574 (.attr 1574 (.attr 1574 (.name 1574 1) 38) 495) [(.eq, (.call 1574 (.name 1574 505) []))]) [
+      (.assign 1575 [(.attr 1575 (.attr 1575 (.name 1575 1) 38) 495)] (.name 1575 638))] []),
+    (.assign 1577 [(.name 1577 639)] (.call 1577 (.name 1577 159) [(.pos (.attr 1577 (.name 1577 1) 38))])),
+    (.assign 1578 [(.index 1578 (.attr 1578 (.name 1578 1) 282) (.name 1578 231))] (.name 1578 639)),
+    (.assign 1581 [(.name 1581 640)] (.binop 1581 .mod (.binop 1581 .add (.attr 1581 (.name 1581 1) 6) (.int 1581 (1))) (.name 1581 71))),
+    (.assign 1582 [(.index 1582 (.attr 1582 (.name 1582 1) 70) (.name 1582 640))] (.call 1582 (.name 1582 72) [(.pos (.bool 1582 false))]))]
 
 /-- `specs/phase0/beacon-chain.md:1832`
 ```python
@@ -5798,15 +5832,15 @@ def process_slots(state: BeaconState, slot: Slot) -> None:
         state.slot = state.slot + 1
 ``` -/
 def fn_process_slots : FunctionDef where
-  name := 645
+  name := 642
   params := { names := [1, 6], defaults := [], vararg := none }
   line := 1832
   body := [
     (.assert 1833 (.compare 1833 (.attr 1833 (.name 1833 1) 6) [(.lt, (.name 1833 6))])),
     (.whileStmt 1834 (.compare 1834 (.attr 1834 (.name 1834 1) 6) [(.lt, (.name 1834 6))]) [
-      (.exprStmt 1835 (.call 1835 (.name 1835 644) [(.pos (.name 1835 1))])),
+      (.exprStmt 1835 (.call 1835 (.name 1835 641) [(.pos (.name 1835 1))])),
       (.ifStmt 1837 (.compare 1837 (.binop 1837 .mod (.binop 1837 .add (.attr 1837 (.name 1837 1) 6) (.int 1837 (1))) (.name 1837 61)) [(.eq, (.int 1837 (0)))]) [
-        (.exprStmt 1838 (.call 1838 (.name 1838 552) [(.pos (.name 1838 1))]))] []),
+        (.exprStmt 1838 (.call 1838 (.name 1838 548) [(.pos (.name 1838 1))]))] []),
       (.assign 1839 [(.attr 1839 (.name 1839 1) 6)] (.binop 1839 .add (.attr 1839 (.name 1839 1) 6) (.int 1839 (1))))])]
 
 /-- `specs/altair/beacon-chain.md:633`
@@ -5874,36 +5908,36 @@ def process_sync_aggregate(state: BeaconState, sync_aggregate: SyncAggregate) ->
             decrease_balance(state, participant_index, participant_reward)
 ``` -/
 def fn_process_sync_aggregate : FunctionDef where
-  name := 495
-  params := { names := [1, 494], defaults := [], vararg := none }
+  name := 491
+  params := { names := [1, 490], defaults := [], vararg := none }
   line := 633
   body := [
-    (.assign 635 [(.name 635 646)] (.attr 635 (.attr 635 (.name 635 1) 647) 201)),
-    (.assign 636 [(.name 636 254)] (.attr 636 (.name 636 494) 648)),
-    (.ifStmt 637 (.compare 637 (.call 637 (.name 637 391) [(.pos (.name 637 254))]) [(.eq, (.name 637 373))]) [
-      (.assign 639 [(.name 639 649)] (.list 639 [(.attr 639 (.attr 639 (.name 639 1) 647) 369)]))] [
-      (.ifStmt 640 (.compare 640 (.call 640 (.name 640 391) [(.pos (.name 640 254))]) [(.gt, (.binop 640 .floorDiv (.name 640 373) (.int 640 (2))))]) [
-        (.assign 643 [(.name 643 650)] (.comp 643 .list (.name 644 2) [(.mk (.tuple 644 [(.name 644 2), (.name 644 190)]) (.call 644 (.name 644 652) [(.pos (.name 644 646)), (.pos (.name 644 254)), (.kw 651 (.bool 644 true))]) [(.unop 644 .not (.name 644 190))])])),
-        (.assign 647 [(.name 647 653)] (.call 647 (.name 647 207) [(.pos (.name 647 650))])),
-        (.assign 650 [(.name 650 654)] (.call 650 (.attr 650 (.name 650 202) 657) [(.pos (.call 651 (.attr 651 (.name 651 202) 655) [(.pos (.attr 651 (.attr 651 (.name 651 1) 647) 369))])), (.pos (.call 652 (.attr 652 (.name 652 202) 656) [(.pos (.call 652 (.attr 652 (.name 652 202) 655) [(.pos (.name 652 653))]))]))])),
-        (.assign 654 [(.name 654 649)] (.list 654 [(.call 654 (.name 654 659) [(.pos (.call 654 (.attr 654 (.name 654 202) 658) [(.pos (.name 654 654))]))])]))] [
-        (.assign 657 [(.name 657 649)] (.comp 657 .list (.name 658 2) [(.mk (.tuple 659 [(.name 659 2), (.name 659 190)]) (.call 659 (.name 659 652) [(.pos (.name 660 646)), (.pos (.attr 660 (.name 660 494) 648)), (.kw 651 (.bool 660 true))]) [(.name 662 190)])]))])]),
-    (.assign 664 [(.name 664 660)] (.call 664 (.name 664 88) [(.pos (.attr 664 (.name 664 1) 6)), (.pos (.int 664 (1)))])),
-    (.assign 665 [(.name 665 192)] (.call 665 (.name 665 315) [(.pos (.name 665 1)), (.pos (.name 665 372)), (.pos (.call 665 (.name 665 11) [(.pos (.name 665 660))]))])),
-    (.assign 666 [(.name 666 450)] (.call 666 (.name 666 195) [(.pos (.call 666 (.name 666 239) [(.pos (.name 666 1)), (.pos (.name 666 660))])), (.pos (.name 666 192))])),
-    (.assert 668 (.call 668 (.name 668 211) [(.pos (.name 669 649)), (.pos (.name 669 450)), (.pos (.attr 669 (.name 669 494) 661))])),
-    (.assign 673 [(.name 673 662)] (.binop 673 .floorDiv (.call 673 (.name 673 214) [(.pos (.name 673 1))]) (.name 673 216))),
-    (.assign 674 [(.name 674 663)] (.binop 674 .mul (.call 674 (.name 674 267) [(.pos (.name 674 1))]) (.name 674 662))),
-    (.assign 675 [(.name 675 664)] (.binop 676 .floorDiv (.binop 676 .floorDiv (.binop 676 .mul (.name 676 663) (.name 676 665)) (.name 676 345)) (.call 676 (.name 676 32) [(.pos (.name 676 61))]))),
-    (.assign 678 [(.name 678 666)] (.binop 678 .floorDiv (.name 678 664) (.name 678 373))),
-    (.assign 679 [(.name 679 475)] (.binop 679 .floorDiv (.binop 679 .mul (.name 679 666) (.name 679 474)) (.binop 679 .sub (.name 679 345) (.name 679 474)))),
-    (.assign 682 [(.name 682 667)] (.comp 682 .list (.attr 682 (.name 682 78) 2) [(.mk (.name 682 78) (.attr 682 (.name 682 1) 27) [])])),
-    (.assign 683 [(.name 683 253)] (.comp 683 .list (.call 684 (.name 684 82) [(.pos (.call 684 (.attr 684 (.name 684 667) 23) [(.pos (.name 684 2))]))]) [(.mk (.name 684 2) (.attr 684 (.attr 684 (.name 684 1) 647) 201) [])])),
-    (.forStmt 686 (.tuple 686 [(.name 686 668), (.name 686 669)]) (.call 686 (.name 686 652) [(.pos (.name 687 253)), (.pos (.attr 687 (.name 687 494) 648)), (.kw 651 (.bool 687 true))]) [
-      (.ifStmt 689 (.name 689 669) [
-        (.exprStmt 690 (.call 690 (.name 690 83) [(.pos (.name 690 1)), (.pos (.name 690 668)), (.pos (.name 690 666))])),
-        (.exprStmt 691 (.call 691 (.name 691 83) [(.pos (.name 691 1)), (.pos (.call 691 (.name 691 273) [(.pos (.name 691 1))])), (.pos (.name 691 475))]))] [
-        (.exprStmt 693 (.call 693 (.name 693 89) [(.pos (.name 693 1)), (.pos (.name 693 668)), (.pos (.name 693 666))]))])])]
+    (.assign 635 [(.name 635 643)] (.attr 635 (.attr 635 (.name 635 1) 644) 201)),
+    (.assign 636 [(.name 636 249)] (.attr 636 (.name 636 490) 645)),
+    (.ifStmt 637 (.compare 637 (.call 637 (.name 637 387) [(.pos (.name 637 249))]) [(.eq, (.name 637 369))]) [
+      (.assign 639 [(.name 639 646)] (.list 639 [(.attr 639 (.attr 639 (.name 639 1) 644) 364)]))] [
+      (.ifStmt 640 (.compare 640 (.call 640 (.name 640 387) [(.pos (.name 640 249))]) [(.gt, (.binop 640 .floorDiv (.name 640 369) (.int 640 (2))))]) [
+        (.assign 643 [(.name 643 647)] (.comp 643 .list (.name 644 2) [(.mk (.tuple 644 [(.name 644 2), (.name 644 190)]) (.call 644 (.name 644 649) [(.pos (.name 644 643)), (.pos (.name 644 249)), (.kw 648 (.bool 644 true))]) [(.unop 644 .not (.name 644 190))])])),
+        (.assign 647 [(.name 647 650)] (.call 647 (.name 647 365) [(.pos (.name 647 647))])),
+        (.assign 650 [(.name 650 651)] (.call 650 (.attr 650 (.name 650 204) 654) [(.pos (.call 651 (.attr 651 (.name 651 204) 652) [(.pos (.attr 651 (.attr 651 (.name 651 1) 644) 364))])), (.pos (.call 652 (.attr 652 (.name 652 204) 653) [(.pos (.call 652 (.attr 652 (.name 652 204) 652) [(.pos (.name 652 650))]))]))])),
+        (.assign 654 [(.name 654 646)] (.list 654 [(.call 654 (.name 654 656) [(.pos (.call 654 (.attr 654 (.name 654 204) 655) [(.pos (.name 654 651))]))])]))] [
+        (.assign 657 [(.name 657 646)] (.comp 657 .list (.name 658 2) [(.mk (.tuple 659 [(.name 659 2), (.name 659 190)]) (.call 659 (.name 659 649) [(.pos (.name 660 643)), (.pos (.attr 660 (.name 660 490) 645)), (.kw 648 (.bool 660 true))]) [(.name 662 190)])]))])]),
+    (.assign 664 [(.name 664 657)] (.call 664 (.name 664 88) [(.pos (.attr 664 (.name 664 1) 6)), (.pos (.int 664 (1)))])),
+    (.assign 665 [(.name 665 192)] (.call 665 (.name 665 310) [(.pos (.name 665 1)), (.pos (.name 665 368)), (.pos (.call 665 (.name 665 11) [(.pos (.name 665 657))]))])),
+    (.assign 666 [(.name 666 446)] (.call 666 (.name 666 195) [(.pos (.call 666 (.name 666 234) [(.pos (.name 666 1)), (.pos (.name 666 657))])), (.pos (.name 666 192))])),
+    (.assert 668 (.call 668 (.name 668 206) [(.pos (.name 669 646)), (.pos (.name 669 446)), (.pos (.attr 669 (.name 669 490) 658))])),
+    (.assign 673 [(.name 673 659)] (.binop 673 .floorDiv (.call 673 (.name 673 209) [(.pos (.name 673 1))]) (.name 673 211))),
+    (.assign 674 [(.name 674 660)] (.binop 674 .mul (.call 674 (.name 674 262) [(.pos (.name 674 1))]) (.name 674 659))),
+    (.assign 675 [(.name 675 661)] (.binop 676 .floorDiv (.binop 676 .floorDiv (.binop 676 .mul (.name 676 660) (.name 676 662)) (.name 676 340)) (.call 676 (.name 676 32) [(.pos (.name 676 61))]))),
+    (.assign 678 [(.name 678 663)] (.binop 678 .floorDiv (.name 678 661) (.name 678 369))),
+    (.assign 679 [(.name 679 471)] (.binop 679 .floorDiv (.binop 679 .mul (.name 679 663) (.name 679 470)) (.binop 679 .sub (.name 679 340) (.name 679 470)))),
+    (.assign 682 [(.name 682 664)] (.comp 682 .list (.attr 682 (.name 682 78) 2) [(.mk (.name 682 78) (.attr 682 (.name 682 1) 27) [])])),
+    (.assign 683 [(.name 683 248)] (.comp 683 .list (.call 684 (.name 684 82) [(.pos (.call 684 (.attr 684 (.name 684 664) 23) [(.pos (.name 684 2))]))]) [(.mk (.name 684 2) (.attr 684 (.attr 684 (.name 684 1) 644) 201) [])])),
+    (.forStmt 686 (.tuple 686 [(.name 686 665), (.name 686 666)]) (.call 686 (.name 686 649) [(.pos (.name 687 248)), (.pos (.attr 687 (.name 687 490) 645)), (.kw 648 (.bool 687 true))]) [
+      (.ifStmt 689 (.name 689 666) [
+        (.exprStmt 690 (.call 690 (.name 690 83) [(.pos (.name 690 1)), (.pos (.name 690 665)), (.pos (.name 690 663))])),
+        (.exprStmt 691 (.call 691 (.name 691 83) [(.pos (.name 691 1)), (.pos (.call 691 (.name 691 268) [(.pos (.name 691 1))])), (.pos (.name 691 471))]))] [
+        (.exprStmt 693 (.call 693 (.name 693 89) [(.pos (.name 693 1)), (.pos (.name 693 665)), (.pos (.name 693 663))]))])])]
 
 /-- `specs/altair/beacon-chain.md:836`
 ```python
@@ -5914,14 +5948,14 @@ def process_sync_committee_updates(state: BeaconState) -> None:
         state.next_sync_committee = get_next_sync_committee(state)
 ``` -/
 def fn_process_sync_committee_updates : FunctionDef where
-  name := 549
+  name := 545
   params := { names := [1], defaults := [], vararg := none }
   line := 836
   body := [
-    (.assign 837 [(.name 837 556)] (.binop 837 .add (.call 837 (.name 837 59) [(.pos (.name 837 1))]) (.int 837 (1)))),
-    (.ifStmt 838 (.compare 838 (.binop 838 .mod (.name 838 556) (.name 838 670)) [(.eq, (.int 838 (0)))]) [
-      (.assign 839 [(.attr 839 (.name 839 1) 647)] (.attr 839 (.name 839 1) 671)),
-      (.assign 840 [(.attr 840 (.name 840 1) 671)] (.call 840 (.name 840 371) [(.pos (.name 840 1))]))] [])]
+    (.assign 837 [(.name 837 552)] (.binop 837 .add (.call 837 (.name 837 59) [(.pos (.name 837 1))]) (.int 837 (1)))),
+    (.ifStmt 838 (.compare 838 (.binop 838 .mod (.name 838 552) (.name 838 667)) [(.eq, (.int 838 (0)))]) [
+      (.assign 839 [(.attr 839 (.name 839 1) 644)] (.attr 839 (.name 839 1) 668)),
+      (.assign 840 [(.attr 840 (.name 840 1) 668)] (.call 840 (.name 840 367) [(.pos (.name 840 1))]))] [])]
 
 /-- `specs/electra/beacon-chain.md:1838`
 ```python
@@ -5949,21 +5983,21 @@ def process_voluntary_exit(state: BeaconState, signed_voluntary_exit: SignedVolu
     initiate_validator_exit(state, voluntary_exit.validator_index)
 ``` -/
 def fn_process_voluntary_exit : FunctionDef where
-  name := 597
-  params := { names := [1, 672], defaults := [], vararg := none }
+  name := 594
+  params := { names := [1, 669], defaults := [], vararg := none }
   line := 1838
   body := [
-    (.assign 1839 [(.name 1839 673)] (.attr 1839 (.name 1839 672) 208)),
-    (.assign 1840 [(.name 1840 25)] (.index 1840 (.attr 1840 (.name 1840 1) 27) (.attr 1840 (.name 1840 673) 81))),
-    (.assert 1842 (.call 1842 (.name 1842 220) [(.pos (.name 1842 25)), (.pos (.call 1842 (.name 1842 59) [(.pos (.name 1842 1))]))])),
-    (.assert 1844 (.compare 1844 (.attr 1844 (.name 1844 25) 399) [(.eq, (.name 1844 13))])),
-    (.assert 1846 (.compare 1846 (.call 1846 (.name 1846 59) [(.pos (.name 1846 1))]) [(.gtE, (.attr 1846 (.name 1846 673) 103))])),
-    (.assert 1848 (.compare 1848 (.call 1848 (.name 1848 59) [(.pos (.name 1848 1))]) [(.gtE, (.binop 1848 .add (.attr 1848 (.name 1848 25) 398) (.name 1848 526)))])),
-    (.assert 1851 (.compare 1851 (.call 1851 (.name 1851 375) [(.pos (.name 1851 1)), (.pos (.attr 1851 (.name 1851 673) 81))]) [(.eq, (.int 1851 (0)))])),
-    (.assign 1853 [(.name 1853 192)] (.call 1853 (.name 1853 150) [(.pos (.name 1854 674)), (.pos (.name 1854 675)), (.pos (.attr 1854 (.name 1854 1) 144))])),
-    (.assign 1856 [(.name 1856 450)] (.call 1856 (.name 1856 195) [(.pos (.name 1856 673)), (.pos (.name 1856 192))])),
-    (.assert 1857 (.call 1857 (.attr 1857 (.name 1857 202) 451) [(.pos (.attr 1857 (.name 1857 25) 2)), (.pos (.name 1857 450)), (.pos (.attr 1857 (.name 1857 672) 79))])),
-    (.exprStmt 1859 (.call 1859 (.name 1859 420) [(.pos (.name 1859 1)), (.pos (.attr 1859 (.name 1859 673) 81))]))]
+    (.assign 1839 [(.name 1839 670)] (.attr 1839 (.name 1839 669) 202)),
+    (.assign 1840 [(.name 1840 25)] (.index 1840 (.attr 1840 (.name 1840 1) 27) (.attr 1840 (.name 1840 670) 81))),
+    (.assert 1842 (.call 1842 (.name 1842 215) [(.pos (.name 1842 25)), (.pos (.call 1842 (.name 1842 59) [(.pos (.name 1842 1))]))])),
+    (.assert 1844 (.compare 1844 (.attr 1844 (.name 1844 25) 395) [(.eq, (.name 1844 13))])),
+    (.assert 1846 (.compare 1846 (.call 1846 (.name 1846 59) [(.pos (.name 1846 1))]) [(.gtE, (.attr 1846 (.name 1846 670) 103))])),
+    (.assert 1848 (.compare 1848 (.call 1848 (.name 1848 59) [(.pos (.name 1848 1))]) [(.gtE, (.binop 1848 .add (.attr 1848 (.name 1848 25) 394) (.name 1848 522)))])),
+    (.assert 1851 (.compare 1851 (.call 1851 (.name 1851 371) [(.pos (.name 1851 1)), (.pos (.attr 1851 (.name 1851 670) 81))]) [(.eq, (.int 1851 (0)))])),
+    (.assign 1853 [(.name 1853 192)] (.call 1853 (.name 1853 150) [(.pos (.name 1854 671)), (.pos (.name 1854 672)), (.pos (.attr 1854 (.name 1854 1) 144))])),
+    (.assign 1856 [(.name 1856 446)] (.call 1856 (.name 1856 195) [(.pos (.name 1856 670)), (.pos (.name 1856 192))])),
+    (.assert 1857 (.call 1857 (.attr 1857 (.name 1857 204) 447) [(.pos (.attr 1857 (.name 1857 25) 2)), (.pos (.name 1857 446)), (.pos (.attr 1857 (.name 1857 669) 79))])),
+    (.exprStmt 1859 (.call 1859 (.name 1859 416) [(.pos (.name 1859 1)), (.pos (.attr 1859 (.name 1859 670) 81))]))]
 
 /-- `specs/electra/beacon-chain.md:1867`
 ```python
@@ -6037,41 +6071,41 @@ def process_withdrawal_request(state: BeaconState, withdrawal_request: Withdrawa
 ``` -/
 def fn_process_withdrawal_request : FunctionDef where
   name := 55
-  params := { names := [1, 676], defaults := [], vararg := none }
+  params := { names := [1, 673], defaults := [], vararg := none }
   line := 1867
   body := [
-    (.assign 1868 [(.name 1868 5)] (.attr 1868 (.name 1868 676) 5)),
-    (.assign 1869 [(.name 1869 677)] (.compare 1869 (.name 1869 5) [(.eq, (.name 1869 678))])),
-    (.ifStmt 1872 (.boolop 1873 .and [(.compare 1873 (.call 1873 (.name 1873 42) [(.pos (.attr 1873 (.name 1873 1) 374))]) [(.eq, (.name 1873 679))]), (.unop 1874 .not (.name 1874 677))]) [
+    (.assign 1868 [(.name 1868 5)] (.attr 1868 (.name 1868 673) 5)),
+    (.assign 1869 [(.name 1869 674)] (.compare 1869 (.name 1869 5) [(.eq, (.name 1869 675))])),
+    (.ifStmt 1872 (.boolop 1873 .and [(.compare 1873 (.call 1873 (.name 1873 42) [(.pos (.attr 1873 (.name 1873 1) 370))]) [(.eq, (.name 1873 676))]), (.unop 1874 .not (.name 1874 674))]) [
       (.ret 1876 none)] []),
     (.assign 1878 [(.name 1878 77)] (.comp 1878 .list (.attr 1878 (.name 1878 78) 2) [(.mk (.name 1878 78) (.attr 1878 (.name 1878 1) 27) [])])),
-    (.assign 1880 [(.name 1880 680)] (.attr 1880 (.name 1880 676) 681)),
-    (.ifStmt 1881 (.compare 1881 (.name 1881 680) [(.notIn, (.name 1881 77))]) [
+    (.assign 1880 [(.name 1880 677)] (.attr 1880 (.name 1880 673) 678)),
+    (.ifStmt 1881 (.compare 1881 (.name 1881 677) [(.notIn, (.name 1881 77))]) [
       (.ret 1882 none)] []),
-    (.assign 1883 [(.name 1883 23)] (.call 1883 (.name 1883 82) [(.pos (.call 1883 (.attr 1883 (.name 1883 77) 23) [(.pos (.name 1883 680))]))])),
+    (.assign 1883 [(.name 1883 23)] (.call 1883 (.name 1883 82) [(.pos (.call 1883 (.attr 1883 (.name 1883 77) 23) [(.pos (.name 1883 677))]))])),
     (.assign 1884 [(.name 1884 25)] (.index 1884 (.attr 1884 (.name 1884 1) 27) (.name 1884 23))),
-    (.assign 1887 [(.name 1887 524)] (.call 1887 (.name 1887 410) [(.pos (.name 1887 25))])),
-    (.assign 1888 [(.name 1888 525)] (.compare 1889 (.slice 1889 (.attr 1889 (.name 1889 25) 22) (some (.int 1889 (12))) none none) [(.eq, (.attr 1889 (.name 1889 676) 462))])),
-    (.ifStmt 1891 (.unop 1891 .not (.boolop 1891 .and [(.name 1891 524), (.name 1891 525)])) [
+    (.assign 1887 [(.name 1887 520)] (.call 1887 (.name 1887 406) [(.pos (.name 1887 25))])),
+    (.assign 1888 [(.name 1888 521)] (.compare 1889 (.slice 1889 (.attr 1889 (.name 1889 25) 22) (some (.int 1889 (12))) none none) [(.eq, (.attr 1889 (.name 1889 673) 458))])),
+    (.ifStmt 1891 (.unop 1891 .not (.boolop 1891 .and [(.name 1891 520), (.name 1891 521)])) [
       (.ret 1892 none)] []),
-    (.ifStmt 1894 (.unop 1894 .not (.call 1894 (.name 1894 220) [(.pos (.name 1894 25)), (.pos (.call 1894 (.name 1894 59) [(.pos (.name 1894 1))]))])) [
+    (.ifStmt 1894 (.unop 1894 .not (.call 1894 (.name 1894 215) [(.pos (.name 1894 25)), (.pos (.call 1894 (.name 1894 59) [(.pos (.name 1894 1))]))])) [
       (.ret 1895 none)] []),
-    (.ifStmt 1897 (.compare 1897 (.attr 1897 (.name 1897 25) 399) [(.notEq, (.name 1897 13))]) [
+    (.ifStmt 1897 (.compare 1897 (.attr 1897 (.name 1897 25) 395) [(.notEq, (.name 1897 13))]) [
       (.ret 1898 none)] []),
-    (.ifStmt 1900 (.compare 1900 (.call 1900 (.name 1900 59) [(.pos (.name 1900 1))]) [(.lt, (.binop 1900 .add (.attr 1900 (.name 1900 25) 398) (.name 1900 526)))]) [
+    (.ifStmt 1900 (.compare 1900 (.call 1900 (.name 1900 59) [(.pos (.name 1900 1))]) [(.lt, (.binop 1900 .add (.attr 1900 (.name 1900 25) 394) (.name 1900 522)))]) [
       (.ret 1901 none)] []),
-    (.assign 1903 [(.name 1903 682)] (.call 1903 (.name 1903 375) [(.pos (.name 1903 1)), (.pos (.name 1903 23))])),
-    (.ifStmt 1905 (.name 1905 677) [
-      (.ifStmt 1907 (.compare 1907 (.name 1907 682) [(.eq, (.int 1907 (0)))]) [
-        (.exprStmt 1908 (.call 1908 (.name 1908 420) [(.pos (.name 1908 1)), (.pos (.name 1908 23))]))] []),
+    (.assign 1903 [(.name 1903 679)] (.call 1903 (.name 1903 371) [(.pos (.name 1903 1)), (.pos (.name 1903 23))])),
+    (.ifStmt 1905 (.name 1905 674) [
+      (.ifStmt 1907 (.compare 1907 (.name 1907 679) [(.eq, (.int 1907 (0)))]) [
+        (.exprStmt 1908 (.call 1908 (.name 1908 416) [(.pos (.name 1908 1)), (.pos (.name 1908 23))]))] []),
       (.ret 1909 none)] []),
-    (.assign 1911 [(.name 1911 435)] (.compare 1911 (.attr 1911 (.name 1911 25) 113) [(.gtE, (.name 1911 365))])),
-    (.assign 1912 [(.name 1912 436)] (.compare 1913 (.index 1913 (.attr 1913 (.name 1913 1) 28) (.name 1913 23)) [(.gt, (.binop 1913 .add (.name 1913 365) (.name 1913 682)))])),
-    (.ifStmt 1917 (.boolop 1918 .and [(.call 1918 (.name 1918 364) [(.pos (.name 1918 25))]), (.name 1919 435), (.name 1920 436)]) [
-      (.assign 1922 [(.name 1922 683)] (.call 1922 (.name 1922 218) [(.pos (.binop 1923 .sub (.binop 1923 .sub (.index 1923 (.attr 1923 (.name 1923 1) 28) (.name 1923 23)) (.name 1923 365)) (.name 1923 682))), (.pos (.name 1923 5))])),
-      (.assign 1925 [(.name 1925 418)] (.call 1925 (.name 1925 156) [(.pos (.name 1925 1)), (.pos (.name 1925 683))])),
-      (.assign 1926 [(.name 1926 12)] (.binop 1926 .add (.name 1926 418) (.name 1926 419))),
-      (.exprStmt 1927 (.call 1927 (.attr 1927 (.attr 1927 (.name 1927 1) 374) 69) [(.pos (.call 1928 (.name 1928 684) [(.kw 81 (.name 1929 23)), (.kw 5 (.name 1930 683)), (.kw 12 (.name 1931 12))]))]))] [])]
+    (.assign 1911 [(.name 1911 431)] (.compare 1911 (.attr 1911 (.name 1911 25) 113) [(.gtE, (.name 1911 360))])),
+    (.assign 1912 [(.name 1912 432)] (.compare 1913 (.index 1913 (.attr 1913 (.name 1913 1) 28) (.name 1913 23)) [(.gt, (.binop 1913 .add (.name 1913 360) (.name 1913 679)))])),
+    (.ifStmt 1917 (.boolop 1918 .and [(.call 1918 (.name 1918 359) [(.pos (.name 1918 25))]), (.name 1919 431), (.name 1920 432)]) [
+      (.assign 1922 [(.name 1922 680)] (.call 1922 (.name 1922 213) [(.pos (.binop 1923 .sub (.binop 1923 .sub (.index 1923 (.attr 1923 (.name 1923 1) 28) (.name 1923 23)) (.name 1923 360)) (.name 1923 679))), (.pos (.name 1923 5))])),
+      (.assign 1925 [(.name 1925 414)] (.call 1925 (.name 1925 156) [(.pos (.name 1925 1)), (.pos (.name 1925 680))])),
+      (.assign 1926 [(.name 1926 12)] (.binop 1926 .add (.name 1926 414) (.name 1926 415))),
+      (.exprStmt 1927 (.call 1927 (.attr 1927 (.attr 1927 (.name 1927 1) 370) 69) [(.pos (.call 1928 (.name 1928 681) [(.kw 81 (.name 1929 23)), (.kw 5 (.name 1930 680)), (.kw 12 (.name 1931 12))]))]))] [])]
 
 /-- `specs/gloas/beacon-chain.md:2008`
 ```python
@@ -6103,20 +6137,20 @@ def process_withdrawals(
     update_next_withdrawal_validator_index(state, expected.withdrawals)
 ``` -/
 def fn_process_withdrawals : FunctionDef where
-  name := 487
+  name := 483
   params := { names := [1], defaults := [], vararg := none }
   line := 2008
   body := [
     (.ifStmt 2015 (.compare 2015 (.attr 2015 (.name 2015 1) 73) [(.notEq, (.attr 2015 (.attr 2015 (.name 2015 1) 36) 74))]) [
       (.ret 2016 none)] []),
-    (.assign 2019 [(.name 2019 685)] (.call 2019 (.name 2019 330) [(.pos (.name 2019 1))])),
-    (.exprStmt 2022 (.call 2022 (.name 2022 90) [(.pos (.name 2022 1)), (.pos (.attr 2022 (.name 2022 685) 41))])),
-    (.exprStmt 2025 (.call 2025 (.name 2025 686) [(.pos (.name 2025 1)), (.pos (.attr 2025 (.name 2025 685) 41))])),
-    (.exprStmt 2027 (.call 2027 (.name 2027 687) [(.pos (.name 2027 1)), (.pos (.attr 2027 (.name 2027 685) 41))])),
-    (.exprStmt 2029 (.call 2029 (.name 2029 688) [(.pos (.name 2029 1)), (.pos (.attr 2029 (.name 2029 685) 320))])),
-    (.exprStmt 2030 (.call 2030 (.name 2030 689) [(.pos (.name 2030 1)), (.pos (.attr 2030 (.name 2030 685) 322))])),
-    (.exprStmt 2032 (.call 2032 (.name 2032 690) [(.pos (.name 2032 1)), (.pos (.attr 2032 (.name 2032 685) 325))])),
-    (.exprStmt 2033 (.call 2033 (.name 2033 691) [(.pos (.name 2033 1)), (.pos (.attr 2033 (.name 2033 685) 41))]))]
+    (.assign 2019 [(.name 2019 682)] (.call 2019 (.name 2019 325) [(.pos (.name 2019 1))])),
+    (.exprStmt 2022 (.call 2022 (.name 2022 90) [(.pos (.name 2022 1)), (.pos (.attr 2022 (.name 2022 682) 41))])),
+    (.exprStmt 2025 (.call 2025 (.name 2025 683) [(.pos (.name 2025 1)), (.pos (.attr 2025 (.name 2025 682) 41))])),
+    (.exprStmt 2027 (.call 2027 (.name 2027 684) [(.pos (.name 2027 1)), (.pos (.attr 2027 (.name 2027 682) 41))])),
+    (.exprStmt 2029 (.call 2029 (.name 2029 685) [(.pos (.name 2029 1)), (.pos (.attr 2029 (.name 2029 682) 315))])),
+    (.exprStmt 2030 (.call 2030 (.name 2030 686) [(.pos (.name 2030 1)), (.pos (.attr 2030 (.name 2030 682) 317))])),
+    (.exprStmt 2032 (.call 2032 (.name 2032 687) [(.pos (.name 2032 1)), (.pos (.attr 2032 (.name 2032 682) 320))])),
+    (.exprStmt 2033 (.call 2033 (.name 2033 688) [(.pos (.name 2033 1)), (.pos (.attr 2033 (.name 2033 682) 41))]))]
 
 /-- `specs/electra/beacon-chain.md:898`
 ```python
@@ -6139,16 +6173,16 @@ def queue_excess_active_balance(state: BeaconState, index: ValidatorIndex) -> No
         )
 ``` -/
 def fn_queue_excess_active_balance : FunctionDef where
-  name := 693
+  name := 690
   params := { names := [1, 23], defaults := [], vararg := none }
   line := 898
   body := [
     (.assign 899 [(.name 899 9)] (.index 899 (.attr 899 (.name 899 1) 28) (.name 899 23))),
-    (.ifStmt 900 (.compare 900 (.name 900 9) [(.gt, (.name 900 365))]) [
-      (.assign 901 [(.name 901 692)] (.binop 901 .sub (.name 901 9) (.name 901 365))),
-      (.assign 902 [(.index 902 (.attr 902 (.name 902 1) 28) (.name 902 23))] (.name 902 365)),
+    (.ifStmt 900 (.compare 900 (.name 900 9) [(.gt, (.name 900 360))]) [
+      (.assign 901 [(.name 901 689)] (.binop 901 .sub (.name 901 9) (.name 901 360))),
+      (.assign 902 [(.index 902 (.attr 902 (.name 902 1) 28) (.name 902 23))] (.name 902 360)),
       (.assign 903 [(.name 903 25)] (.index 903 (.attr 903 (.name 903 1) 27) (.name 903 23))),
-      (.exprStmt 906 (.call 906 (.attr 906 (.attr 906 (.name 906 1) 439) 69) [(.pos (.call 907 (.name 907 529) [(.kw 2 (.attr 908 (.name 908 25) 2)), (.kw 22 (.attr 909 (.name 909 25) 22)), (.kw 5 (.name 910 692)), (.kw 79 (.name 911 209)), (.kw 6 (.name 912 564))]))]))] [])]
+      (.exprStmt 906 (.call 906 (.attr 906 (.attr 906 (.name 906 1) 435) 69) [(.pos (.call 907 (.name 907 525) [(.kw 2 (.attr 908 (.name 908 25) 2)), (.kw 22 (.attr 909 (.name 909 25) 22)), (.kw 5 (.name 910 689)), (.kw 79 (.name 911 203)), (.kw 6 (.name 912 561))]))]))] [])]
 
 /-- `specs/phase0/beacon-chain.md:1038`
 ```python
@@ -6160,10 +6194,10 @@ def saturating_sub(a: Uint64, b: int) -> Any:
 ``` -/
 def fn_saturating_sub : FunctionDef where
   name := 88
-  params := { names := [694, 466], defaults := [], vararg := none }
+  params := { names := [691, 462], defaults := [], vararg := none }
   line := 1038
   body := [
-    (.ret 1042 (some (.ifExp 1042 (.compare 1042 (.name 1042 694) [(.gt, (.name 1042 466))]) (.binop 1042 .sub (.name 1042 694) (.name 1042 466)) (.binop 1042 .sub (.name 1042 694) (.name 1042 694)))))]
+    (.ret 1042 (some (.ifExp 1042 (.compare 1042 (.name 1042 691) [(.gt, (.name 1042 462))]) (.binop 1042 .sub (.name 1042 691) (.name 1042 462)) (.binop 1042 .sub (.name 1042 691) (.name 1042 691)))))]
 
 /-- `specs/altair/beacon-chain.md:308`
 ```python
@@ -6179,12 +6213,12 @@ def set_or_append_list(
 ``` -/
 def fn_set_or_append_list : FunctionDef where
   name := 15
-  params := { names := [299, 23, 64], defaults := [], vararg := none }
+  params := { names := [294, 23, 64], defaults := [], vararg := none }
   line := 308
   body := [
-    (.ifStmt 313 (.compare 313 (.name 313 23) [(.eq, (.call 313 (.name 313 42) [(.pos (.name 313 299))]))]) [
-      (.exprStmt 314 (.call 314 (.attr 314 (.name 314 299) 69) [(.pos (.name 314 64))]))] [
-      (.assign 316 [(.index 316 (.name 316 299) (.name 316 23))] (.name 316 64))])]
+    (.ifStmt 313 (.compare 313 (.name 313 23) [(.eq, (.call 313 (.name 313 42) [(.pos (.name 313 294))]))]) [
+      (.exprStmt 314 (.call 314 (.attr 314 (.name 314 294) 69) [(.pos (.name 314 64))]))] [
+      (.assign 316 [(.index 316 (.name 316 294) (.name 316 23))] (.name 316 64))])]
 
 /-- `specs/gloas/beacon-chain.md:1536`
 ```python
@@ -6200,11 +6234,11 @@ def fn_settle_builder_payment : FunctionDef where
   params := { names := [1, 60], defaults := [], vararg := none }
   line := 1536
   body := [
-    (.assert 1537 (.compare 1537 (.name 1537 60) [(.lt, (.call 1537 (.name 1537 42) [(.pos (.attr 1537 (.name 1537 1) 377))]))])),
-    (.assign 1538 [(.name 1538 376)] (.index 1538 (.attr 1538 (.name 1538 1) 377) (.name 1538 60))),
-    (.ifStmt 1539 (.compare 1539 (.attr 1539 (.attr 1539 (.name 1539 376) 85) 5) [(.gt, (.int 1539 (0)))]) [
-      (.exprStmt 1540 (.call 1540 (.attr 1540 (.attr 1540 (.name 1540 1) 68) 69) [(.pos (.attr 1540 (.name 1540 376) 85))]))] []),
-    (.assign 1541 [(.index 1541 (.attr 1541 (.name 1541 1) 377) (.name 1541 60))] (.call 1541 (.attr 1541 (.name 1541 513) 514) []))]
+    (.assert 1537 (.compare 1537 (.name 1537 60) [(.lt, (.call 1537 (.name 1537 42) [(.pos (.attr 1537 (.name 1537 1) 373))]))])),
+    (.assign 1538 [(.name 1538 372)] (.index 1538 (.attr 1538 (.name 1538 1) 373) (.name 1538 60))),
+    (.ifStmt 1539 (.compare 1539 (.attr 1539 (.attr 1539 (.name 1539 372) 85) 5) [(.gt, (.int 1539 (0)))]) [
+      (.exprStmt 1540 (.call 1540 (.attr 1540 (.attr 1540 (.name 1540 1) 68) 69) [(.pos (.attr 1540 (.name 1540 372) 85))]))] []),
+    (.assign 1541 [(.index 1541 (.attr 1541 (.name 1541 1) 373) (.name 1541 60))] (.call 1541 (.attr 1541 (.name 1541 509) 510) []))]
 
 /-- `specs/electra/beacon-chain.md:984`
 ```python
@@ -6239,25 +6273,25 @@ def slash_validator(
     increase_balance(state, whistleblower_index, whistleblower_reward - proposer_reward)
 ``` -/
 def fn_slash_validator : FunctionDef where
-  name := 482
-  params := { names := [1, 695, 696], defaults := [(.noneLit 987)], vararg := none }
+  name := 478
+  params := { names := [1, 692, 693], defaults := [(.noneLit 987)], vararg := none }
   line := 984
   body := [
     (.assign 992 [(.name 992 103)] (.call 992 (.name 992 59) [(.pos (.name 992 1))])),
-    (.exprStmt 993 (.call 993 (.name 993 420) [(.pos (.name 993 1)), (.pos (.name 993 695))])),
-    (.assign 994 [(.name 994 25)] (.index 994 (.attr 994 (.name 994 1) 27) (.name 994 695))),
-    (.assign 995 [(.attr 995 (.name 995 25) 274)] (.call 995 (.name 995 72) [(.pos (.bool 995 true))])),
-    (.assign 996 [(.attr 996 (.name 996 25) 12)] (.call 996 (.name 996 134) [(.pos (.attr 997 (.name 997 25) 12)), (.pos (.binop 997 .add (.name 997 103) (.name 997 638)))])),
-    (.augAssign 999 (.index 999 (.attr 999 (.name 999 1) 634) (.binop 999 .mod (.name 999 103) (.name 999 638))) .add (.attr 999 (.name 999 25) 113)),
-    (.assign 1001 [(.name 1001 697)] (.binop 1001 .floorDiv (.attr 1001 (.name 1001 25) 113) (.name 1001 698))),
-    (.exprStmt 1002 (.call 1002 (.name 1002 89) [(.pos (.name 1002 1)), (.pos (.name 1002 695)), (.pos (.name 1002 697))])),
-    (.assign 1005 [(.name 1005 497)] (.call 1005 (.name 1005 273) [(.pos (.name 1005 1))])),
-    (.ifStmt 1006 (.compare 1006 (.name 1006 696) [(.is, (.noneLit 1006))]) [
-      (.assign 1007 [(.name 1007 696)] (.name 1007 497))] []),
-    (.assign 1009 [(.name 1009 699)] (.binop 1009 .floorDiv (.attr 1009 (.name 1009 25) 113) (.name 1009 700))),
-    (.assign 1010 [(.name 1010 475)] (.binop 1010 .floorDiv (.binop 1010 .mul (.name 1010 699) (.name 1010 474)) (.name 1010 345))),
-    (.exprStmt 1011 (.call 1011 (.name 1011 83) [(.pos (.name 1011 1)), (.pos (.name 1011 497)), (.pos (.name 1011 475))])),
-    (.exprStmt 1012 (.call 1012 (.name 1012 83) [(.pos (.name 1012 1)), (.pos (.name 1012 696)), (.pos (.binop 1012 .sub (.name 1012 699) (.name 1012 475)))]))]
+    (.exprStmt 993 (.call 993 (.name 993 416) [(.pos (.name 993 1)), (.pos (.name 993 692))])),
+    (.assign 994 [(.name 994 25)] (.index 994 (.attr 994 (.name 994 1) 27) (.name 994 692))),
+    (.assign 995 [(.attr 995 (.name 995 25) 269)] (.call 995 (.name 995 72) [(.pos (.bool 995 true))])),
+    (.assign 996 [(.attr 996 (.name 996 25) 12)] (.call 996 (.name 996 134) [(.pos (.attr 997 (.name 997 25) 12)), (.pos (.binop 997 .add (.name 997 103) (.name 997 635)))])),
+    (.augAssign 999 (.index 999 (.attr 999 (.name 999 1) 631) (.binop 999 .mod (.name 999 103) (.name 999 635))) .add (.attr 999 (.name 999 25) 113)),
+    (.assign 1001 [(.name 1001 694)] (.binop 1001 .floorDiv (.attr 1001 (.name 1001 25) 113) (.name 1001 695))),
+    (.exprStmt 1002 (.call 1002 (.name 1002 89) [(.pos (.name 1002 1)), (.pos (.name 1002 692)), (.pos (.name 1002 694))])),
+    (.assign 1005 [(.name 1005 493)] (.call 1005 (.name 1005 268) [(.pos (.name 1005 1))])),
+    (.ifStmt 1006 (.compare 1006 (.name 1006 693) [(.is, (.noneLit 1006))]) [
+      (.assign 1007 [(.name 1007 693)] (.name 1007 493))] []),
+    (.assign 1009 [(.name 1009 696)] (.binop 1009 .floorDiv (.attr 1009 (.name 1009 25) 113) (.name 1009 697))),
+    (.assign 1010 [(.name 1010 471)] (.binop 1010 .floorDiv (.binop 1010 .mul (.name 1010 696) (.name 1010 470)) (.name 1010 340))),
+    (.exprStmt 1011 (.call 1011 (.name 1011 83) [(.pos (.name 1011 1)), (.pos (.name 1011 493)), (.pos (.name 1011 471))])),
+    (.exprStmt 1012 (.call 1012 (.name 1012 83) [(.pos (.name 1012 1)), (.pos (.name 1012 693)), (.pos (.binop 1012 .sub (.name 1012 696) (.name 1012 471)))]))]
 
 /-- `specs/phase0/beacon-chain.md:1806`
 ```python
@@ -6277,17 +6311,17 @@ def state_transition(
         assert block.state_root == hash_tree_root(state)
 ``` -/
 def fn_state_transition : FunctionDef where
-  name := 704
-  params := { names := [1, 701, 702], defaults := [(.bool 1807 true)], vararg := none }
+  name := 701
+  params := { names := [1, 698, 699], defaults := [(.bool 1807 true)], vararg := none }
   line := 1806
   body := [
-    (.assign 1809 [(.name 1809 484)] (.attr 1809 (.name 1809 701) 208)),
-    (.exprStmt 1811 (.call 1811 (.name 1811 645) [(.pos (.name 1811 1)), (.pos (.attr 1811 (.name 1811 484) 6))])),
-    (.ifStmt 1813 (.name 1813 702) [
-      (.assert 1814 (.call 1814 (.name 1814 703) [(.pos (.name 1814 1)), (.pos (.name 1814 701))]))] []),
-    (.exprStmt 1816 (.call 1816 (.name 1816 496) [(.pos (.name 1816 1)), (.pos (.name 1816 484))])),
-    (.ifStmt 1818 (.name 1818 702) [
-      (.assert 1819 (.compare 1819 (.attr 1819 (.name 1819 484) 499) [(.eq, (.call 1819 (.name 1819 159) [(.pos (.name 1819 1))]))]))] [])]
+    (.assign 1809 [(.name 1809 480)] (.attr 1809 (.name 1809 698) 202)),
+    (.exprStmt 1811 (.call 1811 (.name 1811 642) [(.pos (.name 1811 1)), (.pos (.attr 1811 (.name 1811 480) 6))])),
+    (.ifStmt 1813 (.name 1813 699) [
+      (.assert 1814 (.call 1814 (.name 1814 700) [(.pos (.name 1814 1)), (.pos (.name 1814 698))]))] []),
+    (.exprStmt 1816 (.call 1816 (.name 1816 492) [(.pos (.name 1816 1)), (.pos (.name 1816 480))])),
+    (.ifStmt 1818 (.name 1818 699) [
+      (.assert 1819 (.compare 1819 (.attr 1819 (.name 1819 480) 495) [(.eq, (.call 1819 (.name 1819 159) [(.pos (.name 1819 1))]))]))] [])]
 
 /-- `specs/electra/beacon-chain.md:887`
 ```python
@@ -6299,13 +6333,13 @@ def switch_to_compounding_validator(state: BeaconState, index: ValidatorIndex) -
     queue_excess_active_balance(state, index)
 ``` -/
 def fn_switch_to_compounding_validator : FunctionDef where
-  name := 518
+  name := 514
   params := { names := [1, 23], defaults := [], vararg := none }
   line := 887
   body := [
     (.assign 888 [(.name 888 25)] (.index 888 (.attr 888 (.name 888 1) 27) (.name 888 23))),
-    (.assign 889 [(.attr 889 (.name 889 25) 22)] (.call 889 (.name 889 509) [(.pos (.binop 890 .add (.name 890 432) (.slice 890 (.attr 890 (.name 890 25) 22) (some (.int 890 (1))) none none)))])),
-    (.exprStmt 892 (.call 892 (.name 892 693) [(.pos (.name 892 1)), (.pos (.name 892 23))]))]
+    (.assign 889 [(.attr 889 (.name 889 25) 22)] (.call 889 (.name 889 505) [(.pos (.binop 890 .add (.name 890 428) (.slice 890 (.attr 890 (.name 890 25) 22) (some (.int 890 (1))) none none)))])),
+    (.exprStmt 892 (.call 892 (.name 892 690) [(.pos (.name 892 1)), (.pos (.name 892 23))]))]
 
 /-- `specs/phase0/beacon-chain.md:1016`
 ```python
@@ -6317,10 +6351,10 @@ def uint_to_bytes(n: Uint) -> bytes:
 ``` -/
 def fn_uint_to_bytes : FunctionDef where
   name := 118
-  params := { names := [421], defaults := [], vararg := none }
+  params := { names := [417], defaults := [], vararg := none }
   line := 1016
   body := [
-    (.ret 1020 (some (.call 1020 (.name 1020 705) [(.pos (.name 1020 421))])))]
+    (.ret 1020 (some (.call 1020 (.name 1020 702) [(.pos (.name 1020 417))])))]
 
 /-- `specs/gloas/beacon-chain.md:1962`
 ```python
@@ -6332,11 +6366,11 @@ def update_builder_pending_withdrawals(
     ]
 ``` -/
 def fn_update_builder_pending_withdrawals : FunctionDef where
-  name := 688
-  params := { names := [1, 320], defaults := [], vararg := none }
+  name := 685
+  params := { names := [1, 315], defaults := [], vararg := none }
   line := 1962
   body := [
-    (.assign 1965 [(.attr 1965 (.name 1965 1) 68)] (.slice 1965 (.attr 1965 (.name 1965 1) 68) (some (.name 1966 320)) none none))]
+    (.assign 1965 [(.attr 1965 (.name 1965 1) 68)] (.slice 1965 (.attr 1965 (.name 1965 1) 68) (some (.name 1966 315)) none none))]
 
 /-- `specs/gloas/beacon-chain.md:1973`
 ```python
@@ -6350,14 +6384,14 @@ def update_next_withdrawal_builder_index(
         state.next_withdrawal_builder_index = next_builder_index
 ``` -/
 def fn_update_next_withdrawal_builder_index : FunctionDef where
-  name := 690
-  params := { names := [1, 325], defaults := [], vararg := none }
+  name := 687
+  params := { names := [1, 320], defaults := [], vararg := none }
   line := 1973
   body := [
     (.ifStmt 1976 (.compare 1976 (.call 1976 (.name 1976 42) [(.pos (.attr 1976 (.name 1976 1) 7))]) [(.gt, (.int 1976 (0)))]) [
-      (.assign 1978 [(.name 1978 120)] (.binop 1978 .add (.attr 1978 (.name 1978 1) 306) (.name 1978 325))),
-      (.assign 1979 [(.name 1979 706)] (.binop 1979 .mod (.name 1979 120) (.call 1979 (.name 1979 42) [(.pos (.attr 1979 (.name 1979 1) 7))]))),
-      (.assign 1980 [(.attr 1980 (.name 1980 1) 306)] (.name 1980 706))] [])]
+      (.assign 1978 [(.name 1978 120)] (.binop 1978 .add (.attr 1978 (.name 1978 1) 301) (.name 1978 320))),
+      (.assign 1979 [(.name 1979 703)] (.binop 1979 .mod (.name 1979 120) (.call 1979 (.name 1979 42) [(.pos (.attr 1979 (.name 1979 1) 7))]))),
+      (.assign 1980 [(.attr 1980 (.name 1980 1) 301)] (.name 1980 703))] [])]
 
 /-- `specs/capella/beacon-chain.md:506`
 ```python
@@ -6368,13 +6402,13 @@ def update_next_withdrawal_index(state: BeaconState, withdrawals: Sequence[Withd
         state.next_withdrawal_index = latest_withdrawal.index + 1
 ``` -/
 def fn_update_next_withdrawal_index : FunctionDef where
-  name := 686
+  name := 683
   params := { names := [1, 41], defaults := [], vararg := none }
   line := 506
   body := [
     (.ifStmt 508 (.compare 508 (.call 508 (.name 508 42) [(.pos (.name 508 41))]) [(.notEq, (.int 508 (0)))]) [
-      (.assign 509 [(.name 509 707)] (.index 509 (.name 509 41) (.unop 509 .neg (.int 509 (1))))),
-      (.assign 510 [(.attr 510 (.name 510 1) 318)] (.binop 510 .add (.attr 510 (.name 510 707) 23) (.int 510 (1))))] [])]
+      (.assign 509 [(.name 509 704)] (.index 509 (.name 509 41) (.unop 509 .neg (.int 509 (1))))),
+      (.assign 510 [(.attr 510 (.name 510 1) 313)] (.binop 510 .add (.attr 510 (.name 510 704) 23) (.int 510 (1))))] [])]
 
 /-- `specs/capella/beacon-chain.md:516`
 ```python
@@ -6393,16 +6427,16 @@ def update_next_withdrawal_validator_index(
         state.next_withdrawal_validator_index = next_validator_index
 ``` -/
 def fn_update_next_withdrawal_validator_index : FunctionDef where
-  name := 691
+  name := 688
   params := { names := [1, 41], defaults := [], vararg := none }
   line := 516
   body := [
-    (.ifStmt 520 (.compare 520 (.call 520 (.name 520 42) [(.pos (.name 520 41))]) [(.eq, (.name 520 296))]) [
-      (.assign 522 [(.name 522 708)] (.binop 522 .mod (.binop 522 .add (.attr 522 (.index 522 (.name 522 41) (.unop 522 .neg (.int 522 (1)))) 81) (.int 522 (1))) (.call 522 (.name 522 42) [(.pos (.attr 522 (.name 522 1) 27))]))),
-      (.assign 523 [(.attr 523 (.name 523 1) 404)] (.name 523 708))] [
-      (.assign 526 [(.name 526 120)] (.binop 526 .add (.attr 526 (.name 526 1) 404) (.name 526 403))),
-      (.assign 527 [(.name 527 708)] (.binop 527 .mod (.name 527 120) (.call 527 (.name 527 42) [(.pos (.attr 527 (.name 527 1) 27))]))),
-      (.assign 528 [(.attr 528 (.name 528 1) 404)] (.name 528 708))])]
+    (.ifStmt 520 (.compare 520 (.call 520 (.name 520 42) [(.pos (.name 520 41))]) [(.eq, (.name 520 291))]) [
+      (.assign 522 [(.name 522 705)] (.binop 522 .mod (.binop 522 .add (.attr 522 (.index 522 (.name 522 41) (.unop 522 .neg (.int 522 (1)))) 81) (.int 522 (1))) (.call 522 (.name 522 42) [(.pos (.attr 522 (.name 522 1) 27))]))),
+      (.assign 523 [(.attr 523 (.name 523 1) 400)] (.name 523 705))] [
+      (.assign 526 [(.name 526 120)] (.binop 526 .add (.attr 526 (.name 526 1) 400) (.name 526 399))),
+      (.assign 527 [(.name 527 705)] (.binop 527 .mod (.name 527 120) (.call 527 (.name 527 42) [(.pos (.attr 527 (.name 527 1) 27))]))),
+      (.assign 528 [(.attr 528 (.name 528 1) 400)] (.name 528 705))])]
 
 /-- `specs/gloas/beacon-chain.md:1953`
 ```python
@@ -6412,11 +6446,11 @@ def update_payload_expected_withdrawals(
     state.payload_expected_withdrawals = Withdrawals(data=withdrawals)
 ``` -/
 def fn_update_payload_expected_withdrawals : FunctionDef where
-  name := 687
+  name := 684
   params := { names := [1, 41], defaults := [], vararg := none }
   line := 1953
   body := [
-    (.assign 1956 [(.attr 1956 (.name 1956 1) 709)] (.call 1956 (.name 1956 710) [(.kw 91 (.name 1956 41))]))]
+    (.assign 1956 [(.attr 1956 (.name 1956 1) 706)] (.call 1956 (.name 1956 707) [(.kw 91 (.name 1956 41))]))]
 
 /-- `specs/electra/beacon-chain.md:1486`
 ```python
@@ -6428,11 +6462,11 @@ def update_pending_partial_withdrawals(
     ]
 ``` -/
 def fn_update_pending_partial_withdrawals : FunctionDef where
-  name := 689
-  params := { names := [1, 322], defaults := [], vararg := none }
+  name := 686
+  params := { names := [1, 317], defaults := [], vararg := none }
   line := 1486
   body := [
-    (.assign 1489 [(.attr 1489 (.name 1489 1) 374)] (.slice 1489 (.attr 1489 (.name 1489 1) 374) (some (.name 1490 322)) none none))]
+    (.assign 1489 [(.attr 1489 (.name 1489 1) 370)] (.slice 1489 (.attr 1489 (.name 1489 1) 370) (some (.name 1490 317)) none none))]
 
 /-- `specs/gloas/fork.md:135`
 ```python
@@ -6536,15 +6570,15 @@ def upgrade_to_gloas(pre: fulu.BeaconState) -> BeaconState:
     return post
 ``` -/
 def fn_upgrade_to_gloas : FunctionDef where
-  name := 737
-  params := { names := [711], defaults := [], vararg := none }
+  name := 734
+  params := { names := [708], defaults := [], vararg := none }
   line := 135
   body := [
-    (.assign 136 [(.name 136 103)] (.call 136 (.attr 136 (.name 136 712) 59) [(.pos (.name 136 711))])),
-    (.assign 138 [(.name 138 713)] (.call 138 (.name 138 736) [(.kw 714 (.attr 139 (.name 139 711) 714)), (.kw 144 (.attr 140 (.name 140 711) 144)), (.kw 6 (.attr 141 (.name 141 711) 6)), (.kw 313 (.call 142 (.name 142 716) [(.kw 314 (.attr 143 (.attr 143 (.name 143 711) 313) 157)), (.kw 157 (.name 145 715)), (.kw 103 (.name 146 103))])), (.kw 38 (.attr 148 (.name 148 711) 38)), (.kw 287 (.attr 149 (.name 149 711) 287)), (.kw 572 (.attr 150 (.name 150 711) 572)), (.kw 717 (.attr 151 (.name 151 711) 717)), (.kw 553 (.attr 152 (.name 152 711) 553)), (.kw 554 (.attr 153 (.name 153 711) 554)), (.kw 718 (.attr 154 (.name 154 711) 718)), (.kw 27 (.call 156 (.name 156 719) [(.kw 91 (.attr 156 (.name 156 711) 27))])), (.kw 28 (.call 158 (.name 158 720) [(.kw 91 (.attr 158 (.name 158 711) 28))])), (.kw 387 (.attr 159 (.name 159 711) 387)), (.kw 634 (.attr 160 (.name 160 711) 634)), (.kw 29 (.call 162 (.name 162 602) [(.kw 91 (.attr 162 (.name 162 711) 29))])), (.kw 30 (.call 164 (.name 164 602) [(.kw 91 (.attr 164 (.name 164 711) 30))])), (.kw 721 (.attr 165 (.name 165 711) 721)), (.kw 227 (.attr 166 (.name 166 711) 227)), (.kw 226 (.attr 167 (.name 167 711) 226)), (.kw 331 (.attr 168 (.name 168 711) 331)), (.kw 31 (.call 170 (.name 170 722) [(.kw 91 (.attr 170 (.name 170 711) 31))])), (.kw 647 (.attr 171 (.name 171 711) 647)), (.kw 671 (.attr 172 (.name 172 711) 671)), (.kw 73 (.attr 176 (.attr 176 (.name 176 711) 723) 74)), (.kw 318 (.attr 177 (.name 177 711) 318)), (.kw 404 (.attr 178 (.name 178 711) 404)), (.kw 574 (.attr 179 (.name 179 711) 574)), (.kw 724 (.attr 180 (.name 180 711) 724)), (.kw 608 (.attr 181 (.name 181 711) 608)), (.kw 155 (.attr 182 (.name 182 711) 155)), (.kw 152 (.attr 183 (.name 183 711) 152)), (.kw 137 (.attr 184 (.name 184 711) 137)), (.kw 133 (.attr 185 (.name 185 711) 133)), (.kw 439 (.call 187 (.name 187 464) [(.kw 91 (.attr 187 (.name 187 711) 439))])), (.kw 374 (.call 189 (.name 189 725) [(.kw 91 (.attr 189 (.name 189 711) 374))])), (.kw 520 (.call 191 (.name 191 726) [(.kw 91 (.attr 191 (.name 191 711) 520))])), (.kw 272 (.attr 192 (.name 192 711) 272)), (.kw 7 (.call 194 (.name 194 727) [])), (.kw 306 (.call 196 (.name 196 199) [(.pos (.int 196 (0)))])), (.kw 70 (.call 198 (.name 198 728) [(.kw 91 (.comp 199 .list (.int 199 (1)) [(.mk (.name 199 307) (.call 199 (.name 199 130) [(.pos (.name 199 71))]) [])]))])), (.kw 377 (.call 202 (.name 202 729) [])), (.kw 68 (.call 204 (.name 204 730) [])), (.kw 36 (.call 206 (.name 206 735) [(.kw 565 (.attr 207 (.attr 207 (.name 207 711) 723) 731)), (.kw 566 (.attr 208 (.attr 208 (.name 208 711) 38) 498)), (.kw 74 (.attr 209 (.attr 209 (.name 209 711) 723) 74)), (.kw 567 (.attr 210 (.attr 210 (.name 210 711) 723) 567)), (.kw 65 (.call 211 (.name 211 382) [])), (.kw 732 (.attr 212 (.attr 212 (.name 212 711) 723) 732)), (.kw 66 (.name 213 560)), (.kw 6 (.attr 214 (.attr 214 (.name 214 711) 38) 6)), (.kw 64 (.call 215 (.name 215 270) [(.pos (.int 215 (0)))])), (.kw 733 (.call 216 (.name 216 270) [(.pos (.int 216 (0)))])), (.kw 563 (.call 217 (.name 217 734) [])), (.kw 601 (.call 218 (.name 218 159) [(.pos (.call 218 (.attr 218 (.name 218 600) 514) []))]))])), (.kw 709 (.call 221 (.name 221 710) [])), (.kw 385 (.call 223 (.name 223 414) []))])),
-    (.assign 227 [(.attr 227 (.name 227 713) 385)] (.call 227 (.name 227 415) [(.pos (.name 227 713))])),
-    (.exprStmt 230 (.call 230 (.name 230 468) [(.pos (.name 230 713))])),
-    (.ret 232 (some (.name 232 713)))]
+    (.assign 136 [(.name 136 103)] (.call 136 (.attr 136 (.name 136 709) 59) [(.pos (.name 136 708))])),
+    (.assign 138 [(.name 138 710)] (.call 138 (.name 138 733) [(.kw 711 (.attr 139 (.name 139 708) 711)), (.kw 144 (.attr 140 (.name 140 708) 144)), (.kw 6 (.attr 141 (.name 141 708) 6)), (.kw 308 (.call 142 (.name 142 713) [(.kw 309 (.attr 143 (.attr 143 (.name 143 708) 308) 157)), (.kw 157 (.name 145 712)), (.kw 103 (.name 146 103))])), (.kw 38 (.attr 148 (.name 148 708) 38)), (.kw 282 (.attr 149 (.name 149 708) 282)), (.kw 569 (.attr 150 (.name 150 708) 569)), (.kw 714 (.attr 151 (.name 151 708) 714)), (.kw 549 (.attr 152 (.name 152 708) 549)), (.kw 550 (.attr 153 (.name 153 708) 550)), (.kw 715 (.attr 154 (.name 154 708) 715)), (.kw 27 (.call 156 (.name 156 716) [(.kw 91 (.attr 156 (.name 156 708) 27))])), (.kw 28 (.call 158 (.name 158 717) [(.kw 91 (.attr 158 (.name 158 708) 28))])), (.kw 383 (.attr 159 (.name 159 708) 383)), (.kw 631 (.attr 160 (.name 160 708) 631)), (.kw 29 (.call 162 (.name 162 599) [(.kw 91 (.attr 162 (.name 162 708) 29))])), (.kw 30 (.call 164 (.name 164 599) [(.kw 91 (.attr 164 (.name 164 708) 30))])), (.kw 718 (.attr 165 (.name 165 708) 718)), (.kw 222 (.attr 166 (.name 166 708) 222)), (.kw 221 (.attr 167 (.name 167 708) 221)), (.kw 326 (.attr 168 (.name 168 708) 326)), (.kw 31 (.call 170 (.name 170 719) [(.kw 91 (.attr 170 (.name 170 708) 31))])), (.kw 644 (.attr 171 (.name 171 708) 644)), (.kw 668 (.attr 172 (.name 172 708) 668)), (.kw 73 (.attr 176 (.attr 176 (.name 176 708) 720) 74)), (.kw 313 (.attr 177 (.name 177 708) 313)), (.kw 400 (.attr 178 (.name 178 708) 400)), (.kw 571 (.attr 179 (.name 179 708) 571)), (.kw 721 (.attr 180 (.name 180 708) 721)), (.kw 605 (.attr 181 (.name 181 708) 605)), (.kw 155 (.attr 182 (.name 182 708) 155)), (.kw 152 (.attr 183 (.name 183 708) 152)), (.kw 137 (.attr 184 (.name 184 708) 137)), (.kw 133 (.attr 185 (.name 185 708) 133)), (.kw 435 (.call 187 (.name 187 460) [(.kw 91 (.attr 187 (.name 187 708) 435))])), (.kw 370 (.call 189 (.name 189 722) [(.kw 91 (.attr 189 (.name 189 708) 370))])), (.kw 516 (.call 191 (.name 191 723) [(.kw 91 (.attr 191 (.name 191 708) 516))])), (.kw 267 (.attr 192 (.name 192 708) 267)), (.kw 7 (.call 194 (.name 194 724) [])), (.kw 301 (.call 196 (.name 196 199) [(.pos (.int 196 (0)))])), (.kw 70 (.call 198 (.name 198 725) [(.kw 91 (.comp 199 .list (.int 199 (1)) [(.mk (.name 199 302) (.call 199 (.name 199 130) [(.pos (.name 199 71))]) [])]))])), (.kw 373 (.call 202 (.name 202 726) [])), (.kw 68 (.call 204 (.name 204 727) [])), (.kw 36 (.call 206 (.name 206 732) [(.kw 562 (.attr 207 (.attr 207 (.name 207 708) 720) 728)), (.kw 563 (.attr 208 (.attr 208 (.name 208 708) 38) 494)), (.kw 74 (.attr 209 (.attr 209 (.name 209 708) 720) 74)), (.kw 564 (.attr 210 (.attr 210 (.name 210 708) 720) 564)), (.kw 65 (.call 211 (.name 211 378) [])), (.kw 729 (.attr 212 (.attr 212 (.name 212 708) 720) 729)), (.kw 66 (.name 213 556)), (.kw 6 (.attr 214 (.attr 214 (.name 214 708) 38) 6)), (.kw 64 (.call 215 (.name 215 265) [(.pos (.int 215 (0)))])), (.kw 730 (.call 216 (.name 216 265) [(.pos (.int 216 (0)))])), (.kw 560 (.call 217 (.name 217 731) [])), (.kw 598 (.call 218 (.name 218 159) [(.pos (.call 218 (.attr 218 (.name 218 597) 510) []))]))])), (.kw 706 (.call 221 (.name 221 707) [])), (.kw 381 (.call 223 (.name 223 410) []))])),
+    (.assign 227 [(.attr 227 (.name 227 710) 381)] (.call 227 (.name 227 411) [(.pos (.name 227 710))])),
+    (.exprStmt 230 (.call 230 (.name 230 464) [(.pos (.name 230 710))])),
+    (.ret 232 (some (.name 232 710)))]
 
 /-- `specs/phase0/beacon-chain.md:1823`
 ```python
@@ -6556,13 +6590,13 @@ def verify_block_signature(state: BeaconState, signed_block: SignedBeaconBlock) 
     return bls.Verify(proposer.pubkey, signing_root, signed_block.signature)
 ``` -/
 def fn_verify_block_signature : FunctionDef where
-  name := 703
-  params := { names := [1, 701], defaults := [], vararg := none }
+  name := 700
+  params := { names := [1, 698], defaults := [], vararg := none }
   line := 1823
   body := [
-    (.assign 1824 [(.name 1824 502)] (.index 1824 (.attr 1824 (.name 1824 1) 27) (.attr 1824 (.attr 1824 (.name 1824 701) 208) 497))),
-    (.assign 1825 [(.name 1825 450)] (.call 1825 (.name 1825 195) [(.pos (.attr 1826 (.name 1826 701) 208)), (.pos (.call 1826 (.name 1826 315) [(.pos (.name 1826 1)), (.pos (.name 1826 275))]))])),
-    (.ret 1828 (some (.call 1828 (.attr 1828 (.name 1828 202) 451) [(.pos (.attr 1828 (.name 1828 502) 2)), (.pos (.name 1828 450)), (.pos (.attr 1828 (.name 1828 701) 79))])))]
+    (.assign 1824 [(.name 1824 498)] (.index 1824 (.attr 1824 (.name 1824 1) 27) (.attr 1824 (.attr 1824 (.name 1824 698) 202) 493))),
+    (.assign 1825 [(.name 1825 446)] (.call 1825 (.name 1825 195) [(.pos (.attr 1826 (.name 1826 698) 202)), (.pos (.call 1826 (.name 1826 310) [(.pos (.name 1826 1)), (.pos (.name 1826 270))]))])),
+    (.ret 1828 (some (.call 1828 (.attr 1828 (.name 1828 204) 447) [(.pos (.attr 1828 (.name 1828 498) 2)), (.pos (.name 1828 446)), (.pos (.attr 1828 (.name 1828 698) 79))])))]
 
 /-- `specs/gloas/beacon-chain.md:2090`
 ```python
@@ -6576,13 +6610,13 @@ def verify_execution_payload_bid_signature(
     return bls.Verify(builder.pubkey, signing_root, signed_bid.signature)
 ``` -/
 def fn_verify_execution_payload_bid_signature : FunctionDef where
-  name := 561
-  params := { names := [1, 558], defaults := [], vararg := none }
+  name := 558
+  params := { names := [1, 554], defaults := [], vararg := none }
   line := 2090
   body := [
-    (.assign 2093 [(.name 2093 308)] (.index 2093 (.attr 2093 (.name 2093 1) 7) (.attr 2093 (.attr 2093 (.name 2093 558) 208) 66))),
-    (.assign 2094 [(.name 2094 450)] (.call 2094 (.name 2094 195) [(.pos (.attr 2095 (.name 2095 558) 208)), (.pos (.call 2095 (.name 2095 315) [(.pos (.name 2095 1)), (.pos (.name 2095 738))]))])),
-    (.ret 2097 (some (.call 2097 (.attr 2097 (.name 2097 202) 451) [(.pos (.attr 2097 (.name 2097 308) 2)), (.pos (.name 2097 450)), (.pos (.attr 2097 (.name 2097 558) 79))])))]
+    (.assign 2093 [(.name 2093 303)] (.index 2093 (.attr 2093 (.name 2093 1) 7) (.attr 2093 (.attr 2093 (.name 2093 554) 202) 66))),
+    (.assign 2094 [(.name 2094 446)] (.call 2094 (.name 2094 195) [(.pos (.attr 2095 (.name 2095 554) 202)), (.pos (.call 2095 (.name 2095 310) [(.pos (.name 2095 1)), (.pos (.name 2095 735))]))])),
+    (.ret 2097 (some (.call 2097 (.attr 2097 (.name 2097 204) 447) [(.pos (.attr 2097 (.name 2097 303) 2)), (.pos (.name 2097 446)), (.pos (.attr 2097 (.name 2097 554) 79))])))]
 
 /-- `specs/phase0/beacon-chain.md:1946`
 ```python
@@ -6628,32 +6662,32 @@ def weigh_justification_and_finalization(
         state.finalized_checkpoint = old_current_justified_checkpoint
 ``` -/
 def fn_weigh_justification_and_finalization : FunctionDef where
-  name := 582
-  params := { names := [1, 579, 739, 740], defaults := [], vararg := none }
+  name := 579
+  params := { names := [1, 576, 736, 737], defaults := [], vararg := none }
   line := 1946
   body := [
-    (.assign 1952 [(.name 1952 316)] (.call 1952 (.name 1952 63) [(.pos (.name 1952 1))])),
-    (.assign 1953 [(.name 1953 413)] (.call 1953 (.name 1953 59) [(.pos (.name 1953 1))])),
-    (.assign 1954 [(.name 1954 741)] (.attr 1954 (.name 1954 1) 227)),
-    (.assign 1955 [(.name 1955 742)] (.attr 1955 (.name 1955 1) 226)),
-    (.assign 1958 [(.attr 1958 (.name 1958 1) 227)] (.attr 1958 (.name 1958 1) 226)),
-    (.assign 1959 [(.slice 1959 (.attr 1959 (.name 1959 1) 721) (some (.int 1959 (1))) none)] (.slice 1959 (.attr 1959 (.name 1959 1) 721) none (some (.binop 1959 .sub (.name 1959 743) (.int 1959 (1)))) none)),
-    (.assign 1960 [(.index 1960 (.attr 1960 (.name 1960 1) 721) (.int 1960 (0)))] (.call 1960 (.name 1960 72) [(.pos (.bool 1960 false))])),
-    (.ifStmt 1961 (.compare 1961 (.binop 1961 .mul (.name 1961 739) (.int 1961 (3))) [(.gtE, (.binop 1961 .mul (.name 1961 579) (.int 1961 (2))))]) [
-      (.assign 1962 [(.attr 1962 (.name 1962 1) 226)] (.call 1962 (.name 1962 744) [(.kw 103 (.name 1963 316)), (.kw 232 (.call 1963 (.name 1963 230) [(.pos (.name 1963 1)), (.pos (.name 1963 316))]))])),
-      (.assign 1965 [(.index 1965 (.attr 1965 (.name 1965 1) 721) (.int 1965 (1)))] (.call 1965 (.name 1965 72) [(.pos (.bool 1965 true))]))] []),
-    (.ifStmt 1966 (.compare 1966 (.binop 1966 .mul (.name 1966 740) (.int 1966 (3))) [(.gtE, (.binop 1966 .mul (.name 1966 579) (.int 1966 (2))))]) [
-      (.assign 1967 [(.attr 1967 (.name 1967 1) 226)] (.call 1967 (.name 1967 744) [(.kw 103 (.name 1968 413)), (.kw 232 (.call 1968 (.name 1968 230) [(.pos (.name 1968 1)), (.pos (.name 1968 413))]))])),
-      (.assign 1970 [(.index 1970 (.attr 1970 (.name 1970 1) 721) (.int 1970 (0)))] (.call 1970 (.name 1970 72) [(.pos (.bool 1970 true))]))] []),
-    (.assign 1973 [(.name 1973 360)] (.attr 1973 (.name 1973 1) 721)),
-    (.ifStmt 1975 (.boolop 1975 .and [(.call 1975 (.name 1975 204) [(.pos (.slice 1975 (.name 1975 360) (some (.int 1975 (1))) (some (.int 1975 (4))) none))]), (.compare 1975 (.binop 1975 .add (.attr 1975 (.name 1975 741) 103) (.int 1975 (3))) [(.eq, (.name 1975 413))])]) [
-      (.assign 1976 [(.attr 1976 (.name 1976 1) 331)] (.name 1976 741))] []),
-    (.ifStmt 1978 (.boolop 1978 .and [(.call 1978 (.name 1978 204) [(.pos (.slice 1978 (.name 1978 360) (some (.int 1978 (1))) (some (.int 1978 (3))) none))]), (.compare 1978 (.binop 1978 .add (.attr 1978 (.name 1978 741) 103) (.int 1978 (2))) [(.eq, (.name 1978 413))])]) [
-      (.assign 1979 [(.attr 1979 (.name 1979 1) 331)] (.name 1979 741))] []),
-    (.ifStmt 1981 (.boolop 1981 .and [(.call 1981 (.name 1981 204) [(.pos (.slice 1981 (.name 1981 360) (some (.int 1981 (0))) (some (.int 1981 (3))) none))]), (.compare 1981 (.binop 1981 .add (.attr 1981 (.name 1981 742) 103) (.int 1981 (2))) [(.eq, (.name 1981 413))])]) [
-      (.assign 1982 [(.attr 1982 (.name 1982 1) 331)] (.name 1982 742))] []),
-    (.ifStmt 1984 (.boolop 1984 .and [(.call 1984 (.name 1984 204) [(.pos (.slice 1984 (.name 1984 360) (some (.int 1984 (0))) (some (.int 1984 (2))) none))]), (.compare 1984 (.binop 1984 .add (.attr 1984 (.name 1984 742) 103) (.int 1984 (1))) [(.eq, (.name 1984 413))])]) [
-      (.assign 1985 [(.attr 1985 (.name 1985 1) 331)] (.name 1985 742))] [])]
+    (.assign 1952 [(.name 1952 311)] (.call 1952 (.name 1952 63) [(.pos (.name 1952 1))])),
+    (.assign 1953 [(.name 1953 409)] (.call 1953 (.name 1953 59) [(.pos (.name 1953 1))])),
+    (.assign 1954 [(.name 1954 738)] (.attr 1954 (.name 1954 1) 222)),
+    (.assign 1955 [(.name 1955 739)] (.attr 1955 (.name 1955 1) 221)),
+    (.assign 1958 [(.attr 1958 (.name 1958 1) 222)] (.attr 1958 (.name 1958 1) 221)),
+    (.assign 1959 [(.slice 1959 (.attr 1959 (.name 1959 1) 718) (some (.int 1959 (1))) none)] (.slice 1959 (.attr 1959 (.name 1959 1) 718) none (some (.binop 1959 .sub (.name 1959 740) (.int 1959 (1)))) none)),
+    (.assign 1960 [(.index 1960 (.attr 1960 (.name 1960 1) 718) (.int 1960 (0)))] (.call 1960 (.name 1960 72) [(.pos (.bool 1960 false))])),
+    (.ifStmt 1961 (.compare 1961 (.binop 1961 .mul (.name 1961 736) (.int 1961 (3))) [(.gtE, (.binop 1961 .mul (.name 1961 576) (.int 1961 (2))))]) [
+      (.assign 1962 [(.attr 1962 (.name 1962 1) 221)] (.call 1962 (.name 1962 741) [(.kw 103 (.name 1963 311)), (.kw 227 (.call 1963 (.name 1963 225) [(.pos (.name 1963 1)), (.pos (.name 1963 311))]))])),
+      (.assign 1965 [(.index 1965 (.attr 1965 (.name 1965 1) 718) (.int 1965 (1)))] (.call 1965 (.name 1965 72) [(.pos (.bool 1965 true))]))] []),
+    (.ifStmt 1966 (.compare 1966 (.binop 1966 .mul (.name 1966 737) (.int 1966 (3))) [(.gtE, (.binop 1966 .mul (.name 1966 576) (.int 1966 (2))))]) [
+      (.assign 1967 [(.attr 1967 (.name 1967 1) 221)] (.call 1967 (.name 1967 741) [(.kw 103 (.name 1968 409)), (.kw 227 (.call 1968 (.name 1968 225) [(.pos (.name 1968 1)), (.pos (.name 1968 409))]))])),
+      (.assign 1970 [(.index 1970 (.attr 1970 (.name 1970 1) 718) (.int 1970 (0)))] (.call 1970 (.name 1970 72) [(.pos (.bool 1970 true))]))] []),
+    (.assign 1973 [(.name 1973 355)] (.attr 1973 (.name 1973 1) 718)),
+    (.ifStmt 1975 (.boolop 1975 .and [(.call 1975 (.name 1975 742) [(.pos (.slice 1975 (.name 1975 355) (some (.int 1975 (1))) (some (.int 1975 (4))) none))]), (.compare 1975 (.binop 1975 .add (.attr 1975 (.name 1975 738) 103) (.int 1975 (3))) [(.eq, (.name 1975 409))])]) [
+      (.assign 1976 [(.attr 1976 (.name 1976 1) 326)] (.name 1976 738))] []),
+    (.ifStmt 1978 (.boolop 1978 .and [(.call 1978 (.name 1978 742) [(.pos (.slice 1978 (.name 1978 355) (some (.int 1978 (1))) (some (.int 1978 (3))) none))]), (.compare 1978 (.binop 1978 .add (.attr 1978 (.name 1978 738) 103) (.int 1978 (2))) [(.eq, (.name 1978 409))])]) [
+      (.assign 1979 [(.attr 1979 (.name 1979 1) 326)] (.name 1979 738))] []),
+    (.ifStmt 1981 (.boolop 1981 .and [(.call 1981 (.name 1981 742) [(.pos (.slice 1981 (.name 1981 355) (some (.int 1981 (0))) (some (.int 1981 (3))) none))]), (.compare 1981 (.binop 1981 .add (.attr 1981 (.name 1981 739) 103) (.int 1981 (2))) [(.eq, (.name 1981 409))])]) [
+      (.assign 1982 [(.attr 1982 (.name 1982 1) 326)] (.name 1982 739))] []),
+    (.ifStmt 1984 (.boolop 1984 .and [(.call 1984 (.name 1984 742) [(.pos (.slice 1984 (.name 1984 355) (some (.int 1984 (0))) (some (.int 1984 (2))) none))]), (.compare 1984 (.binop 1984 .add (.attr 1984 (.name 1984 739) 103) (.int 1984 (1))) [(.eq, (.name 1984 409))])]) [
+      (.assign 1985 [(.attr 1985 (.name 1985 1) 326)] (.name 1985 739))] [])]
 
 /-- `specs/phase0/beacon-chain.md:1006`
 ```python
@@ -6664,44 +6698,209 @@ def xor(bytes_1: Bytes32, bytes_2: Bytes32) -> Bytes32:
     return Bytes32(a ^ b for a, b in zip(bytes_1, bytes_2, strict=True))
 ``` -/
 def fn_xor : FunctionDef where
-  name := 628
-  params := { names := [745, 746], defaults := [], vararg := none }
+  name := 625
+  params := { names := [743, 744], defaults := [], vararg := none }
   line := 1006
   body := [
-    (.ret 1010 (some (.call 1010 (.name 1010 509) [(.pos (.comp 1010 .gen (.binop 1010 .bitXor (.name 1010 694) (.name 1010 466)) [(.mk (.tuple 1010 [(.name 1010 694), (.name 1010 466)]) (.call 1010 (.name 1010 652) [(.pos (.name 1010 745)), (.pos (.name 1010 746)), (.kw 651 (.bool 1010 true))]) [])]))])))]
+    (.ret 1010 (some (.call 1010 (.name 1010 505) [(.pos (.comp 1010 .gen (.binop 1010 .bitXor (.name 1010 691) (.name 1010 462)) [(.mk (.tuple 1010 [(.name 1010 691), (.name 1010 462)]) (.call 1010 (.name 1010 649) [(.pos (.name 1010 743)), (.pos (.name 1010 744)), (.kw 648 (.bool 1010 true))]) [])]))])))]
 
 def containers : List (Name × List (Name × SszTy)) := [
-  (14, [(2, (.bytes 659 48)), (3, (.uint (.width 8))), (4, (.bytes 382 20)), (9, (.uint (.nominal 270 64))), (10, (.uint (.nominal 140 64))), (12, (.uint (.nominal 140 64)))]),
-  (67, [(65, (.bytes 382 20)), (5, (.uint (.nominal 270 64))), (66, (.uint (.nominal 199 64)))]),
-  (158, [(157, (.bytes 747 4)), (144, (.bytes 146 32))]),
+  (14, [(2, (.bytes 656 48)), (3, (.uint (.width 8))), (4, (.bytes 378 20)), (9, (.uint (.nominal 265 64))), (10, (.uint (.nominal 140 64))), (12, (.uint (.nominal 140 64)))]),
+  (67, [(65, (.bytes 378 20)), (5, (.uint (.nominal 265 64))), (66, (.uint (.nominal 199 64)))]),
+  (158, [(157, (.bytes 745 4)), (144, (.bytes 146 32))]),
   (194, [(193, (.bytes 146 32)), (192, (.bytes 149 32))]),
-  (283, [(103, .any), (562, .any)]),
-  (302, [(23, (.uint (.nominal 750 64))), (81, (.uint (.nominal 82 64))), (301, (.bytes 382 20)), (5, (.uint (.nominal 270 64)))]),
-  (329, [(41, .any), (320, .any), (322, .any), (325, .any), (751, .any)]),
-  (355, [(353, (.list .progressiveList (.uint (.nominal 82 64)) none)), (91, (.container 752)), (79, (.bytes 749 96))]),
-  (752, [(6, (.uint (.nominal 196 64))), (23, (.uint (.nominal 170 64))), (241, (.bytes 146 32)), (188, (.container 744)), (224, (.container 744))]),
-  (744, [(103, (.uint (.nominal 140 64))), (232, (.bytes 146 32))]),
-  (362, [(353, (.list .list (.uint (.nominal 82 64)) (some 16))), (91, (.container 755)), (79, (.bytes 749 96))]),
-  (755, [(241, (.bytes 146 32)), (6, (.uint (.nominal 196 64))), (753, .boolean), (754, .boolean)]),
-  (370, [(201, (.list .vector (.bytes 659 48) (some 32))), (369, (.bytes 659 48))]),
-  (400, [(2, (.bytes 659 48)), (22, (.bytes 509 32)), (113, (.uint (.nominal 270 64))), (274, .boolean), (397, (.uint (.nominal 140 64))), (398, (.uint (.nominal 140 64))), (399, (.uint (.nominal 140 64))), (12, (.uint (.nominal 140 64)))]),
-  (448, [(2, (.bytes 659 48)), (22, (.bytes 509 32)), (5, (.uint (.nominal 270 64)))]),
-  (529, [(2, (.bytes 659 48)), (22, (.bytes 509 32)), (5, (.uint (.nominal 270 64))), (79, (.bytes 749 96)), (6, (.uint (.nominal 196 64)))]),
-  (501, [(6, (.uint (.nominal 196 64))), (497, (.uint (.nominal 82 64))), (498, (.bytes 146 32)), (499, (.bytes 146 32)), (500, (.bytes 146 32))]),
-  (513, [(122, (.uint (.nominal 270 64))), (85, (.container 67)), (497, (.uint (.nominal 82 64)))]),
-  (527, [(517, (.uint (.nominal 82 64))), (522, (.uint (.nominal 82 64)))]),
-  (760, [(757, (.bytes 146 32)), (758, (.uint (.width 64))), (74, (.bytes 759 32))]),
-  (573, [(570, (.bytes 146 32)), (571, (.bytes 146 32))]),
-  (600, [(53, (.list .progressiveList (.container 761) none)), (41, (.list .progressiveList (.container 762) none)), (44, (.list .progressiveList (.container 763) none)), (46, (.list .progressiveList (.container 764) none)), (48, (.list .progressiveList (.container 765) none))]),
-  (761, [(2, (.bytes 659 48)), (22, (.bytes 509 32)), (5, (.uint (.nominal 270 64))), (79, (.bytes 749 96)), (23, (.uint (.width 64)))]),
-  (762, [(462, (.bytes 382 20)), (681, (.bytes 659 48)), (5, (.uint (.nominal 270 64)))]),
-  (763, [(462, (.bytes 382 20)), (460, (.bytes 659 48)), (459, (.bytes 659 48))]),
-  (764, [(2, (.bytes 659 48)), (22, (.bytes 509 32)), (5, (.uint (.nominal 270 64))), (79, (.bytes 749 96))]),
-  (765, [(462, (.bytes 382 20)), (2, (.bytes 659 48))]),
-  (684, [(81, (.uint (.nominal 82 64))), (5, (.uint (.nominal 270 64))), (12, (.uint (.nominal 140 64)))]),
-  (736, [(714, (.uint (.width 64))), (144, (.bytes 146 32)), (6, (.uint (.nominal 196 64))), (313, (.container 716)), (38, (.container 501)), (287, (.list .vector (.bytes 146 32) (some 64))), (572, (.list .vector (.bytes 146 32) (some 64))), (717, (.list .list (.bytes 146 32) (some 16777216))), (553, (.container 760)), (554, (.list .list (.container 760) (some 32))), (718, (.uint (.width 64))), (27, (.list .progressiveList (.container 400) none)), (28, (.list .progressiveList (.uint (.nominal 270 64)) none)), (387, (.list .vector (.bytes 509 32) (some 64))), (634, (.list .vector (.uint (.nominal 270 64)) (some 64))), (29, (.list .progressiveList (.uint (.nominal 20 8)) none)), (30, (.list .progressiveList (.uint (.nominal 20 8)) none)), (721, (.list .bitvector .boolean (some 4))), (227, (.container 744)), (226, (.container 744)), (331, (.container 744)), (31, (.list .progressiveList (.uint (.width 64)) none)), (647, (.container 370)), (671, (.container 370)), (73, (.bytes 759 32)), (318, (.uint (.nominal 750 64))), (404, (.uint (.nominal 82 64))), (574, (.list .list (.container 573) (some 16777216))), (724, (.uint (.width 64))), (608, (.uint (.nominal 270 64))), (155, (.uint (.nominal 270 64))), (152, (.uint (.nominal 140 64))), (137, (.uint (.nominal 270 64))), (133, (.uint (.nominal 140 64))), (439, (.list .progressiveList (.container 529) none)), (374, (.list .progressiveList (.container 684) none)), (520, (.list .progressiveList (.container 527) none)), (272, (.list .vector (.uint (.nominal 82 64)) (some 16))), (7, (.list .progressiveList (.container 14) none)), (306, (.uint (.nominal 199 64))), (70, (.list .bitvector .boolean (some 64))), (377, (.list .vector (.container 513) (some 16))), (68, (.list .progressiveList (.container 67) none)), (36, (.container 735)), (709, (.list .progressiveList (.container 302) none)), (385, (.list .vector (.list .vector (.uint (.nominal 82 64)) (some 16)) (some 24)))]),
-  (716, [(314, (.bytes 747 4)), (157, (.bytes 747 4)), (103, (.uint (.nominal 140 64)))]),
-  (735, [(565, (.bytes 759 32)), (566, (.bytes 146 32)), (74, (.bytes 759 32)), (567, (.bytes 509 32)), (65, (.bytes 382 20)), (732, (.uint (.width 64))), (66, (.uint (.nominal 199 64))), (6, (.uint (.nominal 196 64))), (64, (.uint (.nominal 270 64))), (733, (.uint (.nominal 270 64))), (563, (.list .progressiveList (.bytes 766 48) none)), (601, (.bytes 146 32))])]
+  (278, [(103, .any), (559, .any)]),
+  (297, [(23, (.uint (.nominal 748 64))), (81, (.uint (.nominal 82 64))), (296, (.bytes 378 20)), (5, (.uint (.nominal 265 64)))]),
+  (324, [(41, .any), (315, .any), (317, .any), (320, .any), (749, .any)]),
+  (350, [(348, (.list .progressiveList (.uint (.nominal 82 64)) none)), (91, (.container 750)), (79, (.bytes 747 96))]),
+  (750, [(6, (.uint (.nominal 196 64))), (23, (.uint (.nominal 170 64))), (236, (.bytes 146 32)), (188, (.container 741)), (219, (.container 741))]),
+  (741, [(103, (.uint (.nominal 140 64))), (227, (.bytes 146 32))]),
+  (357, [(348, (.list .list (.uint (.nominal 82 64)) (some 16))), (91, (.container 753)), (79, (.bytes 747 96))]),
+  (753, [(236, (.bytes 146 32)), (6, (.uint (.nominal 196 64))), (751, .boolean), (752, .boolean)]),
+  (366, [(201, (.list .vector (.bytes 656 48) (some 32))), (364, (.bytes 656 48))]),
+  (396, [(2, (.bytes 656 48)), (22, (.bytes 505 32)), (113, (.uint (.nominal 265 64))), (269, .boolean), (393, (.uint (.nominal 140 64))), (394, (.uint (.nominal 140 64))), (395, (.uint (.nominal 140 64))), (12, (.uint (.nominal 140 64)))]),
+  (444, [(2, (.bytes 656 48)), (22, (.bytes 505 32)), (5, (.uint (.nominal 265 64)))]),
+  (525, [(2, (.bytes 656 48)), (22, (.bytes 505 32)), (5, (.uint (.nominal 265 64))), (79, (.bytes 747 96)), (6, (.uint (.nominal 196 64)))]),
+  (497, [(6, (.uint (.nominal 196 64))), (493, (.uint (.nominal 82 64))), (494, (.bytes 146 32)), (495, (.bytes 146 32)), (496, (.bytes 146 32))]),
+  (509, [(122, (.uint (.nominal 265 64))), (85, (.container 67)), (493, (.uint (.nominal 82 64)))]),
+  (523, [(513, (.uint (.nominal 82 64))), (518, (.uint (.nominal 82 64)))]),
+  (759, [(756, (.bytes 146 32)), (757, (.uint (.width 64))), (74, (.bytes 758 32))]),
+  (570, [(567, (.bytes 146 32)), (568, (.bytes 146 32))]),
+  (597, [(53, (.list .progressiveList (.container 760) none)), (41, (.list .progressiveList (.container 761) none)), (44, (.list .progressiveList (.container 762) none)), (46, (.list .progressiveList (.container 763) none)), (48, (.list .progressiveList (.container 764) none))]),
+  (760, [(2, (.bytes 656 48)), (22, (.bytes 505 32)), (5, (.uint (.nominal 265 64))), (79, (.bytes 747 96)), (23, (.uint (.width 64)))]),
+  (761, [(458, (.bytes 378 20)), (678, (.bytes 656 48)), (5, (.uint (.nominal 265 64)))]),
+  (762, [(458, (.bytes 378 20)), (456, (.bytes 656 48)), (455, (.bytes 656 48))]),
+  (763, [(2, (.bytes 656 48)), (22, (.bytes 505 32)), (5, (.uint (.nominal 265 64))), (79, (.bytes 747 96))]),
+  (764, [(458, (.bytes 378 20)), (2, (.bytes 656 48))]),
+  (681, [(81, (.uint (.nominal 82 64))), (5, (.uint (.nominal 265 64))), (12, (.uint (.nominal 140 64)))]),
+  (733, [(711, (.uint (.width 64))), (144, (.bytes 146 32)), (6, (.uint (.nominal 196 64))), (308, (.container 713)), (38, (.container 497)), (282, (.list .vector (.bytes 146 32) (some 64))), (569, (.list .vector (.bytes 146 32) (some 64))), (714, (.list .list (.bytes 146 32) (some 16777216))), (549, (.container 759)), (550, (.list .list (.container 759) (some 32))), (715, (.uint (.width 64))), (27, (.list .progressiveList (.container 396) none)), (28, (.list .progressiveList (.uint (.nominal 265 64)) none)), (383, (.list .vector (.bytes 505 32) (some 64))), (631, (.list .vector (.uint (.nominal 265 64)) (some 64))), (29, (.list .progressiveList (.uint (.nominal 20 8)) none)), (30, (.list .progressiveList (.uint (.nominal 20 8)) none)), (718, (.list .bitvector .boolean (some 4))), (222, (.container 741)), (221, (.container 741)), (326, (.container 741)), (31, (.list .progressiveList (.uint (.width 64)) none)), (644, (.container 366)), (668, (.container 366)), (73, (.bytes 758 32)), (313, (.uint (.nominal 748 64))), (400, (.uint (.nominal 82 64))), (571, (.list .list (.container 570) (some 16777216))), (721, (.uint (.width 64))), (605, (.uint (.nominal 265 64))), (155, (.uint (.nominal 265 64))), (152, (.uint (.nominal 140 64))), (137, (.uint (.nominal 265 64))), (133, (.uint (.nominal 140 64))), (435, (.list .progressiveList (.container 525) none)), (370, (.list .progressiveList (.container 681) none)), (516, (.list .progressiveList (.container 523) none)), (267, (.list .vector (.uint (.nominal 82 64)) (some 16))), (7, (.list .progressiveList (.container 14) none)), (301, (.uint (.nominal 199 64))), (70, (.list .bitvector .boolean (some 64))), (373, (.list .vector (.container 509) (some 16))), (68, (.list .progressiveList (.container 67) none)), (36, (.container 732)), (706, (.list .progressiveList (.container 297) none)), (381, (.list .vector (.list .vector (.uint (.nominal 82 64)) (some 16)) (some 24)))]),
+  (713, [(309, (.bytes 745 4)), (157, (.bytes 745 4)), (103, (.uint (.nominal 140 64)))]),
+  (732, [(562, (.bytes 758 32)), (563, (.bytes 146 32)), (74, (.bytes 758 32)), (564, (.bytes 505 32)), (65, (.bytes 378 20)), (729, (.uint (.width 64))), (66, (.uint (.nominal 199 64))), (6, (.uint (.nominal 196 64))), (64, (.uint (.nominal 265 64))), (730, (.uint (.nominal 265 64))), (560, (.list .progressiveList (.bytes 765 48) none)), (598, (.bytes 146 32))]),
+  (783, [(202, (.container 782)), (79, (.bytes 747 96))]),
+  (782, [(6, (.uint (.nominal 196 64))), (493, (.uint (.nominal 82 64))), (494, (.bytes 146 32)), (495, (.bytes 146 32)), (484, (.container 781))]),
+  (781, [(624, (.bytes 747 96)), (549, (.container 759)), (766, (.bytes 505 32)), (582, (.list .progressiveList (.container 768) none)), (584, (.list .progressiveList (.container 769) none)), (586, (.list .progressiveList (.container 770) none)), (53, (.list .progressiveList (.container 773) none)), (588, (.list .progressiveList (.container 775) none)), (490, (.container 776)), (590, (.list .progressiveList (.container 778) none)), (485, (.container 779)), (592, (.list .progressiveList (.container 780) none)), (596, (.container 597))]),
+  (768, [(618, (.container 767)), (620, (.container 767))]),
+  (767, [(202, (.container 497)), (79, (.bytes 747 96))]),
+  (769, [(474, (.container 350)), (475, (.container 350))]),
+  (770, [(254, (.list .progressiveBitlist .boolean none)), (91, (.container 750)), (79, (.bytes 747 96)), (249, (.list .bitvector .boolean (some 4)))]),
+  (773, [(771, (.list .vector (.bytes 505 32) (some 33))), (91, (.container 772))]),
+  (772, [(2, (.bytes 656 48)), (22, (.bytes 505 32)), (5, (.uint (.nominal 265 64))), (79, (.bytes 747 96))]),
+  (775, [(202, (.container 774)), (79, (.bytes 747 96))]),
+  (774, [(103, (.uint (.nominal 140 64))), (81, (.uint (.nominal 82 64)))]),
+  (776, [(645, (.list .bitvector .boolean (some 32))), (658, (.bytes 747 96))]),
+  (778, [(202, (.container 777)), (79, (.bytes 747 96))]),
+  (777, [(81, (.uint (.nominal 82 64))), (502, (.bytes 656 48)), (504, (.bytes 378 20))]),
+  (779, [(202, (.container 732)), (79, (.bytes 747 96))]),
+  (780, [(254, (.list .bitvector .boolean (some 16))), (91, (.container 753)), (79, (.bytes 747 96))]),
+  (797, [(711, (.uint (.width 64))), (144, (.bytes 146 32)), (6, (.uint (.nominal 196 64))), (308, (.container 713)), (38, (.container 497)), (282, (.list .vector (.bytes 146 32) (some 64))), (569, (.list .vector (.bytes 146 32) (some 64))), (714, (.list .list (.bytes 146 32) (some 16777216))), (549, (.container 759)), (550, (.list .list (.container 759) (some 32))), (715, (.uint (.width 64))), (27, (.list .list (.container 396) (some 1099511627776))), (28, (.list .list (.uint (.nominal 265 64)) (some 1099511627776))), (383, (.list .vector (.bytes 505 32) (some 64))), (631, (.list .vector (.uint (.nominal 265 64)) (some 64))), (29, (.list .list (.uint (.nominal 20 8)) (some 1099511627776))), (30, (.list .list (.uint (.nominal 20 8)) (some 1099511627776))), (718, (.list .bitvector .boolean (some 4))), (222, (.container 741)), (221, (.container 741)), (326, (.container 741)), (31, (.list .list (.uint (.width 64)) (some 1099511627776))), (644, (.container 366)), (668, (.container 366)), (720, (.container 796)), (313, (.uint (.nominal 748 64))), (400, (.uint (.nominal 82 64))), (571, (.list .list (.container 570) (some 16777216))), (721, (.uint (.width 64))), (605, (.uint (.nominal 265 64))), (155, (.uint (.nominal 265 64))), (152, (.uint (.nominal 140 64))), (137, (.uint (.nominal 265 64))), (133, (.uint (.nominal 140 64))), (435, (.list .list (.container 525) (some 134217728))), (370, (.list .list (.container 681) (some 64))), (516, (.list .list (.container 523) (some 64))), (267, (.list .vector (.uint (.nominal 82 64)) (some 16)))]),
+  (796, [(728, (.bytes 758 32)), (65, (.bytes 378 20)), (495, (.bytes 505 32)), (784, (.bytes 505 32)), (785, (.bytes 786 256)), (564, (.bytes 505 32)), (787, (.uint (.width 64))), (729, (.uint (.width 64))), (788, (.uint (.width 64))), (789, (.uint (.width 64))), (790, (.list .list (.uint (.width 8)) (some 32))), (791, (.uint (.width 256))), (74, (.bytes 758 32)), (792, (.bytes 146 32)), (793, (.bytes 146 32)), (794, (.uint (.width 64))), (795, (.uint (.width 64)))])]
+
+/-- The layout of each progressive container: one bit per position (EIP-7495). -/
+def activeFields : List (Name × List Nat) := [
+  (350, [1, 1, 1]),
+  (357, [1, 1, 1]),
+  (597, [1, 1, 1, 1, 1]),
+  (732, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+  (733, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+  (770, [1, 1, 1, 1]),
+  (780, [1, 1, 1]),
+  (781, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])]
+
+/-- FP: the pattern of each object that a function of this build changes in place (SPEC 9.2).
+A pattern is a root type and a list of steps. A step is a field name or `*`, any element. -/
+def footprint : List (Name × List Name) := [
+  (782, [484, 586]),
+  (782, [484, 584]),
+  (782, [484, 590]),
+  (782, [484, 53]),
+  (782, [484, 596, 46]),
+  (782, [484, 596, 48]),
+  (782, [484, 596, 44]),
+  (782, [484, 596, 53]),
+  (782, [484, 596, 41]),
+  (782, [484, 592]),
+  (782, [484, 582]),
+  (782, [484, 588]),
+  (781, [586]),
+  (781, [584]),
+  (781, [590]),
+  (781, [53]),
+  (781, [592]),
+  (781, [582]),
+  (781, [588]),
+  (733, []),
+  (733, [28]),
+  (733, [282]),
+  (733, [373]),
+  (733, [373, 798]),
+  (733, [68]),
+  (733, [7]),
+  (733, [7, 798]),
+  (733, [30]),
+  (733, [550]),
+  (733, [70]),
+  (733, [571]),
+  (733, [31]),
+  (733, [718]),
+  (733, [38]),
+  (733, [516]),
+  (733, [435]),
+  (733, [370]),
+  (733, [29]),
+  (733, [267]),
+  (733, [381]),
+  (733, [383]),
+  (733, [631]),
+  (733, [569]),
+  (733, [27]),
+  (733, [27, 798]),
+  (597, [46]),
+  (597, [48]),
+  (597, [44]),
+  (597, [53]),
+  (597, [41]),
+  (460, []),
+  (783, [202, 484, 586]),
+  (783, [202, 484, 584]),
+  (783, [202, 484, 590]),
+  (783, [202, 484, 53]),
+  (783, [202, 484, 596, 46]),
+  (783, [202, 484, 596, 48]),
+  (783, [202, 484, 596, 44]),
+  (783, [202, 484, 596, 53]),
+  (783, [202, 484, 596, 41]),
+  (783, [202, 484, 592]),
+  (783, [202, 484, 582]),
+  (783, [202, 484, 588]),
+  (396, [])]
+
+/-- `Footprint f` of each function that writes in place: a parameter index and the steps from
+it. A step is a field name or `*`. -/
+def fnFootprint : List (Name × List (Nat × List Name)) := [
+  (16, [(0, [7])]),
+  (33, [(0, [28]), (0, [30]), (0, [31]), (0, [29]), (0, [27])]),
+  (75, [(0, []), (0, [28]), (0, [373]), (0, [68]), (0, [7]), (0, [7,798]), (0, [70]), (0, [516]), (0, [435]), (0, [370]), (0, [27,798]), (1, [46]), (1, [48]), (1, [44]), (1, [53]), (1, [41])]),
+  (84, [(0, [28]), (0, [30]), (0, [31]), (0, [29]), (0, [27])]),
+  (90, [(0, [28]), (0, [7,798])]),
+  (141, [(0, [])]),
+  (156, [(0, [])]),
+  (89, [(0, [28])]),
+  (83, [(0, [28])]),
+  (413, [(0, [7,798])]),
+  (416, [(0, []), (0, [27,798])]),
+  (464, [(0, []), (0, [7]), (0, [7,798])]),
+  (472, [(0, [28]), (0, [373]), (0, [373,798]), (0, [30]), (0, [29])]),
+  (479, [(0, []), (0, [28]), (0, [631]), (0, [27,798])]),
+  (492, [(0, []), (0, [28]), (0, [373]), (0, [373,798]), (0, [68]), (0, [7]), (0, [7,798]), (0, [30]), (0, [550]), (0, [70]), (0, [516]), (0, [435]), (0, [370]), (0, [29]), (0, [383]), (0, [631]), (0, [27,798]), (1, [484,586]), (1, [484,584]), (1, [484,590]), (1, [484,53]), (1, [484,596,46]), (1, [484,596,48]), (1, [484,596,44]), (1, [484,596,53]), (1, [484,596,41]), (1, [484,592]), (1, [484,582]), (1, [484,588])]),
+  (482, [(0, [])]),
+  (506, [(0, [27,798])]),
+  (57, [(0, [7]), (0, [7,798])]),
+  (58, [(0, [7,798])]),
+  (511, [(0, [373]), (0, [68])]),
+  (56, [(0, []), (0, [28]), (0, [516]), (0, [435]), (0, [27,798])]),
+  (54, [(0, [435])]),
+  (532, [(0, [27,798])]),
+  (548, [(0, []), (0, [28]), (0, [373]), (0, [68]), (0, [30]), (0, [571]), (0, [31]), (0, [718]), (0, [29]), (0, [267]), (0, [381]), (0, [383]), (0, [631]), (0, [27]), (0, [27,798])]),
+  (488, [(0, []), (0, [550])]),
+  (538, [(0, [])]),
+  (486, [(0, []), (0, [373])]),
+  (543, [(0, [571])]),
+  (534, [(0, [31])]),
+  (533, [(0, []), (0, [718])]),
+  (489, [(0, []), (0, [28]), (0, [373]), (0, [373,798]), (0, [30]), (0, [29]), (0, [631]), (0, [27,798]), (1, [586]), (1, [584]), (1, [590]), (1, [53]), (1, [592]), (1, [582]), (1, [588])]),
+  (481, [(0, []), (0, [28]), (0, [373]), (0, [68]), (0, [7]), (0, [7,798]), (0, [70]), (0, [516]), (0, [435]), (0, [370]), (0, [27,798]), (1, [484,596,46]), (1, [484,596,48]), (1, [484,596,44]), (1, [484,596,53]), (1, [484,596,41])]),
+  (544, [(0, [])]),
+  (540, [(0, []), (0, [28])]),
+  (539, [(0, []), (0, [28]), (0, [30]), (0, [31]), (0, [29]), (0, [27])]),
+  (546, [(0, [267])]),
+  (593, [(0, []), (0, [28]), (0, [373]), (0, [631]), (0, [27,798])]),
+  (547, [(0, [381])]),
+  (487, [(0, [383])]),
+  (542, [(0, [383])]),
+  (536, [(0, []), (0, [27,798])]),
+  (535, [(0, [28])]),
+  (537, [(0, [28])]),
+  (541, [(0, [631])]),
+  (641, [(0, [282]), (0, [70]), (0, [38]), (0, [569])]),
+  (642, [(0, []), (0, [28]), (0, [282]), (0, [373]), (0, [68]), (0, [30]), (0, [70]), (0, [571]), (0, [31]), (0, [718]), (0, [38]), (0, [29]), (0, [267]), (0, [381]), (0, [383]), (0, [631]), (0, [569]), (0, [27]), (0, [27,798])]),
+  (491, [(0, [28])]),
+  (545, [(0, [])]),
+  (594, [(0, []), (0, [27,798])]),
+  (55, [(0, []), (0, [370]), (0, [27,798])]),
+  (483, [(0, []), (0, [28]), (0, [7,798])]),
+  (690, [(0, [28]), (0, [435])]),
+  (15, [(0, [])]),
+  (62, [(0, [373]), (0, [68])]),
+  (478, [(0, []), (0, [28]), (0, [631]), (0, [27,798])]),
+  (701, [(0, []), (0, [28]), (0, [282]), (0, [373]), (0, [373,798]), (0, [68]), (0, [7]), (0, [7,798]), (0, [30]), (0, [550]), (0, [70]), (0, [571]), (0, [31]), (0, [718]), (0, [38]), (0, [516]), (0, [435]), (0, [370]), (0, [29]), (0, [267]), (0, [381]), (0, [383]), (0, [631]), (0, [569]), (0, [27]), (0, [27,798]), (1, [202,484,586]), (1, [202,484,584]), (1, [202,484,590]), (1, [202,484,53]), (1, [202,484,596,46]), (1, [202,484,596,48]), (1, [202,484,596,44]), (1, [202,484,596,53]), (1, [202,484,596,41]), (1, [202,484,592]), (1, [202,484,582]), (1, [202,484,588])]),
+  (514, [(0, [28]), (0, [435]), (0, [27,798])]),
+  (685, [(0, [])]),
+  (687, [(0, [])]),
+  (683, [(0, [])]),
+  (688, [(0, [])]),
+  (684, [(0, [])]),
+  (686, [(0, [])]),
+  (579, [(0, []), (0, [718])])]
 
 def globals : List (Name × Global) := [
   (16, (.fn fn_add_builder_to_registry)),
@@ -6729,144 +6928,143 @@ def globals : List (Name × Global) := [
   (198, (.fn fn_convert_builder_index_to_validator_index)),
   (87, (.fn fn_convert_validator_index_to_builder_index)),
   (89, (.fn fn_decrease_balance)),
-  (207, (.fn fn_eth_aggregate_pubkeys)),
-  (211, (.fn fn_eth_fast_aggregate_verify)),
-  (219, (.fn fn_get_activation_churn_limit)),
-  (222, (.fn fn_get_active_validator_indices)),
-  (249, (.fn fn_get_attestation_participation_flag_indices)),
-  (262, (.fn fn_get_attesting_indices)),
-  (265, (.fn fn_get_balance_after_withdrawals)),
-  (268, (.fn fn_get_base_reward)),
-  (267, (.fn fn_get_base_reward_per_increment)),
+  (206, (.fn fn_eth_fast_aggregate_verify)),
+  (214, (.fn fn_get_activation_churn_limit)),
+  (217, (.fn fn_get_active_validator_indices)),
+  (244, (.fn fn_get_attestation_participation_flag_indices)),
+  (257, (.fn fn_get_attesting_indices)),
+  (260, (.fn fn_get_balance_after_withdrawals)),
+  (263, (.fn fn_get_base_reward)),
+  (262, (.fn fn_get_base_reward_per_increment)),
   (171, (.fn fn_get_beacon_committee)),
-  (273, (.fn fn_get_beacon_proposer_index)),
-  (276, (.fn fn_get_beacon_proposer_indices)),
-  (286, (.fn fn_get_blob_parameters)),
-  (230, (.fn fn_get_block_root)),
-  (239, (.fn fn_get_block_root_at_slot)),
-  (292, (.fn fn_get_builder_payment_quorum_threshold)),
-  (303, (.fn fn_get_builder_withdrawals)),
-  (309, (.fn fn_get_builders_sweep_withdrawals)),
+  (268, (.fn fn_get_beacon_proposer_index)),
+  (271, (.fn fn_get_beacon_proposer_indices)),
+  (281, (.fn fn_get_blob_parameters)),
+  (225, (.fn fn_get_block_root)),
+  (234, (.fn fn_get_block_root_at_slot)),
+  (287, (.fn fn_get_builder_payment_quorum_threshold)),
+  (298, (.fn fn_get_builder_withdrawals)),
+  (304, (.fn fn_get_builders_sweep_withdrawals)),
   (168, (.fn fn_get_committee_count_per_slot)),
-  (255, (.fn fn_get_committee_indices)),
+  (250, (.fn fn_get_committee_indices)),
   (136, (.fn fn_get_consolidation_churn_limit)),
   (59, (.fn fn_get_current_epoch)),
-  (315, (.fn fn_get_domain)),
-  (317, (.fn fn_get_eligible_validator_indices)),
+  (310, (.fn fn_get_domain)),
+  (312, (.fn fn_get_eligible_validator_indices)),
   (154, (.fn fn_get_exit_churn_limit)),
-  (330, (.fn fn_get_expected_withdrawals)),
-  (332, (.fn fn_get_finality_delay)),
-  (346, (.fn fn_get_flag_index_deltas)),
-  (352, (.fn fn_get_inactivity_penalty_deltas)),
+  (325, (.fn fn_get_expected_withdrawals)),
+  (327, (.fn fn_get_finality_delay)),
+  (341, (.fn fn_get_flag_index_deltas)),
+  (347, (.fn fn_get_inactivity_penalty_deltas)),
   (8, (.fn fn_get_index_for_new_builder)),
   (24, (.fn fn_get_index_for_new_validator)),
-  (356, (.fn fn_get_indexed_attestation)),
-  (363, (.fn fn_get_indexed_payload_attestation)),
-  (366, (.fn fn_get_max_effective_balance)),
-  (371, (.fn fn_get_next_sync_committee)),
-  (367, (.fn fn_get_next_sync_committee_indices)),
-  (375, (.fn fn_get_pending_balance_to_withdraw)),
+  (351, (.fn fn_get_indexed_attestation)),
+  (358, (.fn fn_get_indexed_payload_attestation)),
+  (361, (.fn fn_get_max_effective_balance)),
+  (367, (.fn fn_get_next_sync_committee)),
+  (362, (.fn fn_get_next_sync_committee_indices)),
+  (371, (.fn fn_get_pending_balance_to_withdraw)),
   (99, (.fn fn_get_pending_balance_to_withdraw_for_builder)),
-  (323, (.fn fn_get_pending_partial_withdrawals)),
+  (318, (.fn fn_get_pending_partial_withdrawals)),
   (63, (.fn fn_get_previous_epoch)),
-  (359, (.fn fn_get_ptc)),
-  (389, (.fn fn_get_randao_mix)),
+  (354, (.fn fn_get_ptc)),
+  (385, (.fn fn_get_randao_mix)),
   (166, (.fn fn_get_seed)),
-  (391, (.fn fn_get_set_bit_count)),
-  (214, (.fn fn_get_total_active_balance)),
-  (339, (.fn fn_get_total_balance)),
-  (336, (.fn fn_get_unslashed_participating_indices)),
+  (387, (.fn fn_get_set_bit_count)),
+  (209, (.fn fn_get_total_active_balance)),
+  (334, (.fn fn_get_total_balance)),
+  (331, (.fn fn_get_unslashed_participating_indices)),
   (26, (.fn fn_get_validator_from_deposit)),
-  (328, (.fn fn_get_validators_sweep_withdrawals)),
-  (364, (.fn fn_has_compounding_withdrawal_credential)),
-  (409, (.fn fn_has_eth1_withdrawal_credential)),
-  (410, (.fn fn_has_execution_withdrawal_credential)),
-  (395, (.fn fn_has_flag)),
+  (323, (.fn fn_get_validators_sweep_withdrawals)),
+  (359, (.fn fn_has_compounding_withdrawal_credential)),
+  (405, (.fn fn_has_eth1_withdrawal_credential)),
+  (406, (.fn fn_has_execution_withdrawal_credential)),
+  (391, (.fn fn_has_flag)),
   (83, (.fn fn_increase_balance)),
-  (415, (.fn fn_initialize_ptc_window)),
-  (417, (.fn fn_initiate_builder_exit)),
-  (420, (.fn fn_initiate_validator_exit)),
-  (244, (.fn fn_integer_squareroot)),
-  (426, (.fn fn_is_active_builder)),
-  (220, (.fn fn_is_active_validator)),
-  (234, (.fn fn_is_attestation_same_slot)),
+  (411, (.fn fn_initialize_ptc_window)),
+  (413, (.fn fn_initiate_builder_exit)),
+  (416, (.fn fn_initiate_validator_exit)),
+  (239, (.fn fn_integer_squareroot)),
+  (422, (.fn fn_is_active_builder)),
+  (215, (.fn fn_is_active_validator)),
+  (229, (.fn fn_is_attestation_same_slot)),
   (86, (.fn fn_is_builder_index)),
-  (431, (.fn fn_is_builder_withdrawal_credential)),
-  (407, (.fn fn_is_compounding_withdrawal_credential)),
-  (433, (.fn fn_is_eligible_for_activation)),
-  (434, (.fn fn_is_eligible_for_activation_queue)),
-  (380, (.fn fn_is_eligible_for_partial_withdrawals)),
-  (405, (.fn fn_is_fully_withdrawable_validator)),
-  (343, (.fn fn_is_in_inactivity_leak)),
-  (406, (.fn fn_is_partially_withdrawable_validator)),
-  (441, (.fn fn_is_pending_validator)),
-  (444, (.fn fn_is_slashable_attestation_data)),
-  (445, (.fn fn_is_slashable_validator)),
-  (452, (.fn fn_is_valid_builder_deposit_signature)),
+  (427, (.fn fn_is_builder_withdrawal_credential)),
+  (403, (.fn fn_is_compounding_withdrawal_credential)),
+  (429, (.fn fn_is_eligible_for_activation)),
+  (430, (.fn fn_is_eligible_for_activation_queue)),
+  (376, (.fn fn_is_eligible_for_partial_withdrawals)),
+  (401, (.fn fn_is_fully_withdrawable_validator)),
+  (338, (.fn fn_is_in_inactivity_leak)),
+  (402, (.fn fn_is_partially_withdrawable_validator)),
+  (437, (.fn fn_is_pending_validator)),
+  (440, (.fn fn_is_slashable_attestation_data)),
+  (441, (.fn fn_is_slashable_validator)),
+  (448, (.fn fn_is_valid_builder_deposit_signature)),
   (80, (.fn fn_is_valid_deposit_signature)),
-  (456, (.fn fn_is_valid_indexed_attestation)),
-  (457, (.fn fn_is_valid_indexed_payload_attestation)),
-  (463, (.fn fn_is_valid_switch_to_compounding_request)),
-  (468, (.fn fn_onboard_builders_from_pending_deposits)),
-  (476, (.fn fn_process_attestation)),
-  (483, (.fn fn_process_attester_slashing)),
-  (496, (.fn fn_process_block)),
-  (486, (.fn fn_process_block_header)),
-  (510, (.fn fn_process_bls_to_execution_change)),
+  (452, (.fn fn_is_valid_indexed_attestation)),
+  (453, (.fn fn_is_valid_indexed_payload_attestation)),
+  (459, (.fn fn_is_valid_switch_to_compounding_request)),
+  (464, (.fn fn_onboard_builders_from_pending_deposits)),
+  (472, (.fn fn_process_attestation)),
+  (479, (.fn fn_process_attester_slashing)),
+  (492, (.fn fn_process_block)),
+  (482, (.fn fn_process_block_header)),
+  (506, (.fn fn_process_bls_to_execution_change)),
   (57, (.fn fn_process_builder_deposit_request)),
   (58, (.fn fn_process_builder_exit_request)),
-  (515, (.fn fn_process_builder_pending_payments)),
+  (511, (.fn fn_process_builder_pending_payments)),
   (56, (.fn fn_process_consolidation_request)),
   (54, (.fn fn_process_deposit_request)),
-  (536, (.fn fn_process_effective_balance_updates)),
-  (552, (.fn fn_process_epoch)),
-  (492, (.fn fn_process_eth1_data)),
-  (542, (.fn fn_process_eth1_data_reset)),
-  (490, (.fn fn_process_execution_payload_bid)),
-  (547, (.fn fn_process_historical_summaries_update)),
-  (538, (.fn fn_process_inactivity_updates)),
-  (537, (.fn fn_process_justification_and_finalization)),
-  (493, (.fn fn_process_operations)),
-  (485, (.fn fn_process_parent_execution_payload)),
-  (548, (.fn fn_process_participation_flag_updates)),
-  (598, (.fn fn_process_payload_attestation)),
-  (544, (.fn fn_process_pending_consolidations)),
-  (543, (.fn fn_process_pending_deposits)),
-  (550, (.fn fn_process_proposer_lookahead)),
-  (596, (.fn fn_process_proposer_slashing)),
-  (551, (.fn fn_process_ptc_window)),
-  (491, (.fn fn_process_randao)),
-  (546, (.fn fn_process_randao_mixes_reset)),
-  (540, (.fn fn_process_registry_updates)),
-  (539, (.fn fn_process_rewards_and_penalties)),
-  (541, (.fn fn_process_slashings)),
-  (545, (.fn fn_process_slashings_reset)),
-  (644, (.fn fn_process_slot)),
-  (645, (.fn fn_process_slots)),
-  (495, (.fn fn_process_sync_aggregate)),
-  (549, (.fn fn_process_sync_committee_updates)),
-  (597, (.fn fn_process_voluntary_exit)),
+  (532, (.fn fn_process_effective_balance_updates)),
+  (548, (.fn fn_process_epoch)),
+  (488, (.fn fn_process_eth1_data)),
+  (538, (.fn fn_process_eth1_data_reset)),
+  (486, (.fn fn_process_execution_payload_bid)),
+  (543, (.fn fn_process_historical_summaries_update)),
+  (534, (.fn fn_process_inactivity_updates)),
+  (533, (.fn fn_process_justification_and_finalization)),
+  (489, (.fn fn_process_operations)),
+  (481, (.fn fn_process_parent_execution_payload)),
+  (544, (.fn fn_process_participation_flag_updates)),
+  (595, (.fn fn_process_payload_attestation)),
+  (540, (.fn fn_process_pending_consolidations)),
+  (539, (.fn fn_process_pending_deposits)),
+  (546, (.fn fn_process_proposer_lookahead)),
+  (593, (.fn fn_process_proposer_slashing)),
+  (547, (.fn fn_process_ptc_window)),
+  (487, (.fn fn_process_randao)),
+  (542, (.fn fn_process_randao_mixes_reset)),
+  (536, (.fn fn_process_registry_updates)),
+  (535, (.fn fn_process_rewards_and_penalties)),
+  (537, (.fn fn_process_slashings)),
+  (541, (.fn fn_process_slashings_reset)),
+  (641, (.fn fn_process_slot)),
+  (642, (.fn fn_process_slots)),
+  (491, (.fn fn_process_sync_aggregate)),
+  (545, (.fn fn_process_sync_committee_updates)),
+  (594, (.fn fn_process_voluntary_exit)),
   (55, (.fn fn_process_withdrawal_request)),
-  (487, (.fn fn_process_withdrawals)),
-  (693, (.fn fn_queue_excess_active_balance)),
+  (483, (.fn fn_process_withdrawals)),
+  (690, (.fn fn_queue_excess_active_balance)),
   (88, (.fn fn_saturating_sub)),
   (15, (.fn fn_set_or_append_list)),
   (62, (.fn fn_settle_builder_payment)),
-  (482, (.fn fn_slash_validator)),
-  (704, (.fn fn_state_transition)),
-  (518, (.fn fn_switch_to_compounding_validator)),
+  (478, (.fn fn_slash_validator)),
+  (701, (.fn fn_state_transition)),
+  (514, (.fn fn_switch_to_compounding_validator)),
   (118, (.fn fn_uint_to_bytes)),
-  (688, (.fn fn_update_builder_pending_withdrawals)),
-  (690, (.fn fn_update_next_withdrawal_builder_index)),
-  (686, (.fn fn_update_next_withdrawal_index)),
-  (691, (.fn fn_update_next_withdrawal_validator_index)),
-  (687, (.fn fn_update_payload_expected_withdrawals)),
-  (689, (.fn fn_update_pending_partial_withdrawals)),
-  (737, (.fn fn_upgrade_to_gloas)),
-  (703, (.fn fn_verify_block_signature)),
-  (561, (.fn fn_verify_execution_payload_bid_signature)),
-  (582, (.fn fn_weigh_justification_and_finalization)),
-  (628, (.fn fn_xor)),
+  (685, (.fn fn_update_builder_pending_withdrawals)),
+  (687, (.fn fn_update_next_withdrawal_builder_index)),
+  (683, (.fn fn_update_next_withdrawal_index)),
+  (688, (.fn fn_update_next_withdrawal_validator_index)),
+  (684, (.fn fn_update_payload_expected_withdrawals)),
+  (686, (.fn fn_update_pending_partial_withdrawals)),
+  (734, (.fn fn_upgrade_to_gloas)),
+  (700, (.fn fn_verify_block_signature)),
+  (558, (.fn fn_verify_execution_payload_bid_signature)),
+  (579, (.fn fn_weigh_justification_and_finalization)),
+  (625, (.fn fn_xor)),
   (14, (.type (.container 14))),
   (13, (.const (.uint (.nominal 140 64) 18446744073709551615))),
   (20, (.type (.uint (.nominal 20 8)))),
@@ -6883,10 +7081,10 @@ def globals : List (Name × Global) := [
   (82, (.type (.uint (.nominal 82 64)))),
   (92, (.const (.str "little"))),
   (93, (.builtin .int)),
-  (101, (.const (.uint (.nominal 270 64) 1000000000))),
+  (101, (.const (.uint (.nominal 265 64) 1000000000))),
   (104, (.const (.uint (.nominal 140 64) 4))),
-  (125, (.const (.uint (.nominal 270 64) 2048000000000))),
-  (299, (.builtin .list)),
+  (125, (.const (.uint (.nominal 265 64) 2048000000000))),
+  (294, (.builtin .list)),
   (119, (.builtin .sha256)),
   (130, (.builtin .range)),
   (140, (.type (.uint (.nominal 140 64)))),
@@ -6898,188 +7096,190 @@ def globals : List (Name × Global) := [
   (159, (.builtin .hashTreeRoot)),
   (163, (.type (.list .vector (.uint (.nominal 82 64)) (some 8)))),
   (170, (.type (.uint (.nominal 170 64)))),
-  (165, (.const (.bytes 748 [12, 0, 0, 0]))),
+  (165, (.const (.bytes 746 [12, 0, 0, 0]))),
   (173, (.const (.uint (.width 64) 16))),
   (174, (.type (.list .vector (.uint (.nominal 82 64)) (some 16)))),
-  (509, (.type (.bytes 509 32))),
+  (505, (.type (.bytes 505 32))),
   (179, (.const (.uint (.width 64) 10))),
   (187, (.type (.uint (.width 32)))),
   (181, (.type (.uint (.width 8)))),
-  (768, (.builtin .dict)),
+  (801, (.builtin .dict)),
   (194, (.type (.container 194))),
   (196, (.type (.uint (.nominal 196 64)))),
   (197, (.const (.uint (.width 64) 1099511627776))),
   (199, (.type (.uint (.nominal 199 64)))),
-  (204, (.builtin .all)),
-  (202, (.module .bls)),
-  (209, (.const (.bytes 749 [192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))),
-  (215, (.configVar)),
-  (216, (.const (.uint (.nominal 270 64) 1000000000))),
-  (217, (.configVar)),
-  (213, (.configVar)),
-  (218, (.builtin .min)),
-  (221, (.builtin .enumerate)),
-  (247, (.const (.uint (.nominal 196 64) 1))),
-  (248, (.const (.uint (.width 64) 2))),
-  (245, (.const (.uint (.width 64) 0))),
-  (246, (.const (.uint (.width 64) 1))),
-  (252, (.builtin .set)),
-  (264, (.builtin .sum)),
-  (269, (.const (.uint (.width 64) 64))),
-  (270, (.type (.uint (.nominal 270 64)))),
-  (271, (.const (.bytes 748 [1, 0, 0, 0]))),
-  (275, (.const (.bytes 748 [0, 0, 0, 0]))),
-  (278, (.configVar)),
-  (283, (.dataclass 283)),
-  (284, (.configVar)),
-  (285, (.configVar)),
-  (282, (.builtin .sorted)),
-  (291, (.const (.uint (.width 64) 10))),
-  (290, (.const (.uint (.width 64) 6))),
-  (296, (.const (.uint (.width 64) 4))),
-  (302, (.type (.container 302))),
-  (305, (.const (.uint (.width 64) 16))),
-  (310, (.const (.uint (.width 64) 4))),
-  (311, (.const (.uint (.width 64) 4))),
-  (312, (.configVar)),
-  (329, (.dataclass 329)),
-  (337, (.const (.tuple [(.uint (.width 64) 14), (.uint (.width 64) 26), (.uint (.width 64) 14)]))),
-  (345, (.const (.uint (.width 64) 64))),
-  (351, (.const (.uint (.width 64) 16777216))),
-  (350, (.configVar)),
-  (354, (.type (.list .progressiveList (.uint (.nominal 82 64)) none))),
-  (355, (.type (.container 355))),
-  (362, (.type (.container 362))),
-  (361, (.type (.list .list (.uint (.nominal 82 64)) (some 16)))),
-  (365, (.const (.uint (.nominal 270 64) 32000000000))),
-  (370, (.type (.container 370))),
-  (368, (.type (.list .vector (.bytes 659 48) (some 32)))),
-  (372, (.const (.bytes 748 [7, 0, 0, 0]))),
-  (373, (.const (.uint (.width 64) 32))),
-  (382, (.type (.bytes 382 20))),
-  (378, (.const (.uint (.width 64) 2))),
-  (383, (.configVar)),
-  (386, (.const (.uint (.nominal 140 64) 1))),
-  (388, (.const (.uint (.nominal 140 64) 64))),
-  (396, (.builtin .filter)),
-  (400, (.type (.container 400))),
-  (403, (.const (.uint (.width 64) 16))),
-  (408, (.const (.bytes 756 [1]))),
-  (414, (.type (.list .vector (.list .vector (.uint (.nominal 82 64)) (some 16)) (some 24)))),
-  (416, (.configVar)),
-  (419, (.configVar)),
-  (422, (.const (.uint (.width 64) 18446744073709551615))),
-  (423, (.const (.uint (.width 64) 4294967295))),
-  (430, (.const (.bytes 756 [176]))),
-  (432, (.const (.bytes 756 [2]))),
-  (437, (.const (.uint (.nominal 140 64) 4))),
-  (449, (.const (.bytes 748 [14, 0, 0, 0]))),
-  (448, (.type (.container 448))),
-  (453, (.const (.bytes 748 [3, 0, 0, 0]))),
-  (455, (.const (.uint (.width 64) 2048))),
-  (467, (.const (.uint (.width 8) 0))),
-  (464, (.type (.list .progressiveList (.container 529) none))),
-  (474, (.const (.uint (.width 64) 8))),
-  (501, (.type (.container 501))),
-  (505, (.const (.bytes 756 [0]))),
-  (507, (.const (.bytes 748 [10, 0, 0, 0]))),
-  (513, (.type (.container 513))),
-  (519, (.const (.uint (.width 64) 64))),
-  (527, (.type (.container 527))),
-  (526, (.configVar)),
-  (529, (.type (.container 529))),
-  (533, (.const (.uint (.width 64) 1))),
-  (531, (.const (.uint (.width 64) 4))),
-  (535, (.const (.uint (.width 64) 5))),
-  (555, (.const (.uint (.nominal 140 64) 4))),
-  (557, (.type (.list .list (.container 760) (some 32)))),
-  (560, (.const (.uint (.nominal 199 64) 18446744073709551615))),
-  (564, (.const (.uint (.nominal 196 64) 0))),
-  (573, (.type (.container 573))),
-  (575, (.const (.uint (.nominal 140 64) 0))),
-  (576, (.configVar)),
-  (588, (.const (.uint (.width 64) 8))),
-  (586, (.const (.uint (.width 64) 1))),
-  (592, (.const (.uint (.width 64) 16))),
-  (594, (.const (.uint (.width 64) 4))),
-  (584, (.const (.uint (.width 64) 16))),
-  (590, (.const (.uint (.width 64) 16))),
-  (600, (.type (.container 600))),
-  (602, (.type (.list .progressiveList (.uint (.nominal 20 8)) none))),
-  (614, (.const (.uint (.width 64) 16))),
-  (626, (.const (.bytes 748 [2, 0, 0, 0]))),
-  (629, (.configVar)),
-  (638, (.const (.uint (.nominal 140 64) 64))),
-  (635, (.const (.uint (.width 64) 3))),
-  (659, (.type (.bytes 659 48))),
-  (665, (.const (.uint (.width 64) 2))),
-  (652, (.builtin .zip)),
-  (670, (.const (.uint (.nominal 140 64) 8))),
-  (675, (.configVar)),
-  (674, (.const (.bytes 748 [4, 0, 0, 0]))),
-  (678, (.const (.uint (.nominal 270 64) 0))),
-  (679, (.const (.uint (.width 64) 64))),
-  (684, (.type (.container 684))),
-  (698, (.const (.uint (.width 64) 4096))),
-  (700, (.const (.uint (.width 64) 4096))),
-  (705, (.builtin .sszSerialize)),
-  (710, (.type (.list .progressiveList (.container 302) none))),
-  (720, (.type (.list .progressiveList (.uint (.nominal 270 64)) none))),
-  (736, (.type (.container 736))),
-  (734, (.type (.list .progressiveList (.bytes 766 48) none))),
-  (729, (.type (.list .vector (.container 513) (some 16)))),
-  (730, (.type (.list .progressiveList (.container 67) none))),
-  (727, (.type (.list .progressiveList (.container 14) none))),
-  (728, (.type (.list .bitvector .boolean (some 64)))),
-  (735, (.type (.container 735))),
-  (716, (.type (.container 716))),
-  (715, (.configVar)),
-  (722, (.type (.list .progressiveList (.uint (.width 64)) none))),
-  (726, (.type (.list .progressiveList (.container 527) none))),
-  (725, (.type (.list .progressiveList (.container 684) none))),
-  (719, (.type (.list .progressiveList (.container 400) none))),
-  (712, (.module .fork)),
-  (738, (.const (.bytes 748 [11, 0, 0, 0]))),
-  (744, (.type (.container 744))),
-  (743, (.const (.uint (.width 64) 4)))]
+  (203, (.const (.bytes 747 [192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))),
+  (204, (.module .bls)),
+  (210, (.configVar)),
+  (211, (.const (.uint (.nominal 265 64) 1000000000))),
+  (212, (.configVar)),
+  (208, (.configVar)),
+  (213, (.builtin .min)),
+  (216, (.builtin .enumerate)),
+  (242, (.const (.uint (.nominal 196 64) 1))),
+  (243, (.const (.uint (.width 64) 2))),
+  (240, (.const (.uint (.width 64) 0))),
+  (241, (.const (.uint (.width 64) 1))),
+  (247, (.builtin .set)),
+  (259, (.builtin .sum)),
+  (264, (.const (.uint (.width 64) 64))),
+  (265, (.type (.uint (.nominal 265 64)))),
+  (266, (.const (.bytes 746 [1, 0, 0, 0]))),
+  (270, (.const (.bytes 746 [0, 0, 0, 0]))),
+  (273, (.configVar)),
+  (278, (.dataclass 278)),
+  (279, (.configVar)),
+  (280, (.configVar)),
+  (277, (.builtin .sorted)),
+  (286, (.const (.uint (.width 64) 10))),
+  (285, (.const (.uint (.width 64) 6))),
+  (291, (.const (.uint (.width 64) 4))),
+  (297, (.type (.container 297))),
+  (300, (.const (.uint (.width 64) 16))),
+  (305, (.const (.uint (.width 64) 4))),
+  (306, (.const (.uint (.width 64) 4))),
+  (307, (.configVar)),
+  (324, (.dataclass 324)),
+  (332, (.const (.tuple [(.uint (.width 64) 14), (.uint (.width 64) 26), (.uint (.width 64) 14)]))),
+  (340, (.const (.uint (.width 64) 64))),
+  (346, (.const (.uint (.width 64) 16777216))),
+  (345, (.configVar)),
+  (349, (.type (.list .progressiveList (.uint (.nominal 82 64)) none))),
+  (350, (.type (.container 350))),
+  (357, (.type (.container 357))),
+  (356, (.type (.list .list (.uint (.nominal 82 64)) (some 16)))),
+  (360, (.const (.uint (.nominal 265 64) 32000000000))),
+  (366, (.type (.container 366))),
+  (363, (.type (.list .vector (.bytes 656 48) (some 32)))),
+  (365, (.const (.member (.glob 204) 754))),
+  (368, (.const (.bytes 746 [7, 0, 0, 0]))),
+  (369, (.const (.uint (.width 64) 32))),
+  (378, (.type (.bytes 378 20))),
+  (374, (.const (.uint (.width 64) 2))),
+  (379, (.configVar)),
+  (382, (.const (.uint (.nominal 140 64) 1))),
+  (384, (.const (.uint (.nominal 140 64) 64))),
+  (392, (.builtin .filter)),
+  (396, (.type (.container 396))),
+  (399, (.const (.uint (.width 64) 16))),
+  (404, (.const (.bytes 755 [1]))),
+  (410, (.type (.list .vector (.list .vector (.uint (.nominal 82 64)) (some 16)) (some 24)))),
+  (412, (.configVar)),
+  (415, (.configVar)),
+  (418, (.const (.uint (.width 64) 18446744073709551615))),
+  (419, (.const (.uint (.width 64) 4294967295))),
+  (426, (.const (.bytes 755 [176]))),
+  (428, (.const (.bytes 755 [2]))),
+  (433, (.const (.uint (.nominal 140 64) 4))),
+  (445, (.const (.bytes 746 [14, 0, 0, 0]))),
+  (444, (.type (.container 444))),
+  (449, (.const (.bytes 746 [3, 0, 0, 0]))),
+  (451, (.const (.uint (.width 64) 2048))),
+  (463, (.const (.uint (.width 8) 0))),
+  (460, (.type (.list .progressiveList (.container 525) none))),
+  (470, (.const (.uint (.width 64) 8))),
+  (497, (.type (.container 497))),
+  (501, (.const (.bytes 755 [0]))),
+  (503, (.const (.bytes 746 [10, 0, 0, 0]))),
+  (509, (.type (.container 509))),
+  (515, (.const (.uint (.width 64) 64))),
+  (523, (.type (.container 523))),
+  (522, (.configVar)),
+  (525, (.type (.container 525))),
+  (529, (.const (.uint (.width 64) 1))),
+  (527, (.const (.uint (.width 64) 4))),
+  (531, (.const (.uint (.width 64) 5))),
+  (551, (.const (.uint (.nominal 140 64) 4))),
+  (553, (.type (.list .list (.container 759) (some 32)))),
+  (556, (.const (.uint (.nominal 199 64) 18446744073709551615))),
+  (561, (.const (.uint (.nominal 196 64) 0))),
+  (570, (.type (.container 570))),
+  (572, (.const (.uint (.nominal 140 64) 0))),
+  (573, (.configVar)),
+  (585, (.const (.uint (.width 64) 8))),
+  (583, (.const (.uint (.width 64) 1))),
+  (589, (.const (.uint (.width 64) 16))),
+  (591, (.const (.uint (.width 64) 4))),
+  (581, (.const (.uint (.width 64) 16))),
+  (587, (.const (.uint (.width 64) 16))),
+  (597, (.type (.container 597))),
+  (599, (.type (.list .progressiveList (.uint (.nominal 20 8)) none))),
+  (611, (.const (.uint (.width 64) 16))),
+  (623, (.const (.bytes 746 [2, 0, 0, 0]))),
+  (626, (.configVar)),
+  (635, (.const (.uint (.nominal 140 64) 64))),
+  (632, (.const (.uint (.width 64) 3))),
+  (656, (.type (.bytes 656 48))),
+  (662, (.const (.uint (.width 64) 2))),
+  (649, (.builtin .zip)),
+  (667, (.const (.uint (.nominal 140 64) 8))),
+  (672, (.configVar)),
+  (671, (.const (.bytes 746 [4, 0, 0, 0]))),
+  (675, (.const (.uint (.nominal 265 64) 0))),
+  (676, (.const (.uint (.width 64) 64))),
+  (681, (.type (.container 681))),
+  (695, (.const (.uint (.width 64) 4096))),
+  (697, (.const (.uint (.width 64) 4096))),
+  (702, (.builtin .sszSerialize)),
+  (707, (.type (.list .progressiveList (.container 297) none))),
+  (717, (.type (.list .progressiveList (.uint (.nominal 265 64)) none))),
+  (733, (.type (.container 733))),
+  (731, (.type (.list .progressiveList (.bytes 765 48) none))),
+  (726, (.type (.list .vector (.container 509) (some 16)))),
+  (727, (.type (.list .progressiveList (.container 67) none))),
+  (724, (.type (.list .progressiveList (.container 14) none))),
+  (725, (.type (.list .bitvector .boolean (some 64)))),
+  (732, (.type (.container 732))),
+  (713, (.type (.container 713))),
+  (712, (.configVar)),
+  (719, (.type (.list .progressiveList (.uint (.width 64)) none))),
+  (723, (.type (.list .progressiveList (.container 523) none))),
+  (722, (.type (.list .progressiveList (.container 681) none))),
+  (716, (.type (.list .progressiveList (.container 396) none))),
+  (709, (.module .fork)),
+  (735, (.const (.bytes 746 [11, 0, 0, 0]))),
+  (741, (.type (.container 741))),
+  (740, (.const (.uint (.width 64) 4))),
+  (742, (.builtin .all)),
+  (557, (.const (.bytes 0 [192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])))]
 
 def config : List (Name × Value) := [
-  (278, (.tuple [])),
-  (675, (.bytes 747 [3, 0, 0, 1])),
-  (215, (.uint (.width 64) 16)),
-  (312, (.uint (.width 64) 32)),
-  (629, (.uint (.nominal 270 64) 16000000000)),
-  (284, (.uint (.nominal 140 64) 18446744073709551615)),
-  (145, (.bytes 747 [0, 0, 0, 1])),
-  (383, (.uint (.nominal 140 64) 18446744073709551615)),
-  (715, (.bytes 747 [7, 0, 0, 1])),
-  (350, (.uint (.width 64) 4)),
-  (576, (.uint (.width 64) 16)),
-  (285, (.uint (.width 64) 9)),
-  (217, (.uint (.nominal 270 64) 128000000000)),
-  (416, (.uint (.nominal 140 64) 2)),
-  (213, (.uint (.nominal 270 64) 64000000000)),
-  (419, (.uint (.nominal 140 64) 256)),
-  (526, (.uint (.nominal 140 64) 64))]
+  (273, (.tuple [])),
+  (672, (.bytes 745 [3, 0, 0, 1])),
+  (210, (.uint (.width 64) 16)),
+  (307, (.uint (.width 64) 32)),
+  (626, (.uint (.nominal 265 64) 16000000000)),
+  (279, (.uint (.nominal 140 64) 18446744073709551615)),
+  (145, (.bytes 745 [0, 0, 0, 1])),
+  (379, (.uint (.nominal 140 64) 18446744073709551615)),
+  (712, (.bytes 745 [7, 0, 0, 1])),
+  (345, (.uint (.width 64) 4)),
+  (573, (.uint (.width 64) 16)),
+  (280, (.uint (.width 64) 9)),
+  (212, (.uint (.nominal 265 64) 128000000000)),
+  (412, (.uint (.nominal 140 64) 2)),
+  (208, (.uint (.nominal 265 64) 64000000000)),
+  (415, (.uint (.nominal 140 64) 256)),
+  (522, (.uint (.nominal 140 64) 64))]
 
 def knownNames : KnownNames where
   append  := 69
   extend  := 172
   index  := 23
   count  := 127
-  copy  := 206
-  union  := 261
-  intersection  := 481
-  add  := 657
+  copy  := 799
+  union  := 256
+  intersection  := 477
+  add  := 654
   fromBytes  := 94
-  empty  := 514
+  empty  := 510
   hashTreeRoot  := 159
   data  := 91
-  key  := 279
-  reverse  := 281
-  strict  := 651
-  get  := 767
-  bytes32  := 509
+  key  := 274
+  reverse  := 276
+  strict  := 648
+  get  := 800
+  bytes32  := 505
   root  := 146
 
 /-- The environment of this build. The oracle gives `sha256`, `hash_tree_root` and BLS. -/

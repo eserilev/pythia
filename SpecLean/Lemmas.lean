@@ -61,21 +61,29 @@ theorem interp_seq_normal (env : Env) (n : Nat) (L L' : Locals) (h h' : Heap) (s
 /-! ## Calls (`call_through`) -/
 
 /-- A call: the callee, then the arguments left to right, then the call. A validation theorem
-about the callee then replaces `callValue`. -/
+about the callee then replaces `callValue`. A call of `any` or `all` on a generator is the
+exception. -/
 theorem call_through (env : Env) (n : Nat) (L : Locals) (h : Heap) (line : Line) (fn : Expr)
-    (args : List Arg) :
+    (args : List Arg) (hargs : ∀ l elt gens, args ≠ [.pos (.comp l .gen elt gens)]) :
     evalExpr env (n + 1) L h (.call line fn args) = (do
       let (fv, h1) ← evalExpr env n L h fn
       let (vs, kws, h2) ← evalArgs env n L h1 args
       callValue env n fv vs kws h2) := by
   rw [evalExpr]
+  congr 1
+  funext p
+  obtain ⟨fv, h1⟩ := p
+  dsimp only
+  split
+  · exact absurd rfl (hargs _ _ _)
+  · rfl
 
 /-- `callName` on a spec function `g`. -/
 theorem callName_fn (env : Env) (n : Nat) (g : Name) (d : FunctionDef) (vs : List Value)
     (h : Heap) (hg : env.globals.lookup g = some (.fn d)) :
     callName env n g vs h = callFn env n d.params (.stmts d.body) Locals.empty vs [] h := by
   rw [callName, callValue.eq_def]
-  simp only [hg]
+  simp only [hg, frame_eq]
 
 /-! ## Loops (`interp_for`, `interp_while`) -/
 
@@ -272,5 +280,30 @@ theorem setAttr_container (env : Env) {h : Heap} {a : Nat} {ty fs} {f i : Nat} {
       .ok (h.set a (.container ty (fs.set i v')))) := by
   simp only [setAttr, ho, hf, depthBound, coerceH_plain env true 63 h u v hv]
   cases coerceField (.uint u) v <;> rfl
+
+/-- A binary operator on values outside the heap does not go through `seqBinop`. -/
+theorem seqBinop_none {env : Env} {h : Heap} {op : BinOp} {x y : Value}
+    (hx : ∀ a, x ≠ .ref a) (hy : ∀ a, y ≠ .ref a) : seqBinop env h op x y = none := by
+  unfold seqBinop
+  split
+  · exact absurd rfl (hx _)
+  · exact absurd rfl (hy _)
+  · rfl
+
+@[simp] theorem seqBinop_uu {env : Env} {h : Heap} {op : BinOp} {t t' : UintTy} {a b : Nat} :
+    seqBinop env h op (.uint t a) (.uint t' b) = none :=
+  seqBinop_none (fun _ e => nomatch e) (fun _ e => nomatch e)
+
+@[simp] theorem seqBinop_ui {env : Env} {h : Heap} {op : BinOp} {t : UintTy} {a : Nat} {b : Int} :
+    seqBinop env h op (.uint t a) (.int b) = none :=
+  seqBinop_none (fun _ e => nomatch e) (fun _ e => nomatch e)
+
+@[simp] theorem seqBinop_iu {env : Env} {h : Heap} {op : BinOp} {t : UintTy} {a : Int} {b : Nat} :
+    seqBinop env h op (.int a) (.uint t b) = none :=
+  seqBinop_none (fun _ e => nomatch e) (fun _ e => nomatch e)
+
+@[simp] theorem seqBinop_ii {env : Env} {h : Heap} {op : BinOp} {a b : Int} :
+    seqBinop env h op (.int a) (.int b) = none :=
+  seqBinop_none (fun _ e => nomatch e) (fun _ e => nomatch e)
 
 end SpecLean

@@ -300,7 +300,7 @@ theorem peb_step (h0 : Heap) (Ly : PebLayout)
   simp only [Except.bind_ok', Except.pure_ok', k1, k2, k3, k4]
   have rg : resolveUint gweiTy u64Ty = .ok gweiTy := rfl
   have rgg : resolveUint gweiTy gweiTy = .ok gweiTy := rfl
-  simp only [evalBoolOp, evalExpr, evalCmp, lookupName, Locals.set_apply,
+  simp only [evalBoolOp, evalExpr, evalCmp, lookupName, Locals.set_apply, seqBinop_uu,
     Except.bind_ok', Except.pure_ok', binop_add (hr := rg) (hb := rfl), ↓reduceIte,
     Nat.reduceEqDiff, List.isEmpty_cons, List.isEmpty_nil, Bool.false_eq_true]
   cases h1 : chkAdd g.val 250000000 with
@@ -343,11 +343,12 @@ theorem peb_step (h0 : Heap) (Ly : PebLayout)
     simp [hm64]
   simp only [Except.map_ok', Except.bind_ok', cmpInt, Int.ofNat_lt, decide_eq_true_eq, truthy,
     c11', compareOp, truthyH, getAttr_container _ hvo (fi_eb sha), hveb, cmp_uint (hr := rgg),
+    seqBinop_uu,
     binop_mod (hr := rgg) (hb := rfl), binop_sub (hr := rgg) (hb := rfl), hmod, hsub, erase_ok]
   by_cases c1 : g.val + 250000000 < v.effective_balance.val
   · simp only [c1, ↓reduceIte, Except.bind_ok', hmin, hset, hupd]
     exact peb_inv_update hp (hkeep _ _ _ _ _) hx hvo hv hvf _ hm64
-  simp only [c1, ↓reduceIte, Except.bind_ok',
+  simp only [c1, ↓reduceIte, Except.bind_ok', seqBinop_uu,
     getAttr_container _ hvo (fi_eb sha), hveb, binop_add (hr := rg) (hb := rfl)]
   cases h2 : chkAdd v.effective_balance.val 1250000000 with
   | error e => simp [StepRel, chkAdd_ne_oof h2, c11', compareOp, truthyH, SpecError.fail]

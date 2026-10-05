@@ -35,6 +35,7 @@ def errTag : SpecError → String
   | .valueError => "valueError" | .divisionByZero => "divisionByZero"
   | .typeError => "typeError" | .keyError => "keyError" | .nameError => "nameError"
   | .raised => "raised" | .unsupported => "unsupported" | .outOfFuel => "outOfFuel"
+  | .other c => "other." ++ c
 
 def wc (prefix_ : Nat) : List UInt8 := UInt8.ofNat prefix_ :: List.replicate 31 0
 
