@@ -138,7 +138,7 @@ theorem integer_squareroot_run (k B : Nat) (h : Heap) (N : Nat) (hN : N < 2 ^ 64
   · subst hmax
     simp [truthy, LibValues.truthy, Ssz.truthy, pyTruthy, g_UINT64_MAX_SQRT, Readable.UINT64_MAX_SQRT, ResultMatches, IsqrtExpect,
       decU64, decUint, u64Ty, UintTy.bits]
-    exact pure_result (by rintro k ⟨a, fs, hk, -⟩; match k with | 0 | 1 => simp at hk | _ + 2 => simp at hk)
+    exact pure_result
   have hmax' : ¬ ((N : Int) = 18446744073709551615) := by omega
   simp [hmax, hmax', truthy, LibValues.truthy, Ssz.truthy, pyTruthy, assignTarget, add1_int u64Ty rfl, uAdd_eq, uDiv_eq]
   cases hA : chkAdd N 1 with
@@ -167,7 +167,7 @@ theorem integer_squareroot_run (k B : Nat) (h : Heap) (N : Nat) (hN : N < 2 ^ 64
   · cases o <;> simp only [StepRel] at hW
     obtain ⟨s', ⟨rfl, -, hx, -, hx64, -⟩, -, rfl⟩ := hW
     simp [hx, ResultMatches, IsqrtExpect, decU64, decUint, u64Ty, UintTy.bits, hx64]
-    exact ⟨hN, pure_result (by rintro k ⟨a, fs, hk, -⟩; match k with | 0 | 1 => simp at hk | _ + 2 => simp at hk)⟩
+    exact ⟨hN, pure_result⟩
 
 /-- SPEC 9.2: `integer_squareroot` validated against the interpreter. The bound does not
 depend on the input here, which is stronger than SPEC 9.2 asks. -/

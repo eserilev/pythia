@@ -63,11 +63,7 @@ theorem is_compounding_withdrawal_credential_valid (h : Heap) (wc : List UInt8) 
   ⟨6, fun fuel hf => by
     obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le' hf
     rw [interp, callName, is_compounding_withdrawal_credential_run]
-    refine ⟨rfl, pure_result ?_⟩
-    rintro k ⟨a, fs, hk, -⟩
-    match k with
-    | 0 | 1 => simp at hk
-    | _ + 2 => simp at hk⟩
+    exact ⟨rfl, pure_result⟩⟩
 
 theorem get_max_effective_balance_valid (h : Heap) (r : Nat) (x : Readable.Validator)
     (hx : decValidator h (.ref r) = some x) :
@@ -79,14 +75,8 @@ theorem get_max_effective_balance_valid (h : Heap) (r : Nat) (x : Readable.Valid
   ⟨14, fun fuel hf => by
     obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le' hf
     rw [interp, callName, get_max_effective_balance_run sha k h r x hx]
-    refine ⟨⟨?_, hx⟩, pure_result ?_⟩
-    · unfold Readable.get_max_effective_balance
-      split <;> exact decGwei_uint _ (by decide)
-    · obtain ⟨vfs, ho, -⟩ := decValidator_some hx
-      rintro k ⟨a, fs, hk, hoa⟩
-      match k with
-      | 0 => simp at hk; subst hk; rw [ho] at hoa; cases hoa
-      | 1 => simp at hk
-      | _ + 2 => simp at hk⟩
+    refine ⟨⟨?_, hx⟩, pure_result⟩
+    unfold Readable.get_max_effective_balance
+    split <;> exact decGwei_uint _ (by decide)⟩
 
 end SpecLean.Validation

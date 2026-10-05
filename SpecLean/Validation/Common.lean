@@ -90,19 +90,10 @@ open SpecLean SpecLean.Gen SpecLean.Encode
 
 /-! ## Facts used by several proofs -/
 
-/-- `WTree` holds for any arguments with no state among them: every pattern of `FP` is
-rooted at `BeaconState`. -/
-theorem WTree_noState {h : Heap} {vs : List Value}
-    (hn : ∀ k, ¬ RootTy h vs k Id.BeaconState) : WTree h vs FP := by
-  intro k pat hk hty
-  simp only [FP, List.mem_cons, List.mem_nil_iff, or_false] at hk
-  rcases hk with rfl | rfl | rfl <;> exact absurd hty (hn k)
-
-/-- The pure-call result: nothing changes, and the result holds no reference. -/
-theorem pure_result {h : Heap} {vs : List Value} {fpf : Footprint} {v : Value}
-    (hn : ∀ k, ¬ RootTy h (vs ++ [v]) k Id.BeaconState) :
-    Frame h h vs fpf ∧ Fresh h h ∧ Reach h h vs ∧ WTree h (vs ++ [v]) FP :=
-  ⟨Frame_refl h vs fpf, Fresh_refl h, Reach_refl h vs, WTree_noState hn⟩
+/-- The pure-call result: nothing changes. -/
+theorem pure_result {h : Heap} {vs : List Value} {fpf : Footprint} :
+    Frame h h vs fpf ∧ Fresh h h ∧ Reach h h vs :=
+  ⟨Frame_refl h vs fpf, Fresh_refl h, Reach_refl h vs⟩
 
 
 /-- Under `WTree`, a footprint object has no second path: another path reaches another

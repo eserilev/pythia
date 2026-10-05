@@ -41,8 +41,8 @@ onto the generated Lean.
 The interpreter is the one model of Python that we trust. Section 11 tests it against CPython.
 
 A proof about the readable Lean applies to Python on every run whose input heap meets the write
-condition `WTree` of section 9.2. Each validation theorem also proves that the function keeps
-`WTree`. So the condition holds on every state that the state transition reaches from a decoded
+condition `WTree` of section 9.2. Each validation theorem also proves `Reach`, and the
+composition lemma turns it back into `WTree`. So the condition holds on every state that the state transition reaches from a decoded
 state (section 9.4).
 
 ## 3. Pinned inputs
@@ -511,7 +511,7 @@ locals while it runs (section 4.2) are the job of the proof itself.
 **Theorem.** For each function `f`, the translator emits:
 
 ```lean
-theorem f_valid : ∀ heap vs args, DecodesArgs heap vs args → WTree heap vs FP →
+theorem f_valid : ∀ heap vs args, DecodesArgs heap vs args → WTree heap vs (Footprint f) →
     ∃ N, ∀ fuel ≥ N, ResultMatches f heap vs (interp fuel env f vs heap) (f' args)
 ```
 
@@ -531,7 +531,12 @@ theorem f_valid : ∀ heap vs args, DecodesArgs heap vs args → WTree heap vs F
   - Reach: every `ref` that the arguments reach in `heap'`, they also reach in `heap`, or it is
     fresh. `Frame_trans` needs this to chain frames over loop steps and calls. A function that
     stores a new object (`state.x = new_obj`) meets it through the "or it is fresh" case.
-  - `WTree heap' (vs ++ [v]) FP`.
+
+`f_valid` takes `WTree` over `Footprint f` only, and promises no `WTree` on its result. The
+composition lemma `wtree_compose` (`SpecLean/Compose.lean`) gives `WTree` back over any
+footprint: `WTree` before, `Reach`, each new object reached by one path (`FreshOnce`) and the
+roots keeping their class give `WTree` after. So `WTree` over `FP` at the entry of
+`state_transition` gives it at the exit.
 - `r` is `invalid` and `r'` is `error invalid`, or `r` is `bug _` and `r'` is `error bug`.
 
 `outOfFuel` never matches. On an error, the readable Lean drops every argument, and Python's
@@ -555,18 +560,18 @@ Why the frame matters, with three cases from the spec:
 `balances`, which `pre` and `post` share, and `upgrade_to_gloas` shares validators and
 `latest_block_header`. No spec function calls an upgrade. The test harness calls them, with a copy
 of the pre-state (`test/helpers/fork_transition.py`, `test/helpers/<fork>/fork.py`). So upgrades
-are entry points, with a second theorem form: `ResultMatches` with `WTree heap' [v] FP`, over the
-result only. The entry points are the upgrade functions.
+are entry points, with a second theorem form: `WTree heap' [v] FP` over the result only, from
+`wtree_compose` with `post` as the only root. The entry points are the upgrade functions.
 
 **Fuel.** `N` depends on the input, because `while` loops have no fixed bound and `for` loops
 cost fuel per iteration (section 7.4). A general lemma, `interp_fuel_mono`, states that more fuel
 does not change a result that is not `outOfFuel`. It needs the premise that no construct catches
 an error, which the serializer enforces.
 
-**Calls.** A call to `g` inside `f` uses `g_valid`. The caller needs `WTree heap vs_g FP` at the
-call. It gets it from its own `WTree` at entry, from the frame and the `WTree` result of earlier
-calls, and from a lemma that the statements between them create no second path to any object at
-an `FP` path. The tactic proves that lemma per call site. Some sharing exists at a call site, but
+**Calls.** A call to `g` inside `f` uses `g_valid`. The caller needs `WTree heap vs_g
+(Footprint g)` at the call. It gets it from its own `WTree` at entry, from the frame and `Reach`
+of earlier calls through `wtree_compose`, and from a lemma that the statements between them
+create no second path to any object that `g` writes. The tactic proves that lemma per call site. Some sharing exists at a call site, but
 only of objects outside `FP`: `compute_ptc` runs while inner `ptc_window` vectors are shared, and
 `get_next_sync_committee` runs while the sync committees are shared.
 
@@ -595,8 +600,9 @@ strings or large arrays.
 
 ### 9.4 Real states meet the write condition
 
-Each `f_valid` proves `WTree` on its result heap. So by induction over the state transition,
-every reachable state meets `WTree` if the start state does:
+Each `f_valid` proves `Reach` on its result heap, and `wtree_compose` turns it into `WTree`. So
+by induction over the state transition, every reachable state meets `WTree` if the start state
+does:
 
 - The start state. A state decoded from SSZ bytes shares nothing, so it meets `WTree`.
 - Each new block. A block decoded from SSZ bytes shares nothing, so adding it as a root keeps
@@ -637,10 +643,9 @@ argument. Neither callee writes the shared object. With the narrower rule, the m
 (678 of 681 cases pass; the other 3 need real BLS). No vector writes to a shared object, so the
 per-write check is still untested on a real hazard. The fuzzer covers that case.
 
-The proof contract in section 9.2 needs the same change: `f_valid` takes `WTree` over
-`Footprint f` instead of `FP`, and `ResultMatches` drops `WTree` on the result. `Reach` stays. The
-new work is one lemma: a write to an object with one path, plus `Reach`, creates no new sharing
-in `FP`. It gives `WTree` over `FP` at the exit of `state_transition`.
+The proof contract in section 9.2 now has the same rule: `f_valid` takes `WTree` over
+`Footprint f`, `ResultMatches` keeps Frame, Fresh and Reach, and `wtree_compose` gives `WTree`
+over `FP` at the exit of `state_transition`.
 
 Run on all EF vectors, it shows whether `WTree` holds in practice, before any proof exists. The
 `upgrade_to_electra` case shows up at the write through `post.balances`, because `post` is a live

@@ -167,11 +167,12 @@ def StateRest (h h' : Heap) (root : Value) : Prop :=
   ∀ i q, i ≠ fValidators → i ≠ fBalances → follow h' root (i :: q) = follow h root (i :: q)
 
 /-- SPEC 9.2. `fpf` is the footprint of the function. `Expect x h' v`: the return value and
-every argument decode to the readable result `x` in the result heap. -/
+every argument decode to the readable result `x` in the result heap. The function takes
+`WTree` over `fpf` only. It promises no `WTree` on its result: `Reach` and the composition
+lemma (`SpecLean/Compose.lean`) give it where a caller needs it. -/
 def ResultMatches (fpf : Footprint) (h : Heap) (vs : List Value)
     (Expect : α → Heap → Value → Prop) : Res (Value × Heap) → SpecM α → Prop
-  | .ok (v, h'), .ok x => Expect x h' v ∧ Frame h h' vs fpf ∧ Fresh h h' ∧ Reach h h' vs ∧
-      WTree h' (vs ++ [v]) FP
+  | .ok (v, h'), .ok x => Expect x h' v ∧ Frame h h' vs fpf ∧ Fresh h h' ∧ Reach h h' vs
   | .error e, .error f => e ≠ .outOfFuel ∧ e.fail = f
   | _, _ => False
 

@@ -49,7 +49,8 @@ theorem decrease_balance_run (k : Nat) (h : Heap) (root : Nat) (state : Readable
     (hd : decState h (.ref root) = some state)
     (hix : decVidx (.uint vidxTy index.val) = some index)
     (hdl : decGwei (.uint gweiTy delta.val) = some delta)
-    (hw : WTree h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val] FP) :
+    (hw : WTree h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
+      decrease_balance_fp) :
     ResultMatches decrease_balance_fp h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
       (DecreaseBalanceExpect h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
         index delta)
@@ -57,8 +58,7 @@ theorem decrease_balance_run (k : Nat) (h : Heap) (root : Nat) (state : Readable
         [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val] h)
       (Readable.decrease_balance state index delta) := by
   obtain ⟨fs, va, ba, vrefs, bs, hroot, hfv, hfb, hova, hmv, hoba, hmb⟩ := decState_some hd
-  have hfp : (⟨Id.BeaconState, [PStep.exact fBalances]⟩ : FPat) ∈ FP := by simp [FP]
-  have hfp' : (⟨Id.BeaconState, [PStep.exact fBalances]⟩ : FPat) ∈ decrease_balance_fp := by
+  have hfp : (⟨Id.BeaconState, [PStep.exact fBalances]⟩ : FPat) ∈ decrease_balance_fp := by
     simp [decrease_balance_fp]
   have hty : RootTy h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val] 0
       Id.BeaconState := ⟨root, fs, rfl, hroot⟩
@@ -123,8 +123,8 @@ theorem decrease_balance_run (k : Nat) (h : Heap) (root : Nat) (state : Readable
           · cases hy; intro e; cases e
           · rw [hx] at hy; cases hy; exact hxn
         exact ⟨fun e => absurd e hxn, fun e => absurd e hyn⟩
-      refine ⟨⟨?_, ?_, hix, hdl⟩, Frame_set ⟨0, _, [fBalances], hfp', hty, hm, atb⟩,
-        Fresh_set hoba, Reach_skel hoba skel _, ?_⟩
+      refine ⟨⟨?_, ?_, hix, hdl⟩, Frame_set ⟨0, _, [fBalances], hfp, hty, hm, atb⟩,
+        Fresh_set hoba, Reach_skel hoba skel _⟩
       · refine decState_of (vrefs := vrefs) (bs := bs.set index.val (.uint gweiTy r))
           (by simp [hrb, hroot]) hfv hfb (by simp [hvb, hova]) ?_ (by simp)
           (mapM_set hmb index.val _ _ (decGwei_uint r hr64))
@@ -139,9 +139,6 @@ theorem decrease_balance_run (k : Nat) (h : Heap) (root : Nat) (state : Readable
         intro p rr hq hrr hp
         obtain ⟨-, rfl⟩ := hw 0 _ hfp hty [fBalances] hm ba atb 0 p (by simpa [at?] using hp)
         simp at hq; exact hi2 hq.1
-      · have := WTree_append_nonref (v := .none) (fun b e => by cases e)
-          (WTree_skel hoba skel hw)
-        simpa using this
 
 /-- SPEC 9.2: `decrease_balance` validated against the interpreter. -/
 theorem decrease_balance_valid (h : Heap) (root : Nat) (state : Readable.BeaconState)
@@ -150,7 +147,8 @@ theorem decrease_balance_valid (h : Heap) (root : Nat) (state : Readable.BeaconS
     (hix : decVidx (.uint vidxTy index.val) = some index)
     (hdl : decGwei (.uint gweiTy delta.val) = some delta)
     (_hwf : HeapWF h) (_haw : ArgsWF h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val])
-    (hw : WTree h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val] FP) :
+    (hw : WTree h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
+      decrease_balance_fp) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches decrease_balance_fp h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
         (DecreaseBalanceExpect h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]

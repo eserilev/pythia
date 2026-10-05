@@ -116,7 +116,7 @@ the readable loop reads the current state at each index. -/
 def PebInv (h0 : Heap) (Ly : PebLayout) (_i : Nat) (s : Readable.BeaconState) (L : Locals)
     (h : Heap) : Prop :=
   Ly.Ok h ∧ decState h (.ref Ly.root) = some s ∧ ReadsOk L Ly.root ∧
-  WTree h [.ref Ly.root] FP ∧ Frame h0 h [.ref Ly.root] peb_fp ∧ Fresh h0 h ∧ Ly.Ok h0 ∧
+  WTree h [.ref Ly.root] peb_fp ∧ Frame h0 h [.ref Ly.root] peb_fp ∧ Fresh h0 h ∧ Ly.Ok h0 ∧
   StateRest h0 h (.ref Ly.root) ∧
   (∀ k q b, at? h [.ref Ly.root] k q = some (.ref b) → at? h0 [.ref Ly.root] k q = some (.ref b))
 
@@ -149,7 +149,8 @@ theorem peb_inv_update {h0 Ly i s L h L'} (hp : PebInv h0 Ly i s L h)
       (h.set r (.container Id.Validator (vfs.set fEffectiveBalance (.uint gweiTy m)))) := by
   obtain ⟨hl, hd, -, hw, hf, hfr, hl0, hrest, ha⟩ := hp
   obtain ⟨atr, atv, atb, atj⟩ := peb_at hl
-  have hfp : (⟨Id.BeaconState, [PStep.exact fValidators, .any]⟩ : FPat) ∈ FP := by simp [FP]
+  have hfp : (⟨Id.BeaconState, [PStep.exact fValidators, .any]⟩ : FPat) ∈ peb_fp := by
+    simp [peb_fp]
   have hfp' : (⟨Id.BeaconState, [PStep.exact fValidators, .any]⟩ : FPat) ∈ peb_fp := by
     simp [peb_fp]
   have hty : RootTy h [.ref Ly.root] 0 Id.BeaconState := ⟨Ly.root, Ly.fs, rfl, hl.1⟩
@@ -371,7 +372,7 @@ def PebExpect (h : Heap) (root : Nat) : Readable.BeaconState → Heap → Value 
 
 theorem process_effective_balance_updates_run (k : Nat) (h : Heap) (root : Nat)
     (state : Readable.BeaconState) (hd : decState h (.ref root) = some state)
-    (hw : WTree h [.ref root] FP) :
+    (hw : WTree h [.ref root] peb_fp) :
     ResultMatches peb_fp h [.ref root] (PebExpect h root)
       (callName (env sha) (k + state.validators.length + 26)
         Id.process_effective_balance_updates [.ref root] h)
@@ -431,17 +432,15 @@ theorem process_effective_balance_updates_run (k : Nat) (h : Heap) (root : Nat)
   · simp only [StepRel] at hfor
   · cases o <;> simp only [StepRel] at hfor
   · cases o <;> simp only [StepRel] at hfor
-    obtain ⟨i, ⟨-, hd', -, hw', hf', hfr, -, hrest, ha⟩, -⟩ := hfor
+    obtain ⟨i, ⟨-, hd', -, -, hf', hfr, -, hrest, ha⟩, -⟩ := hfor
     simp only [Except.bind_ok', ResultMatches, PebExpect]
-    refine ⟨⟨trivial, hd', hrest⟩, hf', hfr, fun k q b e => .inl (ha k q b e), ?_⟩
-    have := WTree_append_nonref (v := .none) (fun b e => by cases e) hw'
-    simpa using this
+    exact ⟨⟨trivial, hd', hrest⟩, hf', hfr, fun k q b e => .inl (ha k q b e)⟩
 
 /-- SPEC 9.2: `process_effective_balance_updates` validated against the interpreter. The fuel
 bound grows with the number of validators, because each loop iteration costs fuel. -/
 theorem process_effective_balance_updates_valid (h : Heap) (root : Nat)
     (state : Readable.BeaconState) (hd : decState h (.ref root) = some state)
-    (_hwf : HeapWF h) (_haw : ArgsWF h [.ref root]) (hw : WTree h [.ref root] FP) :
+    (_hwf : HeapWF h) (_haw : ArgsWF h [.ref root]) (hw : WTree h [.ref root] peb_fp) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches peb_fp h [.ref root] (PebExpect h root)
         (interp (env sha) fuel Id.process_effective_balance_updates [.ref root] h)
