@@ -623,7 +623,24 @@ Step 3 adds a dynamic check to the interpreter. It uses `FP`, so `FP` is compute
 
 - At each in-place write, it counts the heap paths to the written object from all live roots: the
   arguments and the locals of every frame on the stack.
-- At each call entry and exit, it checks `WTree` over the call's arguments and the returned value.
+- At each call entry, it checks `WTree` only over the objects at `Footprint g` paths from the
+  call's arguments: the objects that the callee writes.
+- At each call exit, it checks `Reach`: every object that the arguments or the return value reach
+  was reachable from the arguments before the call, or is fresh.
+- At entry and exit of each top-level call, it checks `WTree` over `FP` from the top-level
+  arguments.
+
+The first EF run checked `WTree` over all of `FP` from each call's arguments. It reported 36 false
+hits. Many spec helpers take `state` and a part of it, such as `is_eligible_for_activation(state,
+validator)`, and `set_or_append_list` returns with the new validator in the list and in its
+argument. Neither callee writes the shared object. With the narrower rule, the minimal preset gives 0 hits
+(678 of 681 cases pass; the other 3 need real BLS). No vector writes to a shared object, so the
+per-write check is still untested on a real hazard. The fuzzer covers that case.
+
+The proof contract in section 9.2 needs the same change: `f_valid` takes `WTree` over
+`Footprint f` instead of `FP`, and `ResultMatches` drops `WTree` on the result. `Reach` stays. The
+new work is one lemma: a write to an object with one path, plus `Reach`, creates no new sharing
+in `FP`. It gives `WTree` over `FP` at the exit of `state_transition`.
 
 Run on all EF vectors, it shows whether `WTree` holds in practice, before any proof exists. The
 `upgrade_to_electra` case shows up at the write through `post.balances`, because `post` is a live
