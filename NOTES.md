@@ -528,3 +528,7 @@ local variables is not committed yet. The fuzzer is fixing the interpreter on it
 because the spike is busy with the tactic. Done so far: the check gap, the `Boolean` coercions,
 `bit_length`, set `difference` and dict views. Still to do: the bitlist and bitvector writes,
 `ssz_serialize` of an int, the `ByteList` model, an EF rerun with the check, and a new campaign.
+
+Status at 12:15: no new commits since 11:50. The spike is running the full leaf tier through the
+generator and the proof check, which gives the next count. The fuzzer is rerunning the EF
+vectors with the sharing check, to confirm its interpreter fixes broke nothing.
