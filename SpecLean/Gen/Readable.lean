@@ -23,7 +23,7 @@ structure Uint64 where
 instance : UintC Uint64 := ⟨64, Uint64.val, Uint64.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Uint64 := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Uint64 : Enc Uint64 := encUint (.width 64)
-def dec_Uint64 : Dec Uint64 := decUintT (.width 64)
+abbrev dec_Uint64 : Dec Uint64 := decUintT (.width 64)
 
 
 structure Root where
@@ -34,7 +34,7 @@ instance : Inhabited Root := ⟨⟨List.replicate 32 0⟩⟩
 instance : BytesC Root := ⟨32, Root.data, Root.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Root := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_Root : Enc Root := encBytesN Scope.Id.«Root»
-def dec_Root : Dec Root := decBytesT Scope.Id.«Root»
+abbrev dec_Root : Dec Root := decBytesT Scope.Id.«Root»
 
 
 structure Slot where
@@ -44,7 +44,7 @@ structure Slot where
 instance : UintC Slot := ⟨64, Slot.val, Slot.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Slot := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Slot : Enc Slot := encUint (.nominal Scope.Id.«Slot» 64)
-def dec_Slot : Dec Slot := decUintT (.nominal Scope.Id.«Slot» 64)
+abbrev dec_Slot : Dec Slot := decUintT (.nominal Scope.Id.«Slot» 64)
 
 
 structure Version where
@@ -55,7 +55,7 @@ instance : Inhabited Version := ⟨⟨List.replicate 4 0⟩⟩
 instance : BytesC Version := ⟨4, Version.data, Version.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Version := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_Version : Enc Version := encBytesN Scope.Id.«Version»
-def dec_Version : Dec Version := decBytesT Scope.Id.«Version»
+abbrev dec_Version : Dec Version := decBytesT Scope.Id.«Version»
 
 
 structure Epoch where
@@ -65,7 +65,7 @@ structure Epoch where
 instance : UintC Epoch := ⟨64, Epoch.val, Epoch.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Epoch := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Epoch : Enc Epoch := encUint (.nominal Scope.Id.«Epoch» 64)
-def dec_Epoch : Dec Epoch := decUintT (.nominal Scope.Id.«Epoch» 64)
+abbrev dec_Epoch : Dec Epoch := decUintT (.nominal Scope.Id.«Epoch» 64)
 
 
 structure Fork where
@@ -94,7 +94,7 @@ structure ValidatorIndex where
 instance : UintC ValidatorIndex := ⟨64, ValidatorIndex.val, ValidatorIndex.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd ValidatorIndex := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_ValidatorIndex : Enc ValidatorIndex := encUint (.nominal Scope.Id.«ValidatorIndex» 64)
-def dec_ValidatorIndex : Dec ValidatorIndex := decUintT (.nominal Scope.Id.«ValidatorIndex» 64)
+abbrev dec_ValidatorIndex : Dec ValidatorIndex := decUintT (.nominal Scope.Id.«ValidatorIndex» 64)
 
 
 structure BeaconBlockHeader where
@@ -128,7 +128,7 @@ instance : Inhabited Hash32 := ⟨⟨List.replicate 32 0⟩⟩
 instance : BytesC Hash32 := ⟨32, Hash32.data, Hash32.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Hash32 := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_Hash32 : Enc Hash32 := encBytesN Scope.Id.«Hash32»
-def dec_Hash32 : Dec Hash32 := decBytesT Scope.Id.«Hash32»
+abbrev dec_Hash32 : Dec Hash32 := decBytesT Scope.Id.«Hash32»
 
 
 structure Eth1Data where
@@ -158,7 +158,7 @@ instance : Inhabited BLSPubkey := ⟨⟨List.replicate 48 0⟩⟩
 instance : BytesC BLSPubkey := ⟨48, BLSPubkey.data, BLSPubkey.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd BLSPubkey := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_BLSPubkey : Enc BLSPubkey := encBytesN Scope.Id.«BLSPubkey»
-def dec_BLSPubkey : Dec BLSPubkey := decBytesT Scope.Id.«BLSPubkey»
+abbrev dec_BLSPubkey : Dec BLSPubkey := decBytesT Scope.Id.«BLSPubkey»
 
 
 structure Bytes32 where
@@ -169,7 +169,7 @@ instance : Inhabited Bytes32 := ⟨⟨List.replicate 32 0⟩⟩
 instance : BytesC Bytes32 := ⟨32, Bytes32.data, Bytes32.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Bytes32 := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_Bytes32 : Enc Bytes32 := encBytesN Scope.Id.«Bytes32»
-def dec_Bytes32 : Dec Bytes32 := decBytesT Scope.Id.«Bytes32»
+abbrev dec_Bytes32 : Dec Bytes32 := decBytesT Scope.Id.«Bytes32»
 
 
 structure Gwei where
@@ -179,7 +179,7 @@ structure Gwei where
 instance : UintC Gwei := ⟨64, Gwei.val, Gwei.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Gwei := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Gwei : Enc Gwei := encUint (.nominal Scope.Id.«Gwei» 64)
-def dec_Gwei : Dec Gwei := decUintT (.nominal Scope.Id.«Gwei» 64)
+abbrev dec_Gwei : Dec Gwei := decUintT (.nominal Scope.Id.«Gwei» 64)
 
 
 structure Validator where
@@ -218,7 +218,7 @@ structure ParticipationFlags where
 instance : UintC ParticipationFlags := ⟨8, ParticipationFlags.val, ParticipationFlags.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd ParticipationFlags := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_ParticipationFlags : Enc ParticipationFlags := encUint (.nominal Scope.Id.«ParticipationFlags» 8)
-def dec_ParticipationFlags : Dec ParticipationFlags := decUintT (.nominal Scope.Id.«ParticipationFlags» 8)
+abbrev dec_ParticipationFlags : Dec ParticipationFlags := decUintT (.nominal Scope.Id.«ParticipationFlags» 8)
 
 
 structure Checkpoint where
@@ -250,7 +250,7 @@ def enc_SyncCommittee : Enc SyncCommittee := fun x =>
 
 def dec_SyncCommittee : Dec SyncCommittee := fun h v => do
   let fs ← containerFieldsT Scope.Id.«SyncCommittee» h v
-  let pubkeys ← fs[0]? >>= (decListV dec_BLSPubkey) h
+  let pubkeys ← fs[0]? >>= (decListT .vector (.bytes Scope.Id.«BLSPubkey» 48) (some 32) dec_BLSPubkey) h
   let aggregate_pubkey ← fs[1]? >>= dec_BLSPubkey h
   pure { pubkeys, aggregate_pubkey }
 
@@ -262,7 +262,7 @@ structure WithdrawalIndex where
 instance : UintC WithdrawalIndex := ⟨64, WithdrawalIndex.val, WithdrawalIndex.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd WithdrawalIndex := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_WithdrawalIndex : Enc WithdrawalIndex := encUint (.nominal Scope.Id.«WithdrawalIndex» 64)
-def dec_WithdrawalIndex : Dec WithdrawalIndex := decUintT (.nominal Scope.Id.«WithdrawalIndex» 64)
+abbrev dec_WithdrawalIndex : Dec WithdrawalIndex := decUintT (.nominal Scope.Id.«WithdrawalIndex» 64)
 
 
 structure HistoricalSummary where
@@ -290,7 +290,7 @@ instance : Inhabited BLSSignature := ⟨⟨List.replicate 96 0⟩⟩
 instance : BytesC BLSSignature := ⟨96, BLSSignature.data, BLSSignature.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd BLSSignature := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_BLSSignature : Enc BLSSignature := encBytesN Scope.Id.«BLSSignature»
-def dec_BLSSignature : Dec BLSSignature := decBytesT Scope.Id.«BLSSignature»
+abbrev dec_BLSSignature : Dec BLSSignature := decBytesT Scope.Id.«BLSSignature»
 
 
 structure PendingDeposit where
@@ -359,7 +359,7 @@ structure Uint8 where
 instance : UintC Uint8 := ⟨8, Uint8.val, Uint8.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Uint8 := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Uint8 : Enc Uint8 := encUint (.width 8)
-def dec_Uint8 : Dec Uint8 := decUintT (.width 8)
+abbrev dec_Uint8 : Dec Uint8 := decUintT (.width 8)
 
 
 structure ExecutionAddress where
@@ -370,7 +370,7 @@ instance : Inhabited ExecutionAddress := ⟨⟨List.replicate 20 0⟩⟩
 instance : BytesC ExecutionAddress := ⟨20, ExecutionAddress.data, ExecutionAddress.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd ExecutionAddress := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_ExecutionAddress : Enc ExecutionAddress := encBytesN Scope.Id.«ExecutionAddress»
-def dec_ExecutionAddress : Dec ExecutionAddress := decBytesT Scope.Id.«ExecutionAddress»
+abbrev dec_ExecutionAddress : Dec ExecutionAddress := decBytesT Scope.Id.«ExecutionAddress»
 
 
 structure Builder where
@@ -405,7 +405,7 @@ structure BuilderIndex where
 instance : UintC BuilderIndex := ⟨64, BuilderIndex.val, BuilderIndex.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd BuilderIndex := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_BuilderIndex : Enc BuilderIndex := encUint (.nominal Scope.Id.«BuilderIndex» 64)
-def dec_BuilderIndex : Dec BuilderIndex := decUintT (.nominal Scope.Id.«BuilderIndex» 64)
+abbrev dec_BuilderIndex : Dec BuilderIndex := decUintT (.nominal Scope.Id.«BuilderIndex» 64)
 
 
 structure BuilderPendingWithdrawal where
@@ -454,7 +454,7 @@ instance : Inhabited KZGCommitment := ⟨⟨List.replicate 48 0⟩⟩
 instance : BytesC KZGCommitment := ⟨48, KZGCommitment.data, KZGCommitment.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd KZGCommitment := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_KZGCommitment : Enc KZGCommitment := encBytesN Scope.Id.«KZGCommitment»
-def dec_KZGCommitment : Dec KZGCommitment := decBytesT Scope.Id.«KZGCommitment»
+abbrev dec_KZGCommitment : Dec KZGCommitment := decBytesT Scope.Id.«KZGCommitment»
 
 
 structure ExecutionPayloadBid where
@@ -489,7 +489,7 @@ def dec_ExecutionPayloadBid : Dec ExecutionPayloadBid := fun h v => do
   let slot ← fs[7]? >>= dec_Slot h
   let value ← fs[8]? >>= dec_Gwei h
   let execution_payment ← fs[9]? >>= dec_Gwei h
-  let blob_kzg_commitments ← fs[10]? >>= (decListV dec_KZGCommitment) h
+  let blob_kzg_commitments ← fs[10]? >>= (decListT .progressiveList (.bytes Scope.Id.«KZGCommitment» 48) none dec_KZGCommitment) h
   let execution_requests_root ← fs[11]? >>= dec_Root h
   pure { parent_block_hash, parent_block_root, block_hash, prev_randao, fee_recipient, gas_limit, builder_index, slot, value, execution_payment, blob_kzg_commitments, execution_requests_root }
 
@@ -576,47 +576,47 @@ def dec_BeaconState : Dec BeaconState := fun h v => do
   let slot ← fs[2]? >>= dec_Slot h
   let fork ← fs[3]? >>= dec_Fork h
   let latest_block_header ← fs[4]? >>= dec_BeaconBlockHeader h
-  let block_roots ← fs[5]? >>= (decListV dec_Root) h
-  let state_roots ← fs[6]? >>= (decListV dec_Root) h
-  let historical_roots ← fs[7]? >>= (decListV dec_Root) h
+  let block_roots ← fs[5]? >>= (decListT .vector (.bytes Scope.Id.«Root» 32) (some 64) dec_Root) h
+  let state_roots ← fs[6]? >>= (decListT .vector (.bytes Scope.Id.«Root» 32) (some 64) dec_Root) h
+  let historical_roots ← fs[7]? >>= (decListT .list (.bytes Scope.Id.«Root» 32) (some 16777216) dec_Root) h
   let eth1_data ← fs[8]? >>= dec_Eth1Data h
-  let eth1_data_votes ← fs[9]? >>= (decListV dec_Eth1Data) h
+  let eth1_data_votes ← fs[9]? >>= (decListT .list (.container Scope.Id.«Eth1Data») (some 32) dec_Eth1Data) h
   let eth1_deposit_index ← fs[10]? >>= dec_Uint64 h
-  let validators ← fs[11]? >>= (decListV dec_Validator) h
-  let balances ← fs[12]? >>= (decListV dec_Gwei) h
-  let randao_mixes ← fs[13]? >>= (decListV dec_Bytes32) h
-  let slashings ← fs[14]? >>= (decListV dec_Gwei) h
-  let previous_epoch_participation ← fs[15]? >>= (decListV dec_ParticipationFlags) h
-  let current_epoch_participation ← fs[16]? >>= (decListV dec_ParticipationFlags) h
-  let justification_bits ← fs[17]? >>= (decListV decBooleanV) h
+  let validators ← fs[11]? >>= (decListT .progressiveList (.container Scope.Id.«Validator») none dec_Validator) h
+  let balances ← fs[12]? >>= (decListT .progressiveList (.uint (.nominal Scope.Id.«Gwei» 64)) none dec_Gwei) h
+  let randao_mixes ← fs[13]? >>= (decListT .vector (.bytes Scope.Id.«Bytes32» 32) (some 64) dec_Bytes32) h
+  let slashings ← fs[14]? >>= (decListT .vector (.uint (.nominal Scope.Id.«Gwei» 64)) (some 64) dec_Gwei) h
+  let previous_epoch_participation ← fs[15]? >>= (decListT .progressiveList (.uint (.nominal Scope.Id.«ParticipationFlags» 8)) none dec_ParticipationFlags) h
+  let current_epoch_participation ← fs[16]? >>= (decListT .progressiveList (.uint (.nominal Scope.Id.«ParticipationFlags» 8)) none dec_ParticipationFlags) h
+  let justification_bits ← fs[17]? >>= (decListT .bitvector .boolean (some 4) decBooleanV) h
   let previous_justified_checkpoint ← fs[18]? >>= dec_Checkpoint h
   let current_justified_checkpoint ← fs[19]? >>= dec_Checkpoint h
   let finalized_checkpoint ← fs[20]? >>= dec_Checkpoint h
-  let inactivity_scores ← fs[21]? >>= (decListV dec_Uint64) h
+  let inactivity_scores ← fs[21]? >>= (decListT .progressiveList (.uint (.width 64)) none dec_Uint64) h
   let current_sync_committee ← fs[22]? >>= dec_SyncCommittee h
   let next_sync_committee ← fs[23]? >>= dec_SyncCommittee h
   let latest_block_hash ← fs[24]? >>= dec_Hash32 h
   let next_withdrawal_index ← fs[25]? >>= dec_WithdrawalIndex h
   let next_withdrawal_validator_index ← fs[26]? >>= dec_ValidatorIndex h
-  let historical_summaries ← fs[27]? >>= (decListV dec_HistoricalSummary) h
+  let historical_summaries ← fs[27]? >>= (decListT .list (.container Scope.Id.«HistoricalSummary») (some 16777216) dec_HistoricalSummary) h
   let deposit_requests_start_index ← fs[28]? >>= dec_Uint64 h
   let deposit_balance_to_consume ← fs[29]? >>= dec_Gwei h
   let exit_balance_to_consume ← fs[30]? >>= dec_Gwei h
   let earliest_exit_epoch ← fs[31]? >>= dec_Epoch h
   let consolidation_balance_to_consume ← fs[32]? >>= dec_Gwei h
   let earliest_consolidation_epoch ← fs[33]? >>= dec_Epoch h
-  let pending_deposits ← fs[34]? >>= (decListV dec_PendingDeposit) h
-  let pending_partial_withdrawals ← fs[35]? >>= (decListV dec_PendingPartialWithdrawal) h
-  let pending_consolidations ← fs[36]? >>= (decListV dec_PendingConsolidation) h
-  let proposer_lookahead ← fs[37]? >>= (decListV dec_ValidatorIndex) h
-  let builders ← fs[38]? >>= (decListV dec_Builder) h
+  let pending_deposits ← fs[34]? >>= (decListT .progressiveList (.container Scope.Id.«PendingDeposit») none dec_PendingDeposit) h
+  let pending_partial_withdrawals ← fs[35]? >>= (decListT .progressiveList (.container Scope.Id.«PendingPartialWithdrawal») none dec_PendingPartialWithdrawal) h
+  let pending_consolidations ← fs[36]? >>= (decListT .progressiveList (.container Scope.Id.«PendingConsolidation») none dec_PendingConsolidation) h
+  let proposer_lookahead ← fs[37]? >>= (decListT .vector (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16) dec_ValidatorIndex) h
+  let builders ← fs[38]? >>= (decListT .progressiveList (.container Scope.Id.«Builder») none dec_Builder) h
   let next_withdrawal_builder_index ← fs[39]? >>= dec_BuilderIndex h
-  let execution_payload_availability ← fs[40]? >>= (decListV decBooleanV) h
-  let builder_pending_payments ← fs[41]? >>= (decListV dec_BuilderPendingPayment) h
-  let builder_pending_withdrawals ← fs[42]? >>= (decListV dec_BuilderPendingWithdrawal) h
+  let execution_payload_availability ← fs[40]? >>= (decListT .bitvector .boolean (some 64) decBooleanV) h
+  let builder_pending_payments ← fs[41]? >>= (decListT .vector (.container Scope.Id.«BuilderPendingPayment») (some 16) dec_BuilderPendingPayment) h
+  let builder_pending_withdrawals ← fs[42]? >>= (decListT .progressiveList (.container Scope.Id.«BuilderPendingWithdrawal») none dec_BuilderPendingWithdrawal) h
   let latest_execution_payload_bid ← fs[43]? >>= dec_ExecutionPayloadBid h
-  let payload_expected_withdrawals ← fs[44]? >>= (decListV dec_Withdrawal) h
-  let ptc_window ← fs[45]? >>= (decListV (decListV dec_ValidatorIndex)) h
+  let payload_expected_withdrawals ← fs[44]? >>= (decListT .progressiveList (.container Scope.Id.«Withdrawal») none dec_Withdrawal) h
+  let ptc_window ← fs[45]? >>= (decListT .vector (.list .vector (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16)) (some 24) (decListT .vector (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16) dec_ValidatorIndex)) h
   pure { genesis_time, genesis_validators_root, slot, fork, latest_block_header, block_roots, state_roots, historical_roots, eth1_data, eth1_data_votes, eth1_deposit_index, validators, balances, randao_mixes, slashings, previous_epoch_participation, current_epoch_participation, justification_bits, previous_justified_checkpoint, current_justified_checkpoint, finalized_checkpoint, inactivity_scores, current_sync_committee, next_sync_committee, latest_block_hash, next_withdrawal_index, next_withdrawal_validator_index, historical_summaries, deposit_requests_start_index, deposit_balance_to_consume, exit_balance_to_consume, earliest_exit_epoch, consolidation_balance_to_consume, earliest_consolidation_epoch, pending_deposits, pending_partial_withdrawals, pending_consolidations, proposer_lookahead, builders, next_withdrawal_builder_index, execution_payload_availability, builder_pending_payments, builder_pending_withdrawals, latest_execution_payload_bid, payload_expected_withdrawals, ptc_window }
 
 
@@ -682,34 +682,6 @@ def dec_SignedVoluntaryExit : Dec SignedVoluntaryExit := fun h v => do
   pure { message, signature }
 
 
-structure Domain where
-  data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
-
-instance : Inhabited Domain := ⟨⟨List.replicate 32 0⟩⟩
-instance : BytesC Domain := ⟨32, Domain.data, Domain.mk, fun _ => rfl, fun _ => rfl⟩
-instance : PyOrd Domain := ⟨fun a b => PyOrd.lt a.data b.data⟩
-def enc_Domain : Enc Domain := encBytesN Scope.Id.«Domain»
-def dec_Domain : Dec Domain := decBytesT Scope.Id.«Domain»
-
-
-structure SigningData where
-  object_root : Root
-  domain : Domain
-  deriving DecidableEq, Repr, BEq
-
-instance : Inhabited SigningData := ⟨{ object_root := default, domain := default }⟩
-
-def enc_SigningData : Enc SigningData := fun x =>
-  encContainer Scope.Id.«SigningData» [enc_Root x.object_root, enc_Domain x.domain]
-
-def dec_SigningData : Dec SigningData := fun h v => do
-  let fs ← containerFieldsT Scope.Id.«SigningData» h v
-  let object_root ← fs[0]? >>= dec_Root h
-  let domain ← fs[1]? >>= dec_Domain h
-  pure { object_root, domain }
-
-
 structure DomainType where
   data : Bytes
   deriving DecidableEq, Repr, BEq, Hashable
@@ -718,7 +690,18 @@ instance : Inhabited DomainType := ⟨⟨List.replicate 4 0⟩⟩
 instance : BytesC DomainType := ⟨4, DomainType.data, DomainType.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd DomainType := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_DomainType : Enc DomainType := encBytesN Scope.Id.«DomainType»
-def dec_DomainType : Dec DomainType := decBytesT Scope.Id.«DomainType»
+abbrev dec_DomainType : Dec DomainType := decBytesT Scope.Id.«DomainType»
+
+
+structure Domain where
+  data : Bytes
+  deriving DecidableEq, Repr, BEq, Hashable
+
+instance : Inhabited Domain := ⟨⟨List.replicate 32 0⟩⟩
+instance : BytesC Domain := ⟨32, Domain.data, Domain.mk, fun _ => rfl, fun _ => rfl⟩
+instance : PyOrd Domain := ⟨fun a b => PyOrd.lt a.data b.data⟩
+def enc_Domain : Enc Domain := encBytesN Scope.Id.«Domain»
+abbrev dec_Domain : Dec Domain := decBytesT Scope.Id.«Domain»
 
 
 structure ForkData where
@@ -738,6 +721,23 @@ def dec_ForkData : Dec ForkData := fun h v => do
   pure { current_version, genesis_validators_root }
 
 
+structure SigningData where
+  object_root : Root
+  domain : Domain
+  deriving DecidableEq, Repr, BEq
+
+instance : Inhabited SigningData := ⟨{ object_root := default, domain := default }⟩
+
+def enc_SigningData : Enc SigningData := fun x =>
+  encContainer Scope.Id.«SigningData» [enc_Root x.object_root, enc_Domain x.domain]
+
+def dec_SigningData : Dec SigningData := fun h v => do
+  let fs ← containerFieldsT Scope.Id.«SigningData» h v
+  let object_root ← fs[0]? >>= dec_Root h
+  let domain ← fs[1]? >>= dec_Domain h
+  pure { object_root, domain }
+
+
 structure SyncAggregate where
   sync_committee_bits : (List Boolean)
   sync_committee_signature : BLSSignature
@@ -750,7 +750,7 @@ def enc_SyncAggregate : Enc SyncAggregate := fun x =>
 
 def dec_SyncAggregate : Dec SyncAggregate := fun h v => do
   let fs ← containerFieldsT Scope.Id.«SyncAggregate» h v
-  let sync_committee_bits ← fs[0]? >>= (decListV decBooleanV) h
+  let sync_committee_bits ← fs[0]? >>= (decListT .bitvector .boolean (some 32) decBooleanV) h
   let sync_committee_signature ← fs[1]? >>= dec_BLSSignature h
   pure { sync_committee_bits, sync_committee_signature }
 
@@ -823,7 +823,7 @@ def enc_PayloadAttestation : Enc PayloadAttestation := fun x =>
 
 def dec_PayloadAttestation : Dec PayloadAttestation := fun h v => do
   let fs ← containerFieldsT Scope.Id.«PayloadAttestation» h v
-  let aggregation_bits ← fs[0]? >>= (decListV decBooleanV) h
+  let aggregation_bits ← fs[0]? >>= (decListT .bitvector .boolean (some 16) decBooleanV) h
   let data ← fs[1]? >>= dec_PayloadAttestationData h
   let signature ← fs[2]? >>= dec_BLSSignature h
   pure { aggregation_bits, data, signature }
@@ -842,7 +842,7 @@ def enc_IndexedPayloadAttestation : Enc IndexedPayloadAttestation := fun x =>
 
 def dec_IndexedPayloadAttestation : Dec IndexedPayloadAttestation := fun h v => do
   let fs ← containerFieldsT Scope.Id.«IndexedPayloadAttestation» h v
-  let attesting_indices ← fs[0]? >>= (decListV dec_ValidatorIndex) h
+  let attesting_indices ← fs[0]? >>= (decListT .list (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16) dec_ValidatorIndex) h
   let data ← fs[1]? >>= dec_PayloadAttestationData h
   let signature ← fs[2]? >>= dec_BLSSignature h
   pure { attesting_indices, data, signature }
@@ -855,7 +855,7 @@ structure CommitteeIndex where
 instance : UintC CommitteeIndex := ⟨64, CommitteeIndex.val, CommitteeIndex.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd CommitteeIndex := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_CommitteeIndex : Enc CommitteeIndex := encUint (.nominal Scope.Id.«CommitteeIndex» 64)
-def dec_CommitteeIndex : Dec CommitteeIndex := decUintT (.nominal Scope.Id.«CommitteeIndex» 64)
+abbrev dec_CommitteeIndex : Dec CommitteeIndex := decUintT (.nominal Scope.Id.«CommitteeIndex» 64)
 
 
 structure AttestationData where
@@ -894,7 +894,7 @@ def enc_IndexedAttestation : Enc IndexedAttestation := fun x =>
 
 def dec_IndexedAttestation : Dec IndexedAttestation := fun h v => do
   let fs ← containerFieldsT Scope.Id.«IndexedAttestation» h v
-  let attesting_indices ← fs[0]? >>= (decListV dec_ValidatorIndex) h
+  let attesting_indices ← fs[0]? >>= (decListT .progressiveList (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) none dec_ValidatorIndex) h
   let data ← fs[1]? >>= dec_AttestationData h
   let signature ← fs[2]? >>= dec_BLSSignature h
   pure { attesting_indices, data, signature }
@@ -931,10 +931,10 @@ def enc_Attestation : Enc Attestation := fun x =>
 
 def dec_Attestation : Dec Attestation := fun h v => do
   let fs ← containerFieldsT Scope.Id.«Attestation» h v
-  let aggregation_bits ← fs[0]? >>= (decListV decBooleanV) h
+  let aggregation_bits ← fs[0]? >>= (decListT .progressiveBitlist .boolean none decBooleanV) h
   let data ← fs[1]? >>= dec_AttestationData h
   let signature ← fs[2]? >>= dec_BLSSignature h
-  let committee_bits ← fs[3]? >>= (decListV decBooleanV) h
+  let committee_bits ← fs[3]? >>= (decListT .bitvector .boolean (some 4) decBooleanV) h
   pure { aggregation_bits, data, signature, committee_bits }
 
 
@@ -971,7 +971,7 @@ def enc_Deposit : Enc Deposit := fun x =>
 
 def dec_Deposit : Dec Deposit := fun h v => do
   let fs ← containerFieldsT Scope.Id.«Deposit» h v
-  let proof ← fs[0]? >>= (decListV dec_Bytes32) h
+  let proof ← fs[0]? >>= (decListT .vector (.bytes Scope.Id.«Bytes32» 32) (some 33) dec_Bytes32) h
   let data ← fs[1]? >>= dec_DepositData h
   pure { proof, data }
 
@@ -1124,11 +1124,11 @@ def enc_ExecutionRequests : Enc ExecutionRequests := fun x =>
 
 def dec_ExecutionRequests : Dec ExecutionRequests := fun h v => do
   let fs ← containerFieldsT Scope.Id.«ExecutionRequests» h v
-  let deposits ← fs[0]? >>= (decListV dec_DepositRequest) h
-  let withdrawals ← fs[1]? >>= (decListV dec_WithdrawalRequest) h
-  let consolidations ← fs[2]? >>= (decListV dec_ConsolidationRequest) h
-  let builder_deposits ← fs[3]? >>= (decListV dec_BuilderDepositRequest) h
-  let builder_exits ← fs[4]? >>= (decListV dec_BuilderExitRequest) h
+  let deposits ← fs[0]? >>= (decListT .progressiveList (.container Scope.Id.«DepositRequest») none dec_DepositRequest) h
+  let withdrawals ← fs[1]? >>= (decListT .progressiveList (.container Scope.Id.«WithdrawalRequest») none dec_WithdrawalRequest) h
+  let consolidations ← fs[2]? >>= (decListT .progressiveList (.container Scope.Id.«ConsolidationRequest») none dec_ConsolidationRequest) h
+  let builder_deposits ← fs[3]? >>= (decListT .progressiveList (.container Scope.Id.«BuilderDepositRequest») none dec_BuilderDepositRequest) h
+  let builder_exits ← fs[4]? >>= (decListT .progressiveList (.container Scope.Id.«BuilderExitRequest») none dec_BuilderExitRequest) h
   pure { deposits, withdrawals, consolidations, builder_deposits, builder_exits }
 
 
@@ -1158,15 +1158,15 @@ def dec_BeaconBlockBody : Dec BeaconBlockBody := fun h v => do
   let randao_reveal ← fs[0]? >>= dec_BLSSignature h
   let eth1_data ← fs[1]? >>= dec_Eth1Data h
   let graffiti ← fs[2]? >>= dec_Bytes32 h
-  let proposer_slashings ← fs[3]? >>= (decListV dec_ProposerSlashing) h
-  let attester_slashings ← fs[4]? >>= (decListV dec_AttesterSlashing) h
-  let attestations ← fs[5]? >>= (decListV dec_Attestation) h
-  let deposits ← fs[6]? >>= (decListV dec_Deposit) h
-  let voluntary_exits ← fs[7]? >>= (decListV dec_SignedVoluntaryExit) h
+  let proposer_slashings ← fs[3]? >>= (decListT .progressiveList (.container Scope.Id.«ProposerSlashing») none dec_ProposerSlashing) h
+  let attester_slashings ← fs[4]? >>= (decListT .progressiveList (.container Scope.Id.«AttesterSlashing») none dec_AttesterSlashing) h
+  let attestations ← fs[5]? >>= (decListT .progressiveList (.container Scope.Id.«Attestation») none dec_Attestation) h
+  let deposits ← fs[6]? >>= (decListT .progressiveList (.container Scope.Id.«Deposit») none dec_Deposit) h
+  let voluntary_exits ← fs[7]? >>= (decListT .progressiveList (.container Scope.Id.«SignedVoluntaryExit») none dec_SignedVoluntaryExit) h
   let sync_aggregate ← fs[8]? >>= dec_SyncAggregate h
-  let bls_to_execution_changes ← fs[9]? >>= (decListV dec_SignedBLSToExecutionChange) h
+  let bls_to_execution_changes ← fs[9]? >>= (decListT .progressiveList (.container Scope.Id.«SignedBLSToExecutionChange») none dec_SignedBLSToExecutionChange) h
   let signed_execution_payload_bid ← fs[10]? >>= dec_SignedExecutionPayloadBid h
-  let payload_attestations ← fs[11]? >>= (decListV dec_PayloadAttestation) h
+  let payload_attestations ← fs[11]? >>= (decListT .progressiveList (.container Scope.Id.«PayloadAttestation») none dec_PayloadAttestation) h
   let parent_execution_requests ← fs[12]? >>= dec_ExecutionRequests h
   pure { randao_reveal, eth1_data, graffiti, proposer_slashings, attester_slashings, attestations, deposits, voluntary_exits, sync_aggregate, bls_to_execution_changes, signed_execution_payload_bid, payload_attestations, parent_execution_requests }
 
@@ -1226,7 +1226,7 @@ structure Uint32 where
 instance : UintC Uint32 := ⟨32, Uint32.val, Uint32.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Uint32 := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Uint32 : Enc Uint32 := encUint (.width 32)
-def dec_Uint32 : Dec Uint32 := decUintT (.width 32)
+abbrev dec_Uint32 : Dec Uint32 := decUintT (.width 32)
 
 
 structure LogsBloom where
@@ -1237,7 +1237,7 @@ instance : Inhabited LogsBloom := ⟨⟨List.replicate 256 0⟩⟩
 instance : BytesC LogsBloom := ⟨256, LogsBloom.data, LogsBloom.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd LogsBloom := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_LogsBloom : Enc LogsBloom := encBytesN Scope.Id.«LogsBloom»
-def dec_LogsBloom : Dec LogsBloom := decBytesT Scope.Id.«LogsBloom»
+abbrev dec_LogsBloom : Dec LogsBloom := decBytesT Scope.Id.«LogsBloom»
 
 
 structure Uint256 where
@@ -1247,7 +1247,7 @@ structure Uint256 where
 instance : UintC Uint256 := ⟨256, Uint256.val, Uint256.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Uint256 := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Uint256 : Enc Uint256 := encUint (.width 256)
-def dec_Uint256 : Dec Uint256 := decUintT (.width 256)
+abbrev dec_Uint256 : Dec Uint256 := decUintT (.width 256)
 
 
 structure fulu_ExecutionPayloadHeader where
@@ -1287,7 +1287,7 @@ def dec_fulu_ExecutionPayloadHeader : Dec fulu_ExecutionPayloadHeader := fun h v
   let gas_limit ← fs[7]? >>= dec_Uint64 h
   let gas_used ← fs[8]? >>= dec_Uint64 h
   let timestamp ← fs[9]? >>= dec_Uint64 h
-  let extra_data ← fs[10]? >>= (decListV dec_Uint8) h
+  let extra_data ← fs[10]? >>= (decListT .list (.uint (.width 8)) (some 32) dec_Uint8) h
   let base_fee_per_gas ← fs[11]? >>= dec_Uint256 h
   let block_hash ← fs[12]? >>= dec_Hash32 h
   let transactions_root ← fs[13]? >>= dec_Root h
@@ -1350,39 +1350,39 @@ def dec_fulu_BeaconState : Dec fulu_BeaconState := fun h v => do
   let slot ← fs[2]? >>= dec_Slot h
   let fork ← fs[3]? >>= dec_Fork h
   let latest_block_header ← fs[4]? >>= dec_BeaconBlockHeader h
-  let block_roots ← fs[5]? >>= (decListV dec_Root) h
-  let state_roots ← fs[6]? >>= (decListV dec_Root) h
-  let historical_roots ← fs[7]? >>= (decListV dec_Root) h
+  let block_roots ← fs[5]? >>= (decListT .vector (.bytes Scope.Id.«Root» 32) (some 64) dec_Root) h
+  let state_roots ← fs[6]? >>= (decListT .vector (.bytes Scope.Id.«Root» 32) (some 64) dec_Root) h
+  let historical_roots ← fs[7]? >>= (decListT .list (.bytes Scope.Id.«Root» 32) (some 16777216) dec_Root) h
   let eth1_data ← fs[8]? >>= dec_Eth1Data h
-  let eth1_data_votes ← fs[9]? >>= (decListV dec_Eth1Data) h
+  let eth1_data_votes ← fs[9]? >>= (decListT .list (.container Scope.Id.«Eth1Data») (some 32) dec_Eth1Data) h
   let eth1_deposit_index ← fs[10]? >>= dec_Uint64 h
-  let validators ← fs[11]? >>= (decListV dec_Validator) h
-  let balances ← fs[12]? >>= (decListV dec_Gwei) h
-  let randao_mixes ← fs[13]? >>= (decListV dec_Bytes32) h
-  let slashings ← fs[14]? >>= (decListV dec_Gwei) h
-  let previous_epoch_participation ← fs[15]? >>= (decListV dec_ParticipationFlags) h
-  let current_epoch_participation ← fs[16]? >>= (decListV dec_ParticipationFlags) h
-  let justification_bits ← fs[17]? >>= (decListV decBooleanV) h
+  let validators ← fs[11]? >>= (decListT .list (.container Scope.Id.«Validator») (some 1099511627776) dec_Validator) h
+  let balances ← fs[12]? >>= (decListT .list (.uint (.nominal Scope.Id.«Gwei» 64)) (some 1099511627776) dec_Gwei) h
+  let randao_mixes ← fs[13]? >>= (decListT .vector (.bytes Scope.Id.«Bytes32» 32) (some 64) dec_Bytes32) h
+  let slashings ← fs[14]? >>= (decListT .vector (.uint (.nominal Scope.Id.«Gwei» 64)) (some 64) dec_Gwei) h
+  let previous_epoch_participation ← fs[15]? >>= (decListT .list (.uint (.nominal Scope.Id.«ParticipationFlags» 8)) (some 1099511627776) dec_ParticipationFlags) h
+  let current_epoch_participation ← fs[16]? >>= (decListT .list (.uint (.nominal Scope.Id.«ParticipationFlags» 8)) (some 1099511627776) dec_ParticipationFlags) h
+  let justification_bits ← fs[17]? >>= (decListT .bitvector .boolean (some 4) decBooleanV) h
   let previous_justified_checkpoint ← fs[18]? >>= dec_Checkpoint h
   let current_justified_checkpoint ← fs[19]? >>= dec_Checkpoint h
   let finalized_checkpoint ← fs[20]? >>= dec_Checkpoint h
-  let inactivity_scores ← fs[21]? >>= (decListV dec_Uint64) h
+  let inactivity_scores ← fs[21]? >>= (decListT .list (.uint (.width 64)) (some 1099511627776) dec_Uint64) h
   let current_sync_committee ← fs[22]? >>= dec_SyncCommittee h
   let next_sync_committee ← fs[23]? >>= dec_SyncCommittee h
   let latest_execution_payload_header ← fs[24]? >>= dec_fulu_ExecutionPayloadHeader h
   let next_withdrawal_index ← fs[25]? >>= dec_WithdrawalIndex h
   let next_withdrawal_validator_index ← fs[26]? >>= dec_ValidatorIndex h
-  let historical_summaries ← fs[27]? >>= (decListV dec_HistoricalSummary) h
+  let historical_summaries ← fs[27]? >>= (decListT .list (.container Scope.Id.«HistoricalSummary») (some 16777216) dec_HistoricalSummary) h
   let deposit_requests_start_index ← fs[28]? >>= dec_Uint64 h
   let deposit_balance_to_consume ← fs[29]? >>= dec_Gwei h
   let exit_balance_to_consume ← fs[30]? >>= dec_Gwei h
   let earliest_exit_epoch ← fs[31]? >>= dec_Epoch h
   let consolidation_balance_to_consume ← fs[32]? >>= dec_Gwei h
   let earliest_consolidation_epoch ← fs[33]? >>= dec_Epoch h
-  let pending_deposits ← fs[34]? >>= (decListV dec_PendingDeposit) h
-  let pending_partial_withdrawals ← fs[35]? >>= (decListV dec_PendingPartialWithdrawal) h
-  let pending_consolidations ← fs[36]? >>= (decListV dec_PendingConsolidation) h
-  let proposer_lookahead ← fs[37]? >>= (decListV dec_ValidatorIndex) h
+  let pending_deposits ← fs[34]? >>= (decListT .list (.container Scope.Id.«PendingDeposit») (some 134217728) dec_PendingDeposit) h
+  let pending_partial_withdrawals ← fs[35]? >>= (decListT .list (.container Scope.Id.«PendingPartialWithdrawal») (some 64) dec_PendingPartialWithdrawal) h
+  let pending_consolidations ← fs[36]? >>= (decListT .list (.container Scope.Id.«PendingConsolidation») (some 64) dec_PendingConsolidation) h
+  let proposer_lookahead ← fs[37]? >>= (decListT .vector (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16) dec_ValidatorIndex) h
   pure { genesis_time, genesis_validators_root, slot, fork, latest_block_header, block_roots, state_roots, historical_roots, eth1_data, eth1_data_votes, eth1_deposit_index, validators, balances, randao_mixes, slashings, previous_epoch_participation, current_epoch_participation, justification_bits, previous_justified_checkpoint, current_justified_checkpoint, finalized_checkpoint, inactivity_scores, current_sync_committee, next_sync_committee, latest_execution_payload_header, next_withdrawal_index, next_withdrawal_validator_index, historical_summaries, deposit_requests_start_index, deposit_balance_to_consume, exit_balance_to_consume, earliest_exit_epoch, consolidation_balance_to_consume, earliest_consolidation_epoch, pending_deposits, pending_partial_withdrawals, pending_consolidations, proposer_lookahead }
 
 
@@ -1411,7 +1411,7 @@ instance : Inhabited Bytes1 := ⟨⟨List.replicate 1 0⟩⟩
 instance : BytesC Bytes1 := ⟨1, Bytes1.data, Bytes1.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Bytes1 := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_Bytes1 : Enc Bytes1 := encBytesN Scope.Id.«Bytes1»
-def dec_Bytes1 : Dec Bytes1 := decBytesT Scope.Id.«Bytes1»
+abbrev dec_Bytes1 : Dec Bytes1 := decBytesT Scope.Id.«Bytes1»
 
 
 /-! ## Constants -/
@@ -3449,7 +3449,7 @@ def get_block_root_at_slot(state: BeaconState, slot: Slot) -> Root:
     return state.block_roots[slot % SLOTS_PER_HISTORICAL_ROOT]
 ``` -/
 def get_block_root_at_slot (state : BeaconState) (slot : Slot) : SpecM Root := do
-  assert ((decide ((uv slot) < (uv (state).slot))) && (decide ((uv (state).slot) ≤ (uv (← (uOp .add (uv slot) (uv SLOTS_PER_HISTORICAL_ROOT) : SpecM Slot))))))
+  assert (← (if (decide ((uv slot) < (uv (state).slot))) then (do pure (decide ((uv (state).slot) ≤ (uv (← (uOp .add (uv slot) (uv SLOTS_PER_HISTORICAL_ROOT) : SpecM Slot)))))) else pure false : SpecM Bool))
   return (← lget (state).block_roots (uv (← (uOp .mod (uv slot) (uv SLOTS_PER_HISTORICAL_ROOT) : SpecM Slot))))
 
 

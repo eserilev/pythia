@@ -749,7 +749,14 @@ class Fn:
         for op, right in zip(e.ops, e.comparators):
             parts.append(self.cmp1(left, op, right))
             left = right
-        return parts[0] if len(parts) == 1 else "(" + " && ".join(parts) + ")"
+        # Python stops at the first false comparison: a later operand is not evaluated.
+        acc = parts[-1]
+        for cur in reversed(parts[:-1]):
+            if "(←" in acc:
+                acc = f"(← (if {cur} then (do pure {acc}) else pure false : SpecM Bool))"
+            else:
+                acc = f"({cur} && {acc})"
+        return acc
 
     def comp(self, elt, gens, et):
         """A comprehension: `filterMapM` over each generator, live over the source."""
