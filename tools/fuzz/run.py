@@ -79,12 +79,12 @@ def save(sig: str, src: str, py: str, lean: str) -> Path:
 
 
 def blocks(lines):
-    """Each removable unit: a line with its indented children. `mk`, `tr` and `grow` stay."""
+    """Each removable unit: a line with its indented children. `mk`, `tr`, `grow` and `each` stay."""
     out = []
     keep = False
     for i, line in enumerate(lines):
         if line.startswith("def "):
-            keep = line.startswith(("def mk", "def tr", "def grow"))
+            keep = line.startswith(("def mk", "def tr", "def grow", "def each"))
         if keep or not line.strip():
             continue
         ind = len(line) - len(line.lstrip())

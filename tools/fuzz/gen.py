@@ -53,6 +53,10 @@ def PL(e):
     return ("pylist", e)
 
 
+def DICT(k, v):
+    return ("dict", k, v)
+
+
 UINTS = [H.Uint64, H.Slot, H.Epoch, H.Gwei, H.ValidatorIndex, H.Uint8]
 BYTES = [H.Bytes4, H.Root, H.Bytes32]
 
@@ -83,7 +87,7 @@ def elem(T):
 
 
 def is_ref(T):
-    return T[0] in ("cont", "seq", "pylist")
+    return T[0] in ("cont", "seq", "pylist", "dict")
 
 
 def is_seq(T):
@@ -291,6 +295,10 @@ class Gen:
             return self.seq_expr(T, sc, d)
         if k == "pylist":
             return self.pylist_expr(T, sc, d)
+        if k == "dict":
+            n = ch.int(0, 2) if d > 0 else 0
+            kvs = [f"{self.expr(T[1], sc, d - 1)}: {self.expr(T[2], sc, d - 1)}" for _ in range(n)]
+            return "{" + ", ".join(kvs) + "}"
         return "None"
 
     def any_numeric(self, sc, d):
@@ -569,7 +577,8 @@ class Gen:
         k = ch.weighted([(4, "local"), (5, "field"), (3, "elem"), (3, "aug"), (3, "append"),
                          (4, "pattern"), (2, "for"), (1, "while"), (2, "if"), (1, "assert"),
                          (2, "call"), (1, "raise"), (1, "swap"), (1, "multi"), (1, "slice"),
-                         (1, "extend"), (1, "ret"), (1, "brk" if in_loop else "local")])
+                         (1, "extend"), (1, "ret"), (1, "brk" if in_loop else "local"),
+                         (1, "unpack"), (1, "each"), (2, "dict")])
         getattr(self, "s_" + k)(sc, in_loop)
 
     def s_local(self, sc, in_loop):
@@ -591,7 +600,7 @@ class Gen:
     def annot(self, T):
         if T[0] in ("uint", "bytes", "cont", "seq"):
             return T[1].__name__
-        return {"int": "int", "bool": "bool", "Boolean": "Boolean", "pylist": "list"}.get(T[0],
+        return {"int": "int", "bool": "bool", "Boolean": "Boolean", "pylist": "list", "dict": "dict"}.get(T[0],
                                                                                          "int")
 
     def s_field(self, sc, in_loop):
@@ -803,6 +812,64 @@ class Gen:
         args = ", ".join(["log"] + [self.expr(p, sc, 1) for p in ps])
         self.emit(f"{name}({args})")
 
+    def s_unpack(self, sc, in_loop):
+        ta, tb = self.ch.weighted(LOCAL_TYPES), self.ch.weighted(LOCAL_TYPES)
+        a, b = self.fresh("v"), self.fresh("v")
+        self.emit(f"{a}, {b} = {self.expr(ta, sc)}, {self.expr(tb, sc)}")
+        sc.vars[a], sc.vars[b] = ta, tb
+
+    def s_each(self, sc, in_loop):
+        """`for_ops` style: a function value called on each item of a live list."""
+        r = self.path_of(sc, is_seq)
+        if r is None:
+            return self.s_local(sc, in_loop)
+        p, T = r
+        body = self.ch.pick([self.trace("x"), f"grow({p}, x)", "x", f"1 // len({p})"])
+        if "grow" in body and not growable(T) or "livecomp" in AVOID and "grow" in body:
+            body = self.trace("x")
+        self.emit(f"each({p}, lambda x: {body})")
+
+    def s_dict(self, sc, in_loop):
+        ch = self.ch
+        ds = [v for v, t in sc.vars.items() if t[0] == "dict"]
+        if not ds or ch.flip(25):
+            T = DICT(ch.pick([U(H.Slot), BY(H.Root), INT]),
+                     ch.weighted([(3, C(H.Pt)), (2, U(H.Gwei)), (1, S(H.Gweis)), (1, INT)]))
+            v = self.fresh("d")
+            self.emit(f"{v} = {self.expr(T, sc)}")
+            sc.vars[v] = T
+            return
+        v = ch.pick(ds)
+        T = sc.vars[v]
+        key = self.expr(T[1], sc, 1)
+        k = ch.weighted([(4, "set"), (2, "get"), (2, "index"), (1, "in"), (1, "iter"),
+                         (1, "write")])
+        if k == "set":
+            self.emit(f"{v}[{key}] = {self.expr(T[2], sc)}")
+        elif k == "get":
+            w = self.fresh("v")
+            dflt = ch.pick(["", ", " + self.expr(T[2], sc, 1)])
+            self.emit(f"{w} = {v}.get({key}{dflt})")
+            if dflt:
+                sc.vars[w] = T[2]
+        elif k == "index":
+            w = self.fresh("v")
+            self.emit(f"{w} = {v}[{key}]")
+            sc.vars[w] = T[2]
+        elif k == "in":
+            self.emit(f"assert ({key} {ch.pick(['in', 'not in'])} {v}) or len({v}) >= 0")
+        elif k == "iter":
+            x = self.fresh("x")
+            self.emit(f"for {x} in {ch.pick([v, f'sorted({v})'])}:")
+            self.indent += 1
+            self.emit(f"log.append({x})")
+            self.indent -= 1
+        elif T[2][0] == "cont":
+            f, ft = ch.pick(fields(T[2]))
+            self.emit(f"{v}[{key}].{f} = {self.expr(ft, sc, 1)}")
+        else:
+            self.emit(f"{v}[{key}] = {self.expr(T[2], sc, 1)}")
+
     def s_swap(self, sc, in_loop):
         locs = [v for v in sc.vars if v != "log"]
         if len(locs) < 2:
@@ -900,6 +967,11 @@ def grow(xs, v):
     if len(xs) < 5:
         xs.append(v)
     return v
+
+
+def each(xs, fn):
+    for x in xs:
+        fn(x)
 
 '''
 
