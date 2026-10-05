@@ -237,7 +237,8 @@ inductive HeapObject where
 Integers, booleans, strings, bytes and tuples are immutable values. Lists, containers, dicts and
 sets live in the heap, and a `Value.ref` points to them, as in Python. A constructor call,
 `.copy()`, a literal or a comprehension allocates a new heap object. `.copy()` is deep: the copy
-shares no object with the original.
+shares no object with the original. `.copy()` of a Python list is shallow: the new list shares
+its elements.
 
 `ListKind` covers the SSZ kinds `List`, `Vector`, `Bitlist`, `Bitvector`, `ProgressiveList` and
 `ProgressiveBitList`, each with its element type and limit, and the plain Python list `pyList`,
@@ -273,7 +274,11 @@ probes as tests, so a library change shows up as a failing test.
 | `Bytes32[0]` | `int` |
 | `Root == Bytes32`, `Root == b'…'` | compares the bytes |
 | `Root == BLSPubkey` | `False`, no error |
-| Container field write of any uint type or an `int` into a uint field | coerced to the field type; out of range raises `ValidationError` |
+| Container field write of an `int` or a base `Uint64` into a uint field | coerced to the field type; out of range raises `ValidationError` |
+| Container field write of a subclass of the field type (`Slot` into a `Uint64` field) | keeps the subclass |
+| Container field write of a Python `list` or `tuple` into an SSZ list field | pydantic `ValidationError` |
+| `Vector(data=…)` or `List(data=…)` with the wrong length or over the limit | pydantic `ValidationError` |
+| `True == Gwei(0)`, `True + Uint64(1)` (Python `bool` on the left) | int rules: `False`, `int` `2` |
 | Container field write of `True` into a uint field | pydantic `ValidationError` |
 | Container field write of `True` or `False` into a `Boolean` field | coerced to `Boolean` |
 | Container field write of `0`, `1` or a float into a `Boolean` field | pydantic `ValidationError` |
@@ -350,7 +355,8 @@ def interp (fuel : Nat) (env : Env) (fn : FnId) (args : List Value) (heap : Heap
 
 Probes against CPython fixed these rules:
 
-- Expressions evaluate left to right.
+- Expressions evaluate left to right. A dict literal is the exception: it evaluates all keys, then
+  all values.
 - `and` and `or` short-circuit. A chained comparison stops at the first false comparison.
 - Plain assignment `obj[idx] = rhs` evaluates `rhs`, then `obj`, then `idx`, then writes.
 - Augmented assignment `obj[idx] += rhs` evaluates `obj`, then `idx`, then reads `obj[idx]`, then
@@ -410,8 +416,9 @@ write condition (section 9.2). Paths are still useful, as a proof technique: ins
   gets the element value. For a list of objects, that value is a `ref`, so a write through the
   loop variable changes the element.
 - `for` over `enumerate` and `zip` is live in the same way. `sorted` and slices take a snapshot.
-- A generator expression is evaluated at once into a snapshot. This is correct for the version 1
-  scope, because no generator in it reads an object that its consumer changes.
+- A list comprehension iterates live, like a `for` loop.
+- A generator expression is lazy. `any` and `all` stop at the first result that decides them, so
+  later items are never evaluated. A snapshot is wrong when an item has a side effect.
 - Each call, each `while` iteration and each `for` iteration costs one unit of fuel. Running out
   of fuel gives `outOfFuel`, never a silent stop. So the fuel that a run needs grows with the
   length of the lists it loops over, and `N` in section 9.2 depends on the input.
@@ -762,3 +769,4 @@ patterns outside them. Draft 3 chose V1, path references.
 | `DecodesArgs` lacked `HeapWF`; set iteration is in version 1 scope; fuzzer and set order | Sections 9.2, 6.3, 11 |
 | Spike: frames do not chain without a reach fact; the fresh-address clause was always true | Section 9.2 |
 | Spike: loops carry `WTree`; index loops need a termination lemma; `rfl` simp lemmas time out | Sections 9.1, 9.3 |
+| Fuzzer: live comprehensions, lazy generators, shallow list `.copy()`, subclass field values, `bool` on the left, dict literal order | Sections 6.1, 6.2, 7.2, 7.4 |
