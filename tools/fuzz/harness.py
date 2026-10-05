@@ -100,14 +100,31 @@ class PBox(ProgressiveContainer):
     pair: PtPair
 
 
+class Flags(BitVector):
+    LENGTH = 4
+
+
+class Blob(ByteList):
+    LIMIT = 4
+
+
+class Misc(Container):
+    fl: Flags
+    bl: Blob
+    n: Uint64
+    cp: Checkpoint
+
+
 class FuzzError(Exception):
     """The exception of a generated `raise`. The serializer keeps no `raise` expression."""
 
 
 POOL = {c.__name__: c for c in [
     Slot, Epoch, Gwei, ValidatorIndex, Uint64, Uint8, Boolean, Bytes4, Bytes32, Root, Checkpoint,
-    Pt, Gweis, Gweis2, Pts, PtPair, U64s, Epochs, PPts, Bits, Box, PBox]}
+    Pt, Gweis, Gweis2, Pts, PtPair, U64s, Epochs, PPts, Bits, Box, PBox, Flags, Blob, Misc]}
 POOL["FuzzError"] = FuzzError
+POOL["hash_tree_root"] = spec.hash_tree_root
+POOL["ssz_serialize"] = spec.ssz_serialize
 SSZ_NAMES = {n for n, c in POOL.items() if isinstance(c, type) and issubclass(c, SSZType)}
 
 
@@ -120,8 +137,8 @@ def fp_is_heap(t: str, steps) -> bool:
         cls = getattr(cls, "ELEMENT_TYPE", None) if x == "*" else \
             dict(getattr(cls, "_FIELD_TYPES", [])).get(x)
     return cls is not None and not issubclass(cls, (BaseUint, Boolean, ByteVector))
-SEQ_CLASSES = [Gweis, Gweis2, Pts, PtPair, U64s, Epochs, PPts, Bits]
-CONTAINER_CLASSES = [Pt, Box, PBox, Checkpoint]
+SEQ_CLASSES = [Gweis, Gweis2, Pts, PtPair, U64s, Epochs, PPts, Bits, Flags, Blob]
+CONTAINER_CLASSES = [Pt, Box, PBox, Checkpoint, Misc]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -193,7 +210,7 @@ def ty_str(t) -> str:
 
 def is_heap(v) -> bool:
     return isinstance(v, (list, set, dict, _SSZSequence, BitList, BitVector, ProgressiveBitList,
-                          Container, ProgressiveContainer))
+                          ByteList, Container, ProgressiveContainer))
 
 
 class Renderer:
@@ -296,11 +313,11 @@ MUTATORS = {"append", "extend", "insert", "add"}
 
 
 def _cp(v):
-    if isinstance(v, (_SSZSequence, BitList, BitVector, ProgressiveBitList, Container,
-                      ProgressiveContainer)):
+    if isinstance(v, (_SSZSequence, BitList, BitVector, ProgressiveBitList, ByteList,
+                      Container, ProgressiveContainer)):
         return v.copy()
-    if isinstance(v, list):
-        return [_cp(x) for x in v]
+    # A Python list keeps its identity: the check does not watch Python objects, and `log`
+    # must stay one list.
     return v
 
 
@@ -419,7 +436,12 @@ class Encoder:
         else:
             t = self.types.ssz(type(v))
             assert t.startswith("(.list ") and t.endswith(")")
-            obj = f"{t[:-1]} [{', '.join(self.value(x) for x in v)}])"
+            if isinstance(v, ByteList):
+                # The interpreter models a byte list as a list of `Uint8`.
+                xs = [f"(.uint (.width 8) {x})" for x in v]
+            else:
+                xs = [self.value(x) for x in v]
+            obj = f"{t[:-1]} [{', '.join(xs)}])"
         self.heap[a] = obj
         return f"(.ref {a})"
 
@@ -438,9 +460,12 @@ class Encoder:
             for free in sorted(serialize.free_names(fn)):
                 if free in globals_ or free in names or free == "FuzzError":
                     continue
-                if free in serialize.BUILTINS:
+                if free in serialize.ORACLE_FUNCTIONS:
+                    globals_[free] = f"(.builtin .{serialize.ORACLE_FUNCTIONS[free]})"
+                elif free in serialize.BUILTINS:
                     globals_[free] = f"(.builtin .{serialize.BUILTINS[free]})"
-                elif free in POOL and self.types.is_ssz_class(POOL[free]):
+                elif free in POOL and isinstance(POOL[free], type) and \
+                        self.types.is_ssz_class(POOL[free]):
                     globals_[free] = f"(.type {self.types.ssz(POOL[free])})"
                 else:
                     raise serialize.Unsupported(f"free name {free}")

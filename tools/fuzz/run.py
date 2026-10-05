@@ -176,6 +176,7 @@ class Stats:
         self.outcomes: dict[str, int] = {}
         self.known_hits: dict[str, int] = {}
         self.lean_hit = 0
+        self.skip_reasons: dict[str, int] = {}
         self.copy_differs = 0
 
 
@@ -223,8 +224,10 @@ def main():
             stats.runs += 1
             try:
                 o = H.run_case(src, lean, copy=True)
-            except (H.Timeout, H.serialize.Unsupported):
+            except (H.Timeout, H.serialize.Unsupported) as e:
                 stats.skipped += 1
+                why = f"{type(e).__name__} {e}"[:60]
+                stats.skip_reasons[why] = stats.skip_reasons.get(why, 0) + 1
                 assume(False)
             if not shrinking[0]:
                 stats.generated += 1
@@ -271,6 +274,8 @@ def main():
     print(f"Lean outcome hit (a sharing hit of the write condition check): {stats.lean_hit}; "
           f"CPython differs from the copy-on-store model: {stats.copy_differs}")
     print("known signatures seen:", stats.known_hits)
+    if stats.skip_reasons:
+        print("skipped:", stats.skip_reasons)
     for sig, path in found:
         print(f"  {sig}: {path.name}")
     sys.exit(1 if found else 0)
