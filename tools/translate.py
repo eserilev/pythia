@@ -131,7 +131,9 @@ def dec_term(b: Build, c) -> str:
         return "decBooleanV"
     li = T.list_info(c)
     if li is not None:
-        return f"(decListV {dec_term(b, li[1])})"
+        kind, e, limit = li
+        lim = "none" if limit is None else f"(some {limit})"
+        return f"(decListT .{kind} {ssz_ty_term(b, e)} {lim} {dec_term(b, e)})"
     raise ValueError(f"no decoder for {c}")
 
 
@@ -162,7 +164,7 @@ def emit_types(b: Build) -> str:
                        f"instance : UintC {name} := ⟨{c.BITS}, {name}.val, {name}.mk, fun _ => rfl, fun _ => rfl⟩\n"
                        f"instance : PyOrd {name} := ⟨fun a b => decide (a.val < b.val)⟩\n"
                        f"def enc_{name} : Enc {name} := encUint {uint_ty_term(n, c)}\n"
-                       f"def dec_{name} : Dec {name} := decUintT {uint_ty_term(n, c)}\n")
+                       f"abbrev dec_{name} : Dec {name} := decUintT {uint_ty_term(n, c)}\n")
         elif T.is_bytesn_cls(c):
             out.append(f"structure {name} where\n  data : Bytes\n"
                        f"  deriving DecidableEq, Repr, BEq, Hashable\n\n"
@@ -170,7 +172,7 @@ def emit_types(b: Build) -> str:
                        f"instance : BytesC {name} := ⟨{c.LENGTH}, {name}.data, {name}.mk, fun _ => rfl, fun _ => rfl⟩\n"
                        f"instance : PyOrd {name} := ⟨fun a b => PyOrd.lt a.data b.data⟩\n"
                        f"def enc_{name} : Enc {name} := encBytesN Scope.Id.«{n.scope(c)}»\n"
-                       f"def dec_{name} : Dec {name} := decBytesT Scope.Id.«{n.scope(c)}»\n")
+                       f"abbrev dec_{name} : Dec {name} := decBytesT Scope.Id.«{n.scope(c)}»\n")
         else:
             if T.is_container_cls(c):
                 fields = list(c._FIELD_TYPES)

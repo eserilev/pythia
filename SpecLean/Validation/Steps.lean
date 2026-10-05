@@ -76,7 +76,7 @@ namespace SpecLean.Validation.Steps
 
 open SpecLean
 
-attribute [rd_simp] cmpInt assignTarget assignTargets assignAll sliceBound
+attribute [rd_simp] cmpInt assignTarget assignTargets assignAll sliceBound coerceH_plain depthBound
 
 /-- A range check on a cast compares in `Nat`. `whnf` of the `Int` form runs in unary. -/
 @[rd_simp] theorem natCast_lt_lit (a n : Nat) :
@@ -108,8 +108,8 @@ def scalarV : Value → Bool
 
 attribute [rd_simp] scalarV
 
-@[rd_simp] theorem deepEq_scalar (h : Heap) (a b : Value) (ha : scalarV a = true)
-    (hb : scalarV b = true) : deepEq depthBound h a b = cmpVal .eq a b := by
-  cases a <;> cases b <;> simp_all [scalarV, depthBound, deepEq]
+@[rd_simp] theorem deepEq_scalar (d : Nat) (h : Heap) (a b : Value) (ha : scalarV a = true)
+    (hb : scalarV b = true) : deepEq (d + 1) h a b = cmpVal .eq a b := by
+  cases a <;> cases b <;> simp_all [scalarV, deepEq]
 
 end SpecLean.Validation.Steps

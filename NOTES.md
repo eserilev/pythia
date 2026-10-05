@@ -503,11 +503,53 @@ Two places where the readable Lean differs from the spec text, open for now:
   converts it. Python keeps the argument's class. The vectors cannot see this. The proofs will:
   a theorem fails wherever the difference changes a result.
 
-Status at 10:20: item 3, the proof tactic, started at about 09:50 and is not committed. A
-generator writes one validation theorem per function, and a custom tactic applies the step lemmas
-in the order of the statements. The work is on the first tier: functions with no loops and no
-calls. The key number, how many of the 162 functions the tactic proves alone, is not in yet.
+Status at 11:40: the tactic proves 21 of 41 leaf functions alone (`5cf104e`), up from 12 an hour
+earlier. The work now is on functions with local variables. Calls, `for` loops and `while` loops
+come after. This is the slow part: each new statement shape is a new way for the tactic to get
+stuck, and each try means a Lean compile.
 
-In parallel, the fuzzer now runs with the sharing check on and has hazard tests that must
-trigger it. Its generator covers sets, closures, byte functions and more SSZ kinds. A campaign of
-21,000 programs is running.
+The fuzzer's second campaign (21,000 programs, merged as `092d4db`):
+
+- All 10 hand-written hazard tests trigger the sharing check: shared fields, callees, returned
+  refs, shared elements, appends, loops and deep call chains.
+- A new oracle: each program also runs in CPython with every stored value deep-copied. Where the
+  two runs differ, a value-based translation would be wrong, so the check must fire.
+- That oracle found a gap in the check: `v1 = Box(p=a0); a0.a = 1; return v1`. The write
+  through `a0` counted only one path, because the check did not count the path through the
+  local `v1`. The proofs still catch this case, because the theorem compares the returned value.
+  But the check is meant to catch it first. Fixed at 11:50 (`2a850bf`, branch `fuzzer`): paths
+  through locals now count.
+- 3 more interpreter bugs (writes into `Bitlist`, `Bitvector` and `Boolean` fields that CPython
+  accepts) and a few missing builtins.
+- The early `IndexError` rate fell from 30% to 22%.
+
+Status at 11:50: the tactic count is still 21 of 41 leaf functions. The work on functions with
+local variables is not committed yet. The fuzzer is fixing the interpreter on its own branch,
+because the spike is busy with the tactic. Done so far: the check gap, the `Boolean` coercions,
+`bit_length`, set `difference` and dict views. Still to do: the bitlist and bitvector writes,
+`ssz_serialize` of an int, the `ByteList` model, an EF rerun with the check, and a new campaign.
+
+Status at 12:15: no new commits since 11:50. The spike is running the full leaf tier through the
+generator and the proof check, which gives the next count. The fuzzer is rerunning the EF
+vectors with the sharing check, to confirm its interpreter fixes broke nothing.
+
+Status at 14:00:
+
+- The tactic proves 25 of 41 leaf functions (`9df8f29`), including leaves that write.
+- The proofs found their first bug that no test had found. In `a < b <= c + d`, the readable Lean
+  computed `c + d` even when `a < b` was false. Python stops early. So an overflow there gave a
+  "bug" error in Lean where Python gives "invalid". The vectors never reach this case.
+- The code was wrong and the spec was right once: `Frame` also covered free addresses, so any new
+  object broke it (`555d58a`).
+- A hole in the contract. `Reach` kept every object on a fixed path. That is false when a function
+  slices a list or pops from it, because the elements move. Two Gloas epoch functions do this. The
+  new rule counts paths instead: no old object may gain a path. Moved elements keep one path, and
+  dropped ones go to zero.
+
+The crash. At 13:44 the machine ran out of memory. The kernel killed one `lean` process at
+12.9 GB, during a proof build with the new path-count rule. The crash took down the session and
+both agents. Nothing committed was lost, and the uncommitted work stayed on disk. New agents
+picked up the work from the files. From now on, every Lean build runs under a hard memory cap.
+If the cap kills a proof, the proof gets fixed, not the cap raised.
+
+Lesson: an agent's progress lives in the files it commits, not in the agent. Commit often.

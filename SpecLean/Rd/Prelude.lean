@@ -260,6 +260,14 @@ def decListV (f : Dec α) : Dec (List α)
     | _ => none
   | _, _ => none
 
+/-- A list of SSZ type `.list k e l`. A field holds its exact type: a write coerces to it. -/
+def decListT (k : ListKind) (e : SszTy) (l : Option Nat) (f : Dec α) : Dec (List α)
+  | h, .ref a =>
+    match h.objs a with
+    | some (.list k' e' l' xs) => if k' = k ∧ e' = e ∧ l' = l then xs.mapM (f h) else none
+    | _ => none
+  | _, _ => none
+
 def containerFields : Heap → Value → Option (List Value)
   | h, .ref a =>
     match h.objs a with
