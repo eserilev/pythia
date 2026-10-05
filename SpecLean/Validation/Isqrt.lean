@@ -11,7 +11,7 @@ namespace SpecLean.Validation
 
 open SpecLean SpecLean.Gen SpecLean.Encode
 
-variable (sha : Oracle)
+variable (sha : Oracle) {gfp : Footprint}
 
 /-- One step of the loop on numbers: `x = y; y = (x + n // x) // 2`. -/
 def isqrtStep (N : Nat) (s : Nat × Nat) : Res (Nat × Nat) := do
@@ -118,7 +118,7 @@ def IsqrtExpect (N : Nat) (h : Heap) : Readable.Uint64 → Heap → Value → Pr
 
 theorem integer_squareroot_run (k B : Nat) (h : Heap) (N : Nat) (hN : N < 2 ^ 64)
     (hNB : N ≤ B) :
-    ResultMatches [] h [.uint u64Ty N] (IsqrtExpect N h)
+    ResultMatches gfp [] h [.uint u64Ty N] (IsqrtExpect N h)
       (callName (env sha) (k + B + 20) Id.integer_squareroot [.uint u64Ty N] h)
       (Readable.integer_squareroot ⟨N⟩) := by
   have hdecN : decU64 (.uint u64Ty N) = some ⟨N⟩ := by
@@ -173,7 +173,7 @@ theorem integer_squareroot_run (k B : Nat) (h : Heap) (N : Nat) (hN : N < 2 ^ 64
 depend on the input here, which is stronger than SPEC 9.2 asks. -/
 theorem integer_squareroot_valid (h : Heap) (N : Nat) (hN : N < 2 ^ 64) :
     ∃ F, ∀ fuel ≥ F,
-      ResultMatches [] h [.uint u64Ty N] (IsqrtExpect N h)
+      ResultMatches gfp [] h [.uint u64Ty N] (IsqrtExpect N h)
         (interp (env sha) fuel Id.integer_squareroot [.uint u64Ty N] h)
         (Readable.integer_squareroot ⟨N⟩) :=
   ⟨2 ^ 64 + 20, fun fuel hf => by

@@ -29,19 +29,46 @@ theorem reached_old {h : Heap} {vs : List Value} (hwf : HeapWF h) (haw : ArgsWF 
   intro hle
   exact haw k q b e (hwf b hle)
 
-/-- The composition lemma. Old objects keep their paths (`Reach`), new objects have one path
-each (`FreshOnce`), and the roots keep their class. Then `WTree` carries over, for any
-footprint. -/
+/-- The composition lemma. Old objects gain no path (`NoNewPaths`), new objects have one path
+each (`FreshOnce`), and the roots keep their class. Then `WTree` carries over. -/
 theorem wtree_compose {h h' : Heap} {vs : List Value} {fp : Footprint}
     (hw : WTree h vs fp) (hwf : HeapWF h) (haw : ArgsWF h vs)
-    (hr : Reach h h' vs) (hf : FreshOnce h h' vs) (hk : RootsKept h h' vs) :
+    (hn : NoNewPaths h h' vs fp) (hf : FreshOnce h h' vs) (hk : RootsKept h h' vs) :
     WTree h' vs fp := by
   intro k pat hpat hty q hq a ha k' q' ha'
-  rcases hr k q a ha with ho | hn
-  · rcases hr k' q' a ha' with ho' | hn'
-    · exact hw k pat hpat (hk k pat.ty hty) q hq a ho k' q' ho'
-    · exact absurd hn' (Nat.not_le_of_lt (reached_old hwf haw ho))
-  · exact hf k q k' q' a hn ha ha'
+  by_cases hold : a < h.next
+  · obtain ⟨φ, hφ⟩ := hn
+    obtain ⟨e1, hpres, hinj⟩ := hφ k q a ha hold
+    obtain ⟨e2, -, -⟩ := hφ k' q' a ha' hold
+    have := hw k pat hpat (hk k pat.ty hty) (φ k q) (hpres pat hpat hq) a e1 k' (φ k' q') e2
+    obtain ⟨hkk, hq'⟩ := this
+    exact ⟨hkk, hinj k' q' ha' hkk (by subst hkk; exact hq')⟩
+  · exact hf k q k' q' a (Nat.le_of_not_lt hold) ha ha'
+
+/-- `NoNewPaths` composes along a run whose heap only grows. -/
+theorem NoNewPaths_trans {h1 h2 h3 : Heap} {vs : List Value} {fp : Footprint} (f : Fresh h1 h2)
+    (a : NoNewPaths h1 h2 vs fp) (b : NoNewPaths h2 h3 vs fp) : NoNewPaths h1 h3 vs fp := by
+  obtain ⟨φ1, h1φ⟩ := a
+  obtain ⟨φ2, h2φ⟩ := b
+  refine ⟨fun k q => φ1 k (φ2 k q), fun k q c e hc => ?_⟩
+  have hc2 : c < h2.next := Nat.lt_of_lt_of_le hc f.1
+  obtain ⟨e2, p2, i2⟩ := h2φ k q c e hc2
+  obtain ⟨e1, p1, i1⟩ := h1φ k _ c e2 hc
+  refine ⟨e1, fun pat hp hm => p1 pat hp (p2 pat hp hm), fun k' q' e' hk heq => ?_⟩
+  subst hk
+  obtain ⟨e2', -, -⟩ := h2φ k' q' c e' hc2
+  exact i2 k' q' e' rfl (i1 k' _ e2' rfl heq)
+
+/-- Paths kept in place: no old object gains a path. -/
+theorem noNewPaths_of_reach {h h' : Heap} {vs : List Value} {fp : Footprint}
+    (hr : Reach h h' vs) : NoNewPaths h h' vs fp := by
+  refine ⟨fun _ q => q, fun k q a e hlt => ?_⟩
+  rcases hr k q a e with e0 | hn
+  · exact ⟨e0, fun _ _ hm => hm, fun _ _ _ _ heq => heq⟩
+  · exact absurd hlt (Nat.not_lt_of_le hn)
+
+theorem NoNewPaths_refl (h : Heap) (vs : List Value) (fp : Footprint) : NoNewPaths h h vs fp :=
+  noNewPaths_of_reach (Reach_refl h vs)
 
 /-- `Reach` composes along a run whose heap only grows. -/
 theorem Reach_trans {h1 h2 h3 : Heap} {vs : List Value} (f : Fresh h1 h2)

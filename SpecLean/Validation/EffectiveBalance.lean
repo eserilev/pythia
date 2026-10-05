@@ -12,7 +12,7 @@ namespace SpecLean.Validation
 
 open SpecLean SpecLean.Gen SpecLean.Encode
 
-variable (sha : Oracle)
+variable (sha : Oracle) {gfp : Footprint}
 
 /-! ## The readable loop in normal form -/
 
@@ -373,7 +373,7 @@ def PebExpect (h : Heap) (root : Nat) : Readable.BeaconState → Heap → Value 
 theorem process_effective_balance_updates_run (k : Nat) (h : Heap) (root : Nat)
     (state : Readable.BeaconState) (hd : decState h (.ref root) = some state)
     (hw : WTree h [.ref root] peb_fp) :
-    ResultMatches peb_fp h [.ref root] (PebExpect h root)
+    ResultMatches gfp peb_fp h [.ref root] (PebExpect h root)
       (callName (env sha) (k + state.validators.length + 26)
         Id.process_effective_balance_updates [.ref root] h)
       (Readable.process_effective_balance_updates state) := by
@@ -434,7 +434,8 @@ theorem process_effective_balance_updates_run (k : Nat) (h : Heap) (root : Nat)
   · cases o <;> simp only [StepRel] at hfor
     obtain ⟨i, ⟨-, hd', -, -, hf', hfr, -, hrest, ha⟩, -⟩ := hfor
     simp only [Except.bind_ok', ResultMatches, PebExpect]
-    exact ⟨⟨trivial, hd', hrest⟩, hf', hfr, fun k q b e => .inl (ha k q b e)⟩
+    exact ⟨⟨trivial, hd', hrest⟩, hf', hfr, noNewPaths_of_reach
+      fun k q b e => .inl (ha k q b e)⟩
 
 /-- SPEC 9.2: `process_effective_balance_updates` validated against the interpreter. The fuel
 bound grows with the number of validators, because each loop iteration costs fuel. -/
@@ -442,7 +443,7 @@ theorem process_effective_balance_updates_valid (h : Heap) (root : Nat)
     (state : Readable.BeaconState) (hd : decState h (.ref root) = some state)
     (_hwf : HeapWF h) (_haw : ArgsWF h [.ref root]) (hw : WTree h [.ref root] peb_fp) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches peb_fp h [.ref root] (PebExpect h root)
+      ResultMatches gfp peb_fp h [.ref root] (PebExpect h root)
         (interp (env sha) fuel Id.process_effective_balance_updates [.ref root] h)
         (Readable.process_effective_balance_updates state) :=
   ⟨state.validators.length + 26, fun fuel hf => by

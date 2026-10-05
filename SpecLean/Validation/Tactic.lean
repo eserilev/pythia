@@ -4,6 +4,8 @@ import SpecLean.Validation.Attr
 import SpecLean.Validation.Decode
 import SpecLean.Validation.Where
 import SpecLean.Validation.Local
+import SpecLean.Validation.Steps
+import SpecLean.Validation.Grow
 
 /-!
 # Tactics for the generated validation theorems
@@ -102,7 +104,8 @@ def unfoldNames : NameSet := NameSet.ofList [``SpecLean.compareOp,
   ``SpecLean.iterElems, ``SpecLean.memberOf, ``SpecLean.pyIndex, ``SpecLean.applyMethod,
   ``SpecLean.LibModel.method, ``SpecLean.Ssz.method, ``SpecLean.applyBuiltin,
   ``SpecLean.LibModel.builtin, ``SpecLean.Ssz.builtin, ``SpecLean.fromBytes, ``SpecLean.setItem,
-  ``SpecLean.setAttr, ``SpecLean.coerceWith, ``SpecLean.LibModel.coerce, ``SpecLean.Ssz.coerce, ``SpecLean.coerceField]
+  ``SpecLean.setAttr, ``SpecLean.coerceWith, ``SpecLean.LibModel.coerce, ``SpecLean.Ssz.coerce, ``SpecLean.coerceField, ``SpecLean.appendItem,
+  ``SpecLean.LibModel.append, ``SpecLean.Ssz.append]
 
 /-- Unfold a function of `unfoldNames` once its value arguments have a known shape. -/
 simproc ↓ unfold_known (_) := fun e => do
@@ -263,7 +266,7 @@ def splitDecodedIndex (g : MVarId) (x : Lean.Expr) : TacticM (Option (List MVarI
   return none
 
 /-- Split on the next `if` condition or result of the goal. -/
-elab "rd_split" : tactic => do
+elab "rd_split" : tactic => withMainContext do
   let g ← getMainGoal
   let t ← instantiateMVars (← g.getType)
   let some (isCond, x) ← nextSplit t | throwError "rd_split: nothing to split"
@@ -277,6 +280,18 @@ elab "rd_split" : tactic => do
         false_and, not_and, not_or] at ⊢)) sg)
     replaceMainGoal gs
   else
+    -- A known result: rewrite with its fact, do not split.
+    let known ← g.withContext do
+      for d in ← getLCtx do
+        if d.isImplementationDetail then continue
+        let ty ← instantiateMVars d.type
+        let_expr Eq _ lhs _ := ty | continue
+        if lhs == x then return some d.toExpr
+      return none
+    if let some hf := known then
+      let gs ← evalTacticAt (← `(tactic| (rw [$(← Term.exprToSyntax hf):term]; try simp only at ⊢))) g
+      replaceMainGoal gs
+      return
     if let some gs ← splitDecodedIndex g x then
       replaceMainGoal gs
       return
@@ -288,13 +303,11 @@ end SpecLean.Validation.Tactic
 
 namespace SpecLean.Validation.Tactic
 
-/-- One evaluation step on both sides of the goal. -/
-macro "rd_step" : tactic => `(tactic| simp [rd_simp, SpecLean.Validation.Tactic.unfold_known,
-  SpecLean.Validation.Tactic.fieldIndex_lit, SpecLean.Encode.ResultMatches, *] at ⊢)
+/-- One evaluation step on both sides of the goal, then the reads of written objects. Defined
+after `rd_disch`. -/
+syntax "rd_step" : tactic
 
 end SpecLean.Validation.Tactic
-
-
 
 namespace SpecLean.Validation.Tactic
 
@@ -392,6 +405,31 @@ def proveNe (g : MVarId) : TacticM Bool := g.withContext do
   let fp := wty.getArg! 2
   let some items ← listItems vs | return false
   let some pats ← listItems (← whnfR fp) | return false
+  -- An argument object against a new address `h.next + c`.
+  for (x, y, flip) in [(a, b, false), (b, a, true)] do
+    let (base, c) ← match_expr y with
+      | HAdd.hAdd _ _ _ _ n c => pure (n, c)
+      | _ => pure (y, mkNatLit 0)
+    unless base.isAppOfArity ``SpecLean.Heap.next 1 && base.appArg! == h do continue
+    let mut hwfo := none
+    let mut hawo := none
+    for d in ← getLCtx do
+      let ty ← instantiateMVars d.type
+      if ty.isAppOfArity ``SpecLean.Encode.HeapWF 1 && ty.appArg! == h then hwfo := some d.toExpr
+      if ty.isAppOfArity ``SpecLean.Encode.ArgsWF 2 && ty.getArg! 0 == h then hawo := some d.toExpr
+    let (some hwf, some haw) := (hwfo, hawo) | continue
+    let some (_, _, px) ← pathTo h vs items x | continue
+    let s ← saveState
+    try
+      let pf ← mkAppM ``SpecLean.Validation.Where.ne_next_of_at #[hwf, haw, px, c]
+      -- `x ≠ h.next + c`, maybe with `+ 0` to drop.
+      let pf ← if flip then mkAppM ``Ne.symm #[pf] else pure pf
+      let ok ← withTransparency .default <| isDefEq (← inferType pf) (← g.getType)
+      if ok then
+        g.assign pf
+        return true
+      restoreState s
+    catch _ => restoreState s
   let some (ka, qa, pa) ← pathTo h vs items a | return false
   let some (kb, qb, pb) ← pathTo h vs items b | return false
   -- Try each footprint pattern at each of the two paths.
@@ -423,17 +461,34 @@ def proveNe (g : MVarId) : TacticM Bool := g.withContext do
 /-- Discharge `b ≠ a` for two argument addresses under `WTree`. -/
 elab "rd_ne" : tactic => do
   let g ← getMainGoal
-  unless ← proveNe g do throwError "rd_ne: no proof"
+  unless ← withTransparency .default (proveNe g) do throwError "rd_ne: no proof"
+
+/-- `h'.objs c = h.objs c`: no write of `h'` is at `c`. -/
+syntax "rd_same" : tactic
 
 /-- The side conditions of the heap steps: two addresses differ, or no object that the items
 of a list reach is the written one. -/
 macro "rd_disch" : tactic => `(tactic| first
   | (rd_ne; done)
-  | (intro j x hj; unfold SpecLean.Validation.Local.Away; intro q c hf; rd_ne; done)
-  | (unfold SpecLean.Validation.Local.Away; intro q c hf; rd_ne; done)
+  | (simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
+      SpecLean.Validation.Where.alloc_fst]; done)
+  | (simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
+      SpecLean.Validation.Where.alloc_fst]; rd_ne; done)
+  | (intro j x hj q c hf; rd_same; done)
   | assumption
   | decide
+  | omega
   | (intro y; with_unfolding_all rfl))
+
+macro_rules
+  | `(tactic| rd_step) => `(tactic| (
+      (try simp (config := { maxSteps := 2000000 }) [rd_simp, SpecLean.Validation.Tactic.unfold_known,
+        SpecLean.Validation.Tactic.fieldIndex_lit, SpecLean.Encode.ResultMatches,
+        -SpecLean.Heap.set_objs, SpecLean.Validation.Where.alloc_fst,
+        SpecLean.Validation.Where.alloc_next, SpecLean.Validation.Where.set_next, *] at ⊢)
+      (try simp (disch := rd_disch) only [SpecLean.Validation.Where.objs_set_ne,
+        SpecLean.Validation.Where.objs_set_self, SpecLean.Validation.Where.objs_alloc_ne,
+        SpecLean.Validation.Where.objs_alloc_self, SpecLean.Validation.Where.objs_alloc_at] at ⊢)))
 
 end SpecLean.Validation.Tactic
 
@@ -467,10 +522,13 @@ elab "rd_heap" : tactic => withMainContext do
     SpecLean.Rd.UintC.ofNat_val, SpecLean.Rd.BytesC.ofBytes_data, eq_self_iff_true,
     SpecLean.Validation.Where.objs_set_ne, SpecLean.Validation.Where.objs_set_self, rd_dec,
     SpecLean.Rd.containerFieldsT, SpecLean.Rd.decUintT, SpecLean.Rd.decBytesT,
-    SpecLean.Rd.decBooleanV, SpecLean.Rd.decListT, SpecLean.Validation.Local.mapM_set_away,
+    SpecLean.Rd.decBooleanV, SpecLean.Rd.decListT, SpecLean.Validation.Local.mapM_same_of,
     SpecLean.Validation.Decode.mapM_map_of, SpecLean.Validation.Decode.mapM_set_map,
+    List.mapM_append, List.mapM_cons, List.mapM_nil, rd_dec,
     List.getElem?_set_ne, List.getElem?_set_self', Option.map_eq_map, Option.map_some,
-    Function.const_apply, $args,*]))
+    Function.const_apply, SpecLean.Validation.Where.alloc_fst, SpecLean.Validation.Where.alloc_next,
+    SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.objs_alloc_ne,
+    SpecLean.Validation.Where.objs_alloc_self, SpecLean.Validation.Where.objs_alloc_at, $args,*]))
 
 /-- Prove `AtFp h vs fp a`: the path of `a`, and a footprint pattern that matches it. -/
 def proveAtFp (g : MVarId) : TacticM Bool := g.withContext do
@@ -502,7 +560,8 @@ def proveAtFp (g : MVarId) : TacticM Bool := g.withContext do
   return false
 
 elab "rd_atfp" : tactic => do
-  unless ← proveAtFp (← getMainGoal) do throwError "rd_atfp: no proof"
+  unless ← withTransparency .default (proveAtFp (← getMainGoal)) do
+    throwError "rd_atfp: no proof"
 
 /-- Read an object of a heap after writes: `h1.objs a = some ?o`. -/
 elab "rd_objs" : tactic => withMainContext do
@@ -513,7 +572,9 @@ elab "rd_objs" : tactic => withMainContext do
   evalTactic (← `(tactic| simp (disch := rd_disch) only
     [SpecLean.Validation.Where.objs_set_ne, SpecLean.Validation.Where.objs_set_self,
      List.getElem?_set_ne, List.getElem?_set_self', Option.map_eq_map, Option.map_some,
-     Function.const_apply, $args,*]))
+     Function.const_apply, SpecLean.Validation.Where.alloc_fst, SpecLean.Validation.Where.alloc_next,
+     SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.objs_alloc_ne,
+     SpecLean.Validation.Where.objs_alloc_self, SpecLean.Validation.Where.objs_alloc_at, $args,*]))
   evalTactic (← `(tactic| try rfl))
 
 /-- A write keeps the shape of the object: it writes a value with no reference. -/
@@ -542,18 +603,170 @@ elab "rd_and" : tactic => do
   unless t.isAppOfArity ``And 2 do throwError "rd_and: not a conjunction"
   evalTactic (← `(tactic| apply And.intro))
 
-/-- The frame, the fresh addresses and the reach of a run of writes. -/
-macro "rd_frame" : tactic => `(tactic| repeat' (first
+/-- The frame, the fresh addresses and the reach of a run of writes. Defined below. -/
+syntax "rd_frame" : tactic
+
+end SpecLean.Validation.Tactic
+
+namespace SpecLean.Validation.Tactic
+
+end SpecLean.Validation.Tactic
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- Close a goal by two hypotheses `e = a` and `e = b` with different constructors. -/
+elab "rd_contra" : tactic => withMainContext do
+  let g ← getMainGoal
+  let mut eqs : Array (Lean.Expr × Lean.Expr) := #[]
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let_expr Eq _ lhs _ := ty | continue
+    eqs := eqs.push (lhs, d.toExpr)
+  for i in [0:eqs.size] do
+    for j in [i+1:eqs.size] do
+      let (l1, p1) := eqs[i]!
+      let (l2, p2) := eqs[j]!
+      unless l1 == l2 do continue
+      let s ← saveState
+      try
+        let e ← mkEqTrans (← mkEqSymm p1) p2
+        let gs ← evalTacticAt (← `(tactic| (have hrd := $(← Term.exprToSyntax e); simp at hrd))) g
+        if gs.isEmpty then
+          replaceMainGoal []
+          return
+        restoreState s
+      catch _ => restoreState s
+  throwError "rd_contra: none"
+
+end SpecLean.Validation.Tactic
+
+macro_rules | `(tactic| rd_finish) => `(tactic| rd_contra)
+
+macro_rules
+  | `(tactic| rd_same) => `(tactic| simp (disch := rd_disch) only
+      [SpecLean.Validation.Where.objs_set_ne, SpecLean.Validation.Where.objs_alloc_ne,
+       SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next])
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- `h.next ≤ a → P` for an argument object `a`: it is old. -/
+elab "rd_old" : tactic => withMainContext do
+  let g ← getMainGoal
+  let t ← instantiateMVars (← g.getType)
+  unless t.isArrow do throwError "rd_old: not an implication"
+  let_expr LE.le _ _ nx a := t.bindingDomain! | throwError "rd_old: not ≤"
+  unless nx.isAppOfArity ``SpecLean.Heap.next 1 do throwError "rd_old: not next"
+  let h := nx.appArg!
+  let mut hwfo := none
+  let mut hawo := none
+  let mut vso := none
+  for d in ← getLCtx do
+    let ty ← instantiateMVars d.type
+    if ty.isAppOfArity ``SpecLean.Encode.HeapWF 1 && ty.appArg! == h then hwfo := some d.toExpr
+    if ty.isAppOfArity ``SpecLean.Encode.ArgsWF 2 && ty.getArg! 0 == h then
+      hawo := some d.toExpr; vso := some (ty.getArg! 1)
+  let (some hwf, some haw, some vs) := (hwfo, hawo, vso) | throwError "rd_old: no HeapWF"
+  let some items ← listItems vs | throwError "rd_old: no items"
+  let some (_, _, pa) ← pathTo h vs items a | throwError "rd_old: no path"
+  g.assign (← mkAppOptM ``SpecLean.Validation.Grow.old_not_new
+    #[none, none, hwf, haw, none, none, none, pa, t.bindingBody!])
+  replaceMainGoal []
+
+/-- A value or a list of values holds no old reference. -/
+macro "rd_newval" : tactic => `(tactic| first
+  | exact SpecLean.Validation.Grow.newVal_uint _ _ _
+  | exact SpecLean.Validation.Grow.newVal_bytes _ _ _
+  | exact SpecLean.Validation.Grow.newVal_boolean _ _
+  | exact SpecLean.Validation.Grow.newVals_nil _
+  | exact SpecLean.Validation.Grow.newVals_map_uint _ _ _ _
+  | exact SpecLean.Validation.Grow.newVals_map_bytes _ _ _ _
+  | exact SpecLean.Validation.Grow.newVals_map_boolean _ _ _
+  -- `refine`, not `apply`: `apply` also matches a single `NewVal` goal through the bound `y`,
+  -- and the loop never ends.
+  | refine SpecLean.Validation.Grow.newVals_cons ?_ ?_
+  | refine SpecLean.Validation.Grow.newVals_append ?_ ?_
+  | (apply SpecLean.Validation.Grow.newVal_of_ge;
+     simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
+       SpecLean.Validation.Where.alloc_fst]; omega))
+
+/-- `Reach` of a run of writes: the heap grows. Defined below. -/
+syntax "rd_reach" : tactic
+
+end SpecLean.Validation.Tactic
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- `HeapWF h1` for a heap after writes: from `HeapWF h` and `Fresh h h1`. -/
+elab "rd_heapwf" : tactic => withMainContext do
+  let g ← getMainGoal
+  let t ← instantiateMVars (← g.getType)
+  unless t.isAppOfArity ``SpecLean.Encode.HeapWF 1 do throwError "rd_heapwf: not HeapWF"
+  for d in ← getLCtx do
+    let ty ← instantiateMVars d.type
+    if ty.isAppOfArity ``SpecLean.Encode.HeapWF 1 then
+      let hs ← Term.exprToSyntax d.toExpr
+      let s ← saveState
+      let gs ← evalTacticAt (← `(tactic| refine SpecLean.Validation.Where.heapWF_of_fresh $hs ?_)) g
+      let fr ← `(tactic| rd_frame)
+      let gs ← gs.flatMapM fun sg => evalTacticAt fr sg
+      unless gs.isEmpty do restoreState s
+      if gs.isEmpty then
+        replaceMainGoal []
+        return
+  throwError "rd_heapwf: none"
+
+end SpecLean.Validation.Tactic
+
+macro_rules
+  | `(tactic| rd_reach) => `(tactic| (
+  apply SpecLean.Validation.Grow.reach_of_grows (by assumption) (by assumption)
+  repeat' (first
+    | exact SpecLean.Validation.Grow.grows_refl _ _ (by assumption) (Nat.le_refl _)
+    | rd_old
+    | rd_newval
+    | (rd_objs; done)
+    | rd_heapwf
+    | (simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
+        SpecLean.Validation.Where.alloc_fst]; omega)
+    | apply SpecLean.Validation.Grow.objGrows_list_set
+    | apply SpecLean.Validation.Grow.objGrows_container_set
+    | apply SpecLean.Validation.Grow.objGrows_list_append
+    | apply SpecLean.Validation.Grow.newObj_container
+    | apply SpecLean.Validation.Grow.newObj_list
+    | (intro _; first
+        | apply SpecLean.Validation.Grow.newObj_container
+        | apply SpecLean.Validation.Grow.newObj_list)
+    | apply SpecLean.Validation.Grow.grows_set
+    | apply SpecLean.Validation.Grow.grows_alloc)))
+
+macro_rules
+  | `(tactic| rd_frame) => `(tactic| repeat' (first
   | exact SpecLean.Encode.Frame_refl _ _ _
   | exact SpecLean.Encode.Fresh_refl _
   | exact SpecLean.Encode.Reach_refl _ _
+  | exact SpecLean.Encode.NoNewPaths_refl _ _ _
+  | apply SpecLean.Encode.noNewPaths_of_reach
   | rd_atfp
   | (rd_objs; done)
   | rd_skel
-  | refine SpecLean.Validation.Where.frame_set ?_ ?_
-  | apply SpecLean.Validation.Where.fresh_set
-  | apply SpecLean.Validation.Where.reach_set
+  | (rd_reach; done)
+  | (simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
+      SpecLean.Validation.Where.alloc_fst]; omega)
+  | assumption
+  -- Reducible only: at default transparency `h.set a o` unifies with `(h.alloc o).2`, and the
+  -- loop never ends.
+  | with_reducible apply SpecLean.Validation.Where.frame_alloc
+  | with_reducible apply SpecLean.Validation.Where.fresh_alloc
+  | with_reducible refine SpecLean.Validation.Where.frame_set ?_ ?_
+  | with_reducible refine SpecLean.Validation.Where.frame_set_fresh ?_ (by assumption) ?_
+  | with_reducible apply SpecLean.Validation.Where.fresh_set
+  | with_reducible apply SpecLean.Validation.Where.reach_set
   | rfl
   | rd_and))
-
-end SpecLean.Validation.Tactic

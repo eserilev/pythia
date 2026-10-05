@@ -11,7 +11,7 @@ namespace SpecLean.Validation
 
 open SpecLean SpecLean.Gen SpecLean.Encode
 
-variable (sha : Oracle)
+variable (sha : Oracle) {gfp : Footprint}
 
 theorem is_compounding_withdrawal_credential_run (k : Nat) (h : Heap) (wc : List UInt8) :
     callValue (env sha) (k + 6) (.glob Id.is_compounding_withdrawal_credential)
@@ -56,7 +56,7 @@ theorem get_max_effective_balance_run (k : Nat) (h : Heap) (r : Nat) (x : Readab
 
 theorem is_compounding_withdrawal_credential_valid (h : Heap) (wc : List UInt8) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [.bytes Id.Bytes32 wc]
+      ResultMatches gfp [] h [.bytes Id.Bytes32 wc]
         (fun b _ v => v = .bool b)
         (interp (env sha) fuel Id.is_compounding_withdrawal_credential [.bytes Id.Bytes32 wc] h)
         (pure (Readable.is_compounding_withdrawal_credential ⟨wc⟩)) :=
@@ -68,7 +68,7 @@ theorem is_compounding_withdrawal_credential_valid (h : Heap) (wc : List UInt8) 
 theorem get_max_effective_balance_valid (h : Heap) (r : Nat) (x : Readable.Validator)
     (hx : decValidator h (.ref r) = some x) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [.ref r]
+      ResultMatches gfp [] h [.ref r]
         (fun g h' v => decGwei v = some g ∧ decValidator h' (.ref r) = some x)
         (interp (env sha) fuel Id.get_max_effective_balance [.ref r] h)
         (pure (Readable.get_max_effective_balance x)) :=

@@ -8,7 +8,7 @@ namespace SpecLean.Validation
 
 open SpecLean SpecLean.Gen SpecLean.Encode
 
-variable (sha : Oracle)
+variable (sha : Oracle) {gfp : Footprint}
 
 /-- The checked result of `saturating_sub` on two numbers. -/
 def satSub (a b : Nat) : Res Nat := if b < a then chkSub a b else chkSub a a
@@ -51,7 +51,7 @@ theorem decrease_balance_run (k : Nat) (h : Heap) (root : Nat) (state : Readable
     (hdl : decGwei (.uint gweiTy delta.val) = some delta)
     (hw : WTree h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
       decrease_balance_fp) :
-    ResultMatches decrease_balance_fp h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
+    ResultMatches gfp decrease_balance_fp h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
       (DecreaseBalanceExpect h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
         index delta)
       (callName (env sha) (k + 12) Id.decrease_balance
@@ -124,7 +124,7 @@ theorem decrease_balance_run (k : Nat) (h : Heap) (root : Nat) (state : Readable
           · rw [hx] at hy; cases hy; exact hxn
         exact ⟨fun e => absurd e hxn, fun e => absurd e hyn⟩
       refine ⟨⟨?_, ?_, hix, hdl⟩, Frame_set ⟨0, _, [fBalances], hfp, hty, hm, atb⟩,
-        Fresh_set hoba, Reach_skel hoba skel _⟩
+        Fresh_set hoba, noNewPaths_of_reach (Reach_skel hoba skel _)⟩
       · refine decState_of (vrefs := vrefs) (bs := bs.set index.val (.uint gweiTy r))
           (by simp [hrb, hroot]) hfv hfb (by simp [hvb, hova]) ?_ (by simp)
           (mapM_set hmb index.val _ _ (decGwei_uint r hr64))
@@ -150,7 +150,7 @@ theorem decrease_balance_valid (h : Heap) (root : Nat) (state : Readable.BeaconS
     (hw : WTree h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
       decrease_balance_fp) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches decrease_balance_fp h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
+      ResultMatches gfp decrease_balance_fp h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
         (DecreaseBalanceExpect h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val]
           index delta)
         (interp (env sha) fuel Id.decrease_balance

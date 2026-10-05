@@ -22,12 +22,12 @@ set_option linter.unusedSimpArgs false
 -- `whnf` of a result would evaluate a range check on a literal in unary.
 attribute [local irreducible] ResultMatches
 
-attribute [local rd_dec] dec_Uint64 dec_Root dec_Slot dec_Version dec_Epoch dec_Fork dec_ValidatorIndex dec_BeaconBlockHeader dec_Hash32 dec_Eth1Data dec_BLSPubkey dec_Bytes32 dec_Gwei dec_Validator dec_ParticipationFlags dec_Checkpoint dec_SyncCommittee dec_WithdrawalIndex dec_HistoricalSummary dec_BLSSignature dec_PendingDeposit dec_PendingPartialWithdrawal dec_PendingConsolidation dec_Uint8 dec_ExecutionAddress dec_Builder dec_BuilderIndex dec_BuilderPendingWithdrawal dec_BuilderPendingPayment dec_KZGCommitment dec_ExecutionPayloadBid dec_Withdrawal dec_BeaconState dec_WithdrawalRequest dec_VoluntaryExit dec_SignedVoluntaryExit dec_DomainType dec_Domain dec_ForkData dec_SigningData dec_SyncAggregate dec_SignedBeaconBlockHeader dec_ProposerSlashing dec_PayloadAttestationData dec_PayloadAttestation dec_IndexedPayloadAttestation dec_CommitteeIndex dec_AttestationData dec_IndexedAttestation dec_AttesterSlashing dec_Attestation dec_DepositData dec_Deposit dec_BLSToExecutionChange dec_SignedBLSToExecutionChange dec_SignedExecutionPayloadBid dec_DepositRequest dec_ConsolidationRequest dec_BuilderDepositRequest dec_BuilderExitRequest dec_ExecutionRequests dec_BeaconBlockBody dec_BeaconBlock dec_DepositMessage dec_Uint32 dec_LogsBloom dec_Uint256 dec_fulu_ExecutionPayloadHeader dec_fulu_BeaconState dec_SignedBeaconBlock dec_Bytes1
+attribute [local rd_dec] dec_Uint64 dec_Root dec_Slot dec_Version dec_Epoch dec_Fork dec_ValidatorIndex dec_BeaconBlockHeader dec_Hash32 dec_Eth1Data dec_BLSPubkey dec_Bytes32 dec_Gwei dec_Validator dec_ParticipationFlags dec_Checkpoint dec_SyncCommittee dec_WithdrawalIndex dec_HistoricalSummary dec_BLSSignature dec_PendingDeposit dec_PendingPartialWithdrawal dec_PendingConsolidation dec_Uint8 dec_ExecutionAddress dec_Builder dec_BuilderIndex dec_BuilderPendingWithdrawal dec_BuilderPendingPayment dec_KZGCommitment dec_ExecutionPayloadBid dec_Withdrawal dec_BeaconState dec_WithdrawalRequest dec_VoluntaryExit dec_SignedVoluntaryExit dec_Domain dec_SigningData dec_DomainType dec_ForkData dec_SyncAggregate dec_SignedBeaconBlockHeader dec_ProposerSlashing dec_PayloadAttestationData dec_PayloadAttestation dec_IndexedPayloadAttestation dec_CommitteeIndex dec_AttestationData dec_IndexedAttestation dec_AttesterSlashing dec_Attestation dec_DepositData dec_Deposit dec_BLSToExecutionChange dec_SignedBLSToExecutionChange dec_SignedExecutionPayloadBid dec_DepositRequest dec_ConsolidationRequest dec_BuilderDepositRequest dec_BuilderExitRequest dec_ExecutionRequests dec_BeaconBlockBody dec_BeaconBlock dec_DepositMessage dec_Uint32 dec_LogsBloom dec_Uint256 dec_fulu_ExecutionPayloadHeader dec_fulu_BeaconState dec_SignedBeaconBlock dec_Bytes1
 
 set_option maxHeartbeats 4000000 in
-theorem add_flag_valid (h : Heap) (x0 : Nat) (x1 : Int) :
+theorem add_flag_valid (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] (fun (r : ParticipationFlags) h' v => v = (enc_ParticipationFlags r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] (fun (r : ParticipationFlags) h' v => v = (enc_ParticipationFlags r h').1 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«add_flag» [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] h)
         (add_flag (⟨x0⟩ : ParticipationFlags) x1) := by
   refine ⟨64, fun fuel hf => ?_⟩
@@ -38,9 +38,9 @@ theorem add_flag_valid (h : Heap) (x0 : Nat) (x1 : Int) :
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem bytes_to_uint64_valid (h : Heap) (x0 : List UInt8) :
+theorem bytes_to_uint64_valid (gfp : Footprint) (h : Heap) (x0 : List UInt8) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.bytes 0 x0)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.bytes 0 x0)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«bytes_to_uint64» [(.bytes 0 x0)] h)
         (bytes_to_uint64 x0) := by
   refine ⟨64, fun fuel hf => ?_⟩
@@ -51,9 +51,9 @@ theorem bytes_to_uint64_valid (h : Heap) (x0 : List UInt8) :
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem compute_activation_exit_epoch_valid (h : Heap) (x0 : Nat) :
+theorem compute_activation_exit_epoch_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«compute_activation_exit_epoch» [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] h)
         (compute_activation_exit_epoch (⟨x0⟩ : Epoch)) := by
   refine ⟨64, fun fuel hf => ?_⟩
@@ -64,9 +64,9 @@ theorem compute_activation_exit_epoch_valid (h : Heap) (x0 : Nat) :
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem compute_epoch_at_slot_valid (h : Heap) (x0 : Nat) :
+theorem compute_epoch_at_slot_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.uint (.nominal Scope.Id.«Slot» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Slot» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«compute_epoch_at_slot» [(.uint (.nominal Scope.Id.«Slot» 64) x0)] h)
         (compute_epoch_at_slot (⟨x0⟩ : Slot)) := by
   refine ⟨64, fun fuel hf => ?_⟩
@@ -77,9 +77,9 @@ theorem compute_epoch_at_slot_valid (h : Heap) (x0 : Nat) :
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem compute_start_slot_at_epoch_valid (h : Heap) (x0 : Nat) :
+theorem compute_start_slot_at_epoch_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Slot) h' v => v = (enc_Slot r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Slot) h' v => v = (enc_Slot r h').1 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«compute_start_slot_at_epoch» [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] h)
         (compute_start_slot_at_epoch (⟨x0⟩ : Epoch)) := by
   refine ⟨64, fun fuel hf => ?_⟩
@@ -90,9 +90,9 @@ theorem compute_start_slot_at_epoch_valid (h : Heap) (x0 : Nat) :
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem convert_builder_index_to_validator_index_valid (h : Heap) (x0 : Nat) :
+theorem convert_builder_index_to_validator_index_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.uint (.nominal Scope.Id.«BuilderIndex» 64) x0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«BuilderIndex» 64) x0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«convert_builder_index_to_validator_index» [(.uint (.nominal Scope.Id.«BuilderIndex» 64) x0)] h)
         (convert_builder_index_to_validator_index (⟨x0⟩ : BuilderIndex)) := by
   refine ⟨64, fun fuel hf => ?_⟩
@@ -103,9 +103,9 @@ theorem convert_builder_index_to_validator_index_valid (h : Heap) (x0 : Nat) :
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem convert_validator_index_to_builder_index_valid (h : Heap) (x0 : Nat) :
+theorem convert_validator_index_to_builder_index_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] (fun (r : BuilderIndex) h' v => v = (enc_BuilderIndex r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] (fun (r : BuilderIndex) h' v => v = (enc_BuilderIndex r h').1 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«convert_validator_index_to_builder_index» [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] h)
         (convert_validator_index_to_builder_index (⟨x0⟩ : ValidatorIndex)) := by
   refine ⟨64, fun fuel hf => ?_⟩
@@ -116,9 +116,9 @@ theorem convert_validator_index_to_builder_index_valid (h : Heap) (x0 : Nat) :
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem get_beacon_proposer_index_valid (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :
+theorem get_beacon_proposer_index_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«get_beacon_proposer_index» [(.ref r0)] h)
         (get_beacon_proposer_index x0) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -131,9 +131,9 @@ theorem get_beacon_proposer_index_valid (h : Heap) (r0 : Nat) (x0 : BeaconState)
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem get_block_root_at_slot_valid (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) :
+theorem get_block_root_at_slot_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.ref r0), (.uint (.nominal Scope.Id.«Slot» 64) x1)] (fun (r : Root) h' v => v = (enc_Root r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Slot» 64) x1)] (fun (r : Root) h' v => v = (enc_Root r h').1 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«get_block_root_at_slot» [(.ref r0), (.uint (.nominal Scope.Id.«Slot» 64) x1)] h)
         (get_block_root_at_slot x0 (⟨x1⟩ : Slot)) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -146,9 +146,9 @@ theorem get_block_root_at_slot_valid (h : Heap) (r0 : Nat) (x0 : BeaconState) (h
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem get_index_for_new_validator_valid (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :
+theorem get_index_for_new_validator_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«get_index_for_new_validator» [(.ref r0)] h)
         (get_index_for_new_validator x0) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -161,9 +161,9 @@ theorem get_index_for_new_validator_valid (h : Heap) (r0 : Nat) (x0 : BeaconStat
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem get_randao_mix_valid (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) :
+theorem get_randao_mix_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bytes32) h' v => v = (enc_Bytes32 r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bytes32) h' v => v = (enc_Bytes32 r h').1 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«get_randao_mix» [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] h)
         (get_randao_mix x0 (⟨x1⟩ : Epoch)) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -176,9 +176,9 @@ theorem get_randao_mix_valid (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem has_eth1_withdrawal_credential_valid (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) :
+theorem has_eth1_withdrawal_credential_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.ref r0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«has_eth1_withdrawal_credential» [(.ref r0)] h)
         (has_eth1_withdrawal_credential x0) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -191,9 +191,9 @@ theorem has_eth1_withdrawal_credential_valid (h : Heap) (r0 : Nat) (x0 : Validat
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem has_flag_valid (h : Heap) (x0 : Nat) (x1 : Int) :
+theorem has_flag_valid (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«has_flag» [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] h)
         (has_flag (⟨x0⟩ : ParticipationFlags) x1) := by
   refine ⟨64, fun fuel hf => ?_⟩
@@ -204,9 +204,9 @@ theorem has_flag_valid (h : Heap) (x0 : Nat) (x1 : Int) :
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem increase_balance_valid (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (x2 : Nat) (hw : WTree h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] [⟨Scope.Id.«BeaconState», [.exact 12]⟩]) :
+theorem increase_balance_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (x2 : Nat) (hw : WTree h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] [⟨Scope.Id.«BeaconState», [.exact 12]⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)]) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [⟨Scope.Id.«BeaconState», [.exact 12]⟩] h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
+      ResultMatches gfp [⟨Scope.Id.«BeaconState», [.exact 12]⟩] h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
         (interp (Scope.env sha) fuel Scope.Id.«increase_balance» [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] h)
         (increase_balance x0 (⟨x1⟩ : ValidatorIndex) (⟨x2⟩ : Gwei)) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -219,9 +219,9 @@ theorem increase_balance_valid (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : d
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem is_active_builder_valid (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) :
+theorem is_active_builder_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«is_active_builder» [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1)] h)
         (is_active_builder x0 (⟨x1⟩ : BuilderIndex)) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -234,9 +234,9 @@ theorem is_active_builder_valid (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : 
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem is_active_validator_valid (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) (x1 : Nat) :
+theorem is_active_validator_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«is_active_validator» [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] h)
         (is_active_validator x0 (⟨x1⟩ : Epoch)) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -249,9 +249,9 @@ theorem is_active_validator_valid (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : 
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem is_builder_index_valid (h : Heap) (x0 : Nat) :
+theorem is_builder_index_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«is_builder_index» [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] h)
         (is_builder_index (⟨x0⟩ : ValidatorIndex)) := by
   refine ⟨64, fun fuel hf => ?_⟩
@@ -262,9 +262,9 @@ theorem is_builder_index_valid (h : Heap) (x0 : Nat) :
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem is_builder_withdrawal_credential_valid (h : Heap) (x0 : List UInt8) :
+theorem is_builder_withdrawal_credential_valid (gfp : Footprint) (h : Heap) (x0 : List UInt8) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.bytes Scope.Id.«Bytes32» x0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
+      ResultMatches gfp [] h [(.bytes Scope.Id.«Bytes32» x0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«is_builder_withdrawal_credential» [(.bytes Scope.Id.«Bytes32» x0)] h)
         (is_builder_withdrawal_credential (⟨x0⟩ : Bytes32)) := by
   refine ⟨64, fun fuel hf => ?_⟩
@@ -275,9 +275,9 @@ theorem is_builder_withdrawal_credential_valid (h : Heap) (x0 : List UInt8) :
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem is_compounding_withdrawal_credential_valid (h : Heap) (x0 : List UInt8) :
+theorem is_compounding_withdrawal_credential_valid (gfp : Footprint) (h : Heap) (x0 : List UInt8) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.bytes Scope.Id.«Bytes32» x0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
+      ResultMatches gfp [] h [(.bytes Scope.Id.«Bytes32» x0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«is_compounding_withdrawal_credential» [(.bytes Scope.Id.«Bytes32» x0)] h)
         (is_compounding_withdrawal_credential (⟨x0⟩ : Bytes32)) := by
   refine ⟨64, fun fuel hf => ?_⟩
@@ -288,9 +288,9 @@ theorem is_compounding_withdrawal_credential_valid (h : Heap) (x0 : List UInt8) 
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem is_eligible_for_activation_valid (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (r1 : Nat) (x1 : Validator) (hy1 : dec_Validator h (.ref r1) = some x1) :
+theorem is_eligible_for_activation_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (r1 : Nat) (x1 : Validator) (hy1 : dec_Validator h (.ref r1) = some x1) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.ref r0), (.ref r1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0), (.ref r1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«is_eligible_for_activation» [(.ref r0), (.ref r1)] h)
         (is_eligible_for_activation x0 x1) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0 hy1
@@ -303,9 +303,9 @@ theorem is_eligible_for_activation_valid (h : Heap) (r0 : Nat) (x0 : BeaconState
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem is_eligible_for_activation_queue_valid (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) :
+theorem is_eligible_for_activation_queue_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.ref r0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«is_eligible_for_activation_queue» [(.ref r0)] h)
         (is_eligible_for_activation_queue x0) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -318,9 +318,9 @@ theorem is_eligible_for_activation_queue_valid (h : Heap) (r0 : Nat) (x0 : Valid
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem is_eligible_for_partial_withdrawals_valid (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) (x1 : Nat) :
+theorem is_eligible_for_partial_withdrawals_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.ref r0), (.uint (.nominal Scope.Id.«Gwei» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Gwei» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«is_eligible_for_partial_withdrawals» [(.ref r0), (.uint (.nominal Scope.Id.«Gwei» 64) x1)] h)
         (is_eligible_for_partial_withdrawals x0 (⟨x1⟩ : Gwei)) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -333,9 +333,9 @@ theorem is_eligible_for_partial_withdrawals_valid (h : Heap) (r0 : Nat) (x0 : Va
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem is_slashable_validator_valid (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) (x1 : Nat) :
+theorem is_slashable_validator_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«is_slashable_validator» [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] h)
         (is_slashable_validator x0 (⟨x1⟩ : Epoch)) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -348,9 +348,9 @@ theorem is_slashable_validator_valid (h : Heap) (r0 : Nat) (x0 : Validator) (hy0
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem saturating_sub_valid (h : Heap) (x0 : Nat) (x1 : Int) :
+theorem saturating_sub_valid (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [] h [(.uint (.width 64) x0), (.int x1)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.width 64) x0), (.int x1)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«saturating_sub» [(.uint (.width 64) x0), (.int x1)] h)
         (saturating_sub (⟨x0⟩ : Uint64) x1) := by
   refine ⟨64, fun fuel hf => ?_⟩
@@ -361,9 +361,9 @@ theorem saturating_sub_valid (h : Heap) (x0 : Nat) (x1 : Int) :
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
 
 set_option maxHeartbeats 4000000 in
-theorem update_next_withdrawal_builder_index_valid (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (hw : WTree h [(.ref r0), (.uint (.width 64) x1)] [⟨Scope.Id.«BeaconState», []⟩]) :
+theorem update_next_withdrawal_builder_index_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (hw : WTree h [(.ref r0), (.uint (.width 64) x1)] [⟨Scope.Id.«BeaconState», []⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.width 64) x1)]) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches [⟨Scope.Id.«BeaconState», []⟩] h [(.ref r0), (.uint (.width 64) x1)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
+      ResultMatches gfp [⟨Scope.Id.«BeaconState», []⟩] h [(.ref r0), (.uint (.width 64) x1)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
         (interp (Scope.env sha) fuel Scope.Id.«update_next_withdrawal_builder_index» [(.ref r0), (.uint (.width 64) x1)] h)
         (update_next_withdrawal_builder_index x0 (⟨x1⟩ : Uint64)) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0

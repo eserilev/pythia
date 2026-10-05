@@ -1,5 +1,6 @@
 import SpecLean.Bridge
 import SpecLean.DecodeLemmas
+import SpecLean.Compose
 
 /-!
 # Facts about the generated environment
@@ -91,9 +92,9 @@ open SpecLean SpecLean.Gen SpecLean.Encode
 /-! ## Facts used by several proofs -/
 
 /-- The pure-call result: nothing changes. -/
-theorem pure_result {h : Heap} {vs : List Value} {fpf : Footprint} :
-    Frame h h vs fpf ∧ Fresh h h ∧ Reach h h vs :=
-  ⟨Frame_refl h vs fpf, Fresh_refl h, Reach_refl h vs⟩
+theorem pure_result {h : Heap} {vs : List Value} {fpf gfp : Footprint} :
+    Frame h h vs fpf ∧ Fresh h h ∧ NoNewPaths h h vs gfp :=
+  ⟨Frame_refl h vs fpf, Fresh_refl h, NoNewPaths_refl h vs gfp⟩
 
 
 /-- Under `WTree`, a footprint object has no second path: another path reaches another

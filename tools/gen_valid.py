@@ -7,7 +7,7 @@ Run from the consensus-specs checkout, in its uv environment:
     uv run python ../consensus-specs-lean/tools/gen_valid.py --tier leaves
 
 It writes one candidate theorem per function of the tier, checks each with `lake env lean` in
-parallel, and writes the proved ones to `SpecLean/Validation/Gen/<Tier>.lean`. It prints the
+parallel, each in a memory cap of `MEM`, and writes the proved ones to `SpecLean/Validation/Gen/<Tier>.lean`. It prints the
 count and the reason of each failure.
 """
 
@@ -216,7 +216,8 @@ class Gen:
                    f"exists_eq_right] at {' '.join(hys)}\n  rd_split_hyps\n")
         vs = "[" + ", ".join(a[1] for a in args) + "]"
         rargs = " ".join(a[2] for a in args)
-        hw = f" (hw : WTree h {vs} {fp})" if sig.mutated else ""
+        hw = (f" (hw : WTree h {vs} {fp}) (hwf : HeapWF h) (haw : ArgsWF h {vs})"
+              if sig.mutated else "")
         free = S.free_names(tree)
         consts = [T.ident(c) for c in sorted(free) if c in self.b.consts]
         cfg = sorted({n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute) and
@@ -227,9 +228,9 @@ class Gen:
         fname = T.ident(name)
         return f"""
 set_option maxHeartbeats 4000000 in
-theorem {name}_valid (h : Heap) {binders}{hw} :
+theorem {name}_valid (gfp : Footprint) (h : Heap) {binders}{hw} :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches {fp} h {vs} (fun (r : {rt}) h' v => {exp})
+      ResultMatches gfp {fp} h {vs} (fun (r : {rt}) h' v => {exp})
         (interp (Scope.env sha) fuel Scope.Id.«{name}» {vs} h)
         ({fname} {rargs}) := by
 {inv}  refine ⟨64, fun fuel hf => ?_⟩
@@ -241,14 +242,20 @@ theorem {name}_valid (h : Heap) {binders}{hw} :
 """
 
 
+MEM = "4G"
+
+
 def check(name, text, workdir):
     """Compile one candidate. Returns (name, ok, seconds, first error line)."""
     f = Path(workdir) / f"{name}.lean"
     f.write_text(HEADER + PRELUDE + text + FOOTER)
     t0 = time.time()
     try:
-        r = subprocess.run(["lake", "env", "lean", str(f)], cwd=ROOT, capture_output=True,
-                           text=True, timeout=600)
+        # Each check runs in its own memory cap: a proof term that blows up must fail, not
+        # take the machine down.
+        r = subprocess.run(["systemd-run", "--user", "--scope", "-q", "-p", f"MemoryMax={MEM}",
+                            "-p", "MemorySwapMax=0", "lake", "env", "lean", str(f)], cwd=ROOT,
+                           capture_output=True, text=True, timeout=600)
         out = r.stdout + r.stderr
         ok = r.returncode == 0 and "error" not in out and "sorry" not in out
     except subprocess.TimeoutExpired:
@@ -263,7 +270,7 @@ def main():
     ap.add_argument("--preset", default="minimal")
     ap.add_argument("--tier", default="leaves", choices=["leaves"])
     ap.add_argument("--only", default=None)
-    ap.add_argument("--jobs", type=int, default=6)
+    ap.add_argument("--jobs", type=int, default=2)
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
     commit, spec_object, sources, spec, fns, sources_text, _ = S.load_scope(
@@ -321,7 +328,8 @@ def main():
             cands[n] = g.theorem(n, em.sigs[n], fns[n])
         except (Unsupported, S.Unsupported, ValueError) as e:
             skipped[n] = f"no statement: {e}"
-    r = subprocess.run(["lake", "build", "SpecLean.Validation.Gen.Local"], cwd=ROOT,
+    r = subprocess.run(["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p",
+                        "MemorySwapMax=0", "lake", "build", "SpecLean.Validation.Gen.Local"], cwd=ROOT,
                        capture_output=True, text=True)
     if r.returncode != 0:
         sys.exit("lake build failed:\n" + r.stdout[-3000:])

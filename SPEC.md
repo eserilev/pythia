@@ -41,7 +41,7 @@ onto the generated Lean.
 The interpreter is the one model of Python that we trust. Section 11 tests it against CPython.
 
 A proof about the readable Lean applies to Python on every run whose input heap meets the write
-condition `WTree` of section 9.2. Each validation theorem also proves `Reach`, and the
+condition `WTree` of section 9.2. Each validation theorem also proves `NoNewPaths`, and the
 composition lemma turns it back into `WTree`. So the condition holds on every state that the state transition reaches from a decoded
 state (section 9.4).
 
@@ -528,13 +528,24 @@ theorem f_valid : ∀ heap vs args, DecodesArgs heap vs args → WTree heap vs (
   - Fresh addresses: `heap.next ≤ heap'.next`, and `HeapWF heap → HeapWF heap'`, where `HeapWF`
     says that every address at or above `next` is free. ("Every new address was free" is always
     true, so it says nothing.)
-  - Reach: every `ref` that the arguments reach in `heap'`, they also reach in `heap`, or it is
-    fresh. `Frame_trans` needs this to chain frames over loop steps and calls. A function that
-    stores a new object (`state.x = new_obj`) meets it through the "or it is fresh" case.
+  - NoNewPaths over the global footprint `FP`: no old object gains a path. For each argument,
+    a map `φ` sends each path of `heap'` to an old object (below `heap.next`) to a path of
+    `heap` to the same object. The map is one to one, and a path that matches a pattern of `FP`
+    goes to a path that matches the same pattern. So an old object has at most as many paths
+    after the run as before. New objects are free here: `FreshOnce` covers them.
+
+    An earlier rule, `Reach`, kept each path fixed: every `ref` at a path of `heap'` was at the
+    same path in `heap`, or was fresh. That is false for a list slice or a pop, which moves old
+    items to new positions: `state.pending_partial_withdrawals = ...[n:]` in
+    `update_pending_partial_withdrawals`, and the same in `update_builder_pending_withdrawals`.
+    `NoNewPaths` allows a move, because the map sends position `j` to position `j + n`. It needs
+    the patterns of `FP` to address list items only by `*`. `Reach` implies `NoNewPaths` with `φ`
+    the identity (`noNewPaths_of_reach`), so a function that moves nothing still proves `Reach`.
+    `NoNewPaths_trans` chains it over loop steps and calls.
 
 `f_valid` takes `WTree` over `Footprint f` only, and promises no `WTree` on its result. The
 composition lemma `wtree_compose` (`SpecLean/Compose.lean`) gives `WTree` back over any
-footprint: `WTree` before, `Reach`, each new object reached by one path (`FreshOnce`) and the
+footprint: `WTree` before, `NoNewPaths`, each new object reached by one path (`FreshOnce`) and the
 roots keeping their class give `WTree` after. So `WTree` over `FP` at the entry of
 `state_transition` gives it at the exit.
 - `r` is `invalid` and `r'` is `error invalid`, or `r` is `bug _` and `r'` is `error bug`.
@@ -569,7 +580,7 @@ does not change a result that is not `outOfFuel`. It needs the premise that no c
 an error, which the serializer enforces.
 
 **Calls.** A call to `g` inside `f` uses `g_valid`. The caller needs `WTree heap vs_g
-(Footprint g)` at the call. It gets it from its own `WTree` at entry, from the frame and `Reach`
+(Footprint g)` at the call. It gets it from its own `WTree` at entry, from the frame and `NoNewPaths`
 of earlier calls through `wtree_compose`, and from a lemma that the statements between them
 create no second path to any object that `g` writes. The tactic proves that lemma per call site. Some sharing exists at a call site, but
 only of objects outside `FP`: `compute_ptc` runs while inner `ptc_window` vectors are shared, and
@@ -600,7 +611,7 @@ strings or large arrays.
 
 ### 9.4 Real states meet the write condition
 
-Each `f_valid` proves `Reach` on its result heap, and `wtree_compose` turns it into `WTree`. So
+Each `f_valid` proves `NoNewPaths` on its result heap, and `wtree_compose` turns it into `WTree`. So
 by induction over the state transition, every reachable state meets `WTree` if the start state
 does:
 
@@ -644,7 +655,7 @@ argument. Neither callee writes the shared object. With the narrower rule, the m
 per-write check is still untested on a real hazard. The fuzzer covers that case.
 
 The proof contract in section 9.2 now has the same rule: `f_valid` takes `WTree` over
-`Footprint f`, `ResultMatches` keeps Frame, Fresh and Reach, and `wtree_compose` gives `WTree`
+`Footprint f`, `ResultMatches` keeps Frame, Fresh and NoNewPaths, and `wtree_compose` gives `WTree`
 over `FP` at the exit of `state_transition`.
 
 Run on all EF vectors, it shows whether `WTree` holds in practice, before any proof exists. The

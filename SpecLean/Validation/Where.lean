@@ -106,6 +106,31 @@ theorem objs_set_ne {h : Heap} {a b : Nat} {o : HeapObj} (hne : b ≠ a) :
 theorem objs_set_self {h : Heap} {a : Nat} {o : HeapObj} : (h.set a o).objs a = some o := by
   simp
 
+/-! ## New objects -/
+
+theorem alloc_fst (h : Heap) (o : HeapObj) : (h.alloc o).1 = h.next := rfl
+
+theorem alloc_next (h : Heap) (o : HeapObj) : (h.alloc o).2.next = h.next + 1 := rfl
+
+theorem set_next (h : Heap) (a : Nat) (o : HeapObj) : (h.set a o).next = h.next := rfl
+
+theorem objs_alloc_ne {h : Heap} {o : HeapObj} {b : Nat} (hb : b ≠ h.next) :
+    (h.alloc o).2.objs b = h.objs b := by
+  simp [Heap.alloc, hb]
+
+theorem objs_alloc_self {h : Heap} {o : HeapObj} : (h.alloc o).2.objs h.next = some o := by
+  simp [Heap.alloc]
+
+theorem objs_alloc_at {h : Heap} {o : HeapObj} {b : Nat} (hb : b = h.next) :
+    (h.alloc o).2.objs b = some o := by
+  subst hb; exact objs_alloc_self
+
+/-- An argument object is below `next`. -/
+theorem ne_next_of_at {h : Heap} {vs : List Value} (hwf : HeapWF h) (haw : ArgsWF h vs)
+    {k : Nat} {q : List Nat} {b : Nat} (e : at? h vs k q = some (.ref b)) (c : Nat) :
+    b ≠ h.next + c := by
+  have := reached_old hwf haw e; omega
+
 /-! ## The frame of a run of writes -/
 
 theorem frame_set {h h1 : Heap} {vs : List Value} {fp : Footprint} {a : Nat} {o : HeapObj}
@@ -113,6 +138,32 @@ theorem frame_set {h h1 : Heap} {vs : List Value} {fp : Footprint} {a : Nat} {o 
   intro b hn hb
   have : b ≠ a := fun e => by subst e; exact hb hat
   simp [this, hf b hn hb]
+
+theorem frame_alloc {h h1 : Heap} {vs : List Value} {fp : Footprint} {o : HeapObj}
+    (hf : Frame h h1 vs fp) (hwf : HeapWF h) (hfr : Fresh h h1) :
+    Frame h (h1.alloc o).2 vs fp := by
+  intro b hn hb
+  have hlt : b < h.next := Nat.lt_of_not_le fun hle => hn (hwf b hle)
+  have : b ≠ h1.next := by have := hfr.1; omega
+  rw [objs_alloc_ne this, hf b hn hb]
+
+theorem frame_set_fresh {h h1 : Heap} {vs : List Value} {fp : Footprint} {a : Nat}
+    {o : HeapObj} (hf : Frame h h1 vs fp) (hwf : HeapWF h) (ha : h.next ≤ a) :
+    Frame h (h1.set a o) vs fp := by
+  intro b hn hb
+  have hlt : b < h.next := Nat.lt_of_not_le fun hle => hn (hwf b hle)
+  have : b ≠ a := by omega
+  simp [this, hf b hn hb]
+
+theorem heapWF_of_fresh {h h1 : Heap} (hwf : HeapWF h) (hf : Fresh h h1) : HeapWF h1 := hf.2 hwf
+
+theorem fresh_alloc {h h1 : Heap} {o : HeapObj} (hf : Fresh h h1) : Fresh h (h1.alloc o).2 := by
+  refine ⟨by simp [alloc_next]; have := hf.1; omega, fun hwf => ?_⟩
+  have hw1 := hf.2 hwf
+  intro b hb
+  simp only [alloc_next] at hb
+  rw [objs_alloc_ne (by omega)]
+  exact hw1 b (by omega)
 
 theorem fresh_set {h h1 : Heap} {a : Nat} {o o0 : HeapObj} (hf : Fresh h h1)
     (ho : h1.objs a = some o0) : Fresh h (h1.set a o) :=

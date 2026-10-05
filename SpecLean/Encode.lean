@@ -162,17 +162,32 @@ def Fresh (h h' : Heap) : Prop := h.next ≤ h'.next ∧ (HeapWF h → HeapWF h'
 def Reach (h h' : Heap) (vs : List Value) : Prop :=
   ∀ k q b, at? h' vs k q = some (.ref b) → at? h vs k q = some (.ref b) ∨ h.next ≤ b
 
+/-- No old object gains a path. Each path of `h'` to an old object (below `h.next`) comes from
+a path of `h` to it from the same argument: `φ` maps the `h'`-paths to an object one to one onto
+`h`-paths to it, and keeps footprint patterns. So an old object has at most as many paths after
+as before. A moved list item keeps its one path, a dropped object has none, and two fields that
+come to hold one old object break it. The patterns matter: `WTree` speaks only of objects at a
+pattern path. -/
+def NoNewPaths (h h' : Heap) (vs : List Value) (fp : Footprint) : Prop :=
+  ∃ φ : Nat → List Nat → List Nat, ∀ k q a, at? h' vs k q = some (.ref a) → a < h.next →
+    at? h vs k (φ k q) = some (.ref a) ∧
+    (∀ pat ∈ fp, Matches pat.steps q → Matches pat.steps (φ k q)) ∧
+    ∀ k' q', at? h' vs k' q' = some (.ref a) → k' = k → φ k' q' = φ k q → q' = q
+
 /-- Every path from the state that does not start with a decoded field reads the same. -/
 def StateRest (h h' : Heap) (root : Value) : Prop :=
   ∀ i q, i ≠ fValidators → i ≠ fBalances → follow h' root (i :: q) = follow h root (i :: q)
 
 /-- SPEC 9.2. `fpf` is the footprint of the function. `Expect x h' v`: the return value and
 every argument decode to the readable result `x` in the result heap. The function takes
-`WTree` over `fpf` only. It promises no `WTree` on its result: `Reach` and the composition
-lemma (`SpecLean/Compose.lean`) give it where a caller needs it. -/
-def ResultMatches (fpf : Footprint) (h : Heap) (vs : List Value)
+`WTree` over `fpf` only. It promises no `WTree` on its result: `NoNewPaths` over the global
+footprint `fp` and the composition lemma (`SpecLean/Compose.lean`) give it where a caller needs
+it. `gfp` is the global footprint `FP`: each footprint is a part of it, and its patterns
+address list items only by `*`, so a function that moves list items keeps them. -/
+def ResultMatches (gfp fpf : Footprint) (h : Heap) (vs : List Value)
     (Expect : α → Heap → Value → Prop) : Res (Value × Heap) → SpecM α → Prop
-  | .ok (v, h'), .ok x => Expect x h' v ∧ Frame h h' vs fpf ∧ Fresh h h' ∧ Reach h h' vs
+  | .ok (v, h'), .ok x => Expect x h' v ∧ Frame h h' vs fpf ∧ Fresh h h' ∧
+      NoNewPaths h h' vs gfp
   | .error e, .error f => e ≠ .outOfFuel ∧ e.fail = f
   | _, _ => False
 

@@ -1,6 +1,7 @@
 import SpecLean.Ssz
 import SpecLean.Lemmas
 import SpecLean.Paths
+import SpecLean.Compose
 import SpecLean.Rd.Prelude
 import SpecLean.Validation.Attr
 
@@ -48,7 +49,9 @@ open SpecLean SpecLean.Encode
 @[rd_simp] theorem frame_self (h : Heap) (vs : List Value) (fp : Footprint) : Frame h h vs fp :=
   Frame_refl h vs fp
 @[rd_simp] theorem fresh_self (h : Heap) : Fresh h h := Fresh_refl h
-@[rd_simp] theorem reach_self (h : Heap) (vs : List Value) : Reach h h vs := Reach_refl h vs
+@[rd_simp] theorem nnp_self (h : Heap) (vs : List Value) (fp : Footprint) :
+    NoNewPaths h h vs fp :=
+  NoNewPaths_refl h vs fp
 
 theorem intArith_ne_oof {op : BinOp} {a b : Int} {e : SpecError}
     (h : intArith op a b = .error e) : e ≠ .outOfFuel := by
@@ -77,6 +80,7 @@ namespace SpecLean.Validation.Steps
 open SpecLean
 
 attribute [rd_simp] cmpInt assignTarget assignTargets assignAll sliceBound coerceH_plain depthBound
+  Ssz.coerceH ctorFields Ssz.construct.build kwArg Ssz.checkLength
 
 /-- A range check on a cast compares in `Nat`. `whnf` of the `Int` form runs in unary. -/
 @[rd_simp] theorem natCast_lt_lit (a n : Nat) :
