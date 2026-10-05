@@ -503,6 +503,11 @@ Two places where the readable Lean differs from the spec text, open for now:
   converts it. Python keeps the argument's class. The vectors cannot see this. The proofs will:
   a theorem fails wherever the difference changes a result.
 
+Status at 10:20: item 3, the proof tactic, started at about 09:50 and is not committed. A
+generator writes one validation theorem per function, and a custom tactic applies the step lemmas
+in the order of the statements. The work is on the first tier: functions with no loops and no
+calls. The key number, how many of the 162 functions the tactic proves alone, is not in yet.
+
 In parallel, the fuzzer now runs with the sharing check on and has hazard tests that must
 trigger it. Its generator covers sets, closures, byte functions and more SSZ kinds. A campaign of
 21,000 programs is running.
