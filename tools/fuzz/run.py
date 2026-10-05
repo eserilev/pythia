@@ -9,7 +9,9 @@ Run from this repository, in the pyspec environment with Hypothesis added:
 Each round runs Hypothesis until it finds a difference with a new signature, shrinks it, and
 saves the minimal case to `tools/fuzz/corpus/`. Known signatures (from the corpus and from
 `--ignore`) count as a pass, so the next round looks for a different difference. A corpus file
-is a runnable case: `python tools/fuzz/harness.py tools/fuzz/corpus/<file>.py`.
+is a runnable case: `python tools/fuzz/harness.py tools/fuzz/corpus/<file>.py`. `corpus/fixed/`
+holds the differences that the interpreter has fixed, and `corpus/hazard/` the hand-written
+programs for the write condition check (`--hazard-tests`).
 """
 
 import argparse
@@ -56,6 +58,17 @@ def signature(py: str, lean: str) -> str:
     return f"{a} / {b}"
 
 
+def classify(o: H.Outcome) -> str | None:
+    """The signature of a finding, or `None`. A finding is a difference between CPython and
+    the interpreter, or a hazard miss: CPython differs from the copy-on-store model and the
+    write condition check has no hit."""
+    if o.py != o.lean:
+        return signature(o.py, o.lean)
+    if o.hazard_miss:
+        return "hazard-miss " + kind(o.py)
+    return None
+
+
 def known_signatures() -> set[str]:
     out = set()
     for f in CORPUS.glob("*.py"):
@@ -65,17 +78,46 @@ def known_signatures() -> set[str]:
     return out
 
 
-def save_to(d: Path, sig: str, src: str, py: str, lean: str, n: int):
+def header(sig: str, o: H.Outcome) -> str:
+    lines = [f"# signature: {sig}", f"# python: {o.py}", f"# lean:   {o.lean}"]
+    lines += [f"# hit:    {h}" for h in o.hits]
+    if o.copy_differs:
+        lines.append(f"# copy-on-store model: {o.py_copy}")
+    return "\n".join(lines) + "\n\n"
+
+
+def save_to(d: Path, sig: str, src: str, o: H.Outcome, n: int):
     slug = re.sub(r"[^A-Za-z0-9]+", "_", sig).strip("_")[:60]
-    (d / f"{slug}_{n}.py").write_text(f"# signature: {sig}\n# python: {py}\n# lean:   {lean}\n\n{src}")
+    (d / f"{slug}_{n}.py").write_text(header(sig, o) + src)
 
 
-def save(sig: str, src: str, py: str, lean: str) -> Path:
+def save(sig: str, src: str, o: H.Outcome) -> Path:
     slug = re.sub(r"[^A-Za-z0-9]+", "_", sig).strip("_")[:60]
     h = hashlib.sha256(src.encode()).hexdigest()[:8]
     path = CORPUS / f"{slug}_{h}.py"
-    path.write_text(f"# signature: {sig}\n# python: {py}\n# lean:   {lean}\n\n{src}")
+    path.write_text(header(sig, o) + src)
     return path
+
+
+def hazard_tests(lean) -> int:
+    """Run `corpus/hazard/*.py`. Each file says `# expect-hit: TEXT` (a hit that contains
+    TEXT) or `# expect-no-sharing-hit`. CPython and the interpreter must also agree."""
+    bad = 0
+    for f in sorted((CORPUS / "hazard").glob("*.py")):
+        src = f.read_text()
+        first = src.splitlines()[0]
+        o = H.run_case(src, lean, copy=True)
+        if first.startswith("# expect-hit: "):
+            want = first.removeprefix("# expect-hit: ")
+            ok = any(want in h for h in o.hits)
+        else:
+            ok = not o.sharing_hits
+        ok = ok and o.py == o.lean and not o.hazard_miss
+        bad += not ok
+        print(f"{'pass' if ok else 'FAIL'} {f.name}: {first[2:]}")
+        for h in o.hits:
+            print(f"       hit {h}")
+    return bad
 
 
 def blocks(lines):
@@ -102,10 +144,10 @@ def minimize(src: str, sig: str, lean) -> str:
     def same(cand):
         try:
             ast.parse(cand)
-            py, lo = H.run_case(cand, lean)
+            o = H.run_case(cand, lean, copy=True)
         except Exception:  # noqa: BLE001
             return False
-        return py != lo and signature(py, lo) == sig
+        return classify(o) == sig
 
     changed = True
     while changed:
@@ -133,6 +175,8 @@ class Stats:
         self.seconds = 0.0
         self.outcomes: dict[str, int] = {}
         self.known_hits: dict[str, int] = {}
+        self.lean_hit = 0
+        self.copy_differs = 0
 
 
 def main():
@@ -143,19 +187,25 @@ def main():
     ap.add_argument("--samples", default=None,
                     help="directory for up to 5 unshrunk examples of each known signature")
     ap.add_argument("--avoid", default="", help="comma-separated names from gen.AVOID")
+    ap.add_argument("--hazard-tests", action="store_true",
+                    help="run the hand-written hazard programs in corpus/hazard and stop")
     args = ap.parse_args()
     G.AVOID |= {a for a in args.avoid.split(",") if a}
 
     CORPUS.mkdir(exist_ok=True)
     known = known_signatures() | set(args.ignore)
     lean = H.LeanRunner()
+    if args.hazard_tests:
+        bad = hazard_tests(lean)
+        lean.close()
+        sys.exit(1 if bad else 0)
     stats = Stats()
     found = []
 
     class Diff(Exception):
-        def __init__(self, sig, src, py, lo):
+        def __init__(self, sig, src):
             super().__init__(sig)
-            self.sig, self.src, self.py, self.lean = sig, src, py, lo
+            self.sig, self.src = sig, src
 
     start = time.perf_counter()
     for _ in range(args.max_rounds):
@@ -172,19 +222,21 @@ def main():
             t0 = time.perf_counter()
             stats.runs += 1
             try:
-                py, lo = H.run_case(src, lean)
+                o = H.run_case(src, lean, copy=True)
             except (H.Timeout, H.serialize.Unsupported):
                 stats.skipped += 1
                 assume(False)
             if not shrinking[0]:
                 stats.generated += 1
                 stats.seconds += time.perf_counter() - t0
-                stats.outcomes[kind(py)] = stats.outcomes.get(kind(py), 0) + 1
-            if py == lo:
+                stats.outcomes[kind(o.py)] = stats.outcomes.get(kind(o.py), 0) + 1
+                stats.lean_hit += bool(o.sharing_hits)
+                stats.copy_differs += o.copy_differs
+            sig = classify(o)
+            if sig is None:
                 if not shrinking[0]:
                     stats.same += 1
                 return
-            sig = signature(py, lo)
             if sig in known:
                 if not shrinking[0]:
                     n = stats.known_hits.get(sig, 0)
@@ -192,18 +244,17 @@ def main():
                     if args.samples and n < 5:
                         d = Path(args.samples)
                         d.mkdir(parents=True, exist_ok=True)
-                        save_to(d, sig, src, py, lo, n)
+                        save_to(d, sig, src, o, n)
                 return
             shrinking[0] = True
-            raise Diff(sig, src, py, lo)
+            raise Diff(sig, src)
 
         try:
             test()
         except Diff as d:
             known.add(d.sig)
             src = minimize(d.src, d.sig, lean)
-            py, lo = H.run_case(src, lean)
-            path = save(d.sig, src, py, lo)
+            path = save(d.sig, src, H.run_case(src, lean, copy=True))
             found.append((d.sig, path))
             print(f"new difference [{d.sig}] -> {path.name}", flush=True)
             continue
@@ -217,6 +268,8 @@ def main():
           f"{stats.generated / wall:.1f} programs/s (wall, with generation and shrinking), "
           f"{stats.runs} runs with shrinking")
     print("CPython outcomes:", dict(sorted(stats.outcomes.items(), key=lambda kv: -kv[1])))
+    print(f"Lean outcome hit (a sharing hit of the write condition check): {stats.lean_hit}; "
+          f"CPython differs from the copy-on-store model: {stats.copy_differs}")
     print("known signatures seen:", stats.known_hits)
     for sig, path in found:
         print(f"  {sig}: {path.name}")
