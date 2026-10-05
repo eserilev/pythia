@@ -220,6 +220,11 @@ end
 
 /-! ## Reads and writes -/
 
+/-- `x.bit_length` of a number, bound to it as an `int`. Any other attribute of a number
+raises `AttributeError` (probed). -/
+def bitLengthAttr (env : Env) (n : Int) (f : Name) : Res Value :=
+  if f = env.nm.bitLength then .ok (.member (.int n) f) else .error (.other "AttributeError")
+
 /-- `obj.f`. A container field, a `config` value, a member of a fork module, or else a method
 or member, bound for a later call. -/
 def getAttr (env : Env) (h : Heap) : Value → Name → Res Value
@@ -242,8 +247,11 @@ def getAttr (env : Env) (h : Heap) : Value → Name → Res Value
       | none => .error .nameError
     | some (.module .fork) => .ok (.glob f)
     | _ => .ok (.member (.glob g) f)
-  -- A number has no attributes that spec code reads (probed).
-  | .int _, _ | .bool _, _ | .lib _, _ => .error (.other "AttributeError")
+  -- A number has one attribute that spec code reads, `bit_length` (probed).
+  | .int n, f => bitLengthAttr env n f
+  | .bool b, f => bitLengthAttr env (if b then 1 else 0) f
+  | .lib (.uint _ n), f => bitLengthAttr env n f
+  | .lib (.boolean b), f => bitLengthAttr env (if b then 1 else 0) f
   | v, f => .ok (.member v f)
 
 def lookupPairs (h : Heap) (k : Value) (kvs : List (Value × Value)) : Res Value := do
@@ -636,6 +644,14 @@ def applyMethod (env : Env) (h : Heap) (self : Value) (m : Name) (args : List Va
           let (b, h1) := h.alloc (.set ys)
           pure (.ref b, h1)
         | _ => .error .typeError
+      else if m = env.nm.difference then
+        match args with
+        | [v] => do
+          let other ← iterElems h v
+          let ys ← xs.filterM fun x => do pure (← findKey h x other).isNone
+          let (b, h1) := h.alloc (.set ys)
+          pure (.ref b, h1)
+        | _ => .error .typeError
       else if m = env.nm.add then
         match args with
         | [v] => do
@@ -655,8 +671,17 @@ def applyMethod (env : Env) (h : Heap) (self : Value) (m : Name) (args : List Va
           | some i => pure ((es[i]?.map (·.2)).getD d, h)
           | none => pure (d, h)
         | _ => .error .typeError
+      -- A dict view is a snapshot here. Spec code does not change a dict while it iterates
+      -- a view of it (CPython raises `RuntimeError` then).
+      else if m = env.nm.items ∧ args.isEmpty then .ok (.tuple (es.map fun (k, v) => .tuple [k, v]), h)
+      else if m = env.nm.values ∧ args.isEmpty then .ok (.tuple (es.map (·.2)), h)
+      else if m = env.nm.keys ∧ args.isEmpty then .ok (.tuple (es.map (·.1)), h)
       else .error .unsupported
     | _ => .error .unsupported
+  | .int n =>
+    -- `x.bit_length()`: `getAttr` binds it to the number as an `int`.
+    if m = env.nm.bitLength ∧ args.isEmpty then .ok (.int (Nat.log2 n.natAbs + if n = 0 then 0 else 1), h)
+    else .error .unsupported
   | .glob g =>
     match env.globals.lookup g with
     | some (.module .bls) => do pure (← env.bls m h args, h)

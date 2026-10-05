@@ -36,7 +36,8 @@ def knownNames (names : Array String) : KnownNames :=
     copy := id "copy", union := id "union", intersection := id "intersection", add := id "add",
     fromBytes := id "from_bytes", empty := id "empty", hashTreeRoot := id "hash_tree_root",
     data := id "data", key := id "key", reverse := id "reverse", strict := id "strict",
-    get := id "get", bytes32 := id "Bytes32", root := id "Root" }
+    get := id "get", bytes32 := id "Bytes32", root := id "Root", bitLength := id "bit_length",
+    difference := id "difference", items := id "items", values := id "values", keys := id "keys" }
 
 structure Program where
   build : Runner.Build

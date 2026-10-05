@@ -44,6 +44,11 @@ def coerceElem : SszTy → Value → Res Value
   | .boolean, .int n =>
     if n = 0 then .ok (.boolean false) else if n = 1 then .ok (.boolean true)
     else .error .sszValue
+  -- A bitfield element takes a uint of any class with the value 0 or 1 (probed:
+  -- `bits.append(Gwei(1))`).
+  | .boolean, .uint _ n =>
+    if n = 0 then .ok (.boolean false) else if n = 1 then .ok (.boolean true)
+    else .error .sszValue
   | .bytes ty len, .bytes _ b => if b.length = len then .ok (.bytes ty b) else .error .sszValue
   | .any, v => .ok v
   | _, _ => .error .typeError
@@ -59,6 +64,9 @@ def coerceField : SszTy → Value → Res Value
     else .error .validation
   | .uint t, .int n =>
     if 0 ≤ n ∧ n < 2 ^ t.bits then .ok (.uint t n.toNat) else .error .validation
+  -- An SSZ `Boolean` is an `int` for pydantic: it takes the field type (probed:
+  -- `Box(k=Boolean(True)).k` is `Uint8(1)`).
+  | .uint t, .boolean b => .ok (.uint t (if b then 1 else 0))
   -- A Python `bool` passes. An `int`, even 0 or 1, does not (probed).
   | .boolean, .boolean b => .ok (.boolean b)
   | .boolean, .bool b => .ok (.boolean b)

@@ -52,6 +52,10 @@ structure State where
   writes : Nat := 0
   pyWrites : Nat := 0
   checked : HashSet (Nat × Nat × List Nat) := {}
+  /-- When each root object first became a root: the arguments of one call share a time, and
+  each binding of a local gets a new time. -/
+  rootTime : HashMap Nat Nat := {}
+  clock : Nat := 0
   deriving Inhabited
 
 initialize state : IO.Ref State ← IO.mkRef {}
@@ -192,6 +196,48 @@ def isPy (h : Heap) (a : Nat) : Bool :=
   | some (.list .pyList _ _ _) | some (.dict _) | some (.set _) => true
   | _ => false
 
+/-- Give the objects `rs` the next root time, unless they have one. -/
+def stamp (s : State) (rs : List Nat) : State :=
+  { s with clock := s.clock + 1,
+           rootTime := rs.foldl (init := s.rootTime) fun m r =>
+             if m.contains r then m else m.insert r s.clock }
+
+/-- The objects that `roots` reach, with the children of each, without a walk into `stop`. -/
+partial def reachStop (C : Ctx) (h : Heap) (stop : HashSet Nat) (roots : List Nat) :
+    HashSet Nat × HashSet Nat := Id.run do
+  let mut seen : HashSet Nat := {}
+  let mut inner : HashSet Nat := {}
+  let mut stack := roots
+  while true do
+    match stack with
+    | [] => break
+    | a :: rest =>
+      stack := rest
+      if seen.contains a || stop.contains a then continue
+      seen := seen.insert a
+      for (_, c) in children C h a do
+        inner := inner.insert c
+        if !seen.contains c && !stop.contains c then stack := c :: stack
+  return (seen, inner)
+
+/-- The starts of the path count. A root is an alias, and not a start, when a root of an
+earlier or the same time reaches it, as `validator = state.validators[i]` or a callee argument
+that a caller root reaches. A root that only a later root reaches stays a start: in
+`v = Box(p=a); a.x = 1` the argument `a` and the local `v` both reach the written object. -/
+def startsOf (C : Ctx) (h : Heap) (s : State) (roots : List Nat) : List Nat := Id.run do
+  let times := (roots.map fun r => s.rootTime.getD r 0).eraseDups.mergeSort (· ≤ ·)
+  let mut before : HashSet Nat := {}
+  let mut starts := []
+  for t in times do
+    let g := roots.filter fun r => s.rootTime.getD r 0 = t
+    -- A walk from `g` that stops at objects of earlier roots: an object behind one of them is
+    -- reachable from an earlier root.
+    let (seen, inner) := reachStop C h before g
+    for r in g do
+      if !before.contains r && !inner.contains r then starts := r :: starts
+    before := before.insertMany seen.toList
+  return starts
+
 def onWrite (h : Heap) (a : Nat) (_ : HeapObj) : BaseIO Nat := do
   let C ← ctxRef.get
   let s ← state.get
@@ -205,12 +251,9 @@ def onWrite (h : Heap) (a : Nat) (_ : HeapObj) : BaseIO Nat := do
                       if a < fr.next then { fr with written := fr.written.insert a } else fr }
   let roots : HashSet Nat := s.frames.foldl (init := {}) fun acc f => acc.insertMany f.roots
   let roots := roots.toList
-  -- A root that another root reaches is an alias, not a start of paths. The starts reach
-  -- the same objects as all roots.
+  -- The starts reach the same objects as all roots.
   let (order, adj) := topo C h roots
-  let inner : HashSet Nat := adj.fold (init := {}) fun acc _ cs =>
-    cs.foldl (init := acc) fun acc (_, c) => acc.insert c
-  let starts := roots.filter (!inner.contains ·)
+  let starts := startsOf C h s roots
   let an := analyze C h order adj starts
   let n := an.cnt.getD a 0
   let mut s := s
@@ -279,7 +322,7 @@ def onEnter (f : Name) (vs : List Value) (h : Heap) : BaseIO Nat := do
   state.modify fun s =>
     let fr : Frame :=
       { fn := f, roots, before, fpObjs, next := h.next, writesAt := (s.writes, s.pyWrites) }
-    { s with frames := s.frames.push fr }
+    { stamp s starts with frames := s.frames.push fr }
   pure 0
 
 def onExit (f : Name) (vs : List Value) (r : Res (Value × Heap)) : BaseIO Nat := do
@@ -317,7 +360,7 @@ def onBind (v : Value) : BaseIO Nat := do
   state.modify fun s =>
     match s.frames.back? with
     | some fr =>
-      { s with frames := s.frames.pop.push { fr with roots := fr.roots.insertMany rs } }
+      { stamp s rs with frames := s.frames.pop.push { fr with roots := fr.roots.insertMany rs } }
     | none => s
   pure 0
 
