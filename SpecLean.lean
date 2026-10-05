@@ -11,5 +11,6 @@ import SpecLean.Bridge
 import SpecLean.Encode
 import SpecLean.Paths
 import SpecLean.DecodeLemmas
+import SpecLean.Compose
 import SpecLean.FuelMono
 import SpecLean.Validation
