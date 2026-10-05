@@ -134,7 +134,9 @@ def main():
     ap.add_argument("--n", type=int, default=2000, help="programs to generate in total")
     ap.add_argument("--ignore", action="append", default=[], help="signature to treat as known")
     ap.add_argument("--max-rounds", type=int, default=30)
+    ap.add_argument("--avoid", default="", help="comma-separated: boolleft,mismatch (gen.AVOID)")
     args = ap.parse_args()
+    G.AVOID |= {a for a in args.avoid.split(",") if a}
 
     CORPUS.mkdir(exist_ok=True)
     known = known_signatures() | set(args.ignore)

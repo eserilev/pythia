@@ -18,6 +18,16 @@ import harness as H
 
 INT, BOOL, BOOLEAN, NONE = ("int",), ("bool",), ("Boolean",), ("none",)
 
+# Known differences that a campaign can switch off, so that it looks for new ones:
+# - "boolleft": a Python `bool` operand in arithmetic and comparisons with uints.
+# - "mismatch": writes, appends and constructor arguments of a deliberately wrong type.
+AVOID: set[str] = set()
+
+
+def mis(pct):
+    """The chance in percent of a deliberately wrong type."""
+    return 0 if "mismatch" in AVOID else pct
+
 
 def U(c):
     return ("uint", c)
@@ -268,7 +278,7 @@ class Gen:
         if k == "Boolean":
             return ch.weighted([(3, "Boolean(False)"), (3, "Boolean(True)"), (2, "True"),
                                 (1, "False"), (2, f"Boolean({self.expr(BOOL, sc, d - 1)})"),
-                                (1, "Boolean(1)"), (1, "0")])
+                                (1, "Boolean(1)"), (mis(1), "0")])
         if k == "bytes":
             return self.bytes_expr(T[1], sc, d)
         if k == "cont":
@@ -281,7 +291,8 @@ class Gen:
 
     def any_numeric(self, sc, d):
         T = self.ch.weighted([(4, U(H.Gwei)), (2, INT), (2, U(H.Uint64)), (1, U(H.Slot)),
-                              (1, U(H.Epoch)), (1, U(H.Uint8)), (1, BOOL),
+                              (1, U(H.Epoch)), (1, U(H.Uint8)),
+                              (0 if "boolleft" in AVOID else 1, BOOL),
                               (1, U(H.ValidatorIndex))])
         return self.expr(T, sc, d), T
 
@@ -379,11 +390,14 @@ class Gen:
             op = ch.weighted([(4, "+"), (3, "-"), (2, "*"), (2, "//"), (1, "%"), (1, "&"),
                               (1, "|"), (1, "^"), (1, "<<"), (1, ">>"), (1, "**")])
             a = self.expr(U(c), sc, d - 1)
-            ob = ch.weighted([(5, "same"), (3, "int"), (1, "other"), (1, "bool")])
-            if ob == "same":
+            ob = ch.weighted([(5, "same"), (3, "int"), (1, "other"),
+                              (0 if "boolleft" in AVOID else 1, "bool")])
+            if op in ("<<", ">>", "**"):
+                b = str(ch.int(0, 3))
+            elif ob == "same":
                 b = self.expr(U(c), sc, d - 1)
-            elif ob == "int" or op in ("<<", ">>", "**"):
-                b = str(ch.lit(INT_LITS)) if op not in ("<<", ">>", "**") else str(ch.int(0, 3))
+            elif ob == "int":
+                b = str(ch.lit(INT_LITS))
             elif ob == "other":
                 b = self.expr(U(ch.pick(UINTS)), sc, d - 1)
             else:
@@ -414,7 +428,7 @@ class Gen:
                 return f"({r[0]} + {self.expr(BY(bytes), sc, d - 1)})"
             return ch.pick(["b''", "b'\\x01\\x02'", "b'\\x00\\x00\\x00\\x00'"])
         n = c.LENGTH
-        if ch.flip(4):
+        if ch.flip(mis(4)):
             n = n + ch.pick([1, -1])
         byte = ch.pick([0, 1, 255])
         return f"{c.__name__}(b'{''.join(f'\\x{byte:02x}' for _ in range(n))}')"
@@ -432,7 +446,7 @@ class Gen:
         kws = []
         for f, ft in fields(T):
             if ch.flip(50):
-                ft2 = ft if ch.flip(97) else ch.weighted(LOCAL_TYPES)
+                ft2 = ch.weighted(LOCAL_TYPES) if ch.flip(mis(3)) else ft
                 kws.append(f"{f}={self.expr(ft2, sc, d - 1)}")
         return f"{c.__name__}({', '.join(kws)})"
 
@@ -565,7 +579,7 @@ class Gen:
             return self.s_local(sc, in_loop)
         p, T = r
         f, ft = self.ch.pick(fields(T))
-        if self.ch.flip(5):
+        if self.ch.flip(mis(5)):
             ft = self.ch.weighted(LOCAL_TYPES)
         self.emit(f"{p}.{f} = {self.expr(ft, sc)}")
 
@@ -575,7 +589,7 @@ class Gen:
             return self.s_local(sc, in_loop)
         p, T = r
         E = elem(T)
-        if self.ch.flip(5):
+        if self.ch.flip(mis(5)):
             E = self.ch.weighted(LOCAL_TYPES)
         idx = self.index(sc, p)
         self.emit(f"{p}[{idx}] = {self.expr(E, sc)}")
@@ -597,7 +611,7 @@ class Gen:
         if r is None:
             return self.s_local(sc, in_loop)
         p, T = r
-        E = elem(T) if self.ch.flip(95) else self.ch.weighted(LOCAL_TYPES)
+        E = self.ch.weighted(LOCAL_TYPES) if self.ch.flip(mis(5)) else elem(T)
         self.guard_append(p, T, self.expr(E, sc))
 
     def s_extend(self, sc, in_loop):
