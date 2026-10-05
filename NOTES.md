@@ -351,3 +351,17 @@ the full interpreter, has started.
 - Name things for what they do.
 - An independent reviewer found real errors in every draft.
 - Paper reviews give less each round. When a working prototype exists, let it find the holes.
+
+### Step 2: the interpreter (2026-10-05)
+
+The interpreter now covers the version 1 scope.
+
+- The serializer reads the pinned spec and writes 163 functions, 769 names and 31 containers,
+  starting from `state_transition`, `process_slots`, `process_block`, `process_epoch` and
+  `upgrade_to_gloas`. The generated file compiles in 3.6 s.
+- 56 construct tests compare CPython and the Lean interpreter. 0 differences.
+- The value-rule probes grew to 1264 rows. All pass.
+- The three proofs moved to the new interpreter without trouble. A clean build takes 23 s.
+- The serializer rejects any node it does not know, so it is also the constructs scan.
+
+Steps 1 and 2 are committed (`7442c57`). Next: step 3, the EF vectors.

@@ -256,7 +256,7 @@ probes as tests, so a library change shows up as a failing test.
 | `Slot + Epoch`, `Slot == Epoch`, `Uint8 + Uint64`, `max(Slot, Epoch)` | `TypeError` (nominal types) |
 | `Gwei + Uint64`, `Uint64 + Gwei` | `Gwei` |
 | `Slot == int` | compares the numbers |
-| `Uint64 == None`, `Uint64 == True`, `Uint64 + True` | `TypeError`: a Python `bool` is not accepted as an `int` |
+| `Uint64 == None`, `Uint64 == True`, `Uint64 == "a"`, `Uint64 + True` | `TypeError`: a Python `bool` is not accepted as an `int`, and `==` with another type does not return `False` |
 | `Slot(1) in [Epoch(1)]` | `TypeError`: `in` uses `==` |
 | `Slot(1) in {Epoch(1)}` | `TypeError` only when the hashes are equal; see 6.3 |
 | `Uint64(2) + (-1)` | `Uint64(1)`: a negative `int` operand is legal |
@@ -278,6 +278,7 @@ probes as tests, so a library change shows up as a failing test.
 | Container field write of `True` or `False` into a `Boolean` field | coerced to `Boolean` |
 | Container field write of `0`, `1` or a float into a `Boolean` field | pydantic `ValidationError` |
 | Container field write of bytes of the wrong length or type | pydantic `ValidationError` |
+| Container constructor with positional arguments | `TypeError` (keyword arguments only) |
 | List element write of an `int` or a base `Uint64` | coerced to the element type |
 | List element write of a sibling nominal type (`Slot` into `Balances`) | `SSZTypeError` |
 | `append` on a full `List[T, N]` | raises `SSZValueError` |
@@ -409,6 +410,8 @@ write condition (section 9.2). Paths are still useful, as a proof technique: ins
   gets the element value. For a list of objects, that value is a `ref`, so a write through the
   loop variable changes the element.
 - `for` over `enumerate` and `zip` is live in the same way. `sorted` and slices take a snapshot.
+- A generator expression is evaluated at once into a snapshot. This is correct for the version 1
+  scope, because no generator in it reads an object that its consumer changes.
 - Each call, each `while` iteration and each `for` iteration costs one unit of fuel. Running out
   of fuel gives `outOfFuel`, never a silent stop. So the fuel that a run needs grows with the
   length of the lists it loops over, and `N` in section 9.2 depends on the input.
