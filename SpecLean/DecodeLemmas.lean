@@ -86,7 +86,7 @@ theorem decGwei_uint (n : Nat) (hn : n < 2 ^ 64) : decGwei (.uint gweiTy n) = so
 theorem decGwei_some {v : Value} {g : Gwei} (h : decGwei v = some g) :
     v = .uint gweiTy g.val ∧ g.val < 2 ^ 64 := by
   unfold decGwei decUint at h
-  cases v <;> simp at h
+  cases v <;> (try rename_i l; cases l) <;> simp at h
   rename_i t n
   obtain ⟨⟨rfl, hn⟩, rfl⟩ := h
   exact ⟨rfl, by simpa [gweiTy, UintTy.bits] using hn⟩

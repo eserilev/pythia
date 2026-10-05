@@ -123,18 +123,20 @@ def toIndexOld : Value → Res Int
 
 
 theorem binop_same (op : BinOp) (x y : Value) : binopVal op x y = binopValOld op x y := by
-  cases x <;> cases y <;> rfl
+  rcases x with (_ | _ | (_ | _) | _ | _ | _ | _ | _ | _ | _ | _ | _ | _) <;>
+    rcases y with (_ | _ | (_ | _) | _ | _ | _ | _ | _ | _ | _ | _ | _ | _) <;> rfl
 
 theorem unop_same (op : UnOp) (x : Value) : unopVal op x = unopValOld op x := by
-  cases op <;> cases x <;> rfl
+  cases op <;> rcases x with (_ | _ | (_ | _) | _ | _ | _ | _ | _ | _ | _ | _ | _ | _) <;> rfl
 
 theorem cmp_same (op : CmpOp) (x y : Value) : cmpVal op x y = cmpValOld op x y := by
-  cases x <;> cases y <;> rfl
+  rcases x with (_ | _ | (_ | _) | _ | _ | _ | _ | _ | _ | _ | _ | _ | _) <;>
+    rcases y with (_ | _ | (_ | _) | _ | _ | _ | _ | _ | _ | _ | _ | _ | _) <;> rfl
 
 theorem truthy_same (x : Value) : truthy x = truthyOld x := by
-  cases x <;> rfl
+  rcases x with (_ | _ | (_ | _) | _ | _ | _ | _ | _ | _ | _ | _ | _ | _) <;> rfl
 
 theorem index_same (x : Value) : toIndex x = toIndexOld x := by
-  cases x <;> rfl
+  rcases x with (_ | _ | (_ | _) | _ | _ | _ | _ | _ | _ | _ | _ | _ | _) <;> rfl
 
 end SpecLean.Tests.Split

@@ -10,6 +10,12 @@ Python values, and the core applies Python rules.
 
 namespace SpecLean
 
+/-- An SSZ uint of class `t`, as a pattern. -/
+@[match_pattern] abbrev Value.uint (t : UintTy) (n : Nat) : Value := .lib (.uint t n)
+
+/-- An SSZ `Boolean`, as a pattern. -/
+@[match_pattern] abbrev Value.boolean (b : Bool) : Value := .lib (.boolean b)
+
 /-- The result class of an operation on two uints: the more derived class wins.
 Unrelated classes raise `TypeError`. -/
 def resolveUint : UintTy → UintTy → Res UintTy

@@ -60,14 +60,19 @@ def SpecError.fail : SpecError → Fail
   | .assertionFailed | .indexError => .invalid
   | _ => .bug
 
+/-- The data of a value of a library class: an SSZ uint of a class, or an SSZ `Boolean`. The
+core only carries it. The library (`SpecLean/Ssz`) owns every rule on it. -/
+inductive LibVal where
+  | uint (t : UintTy) (n : Nat)
+  | boolean (b : Bool)
+  deriving Repr, Inhabited, DecidableEq
+
 inductive Value where
   | int (n : Int)
-  /-- An SSZ uint of class `t`. The library (`SpecLean/Ssz`) owns its rules. -/
-  | uint (t : UintTy) (n : Nat)
   /-- Python `bool`. -/
   | bool (b : Bool)
-  /-- SSZ `Boolean`. The library owns its rules. -/
-  | boolean (b : Bool)
+  /-- A value of a library class. -/
+  | lib (v : LibVal)
   | str (s : String)
   | none
   /-- A byte string. `ty` is the interned class name: `Bytes32`, `Root`, `bytes` and so on. -/

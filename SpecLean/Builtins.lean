@@ -243,7 +243,7 @@ def getAttr (env : Env) (h : Heap) : Value → Name → Res Value
     | some (.module .fork) => .ok (.glob f)
     | _ => .ok (.member (.glob g) f)
   -- A number has no attributes that spec code reads (probed).
-  | .uint _ _, _ | .int _, _ | .bool _, _ | .boolean _, _ => .error (.other "AttributeError")
+  | .int _, _ | .bool _, _ | .lib _, _ => .error (.other "AttributeError")
   | v, f => .ok (.member v f)
 
 def lookupPairs (h : Heap) (k : Value) (kvs : List (Value × Value)) : Res Value := do
