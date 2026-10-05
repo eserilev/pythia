@@ -64,6 +64,7 @@ macro "rd_oof" : tactic => `(tactic| first
 /-- Close a leaf goal of the split tree. -/
 macro "rd_finish" : tactic => `(tactic| first
   | done
+  | omega
   | (exfalso; omega)
   | assumption
   | contradiction
@@ -88,6 +89,10 @@ attribute [rd_simp] cmpInt assignTarget assignTargets assignAll sliceBound
   induction b with
   | nil => rfl
   | cons x xs ih => simp only [List.foldr_cons, ih]; omega
+
+@[rd_simp] theorem pyIndex_eq : Rd.pyIndex = normIndex := rfl
+
+attribute [rd_simp] Rd.lget Rd.lset Rd.lappend
 
 @[rd_simp] theorem sliceBound'_eq : Rd.sliceBound' = sliceBound := rfl
 

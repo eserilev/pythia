@@ -35,6 +35,7 @@ ROOT = HERE.parent
 HEADER = """import SpecLean.Gen.Readable
 import SpecLean.Validation.Tactic
 import SpecLean.Validation.Steps
+import SpecLean.Validation.Decode
 """
 
 PRELUDE = """
@@ -76,10 +77,30 @@ class Gen:
     def __init__(self, b, em):
         self.b, self.em, self.n = b, em, b.names
 
+    def decs_of(self, c, acc):
+        """The decoders that unfold a container of class `c` and its nested containers."""
+        n = self.n
+        name = f"dec_{n.cls(c)}"
+        if name in acc:
+            return
+        acc.append(name)
+        fields = (list(c._FIELD_TYPES) if T.is_container_cls(c) else self.b.dataclass_fields[c])
+        for _, ft in fields:
+            if T.is_uint_cls(ft) or T.is_bytesn_cls(ft):
+                d = f"dec_{n.cls(ft)}"
+                if d not in acc:
+                    acc.append(d)
+            elif T.is_container_cls(ft):
+                self.decs_of(ft, acc)
+
     def arg(self, j, t):
         """The binder, the interpreter value and the readable value of argument `j`."""
         x = f"x{j}"
         k = t[0]
+        if k == "container":
+            c = self.n.cls(t[1])
+            return (f"(r{j} : Nat) ({x} : {c}) (hy{j} : dec_{c} h (.ref r{j}) = some {x})",
+                    f"(.ref r{j})", x)
         if k == "uint":
             ty = translate.uint_ty_term(self.n, t[1])
             return f"({x} : Nat)", f"(.uint {ty} {x})", f"(⟨{x}⟩ : {self.n.cls(t[1])})"
@@ -124,6 +145,16 @@ class Gen:
         rt = self.em.lean_param(ret) if ret != T.NONE else "Unit"
         exp, encs = self.expect(ret)
         binders = " ".join(a[0] for a in args)
+        decs, hys = [], []
+        for j, (_, t) in enumerate(sig.params):
+            if t[0] == "container":
+                self.decs_of(t[1], decs)
+                hys.append(f"hy{j}")
+        inv = ""
+        if hys:
+            inv = (f"  simp only [{', '.join(decs)}, Option.bind_eq_bind, Option.bind_eq_some_iff, "
+                   f"rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', "
+                   f"exists_eq_right] at {' '.join(hys)}\n  rd_split_hyps\n")
         vs = "[" + ", ".join(a[1] for a in args) + "]"
         rargs = " ".join(a[2] for a in args)
         free = S.free_names(tree)
@@ -135,15 +166,16 @@ class Gen:
                 (["Cfg.default"] if cfg else []) + encs)
         fname = T.ident(name)
         return f"""
+set_option maxHeartbeats 4000000 in
 theorem {name}_valid (h : Heap) {binders} :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches [] h {vs} (fun (r : {rt}) h' v => {exp})
         (interp (Scope.env sha) fuel Scope.Id.«{name}» {vs} h)
         ({fname} {rargs}) := by
-  refine ⟨64, fun fuel hf => ?_⟩
+{inv}  refine ⟨64, fun fuel hf => ?_⟩
   obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le' hf
   clear hf
-  simp [rd_simp, lookup_lit, unfold_known, {", ".join(defs)}]
+  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, {", ".join(defs)}{", *" if hys else ""}]
   repeat' (rd_split <;> (try rd_step))
   all_goals rd_finish
 """

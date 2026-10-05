@@ -159,7 +159,7 @@ def emit_types(b: Build) -> str:
         if T.is_uint_cls(c):
             out.append(f"structure {name} where\n  val : Nat\n"
                        f"  deriving DecidableEq, Repr, Inhabited, BEq, Hashable\n\n"
-                       f"instance : UintC {name} := ⟨{c.BITS}, {name}.val, {name}.mk, fun _ => rfl⟩\n"
+                       f"instance : UintC {name} := ⟨{c.BITS}, {name}.val, {name}.mk, fun _ => rfl, fun _ => rfl⟩\n"
                        f"instance : PyOrd {name} := ⟨fun a b => decide (a.val < b.val)⟩\n"
                        f"def enc_{name} : Enc {name} := encUint {uint_ty_term(n, c)}\n"
                        f"def dec_{name} : Dec {name} := decUintT {uint_ty_term(n, c)}\n")
@@ -167,7 +167,7 @@ def emit_types(b: Build) -> str:
             out.append(f"structure {name} where\n  data : Bytes\n"
                        f"  deriving DecidableEq, Repr, BEq, Hashable\n\n"
                        f"instance : Inhabited {name} := ⟨⟨List.replicate {c.LENGTH} 0⟩⟩\n"
-                       f"instance : BytesC {name} := ⟨{c.LENGTH}, {name}.data, {name}.mk, fun _ => rfl⟩\n"
+                       f"instance : BytesC {name} := ⟨{c.LENGTH}, {name}.data, {name}.mk, fun _ => rfl, fun _ => rfl⟩\n"
                        f"instance : PyOrd {name} := ⟨fun a b => PyOrd.lt a.data b.data⟩\n"
                        f"def enc_{name} : Enc {name} := encBytesN Scope.Id.«{n.scope(c)}»\n"
                        f"def dec_{name} : Dec {name} := decBytesT Scope.Id.«{n.scope(c)}»\n")

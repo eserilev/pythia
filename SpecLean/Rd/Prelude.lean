@@ -27,6 +27,7 @@ class UintC (α : Type) where
   val : α → Nat
   ofNat : Nat → α
   val_ofNat : ∀ n, val (ofNat n) = n
+  ofNat_val : ∀ x, ofNat (val x) = x
 
 /-- A byte vector class: its length and its bytes. -/
 class BytesC (α : Type) where
@@ -34,6 +35,7 @@ class BytesC (α : Type) where
   data : α → Bytes
   ofBytes : Bytes → α
   data_ofBytes : ∀ b, data (ofBytes b) = b
+  ofBytes_data : ∀ x, ofBytes (data x) = x
 
 structure Boolean where
   val : Bool

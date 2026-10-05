@@ -1,6 +1,7 @@
 import Lean
 import SpecLean.Encode
 import SpecLean.Validation.Attr
+import SpecLean.Validation.Decode
 
 /-!
 # Tactics for the generated validation theorems
@@ -38,6 +39,31 @@ simproc lookup_lit (List.lookup _ _) := fun e => do
   let prf ← mkAuxTheorem (← mkEq e r) (← mkEqRefl e)
   return .done { expr := r, proof? := prf }
 
+/-- The index and entry of key `k` in a literal list of pairs. -/
+partial def findIndex (k : Nat) (l : Lean.Expr) (i : Nat := 0) :
+    MetaM (Option (Nat × Lean.Expr)) := do
+  let l ← whnfD l
+  match_expr l with
+  | List.cons _ hd tl =>
+    let hd ← whnfD hd
+    let_expr Prod.mk _ _ k' v := hd | return none
+    let some k' := (← whnfD k').rawNatLit? | return none
+    if k' == k then return some (i, v) else findIndex k tl (i + 1)
+  | _ => return none
+
+/-- `fieldIndex env ty f` for a literal class and field: the position and the type. -/
+simproc fieldIndex_lit (SpecLean.fieldIndex _ _ _) := fun e => do
+  let_expr SpecLean.fieldIndex env ty f := e | return .continue
+  if ty.hasFVar || f.hasFVar then return .continue
+  let some tyn := (← whnfD ty).rawNatLit? | return .continue
+  let some fn := (← whnfD f).rawNatLit? | return .continue
+  let cs ← whnfD (← mkAppM ``SpecLean.Env.containers #[env])
+  let some (some fs) ← findEntry tyn cs | return .continue
+  let some (i, t) ← findIndex fn fs | return .continue
+  let r ← mkAppM ``Option.some #[← mkAppM ``Prod.mk #[mkNatLit i, t]]
+  let prf ← mkAuxTheorem (← mkEq e r) (← mkEqRefl e)
+  return .done { expr := r, proof? := prf }
+
 /-- A value of known shape: a constructor at the head, and the same for each argument of
 type `Value` or `List Value`. -/
 partial def known (e : Lean.Expr) : MetaM Bool := do
@@ -49,8 +75,10 @@ partial def known (e : Lean.Expr) : MetaM Bool := do
     unless ci.induct == ``SpecLean.Value || ci.induct == ``SpecLean.LibVal do return false
     for a in e.getAppArgs do
       let at_ ← whnfR (← inferType a)
-      if at_.isConstOf ``SpecLean.Value || at_.isConstOf ``SpecLean.LibVal ||
-          at_.isAppOf ``List then
+      let isVals ← if at_.isAppOf ``List then
+          pure ((← whnfR at_.appArg!).isConstOf ``SpecLean.Value)
+        else pure false
+      if at_.isConstOf ``SpecLean.Value || at_.isConstOf ``SpecLean.LibVal || isVals then
         unless ← known a do return false
     return true
   if ty.isAppOf ``List then
@@ -83,6 +111,8 @@ simproc ↓ unfold_known (_) := fun e => do
     return .visit { expr := (mkAppN f e.getAppArgs).headBeta }
   let some f := e.getAppFn.constName? | return .continue
   unless unfoldNames.contains f do return .continue
+  -- Only a full application: `simp` also visits the partial ones.
+  if (← whnfR (← inferType e)).isForall then return .continue
   for a in e.getAppArgs do
     let ty ← whnfR (← inferType a)
     if ty.isConstOf ``SpecLean.Value || ty.isAppOf ``List then
@@ -140,12 +170,19 @@ partial def nextSplit (x : Lean.Expr) : MetaM (Option (Bool × Lean.Expr)) := do
       if let some r ← nextSplit p then return some r
       if !p.hasLooseBVars && !isValueHead p && (← firstParts p).isNone then
         let ty ← whnfR (← inferType p)
-        if ty.isAppOf ``Except || ty.isAppOf ``Option then return some (false, p)
+        if ty.isAppOf ``Except || ty.isAppOf ``Option || ty.isConstOf ``Bool then
+          unless p.isConstOf ``Bool.true || p.isConstOf ``Bool.false do
+            return some (false, p)
     return none
   | none =>
     if x.isApp then
       for a in x.getAppArgs do
         if let some r ← nextSplit a then return some r
+        -- A result inside an operation, such as `Option.map f xs[i]?`.
+        if !a.hasLooseBVars && !isValueHead a && (← firstParts a).isNone then
+          let ty ← whnfR (← inferType a)
+          if ty.isAppOf ``Except || ty.isAppOf ``Option then
+            return some (false, a)
     return none
 
 /-- Split on the next `if` condition or result of the goal. -/
@@ -173,6 +210,43 @@ namespace SpecLean.Validation.Tactic
 
 /-- One evaluation step on both sides of the goal. -/
 macro "rd_step" : tactic => `(tactic| simp [rd_simp, SpecLean.Validation.Tactic.unfold_known,
-  SpecLean.Encode.ResultMatches] at ⊢)
+  SpecLean.Validation.Tactic.fieldIndex_lit, SpecLean.Encode.ResultMatches, *] at ⊢)
+
+end SpecLean.Validation.Tactic
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- Split every hypothesis that is an `∃` or an `∧` into its parts. -/
+partial def splitHyps (g : MVarId) : MetaM MVarId := g.withContext do
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    if ty.isAppOfArity ``Exists 2 || ty.isAppOfArity ``And 2 then
+      let gs ← g.cases d.fvarId
+      if h : gs.size = 1 then
+        return ← splitHyps gs[0].mvarId
+  return g
+
+/-- Add `xs.length = ys.length` for each hypothesis `xs.mapM f = some ys`. -/
+def addLengths (g : MVarId) : MetaM MVarId := g.withContext do
+  let mut g := g
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let_expr Eq _ lhs _ := ty | continue
+    unless lhs.isAppOf ``List.mapM do continue
+    let p ← mkAppM ``SpecLean.Validation.Decode.mapM_length #[d.toExpr]
+    let (_, g') ← (← g.assert `hlen (← inferType p) p).intro1P
+    g := g'
+  return g
+
+/-- Split the decode hypotheses into facts, and substitute the equations of variables. -/
+elab "rd_split_hyps" : tactic => do
+  let g ← splitHyps (← getMainGoal)
+  replaceMainGoal [g]
+  evalTactic (← `(tactic| try subst_vars))
+  replaceMainGoal [← addLengths (← getMainGoal)]
 
 end SpecLean.Validation.Tactic

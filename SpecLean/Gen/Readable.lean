@@ -20,7 +20,7 @@ structure Uint64 where
   val : Nat
   deriving DecidableEq, Repr, Inhabited, BEq, Hashable
 
-instance : UintC Uint64 := ⟨64, Uint64.val, Uint64.mk, fun _ => rfl⟩
+instance : UintC Uint64 := ⟨64, Uint64.val, Uint64.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Uint64 := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Uint64 : Enc Uint64 := encUint (.width 64)
 def dec_Uint64 : Dec Uint64 := decUintT (.width 64)
@@ -31,7 +31,7 @@ structure Root where
   deriving DecidableEq, Repr, BEq, Hashable
 
 instance : Inhabited Root := ⟨⟨List.replicate 32 0⟩⟩
-instance : BytesC Root := ⟨32, Root.data, Root.mk, fun _ => rfl⟩
+instance : BytesC Root := ⟨32, Root.data, Root.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Root := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_Root : Enc Root := encBytesN Scope.Id.«Root»
 def dec_Root : Dec Root := decBytesT Scope.Id.«Root»
@@ -41,7 +41,7 @@ structure Slot where
   val : Nat
   deriving DecidableEq, Repr, Inhabited, BEq, Hashable
 
-instance : UintC Slot := ⟨64, Slot.val, Slot.mk, fun _ => rfl⟩
+instance : UintC Slot := ⟨64, Slot.val, Slot.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Slot := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Slot : Enc Slot := encUint (.nominal Scope.Id.«Slot» 64)
 def dec_Slot : Dec Slot := decUintT (.nominal Scope.Id.«Slot» 64)
@@ -52,7 +52,7 @@ structure Version where
   deriving DecidableEq, Repr, BEq, Hashable
 
 instance : Inhabited Version := ⟨⟨List.replicate 4 0⟩⟩
-instance : BytesC Version := ⟨4, Version.data, Version.mk, fun _ => rfl⟩
+instance : BytesC Version := ⟨4, Version.data, Version.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Version := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_Version : Enc Version := encBytesN Scope.Id.«Version»
 def dec_Version : Dec Version := decBytesT Scope.Id.«Version»
@@ -62,7 +62,7 @@ structure Epoch where
   val : Nat
   deriving DecidableEq, Repr, Inhabited, BEq, Hashable
 
-instance : UintC Epoch := ⟨64, Epoch.val, Epoch.mk, fun _ => rfl⟩
+instance : UintC Epoch := ⟨64, Epoch.val, Epoch.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Epoch := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Epoch : Enc Epoch := encUint (.nominal Scope.Id.«Epoch» 64)
 def dec_Epoch : Dec Epoch := decUintT (.nominal Scope.Id.«Epoch» 64)
@@ -91,7 +91,7 @@ structure ValidatorIndex where
   val : Nat
   deriving DecidableEq, Repr, Inhabited, BEq, Hashable
 
-instance : UintC ValidatorIndex := ⟨64, ValidatorIndex.val, ValidatorIndex.mk, fun _ => rfl⟩
+instance : UintC ValidatorIndex := ⟨64, ValidatorIndex.val, ValidatorIndex.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd ValidatorIndex := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_ValidatorIndex : Enc ValidatorIndex := encUint (.nominal Scope.Id.«ValidatorIndex» 64)
 def dec_ValidatorIndex : Dec ValidatorIndex := decUintT (.nominal Scope.Id.«ValidatorIndex» 64)
@@ -125,7 +125,7 @@ structure Hash32 where
   deriving DecidableEq, Repr, BEq, Hashable
 
 instance : Inhabited Hash32 := ⟨⟨List.replicate 32 0⟩⟩
-instance : BytesC Hash32 := ⟨32, Hash32.data, Hash32.mk, fun _ => rfl⟩
+instance : BytesC Hash32 := ⟨32, Hash32.data, Hash32.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Hash32 := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_Hash32 : Enc Hash32 := encBytesN Scope.Id.«Hash32»
 def dec_Hash32 : Dec Hash32 := decBytesT Scope.Id.«Hash32»
@@ -155,7 +155,7 @@ structure BLSPubkey where
   deriving DecidableEq, Repr, BEq, Hashable
 
 instance : Inhabited BLSPubkey := ⟨⟨List.replicate 48 0⟩⟩
-instance : BytesC BLSPubkey := ⟨48, BLSPubkey.data, BLSPubkey.mk, fun _ => rfl⟩
+instance : BytesC BLSPubkey := ⟨48, BLSPubkey.data, BLSPubkey.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd BLSPubkey := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_BLSPubkey : Enc BLSPubkey := encBytesN Scope.Id.«BLSPubkey»
 def dec_BLSPubkey : Dec BLSPubkey := decBytesT Scope.Id.«BLSPubkey»
@@ -166,7 +166,7 @@ structure Bytes32 where
   deriving DecidableEq, Repr, BEq, Hashable
 
 instance : Inhabited Bytes32 := ⟨⟨List.replicate 32 0⟩⟩
-instance : BytesC Bytes32 := ⟨32, Bytes32.data, Bytes32.mk, fun _ => rfl⟩
+instance : BytesC Bytes32 := ⟨32, Bytes32.data, Bytes32.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Bytes32 := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_Bytes32 : Enc Bytes32 := encBytesN Scope.Id.«Bytes32»
 def dec_Bytes32 : Dec Bytes32 := decBytesT Scope.Id.«Bytes32»
@@ -176,7 +176,7 @@ structure Gwei where
   val : Nat
   deriving DecidableEq, Repr, Inhabited, BEq, Hashable
 
-instance : UintC Gwei := ⟨64, Gwei.val, Gwei.mk, fun _ => rfl⟩
+instance : UintC Gwei := ⟨64, Gwei.val, Gwei.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Gwei := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Gwei : Enc Gwei := encUint (.nominal Scope.Id.«Gwei» 64)
 def dec_Gwei : Dec Gwei := decUintT (.nominal Scope.Id.«Gwei» 64)
@@ -215,7 +215,7 @@ structure ParticipationFlags where
   val : Nat
   deriving DecidableEq, Repr, Inhabited, BEq, Hashable
 
-instance : UintC ParticipationFlags := ⟨8, ParticipationFlags.val, ParticipationFlags.mk, fun _ => rfl⟩
+instance : UintC ParticipationFlags := ⟨8, ParticipationFlags.val, ParticipationFlags.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd ParticipationFlags := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_ParticipationFlags : Enc ParticipationFlags := encUint (.nominal Scope.Id.«ParticipationFlags» 8)
 def dec_ParticipationFlags : Dec ParticipationFlags := decUintT (.nominal Scope.Id.«ParticipationFlags» 8)
@@ -259,7 +259,7 @@ structure WithdrawalIndex where
   val : Nat
   deriving DecidableEq, Repr, Inhabited, BEq, Hashable
 
-instance : UintC WithdrawalIndex := ⟨64, WithdrawalIndex.val, WithdrawalIndex.mk, fun _ => rfl⟩
+instance : UintC WithdrawalIndex := ⟨64, WithdrawalIndex.val, WithdrawalIndex.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd WithdrawalIndex := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_WithdrawalIndex : Enc WithdrawalIndex := encUint (.nominal Scope.Id.«WithdrawalIndex» 64)
 def dec_WithdrawalIndex : Dec WithdrawalIndex := decUintT (.nominal Scope.Id.«WithdrawalIndex» 64)
@@ -287,7 +287,7 @@ structure BLSSignature where
   deriving DecidableEq, Repr, BEq, Hashable
 
 instance : Inhabited BLSSignature := ⟨⟨List.replicate 96 0⟩⟩
-instance : BytesC BLSSignature := ⟨96, BLSSignature.data, BLSSignature.mk, fun _ => rfl⟩
+instance : BytesC BLSSignature := ⟨96, BLSSignature.data, BLSSignature.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd BLSSignature := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_BLSSignature : Enc BLSSignature := encBytesN Scope.Id.«BLSSignature»
 def dec_BLSSignature : Dec BLSSignature := decBytesT Scope.Id.«BLSSignature»
@@ -356,7 +356,7 @@ structure Uint8 where
   val : Nat
   deriving DecidableEq, Repr, Inhabited, BEq, Hashable
 
-instance : UintC Uint8 := ⟨8, Uint8.val, Uint8.mk, fun _ => rfl⟩
+instance : UintC Uint8 := ⟨8, Uint8.val, Uint8.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Uint8 := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Uint8 : Enc Uint8 := encUint (.width 8)
 def dec_Uint8 : Dec Uint8 := decUintT (.width 8)
@@ -367,7 +367,7 @@ structure ExecutionAddress where
   deriving DecidableEq, Repr, BEq, Hashable
 
 instance : Inhabited ExecutionAddress := ⟨⟨List.replicate 20 0⟩⟩
-instance : BytesC ExecutionAddress := ⟨20, ExecutionAddress.data, ExecutionAddress.mk, fun _ => rfl⟩
+instance : BytesC ExecutionAddress := ⟨20, ExecutionAddress.data, ExecutionAddress.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd ExecutionAddress := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_ExecutionAddress : Enc ExecutionAddress := encBytesN Scope.Id.«ExecutionAddress»
 def dec_ExecutionAddress : Dec ExecutionAddress := decBytesT Scope.Id.«ExecutionAddress»
@@ -402,7 +402,7 @@ structure BuilderIndex where
   val : Nat
   deriving DecidableEq, Repr, Inhabited, BEq, Hashable
 
-instance : UintC BuilderIndex := ⟨64, BuilderIndex.val, BuilderIndex.mk, fun _ => rfl⟩
+instance : UintC BuilderIndex := ⟨64, BuilderIndex.val, BuilderIndex.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd BuilderIndex := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_BuilderIndex : Enc BuilderIndex := encUint (.nominal Scope.Id.«BuilderIndex» 64)
 def dec_BuilderIndex : Dec BuilderIndex := decUintT (.nominal Scope.Id.«BuilderIndex» 64)
@@ -451,7 +451,7 @@ structure KZGCommitment where
   deriving DecidableEq, Repr, BEq, Hashable
 
 instance : Inhabited KZGCommitment := ⟨⟨List.replicate 48 0⟩⟩
-instance : BytesC KZGCommitment := ⟨48, KZGCommitment.data, KZGCommitment.mk, fun _ => rfl⟩
+instance : BytesC KZGCommitment := ⟨48, KZGCommitment.data, KZGCommitment.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd KZGCommitment := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_KZGCommitment : Enc KZGCommitment := encBytesN Scope.Id.«KZGCommitment»
 def dec_KZGCommitment : Dec KZGCommitment := decBytesT Scope.Id.«KZGCommitment»
@@ -687,7 +687,7 @@ structure Domain where
   deriving DecidableEq, Repr, BEq, Hashable
 
 instance : Inhabited Domain := ⟨⟨List.replicate 32 0⟩⟩
-instance : BytesC Domain := ⟨32, Domain.data, Domain.mk, fun _ => rfl⟩
+instance : BytesC Domain := ⟨32, Domain.data, Domain.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Domain := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_Domain : Enc Domain := encBytesN Scope.Id.«Domain»
 def dec_Domain : Dec Domain := decBytesT Scope.Id.«Domain»
@@ -715,7 +715,7 @@ structure DomainType where
   deriving DecidableEq, Repr, BEq, Hashable
 
 instance : Inhabited DomainType := ⟨⟨List.replicate 4 0⟩⟩
-instance : BytesC DomainType := ⟨4, DomainType.data, DomainType.mk, fun _ => rfl⟩
+instance : BytesC DomainType := ⟨4, DomainType.data, DomainType.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd DomainType := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_DomainType : Enc DomainType := encBytesN Scope.Id.«DomainType»
 def dec_DomainType : Dec DomainType := decBytesT Scope.Id.«DomainType»
@@ -852,7 +852,7 @@ structure CommitteeIndex where
   val : Nat
   deriving DecidableEq, Repr, Inhabited, BEq, Hashable
 
-instance : UintC CommitteeIndex := ⟨64, CommitteeIndex.val, CommitteeIndex.mk, fun _ => rfl⟩
+instance : UintC CommitteeIndex := ⟨64, CommitteeIndex.val, CommitteeIndex.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd CommitteeIndex := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_CommitteeIndex : Enc CommitteeIndex := encUint (.nominal Scope.Id.«CommitteeIndex» 64)
 def dec_CommitteeIndex : Dec CommitteeIndex := decUintT (.nominal Scope.Id.«CommitteeIndex» 64)
@@ -1223,7 +1223,7 @@ structure Uint32 where
   val : Nat
   deriving DecidableEq, Repr, Inhabited, BEq, Hashable
 
-instance : UintC Uint32 := ⟨32, Uint32.val, Uint32.mk, fun _ => rfl⟩
+instance : UintC Uint32 := ⟨32, Uint32.val, Uint32.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Uint32 := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Uint32 : Enc Uint32 := encUint (.width 32)
 def dec_Uint32 : Dec Uint32 := decUintT (.width 32)
@@ -1234,7 +1234,7 @@ structure LogsBloom where
   deriving DecidableEq, Repr, BEq, Hashable
 
 instance : Inhabited LogsBloom := ⟨⟨List.replicate 256 0⟩⟩
-instance : BytesC LogsBloom := ⟨256, LogsBloom.data, LogsBloom.mk, fun _ => rfl⟩
+instance : BytesC LogsBloom := ⟨256, LogsBloom.data, LogsBloom.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd LogsBloom := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_LogsBloom : Enc LogsBloom := encBytesN Scope.Id.«LogsBloom»
 def dec_LogsBloom : Dec LogsBloom := decBytesT Scope.Id.«LogsBloom»
@@ -1244,7 +1244,7 @@ structure Uint256 where
   val : Nat
   deriving DecidableEq, Repr, Inhabited, BEq, Hashable
 
-instance : UintC Uint256 := ⟨256, Uint256.val, Uint256.mk, fun _ => rfl⟩
+instance : UintC Uint256 := ⟨256, Uint256.val, Uint256.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Uint256 := ⟨fun a b => decide (a.val < b.val)⟩
 def enc_Uint256 : Enc Uint256 := encUint (.width 256)
 def dec_Uint256 : Dec Uint256 := decUintT (.width 256)
@@ -1408,7 +1408,7 @@ structure Bytes1 where
   deriving DecidableEq, Repr, BEq, Hashable
 
 instance : Inhabited Bytes1 := ⟨⟨List.replicate 1 0⟩⟩
-instance : BytesC Bytes1 := ⟨1, Bytes1.data, Bytes1.mk, fun _ => rfl⟩
+instance : BytesC Bytes1 := ⟨1, Bytes1.data, Bytes1.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Bytes1 := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_Bytes1 : Enc Bytes1 := encBytesN Scope.Id.«Bytes1»
 def dec_Bytes1 : Dec Bytes1 := decBytesT Scope.Id.«Bytes1»
