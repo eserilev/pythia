@@ -52,7 +52,7 @@ BLS_CONSTANTS = {"G2_POINT_AT_INFINITY"}
 FORK_MODULES = {"phase0", "altair", "bellatrix", "capella", "deneb", "electra", "fulu", "gloas"}
 KNOWN = ["append", "extend", "index", "count", "copy", "union", "intersection", "add",
          "from_bytes", "empty", "hash_tree_root", "data", "key", "reverse", "strict", "get",
-         "Bytes32", "Root"]
+         "Bytes32", "Root", "bit_length", "difference", "items", "values", "keys"]
 ANNOTATION_ONLY = {"Any", "Callable", "Sequence", "SSZObject", "Uint", "List", "BitVector",
                    "ProgressiveList", "Optional", "Tuple", "Set", "Dict"}
 
@@ -169,7 +169,11 @@ class Types:
             if issubclass(t, m[base]):
                 limit = None if kind == "progressiveList" else (t.LIMIT if kind == "list" else t.LENGTH)
                 lim = "none" if limit is None else f"(some {limit})"
-                return f"(.list .{kind} {self.ssz(t.ELEMENT_TYPE)} {lim})"
+                elem = self.ssz(t.ELEMENT_TYPE)
+                if elem == "(.uint (.width 8))":
+                    # The interpreter reads a list of `Uint8` as a `ByteList`.
+                    raise Unsupported(f"SSZ list of uint8: {t}")
+                return f"(.list .{kind} {elem} {lim})"
         raise Unsupported(f"SSZ type {t}")
 
     def container(self, t):
@@ -363,7 +367,9 @@ def main():
             ("add", "add"), ("fromBytes", "from_bytes"), ("empty", "empty"),
             ("hashTreeRoot", "hash_tree_root"), ("data", "data"), ("key", "key"),
             ("reverse", "reverse"), ("strict", "strict"), ("get", "get"),
-            ("bytes32", "Bytes32"), ("root", "Root")])
+            ("bytes32", "Bytes32"), ("root", "Root"), ("bitLength", "bit_length"),
+            ("difference", "difference"), ("items", "items"), ("values", "values"),
+            ("keys", "keys")])
     nl = "\n"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(

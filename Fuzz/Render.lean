@@ -70,6 +70,9 @@ partial def render (names : Array String) (env : Env) (h : Heap) : Value → Sta
       set { st with seen := (a, k) :: st.seen, next := k + 1 }
       let body ← match h.objs a with
         | some (.list kind e l xs) => do
+          let xs := match kind, e with
+            | .list, .uint (.width 8) => xs.map byteInt
+            | _, _ => xs
           let parts ← xs.mapM (render names env h)
           pure (tyStr names (.list kind e l) ++ "[" ++ ",".intercalate parts ++ "]")
         | some (.container ty fs) => do

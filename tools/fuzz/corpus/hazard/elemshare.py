@@ -1,4 +1,4 @@
-# expect-hit: write f: list.* has 2 paths
+# expect-hit: write f: list.* has 3 paths
 def mk():
     return [Pt(), []]
 

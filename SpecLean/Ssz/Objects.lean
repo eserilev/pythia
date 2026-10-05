@@ -93,7 +93,9 @@ def newList (env : Env) : Nat → Heap → ListKind → SszTy → Option Nat →
     Res (Value × Heap)
   | d, h, k, e, l, xs => do
     checkLength k l xs.length
-    let (ys, h1) ← coerceAll env d h e xs
+    let (ys, h1) ← match k, e with
+      | .list, .uint (.width 8) => (·, h) <$> xs.mapM coerceByte
+      | _, _ => coerceAll env d h e xs
     let (a, h2) := h1.alloc (.list k e l ys)
     pure (.ref a, h2)
 termination_by d => (d, 2, 0)
@@ -149,9 +151,10 @@ def construct (env : Env) (h : Heap) (t : SszTy) (args : List Value)
   | .list k e l, [] =>
     match kwArg kws env.nm.data with
     | some v => do
-      -- pydantic checks `data`: a wrong length raises `ValidationError` (probed).
+      -- pydantic checks `data`: a wrong length, or a byte out of range, raises
+      -- `ValidationError` (probed).
       match newList env depthBound h k e l (← iterElems h v) with
-      | .error .sszValue => .error .validation
+      | .error .sszValue | .error .valueError => .error .validation
       | r => r
     | none => defaultOf env depthBound h t
   | .list _ _ _, _ :: _ => .error .typeError
@@ -162,10 +165,42 @@ def isBitlist : ListKind → Bool
   | .bitlist | .progressiveBitlist => true
   | _ => false
 
+/-- `bytes(v)`: a count of zero bytes for a number, else the bytes of an iterable of numbers in
+`range(256)`. A count over the `Py_ssize_t` range raises `OverflowError` (probed). -/
+def bytesOfValue (h : Heap) (v : Value) : Res (List UInt8) :=
+  let count : Int → Res (List UInt8) := fun n =>
+    if n < 0 then .error .valueError
+    else if 2 ^ 63 ≤ n then .error (.other "OverflowError")
+    -- A large count needs a large allocation. Generated programs do not make one.
+    else if 2 ^ 20 ≤ n then .error .unsupported
+    else .ok (List.replicate n.toNat 0)
+  match v with
+  | .bytes _ bs => .ok bs
+  | .int n => count n
+  | .uint _ n => count n
+  | .bool b | .boolean b => count (if b then 1 else 0)
+  | v => do
+    (← iterElems h v).mapM fun x => byteU8 <$> coerceByte x
+
+/-- A byte list `b`: `b + x` is `b.data + bytes(x)`, and `x + b` is `bytes(x) + b.data`.
+Either gives Python `bytes` (probed). -/
+def byteListAdd (env : Env) (h : Heap) (op : BinOp) (x y : Value) :
+    Option (Res (Value × Heap)) :=
+  let data := fun (v : Value) => match v with
+    | .ref a => match h.objs a with
+      | some (.list .list (.uint (.width 8)) _ xs) => some (xs.map byteU8)
+      | _ => none
+    | _ => none
+  match op, data x, data y with
+  | .add, some xs, _ => some do pure (.bytes env.bytesName (xs ++ (← bytesOfValue h y)), h)
+  | .add, none, some ys => some do pure (.bytes env.bytesName ((← bytesOfValue h x) ++ ys), h)
+  | _, _, _ => none
+
 /-- `x + y` with an SSZ list on the left. It concatenates with a list or a tuple into a new
 list of its own type, through the constructor (probed). `none` for two Python lists, and for
 an operator other than `+`. -/
 def binopH (env : Env) (h : Heap) (op : BinOp) (x y : Value) : Option (Res (Value × Heap)) :=
+  (byteListAdd env h op x y).or <|
   let list := fun (v : Value) => match v with
     | .ref a => match h.objs a with
       | some (.list k _ _ xs) => some (k, xs)
@@ -222,7 +257,9 @@ def append (env : Env) (h : Heap) (a : Nat) (v : Value) : Option (Res Heap) :=
     match k with
     | .vector | .bitvector => .error .unsupported
     | _ =>
-      let (v', h1) ← coerceH env false depthBound h e v
+      let (v', h1) ← match k, e with
+        | .list, .uint (.width 8) => (·, h) <$> coerceByte v
+        | _, _ => coerceH env false depthBound h e v
       checkLength k l (xs.length + 1)
       .ok (h1.set a (.list k e l (xs ++ [v'])))
   | _ => none
@@ -232,7 +269,9 @@ def setSlice (env : Env) (h : Heap) (a lo hi : Nat) (ins : List Value) : Option 
   match h.objs a with
   | some (.list .pyList _ _ _) => none
   | some (.list kind elem limit xs) => some do
-    let (ins', h1) ← coerceAll env depthBound h elem ins
+    let (ins', h1) ← match kind, elem with
+      | .list, .uint (.width 8) => (·, h) <$> ins.mapM coerceByte
+      | _, _ => coerceAll env depthBound h elem ins
     let ys := xs.take lo ++ ins' ++ xs.drop (max lo hi)
     checkLength kind limit ys.length
     .ok (h1.set a (.list kind elem limit ys))
@@ -244,6 +283,9 @@ def builtin (env : Env) (h : Heap) (b : Builtin) (args : List Value) (_kws : Lis
   match b, args with
   | .sszSerialize, [.uint t n] => some (.ok (.bytes env.bytesName (leBytes n (t.bits / 8)), h))
   | .sszSerialize, [.boolean b] => some (.ok (.bytes env.bytesName [if b then 1 else 0], h))
+  -- A Python `int`, `bool` or `bytes` has no `encode_bytes` (probed).
+  | .sszSerialize, [.int _] | .sszSerialize, [.bool _] | .sszSerialize, [.bytes _ _] =>
+    some (.error (.other "AttributeError"))
   | .hashTreeRoot, [v] => some do pure (.bytes env.nm.root (← env.hashTreeRoot h v), h)
   | _, _ => none
 

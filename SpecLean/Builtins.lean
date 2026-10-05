@@ -29,12 +29,36 @@ def fieldIndex (env : Env) (ty : Name) (f : Name) : Option (Nat × SszTy) :=
 def enumerateValues (xs : List Value) : List Value :=
   (xs.zipIdx).map fun (x, i) => .tuple [.int (i : Int), x]
 
+/-! ## Byte lists
+
+A `ByteList` is a heap list of kind `list` with `Uint8` elements, so `hash_tree_root` and the
+readable Lean see a `List[uint8, N]`. In Python it holds a `bytearray`: an element read gives an
+`int`, and a slice gives `bytes` (probed). The serializer allows no other list of `Uint8`. -/
+
+/-- A byte list element as Python reads it. -/
+def byteInt : Value → Value
+  | .lib (.uint _ n) => .int n
+  | v => v
+
+def byteU8 : Value → UInt8
+  | .lib (.uint _ n) => UInt8.ofNat n
+  | _ => 0
+
+/-- A byte written into a byte list: a value with `__index__` in `range(256)`, else
+`ValueError`. A value with no `__index__` raises `TypeError` (probed). -/
+def coerceByte : Value → Res Value
+  | .int n => if 0 ≤ n ∧ n < 256 then .ok (.lib (.uint (.width 8) n.toNat)) else .error .valueError
+  | .lib (.uint _ n) => if n < 256 then .ok (.lib (.uint (.width 8) n)) else .error .valueError
+  | .bool b | .lib (.boolean b) => .ok (.lib (.uint (.width 8) (if b then 1 else 0)))
+  | _ => .error .typeError
+
 /-! ## Iteration -/
 
 /-- The elements of an iterable that is not a lazy view, as a snapshot. -/
 def iterBase (h : Heap) : Value → Res (List Value)
   | .ref a =>
     match h.objs a with
+    | some (.list .list (.uint (.width 8)) _ xs) => .ok (xs.map byteInt)
     | some (.list _ _ _ xs) => .ok xs
     | some (.set xs) => .ok xs
     | some (.dict es) => .ok (es.map (·.1))
@@ -73,6 +97,8 @@ inductive IterSrc where
 def toSeq (h : Heap) : Value → Res Seq
   | .ref a =>
     match h.objs a with
+    -- A byte list iterates over a snapshot of its data (probed).
+    | some (.list .list (.uint (.width 8)) _ xs) => .ok (.snap (xs.map byteInt))
     | some (.list _ _ _ _) => .ok (.live a)
     | _ => .snap <$> iterBase h (.ref a)
   | v => .snap <$> iterBase h v
@@ -85,6 +111,7 @@ def iterSource (h : Heap) : Value → Res IterSrc
 def seqItem (h : Heap) : Seq → Nat → Res (Option Value)
   | .live a, i =>
     match h.objs a with
+    | some (.list .list (.uint (.width 8)) _ xs) => .ok (xs[i]?.map byteInt)
     | some (.list _ _ _ xs) => .ok xs[i]?
     | _ => .error .typeError
   | .snap xs, i => .ok xs[i]?
@@ -115,18 +142,30 @@ def numOf (v : Value) : Option Int :=
 
 mutual
 
-/-- Python `==`. Two heap objects compare by contents. -/
+/-- Python `==`. Two heap objects compare by contents. A byte list equals only a byte list of
+a related class. Against anything else it raises `TypeError`, except on the right of an SSZ
+object, whose `==` gives `False` first (probed). -/
 def deepEq : Nat → Heap → Value → Value → Res Bool
   | 0, _, _, _ => .error .unsupported
   | d + 1, h, .ref a, .ref b =>
     if a = b then .ok true else
     match h.objs a, h.objs b with
+    | some (.list .list (.uint (.width 8)) l xs), some (.list .list (.uint (.width 8)) l' ys) =>
+      if l = l' then eqLists d h xs ys else .error .typeError
+    | some (.list .list (.uint (.width 8)) _ _), _ => .error .typeError
+    | some (.container _ _), some (.list .list (.uint (.width 8)) _ _) => .ok false
+    | some (.list .pyList _ _ _), some (.list .list (.uint (.width 8)) _ _) => .error .typeError
+    | some (.list _ _ _ _), some (.list .list (.uint (.width 8)) _ _) => .ok false
+    | _, some (.list .list (.uint (.width 8)) _ _) => .error .typeError
     | some (.container t fs), some (.container t' gs) =>
       if t = t' then eqLists d h fs gs else .ok false
     | some (.list _ _ _ xs), some (.list _ _ _ ys) => eqLists d h xs ys
     | _, _ => .ok false
   | d + 1, h, .tuple xs, .tuple ys => eqLists d h xs ys
-  | _ + 1, _, .ref _, _ | _ + 1, _, _, .ref _ => .ok false
+  | _ + 1, h, .ref a, _ | _ + 1, h, _, .ref a =>
+    match h.objs a with
+    | some (.list .list (.uint (.width 8)) _ _) => .error .typeError
+    | _ => .ok false
   | _ + 1, _, a, b => cmpVal .eq a b
 
 def eqLists : Nat → Heap → List Value → List Value → Res Bool
@@ -220,6 +259,11 @@ end
 
 /-! ## Reads and writes -/
 
+/-- `x.bit_length` of a number, bound to it as an `int`. Any other attribute of a number
+raises `AttributeError` (probed). -/
+def bitLengthAttr (env : Env) (n : Int) (f : Name) : Res Value :=
+  if f = env.nm.bitLength then .ok (.member (.int n) f) else .error (.other "AttributeError")
+
 /-- `obj.f`. A container field, a `config` value, a member of a fork module, or else a method
 or member, bound for a later call. -/
 def getAttr (env : Env) (h : Heap) : Value → Name → Res Value
@@ -242,8 +286,15 @@ def getAttr (env : Env) (h : Heap) : Value → Name → Res Value
       | none => .error .nameError
     | some (.module .fork) => .ok (.glob f)
     | _ => .ok (.member (.glob g) f)
-  -- A number has no attributes that spec code reads (probed).
-  | .int _, _ | .bool _, _ | .lib _, _ => .error (.other "AttributeError")
+  -- A number has one attribute that spec code reads, `bit_length` (probed).
+  | .int n, f => bitLengthAttr env n f
+  | .bool b, f => bitLengthAttr env (if b then 1 else 0) f
+  | .lib (.uint _ n), f => bitLengthAttr env n f
+  | .lib (.boolean b), f => bitLengthAttr env (if b then 1 else 0) f
+  -- A byte string has no attribute that spec code writes. Its methods stay readable.
+  | .bytes ty b, f =>
+    if f = env.nm.copy ∨ f = env.nm.hashTreeRoot then .ok (.member (.bytes ty b) f)
+    else .error (.other "AttributeError")
   | v, f => .ok (.member v f)
 
 def lookupPairs (h : Heap) (k : Value) (kvs : List (Value × Value)) : Res Value := do
@@ -257,6 +308,14 @@ def lookupPairs (h : Heap) (k : Value) (kvs : List (Value × Value)) : Res Value
 def getItem (h : Heap) : Value → Value → Res Value
   | .ref a, iv =>
     match h.objs a with
+    | some (.list .list (.uint (.width 8)) _ xs) => do
+      let i ← toIndex iv
+      match normIndex xs.length i with
+      | some k =>
+        match xs[k]? with
+        | some v => .ok (byteInt v)
+        | none => .error .indexError
+      | none => .error .indexError
     | some (.list _ _ _ xs) => do
       let i ← toIndex iv
       match normIndex xs.length i with
@@ -295,8 +354,8 @@ def sliceRange (len : Nat) (lo hi : Option Value) : Res (Nat × Nat) := do
     | none => pure len
   pure (lo', hi')
 
-/-- `obj[lo:hi]`. A byte string gives Python `bytes`. A `List` gives the same SSZ type. A
-`Vector`, a `Bitvector` or a Python list gives a Python list (probed). -/
+/-- `obj[lo:hi]`. A byte string and a byte list give Python `bytes`. A `List` gives the same SSZ
+type. A `Vector`, a `Bitvector` or a Python list gives a Python list (probed). -/
 def getSlice (bytesName : Name) (h : Heap) : Value → Option Value → Option Value →
     Res (Value × Heap)
   | .bytes _ bs, lo, hi => do
@@ -307,6 +366,9 @@ def getSlice (bytesName : Name) (h : Heap) : Value → Option Value → Option V
     pure (.tuple (xs.extract a b), h)
   | .ref r, lo, hi =>
     match h.objs r with
+    | some (.list .list (.uint (.width 8)) _ xs) => do
+      let (a, b) ← sliceRange xs.length lo hi
+      pure (.bytes bytesName ((xs.extract a b).map byteU8), h)
     | some (.list k e l xs) => do
       let (a, b) ← sliceRange xs.length lo hi
       let ys := xs.extract a b
@@ -321,13 +383,14 @@ def getSlice (bytesName : Name) (h : Heap) : Value → Option Value → Option V
   | _, _, _ => .error .typeError
 
 /-- `obj[i] = v`. The element is coerced before the index is checked, as in
-`_SSZSequence.__setitem__`. -/
+`_SSZSequence.__setitem__` and `bytearray`. -/
 def setItem (env : Env) (h : Heap) : Value → Value → Value → Res Heap
   | .ref a, iv, v =>
     match h.objs a with
     | some (.list kind elem limit xs) => do
       let i ← toIndex iv
-      let (v', h1) ← coerceWith env false h elem v
+      let (v', h1) ← if kind = .list ∧ elem = .uint (.width 8) then (·, h) <$> coerceByte v
+        else coerceWith env false h elem v
       match normIndex xs.length i with
       | some k => .ok (h1.set a (.list kind elem limit (xs.set k v')))
       | none => .error .indexError
@@ -594,6 +657,24 @@ def applyMethod (env : Env) (h : Heap) (self : Value) (m : Name) (args : List Va
   match self with
   | .ref a =>
     match h.objs a with
+    -- A byte list reads its elements as `int`. The library handles its `copy` and `extend`.
+    | some (.list .list (.uint (.width 8)) _ xs) =>
+      if m = env.nm.append then
+        match args with
+        | [v] => do pure (.none, ← appendItem env h a v)
+        | _ => .error .typeError
+      else if m = env.nm.index then
+        match args with
+        | [v] => do
+          match ← indexOf h v (xs.map byteInt) 0 with
+          | some i => pure (.int i, h)
+          | none => .error .valueError
+        | _ => .error .typeError
+      else if m = env.nm.count then
+        match args with
+        | [v] => do pure (.int (← countOf h v (xs.map byteInt)), h)
+        | _ => .error .typeError
+      else .error .unsupported
     | some (.list _ _ _ xs) =>
       if m = env.nm.append then
         match args with
@@ -636,6 +717,14 @@ def applyMethod (env : Env) (h : Heap) (self : Value) (m : Name) (args : List Va
           let (b, h1) := h.alloc (.set ys)
           pure (.ref b, h1)
         | _ => .error .typeError
+      else if m = env.nm.difference then
+        match args with
+        | [v] => do
+          let other ← iterElems h v
+          let ys ← xs.filterM fun x => do pure (← findKey h x other).isNone
+          let (b, h1) := h.alloc (.set ys)
+          pure (.ref b, h1)
+        | _ => .error .typeError
       else if m = env.nm.add then
         match args with
         | [v] => do
@@ -655,8 +744,17 @@ def applyMethod (env : Env) (h : Heap) (self : Value) (m : Name) (args : List Va
           | some i => pure ((es[i]?.map (·.2)).getD d, h)
           | none => pure (d, h)
         | _ => .error .typeError
+      -- A dict view is a snapshot here. Spec code does not change a dict while it iterates
+      -- a view of it (CPython raises `RuntimeError` then).
+      else if m = env.nm.items ∧ args.isEmpty then .ok (.tuple (es.map fun (k, v) => .tuple [k, v]), h)
+      else if m = env.nm.values ∧ args.isEmpty then .ok (.tuple (es.map (·.2)), h)
+      else if m = env.nm.keys ∧ args.isEmpty then .ok (.tuple (es.map (·.1)), h)
       else .error .unsupported
     | _ => .error .unsupported
+  | .int n =>
+    -- `x.bit_length()`: `getAttr` binds it to the number as an `int`.
+    if m = env.nm.bitLength ∧ args.isEmpty then .ok (.int (Nat.log2 n.natAbs + if n = 0 then 0 else 1), h)
+    else .error .unsupported
   | .glob g =>
     match env.globals.lookup g with
     | some (.module .bls) => do pure (← env.bls m h args, h)

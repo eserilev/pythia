@@ -204,6 +204,12 @@ def eqLex : List Bool → Bool
   | [] => true
   | b :: bs => b && eqLex bs
 
+/-- `a < b` for byte strings: the first byte that differs decides, and a prefix is less. -/
+def bytesLt : List UInt8 → List UInt8 → Bool
+  | [], _ :: _ => true
+  | x :: xs, y :: ys => x < y || (x == y && bytesLt xs ys)
+  | _, _ => false
+
 /-- An ordinary comparison of two Python values that need no heap. Two byte strings compare
 their contents, whatever their classes. -/
 def pyCmp (op : CmpOp) : Value → Value → Res Bool
@@ -212,6 +218,10 @@ def pyCmp (op : CmpOp) : Value → Value → Res Bool
     match op with
     | .eq => .ok (a == b)
     | .notEq => .ok (a != b)
+    | .lt => .ok (bytesLt a b)
+    | .ltE => .ok !(bytesLt b a)
+    | .gt => .ok (bytesLt b a)
+    | .gtE => .ok !(bytesLt a b)
     | _ => .error .unsupported
   | .bool a, .bool b => .ok (cmpInt op (if a then 1 else 0) (if b then 1 else 0))
   | .bool a, .int b => .ok (cmpInt op (if a then 1 else 0) b)

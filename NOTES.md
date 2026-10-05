@@ -553,3 +553,20 @@ picked up the work from the files. From now on, every Lean build runs under a ha
 If the cap kills a proof, the proof gets fixed, not the cap raised.
 
 Lesson: an agent's progress lives in the files it commits, not in the agent. Commit often.
+
+### The fuzzer after the crash (2026-10-05)
+
+A new agent finished the fuzzer work from the files on disk.
+
+- The bitlist and bitvector writes and `ssz_serialize` of an int were already fixed in `2a850bf`.
+- The `ByteList` model. The heap keeps a byte list as a `List` of `Uint8`, as the readable Lean
+  and `hash_tree_root` need. Python reads it as a `bytearray`: an element is an `int`, a slice
+  and `+` give `bytes`, `==` with any other type raises `TypeError`, and a `for` loop takes a
+  snapshot. The serializer now rejects any other list of `Uint8`, so the two never mix.
+- The byte list checks live in their own match arms. An `if` on the list kind broke the
+  leaf proofs, because their list kinds were unknown before `decListT`.
+- A campaign of 10,000 programs with every `--avoid` family on found three more: the byte list
+  snapshot, the order of byte strings (`sorted` of `Root`s), and `AttributeError` on an
+  attribute of a byte string.
+- After the fixes: a second campaign of 10,000 programs found no difference and no hazard miss.
+  EF minimal with the sharing check: 678 of 678 pass, 0 hits.

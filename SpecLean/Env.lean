@@ -62,6 +62,12 @@ structure KnownNames where
   get : Name
   bytes32 : Name
   root : Name
+  -- Names of builds made before these methods: an id that no name has.
+  bitLength : Name := 1000000000
+  difference : Name := 1000000000
+  items : Name := 1000000000
+  values : Name := 1000000000
+  keys : Name := 1000000000
   little : String := "little"
 
 /-- The oracle fields (SPEC 8). -/

@@ -247,6 +247,11 @@ comprehensions give a `pyList`. A `ProgressiveList` has no limit: in Gloas, `Bal
 `Validators` are progressive, so `append` never raises for them. `ContainerType` covers plain and
 progressive containers (`active_fields`).
 
+A `ByteList[N]` is a `List` of `Uint8` with limit `N`, so `hash_tree_root` and the readable Lean
+see the same object. Python stores its data in a `bytearray`, so the interpreter reads each element
+as an `int` and gives `bytes` for a slice (see 6.2). The spec has no other list of `Uint8`, and
+the serializer rejects one.
+
 ### 6.2 Value rules
 
 Each row comes from a probe against `eth-ssz-specs` in the pyspec environment. CI keeps these
@@ -289,6 +294,10 @@ probes as tests, so a library change shows up as a failing test.
 | `append` on a full `List[T, N]` | raises `SSZValueError` |
 | Index out of range, including negative indices past the start | `IndexError` |
 | `.index(x)` with `x` absent | `ValueError` |
+| `ByteList[0]`, `for x in ByteList` | `int` |
+| `ByteList[0:2]`, `ByteList + x`, `x + ByteList` | Python `bytes`: the data plus `bytes(x)` |
+| `ByteList == x` where `x` is not a `ByteList` | `TypeError`; an SSZ object on the left gives `False` |
+| Element write of a number, `bool` or `Boolean` into a `ByteList` | kept when in `range(256)`, else `ValueError` |
 
 The `uint` arithmetic rule depends on both operand types. The library resolves the result type
 with one rule (`_resolve_type`): if one operand type derives from the other, the derived type

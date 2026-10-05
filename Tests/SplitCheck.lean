@@ -63,10 +63,15 @@ def cmpValOld (op : CmpOp) : Value → Value → Res Bool
     pure (cmpInt op a b)
   | .uint _ a, .int b => .ok (cmpInt op a b)
   | .int a, .uint _ b => .ok (cmpInt op a b)
+  -- The order of byte strings came after the split (a fuzz finding).
   | .bytes _ a, .bytes _ b =>
     match op with
     | .eq => .ok (a == b)
     | .notEq => .ok (a != b)
+    | .lt => .ok (bytesLt a b)
+    | .ltE => .ok !(bytesLt b a)
+    | .gt => .ok (bytesLt b a)
+    | .gtE => .ok !(bytesLt a b)
     | _ => .error .unsupported
   | .boolean a, .boolean b =>
     match op with
