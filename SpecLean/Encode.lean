@@ -150,10 +150,10 @@ def HeapWF (h : Heap) : Prop := ∀ a, h.next ≤ a → h.objs a = none
 def ArgsWF (h : Heap) (vs : List Value) : Prop :=
   ∀ k q a, at? h vs k q = some (.ref a) → h.objs a ≠ none
 
-/-- The frame of a function with footprint `fpf`: every object that is not at an `fpf` path
-from the arguments keeps its contents. -/
+/-- The frame of a function with footprint `fpf`: every object of `h` that is not at an `fpf`
+path from the arguments keeps its contents. A new object is outside the frame. -/
 def Frame (h h' : Heap) (vs : List Value) (fpf : Footprint) : Prop :=
-  ∀ a, ¬ AtFp h vs fpf a → h'.objs a = h.objs a
+  ∀ a, h.objs a ≠ none → ¬ AtFp h vs fpf a → h'.objs a = h.objs a
 
 /-- New objects come from free addresses. -/
 def Fresh (h h' : Heap) : Prop := h.next ≤ h'.next ∧ (HeapWF h → HeapWF h')

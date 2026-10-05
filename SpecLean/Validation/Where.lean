@@ -110,9 +110,9 @@ theorem objs_set_self {h : Heap} {a : Nat} {o : HeapObj} : (h.set a o).objs a = 
 
 theorem frame_set {h h1 : Heap} {vs : List Value} {fp : Footprint} {a : Nat} {o : HeapObj}
     (hf : Frame h h1 vs fp) (hat : AtFp h vs fp a) : Frame h (h1.set a o) vs fp := by
-  intro b hb
+  intro b hn hb
   have : b ≠ a := fun e => by subst e; exact hb hat
-  simp [this, hf b hb]
+  simp [this, hf b hn hb]
 
 theorem fresh_set {h h1 : Heap} {a : Nat} {o o0 : HeapObj} (hf : Fresh h h1)
     (ho : h1.objs a = some o0) : Fresh h (h1.set a o) :=

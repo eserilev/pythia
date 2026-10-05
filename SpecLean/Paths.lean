@@ -187,18 +187,19 @@ theorem HeapWF_set {h : Heap} {a : Nat} {o o' : HeapObj} (ho : h.objs a = some o
 /-- A write to an object at a footprint path is inside the frame. -/
 theorem Frame_set {h : Heap} {vs : List Value} {fpf : Footprint} {a : Nat} {o' : HeapObj}
     (hat : AtFp h vs fpf a) : Frame h (h.set a o') vs fpf := by
-  intro b hb
+  intro b _ hb
   have : b ≠ a := fun e => by subst e; exact hb hat
   simp [this]
 
 theorem Frame_refl (h : Heap) (vs : List Value) (fpf : Footprint) : Frame h h vs fpf :=
-  fun _ _ => rfl
+  fun _ _ _ => rfl
 
 theorem Frame_trans {h1 h2 h3 : Heap} {vs : List Value} {fpf : Footprint}
     (f12 : Frame h1 h2 vs fpf) (f23 : Frame h2 h3 vs fpf)
     (hmono : ∀ a, AtFp h2 vs fpf a → AtFp h1 vs fpf a) : Frame h1 h3 vs fpf := by
-  intro a ha
-  rw [f23 a (fun h2a => ha (hmono a h2a)), f12 a ha]
+  intro a hn ha
+  have e12 := f12 a hn ha
+  rw [f23 a (by rw [e12]; exact hn) (fun h2a => ha (hmono a h2a)), e12]
 
 theorem Fresh_set {h : Heap} {a : Nat} {o o' : HeapObj} (ho : h.objs a = some o) :
     Fresh h (h.set a o') := ⟨by simp, HeapWF_set ho⟩
