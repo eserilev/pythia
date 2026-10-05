@@ -365,3 +365,42 @@ The interpreter now covers the version 1 scope.
 - The serializer rejects any node it does not know, so it is also the constructs scan.
 
 Steps 1 and 2 are committed (`7442c57`). Next: step 3, the EF vectors.
+
+### The name: Pythia
+
+The project is now called Pythia. The Pythia was the oracle at Delphi, named after the serpent
+Python. It fits next to Aeneas and Charon. The repo is `eserilev/pythia` (private for now).
+
+### Step 4 came early: the fuzzer (2026-10-05)
+
+We built the differential fuzzer while step 3 ran. It generates random small Python programs,
+runs each one in CPython and in the Lean interpreter, and compares the results, including which
+objects are shared.
+
+- About 43,000 programs, at about 450 per second for the two runs.
+- 11 distinct differences, each shrunk to a small repro in `tools/fuzz/corpus/`.
+- Three of them were rules in our own spec:
+  - List comprehensions iterate live, like `for` loops. We said they took a snapshot.
+  - Generator expressions are lazy. `any` and `all` stop early, so later items never run.
+  - `.copy()` of a plain Python list is shallow. We said every copy was deep.
+- The other eight were interpreter bugs. Examples: a `Slot` stored in a `Uint64` field stays a
+  `Slot`. `True + Uint64(1)` is the int `2`. A dict literal evaluates all keys before any value.
+
+Lesson: the spec rules that "everyone knows" were the ones we never probed. The fuzzer found
+them in minutes.
+
+### Step 3: the EF vectors (in progress, 2026-10-05)
+
+The Lean interpreter runs the Gloas EF vectors on the minimal preset.
+
+- 545 cases pass, 36 fail, and 137 are skipped (mostly cases that need real BLS).
+- 20 failures are timeouts at 600 s, all in finality and multi-epoch sanity blocks. The
+  interpreter is too slow for runs over several epochs. Profiling is under way.
+- 15 failures are a `TypeError`, most of them in `process_attestation`. This is likely one
+  value-rule bug.
+- 1 failure is an invalid-signature case. The BLS stub accepts every signature, so this case
+  belongs with the skipped ones.
+- The dynamic sharing check (`WTree`) and the mainnet preset have no results yet.
+
+So far: simple operations and epoch processing match pyspec. The open problems are speed and
+one type bug.
