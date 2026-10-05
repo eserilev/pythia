@@ -228,21 +228,51 @@ theorem getItem_list {h : Heap} {a : Nat} {k e l xs} (ho : h.objs a = some (.lis
     (t : UintTy) (i : Nat) :
     getItem h (.ref a) (.uint t i) =
       match xs[i]? with
-      | some v => .ok v
+      | some v =>
+        .ok (if k = .list ∧ e = .uint (.width 8) then byteInt v else v)
       | none => .error .indexError := by
-  simp only [getItem, Ssz.toIndex_uint, Ssz.toIndex_int, Except.bind_ok', ho, normIndex_nat]
-  by_cases hi : i < xs.length
-  · simp [hi]
-  · simp [hi]
+  by_cases hb : k = .list ∧ e = .uint (.width 8)
+  · obtain ⟨rfl, rfl⟩ := hb
+    simp only [getItem, Ssz.toIndex_uint, Ssz.toIndex_int, Except.bind_ok', ho, normIndex_nat]
+    by_cases hi : i < xs.length <;> simp [hi]
+  · simp only [hb, if_false]
+    rw [getItem.eq_def]
+    simp only [ho]
+    split
+    · rename_i he; cases he; exact absurd ⟨rfl, rfl⟩ hb
+    · rename_i he
+      cases he
+      simp only [Ssz.toIndex_uint, Ssz.toIndex_int, Except.bind_ok', normIndex_nat]
+      by_cases hi : i < xs.length <;> simp [hi]
+    · simp_all
+    · exact (‹∀ (kind : ListKind) (elem : SszTy) (limit : Option Nat) (ys : List Value),
+        some (HeapObj.list k e l xs) = some (HeapObj.list kind elem limit ys) → False›
+        k e l xs rfl).elim
 
 theorem getItem_list_int {h : Heap} {a : Nat} {k e l xs} (ho : h.objs a = some (.list k e l xs))
     (i : Nat) :
     getItem h (.ref a) (.int (i : Int)) =
       match xs[i]? with
-      | some v => .ok v
+      | some v =>
+        .ok (if k = .list ∧ e = .uint (.width 8) then byteInt v else v)
       | none => .error .indexError := by
-  simp only [getItem, Ssz.toIndex_uint, Ssz.toIndex_int, Except.bind_ok', ho, normIndex_nat]
-  by_cases hi : i < xs.length <;> simp [hi]
+  by_cases hb : k = .list ∧ e = .uint (.width 8)
+  · obtain ⟨rfl, rfl⟩ := hb
+    simp only [getItem, Ssz.toIndex_uint, Ssz.toIndex_int, Except.bind_ok', ho, normIndex_nat]
+    by_cases hi : i < xs.length <;> simp [hi]
+  · simp only [hb, if_false]
+    rw [getItem.eq_def]
+    simp only [ho]
+    split
+    · rename_i he; cases he; exact absurd ⟨rfl, rfl⟩ hb
+    · rename_i he
+      cases he
+      simp only [Ssz.toIndex_uint, Ssz.toIndex_int, Except.bind_ok', normIndex_nat]
+      by_cases hi : i < xs.length <;> simp [hi]
+    · simp_all
+    · exact (‹∀ (kind : ListKind) (elem : SszTy) (limit : Option Nat) (ys : List Value),
+        some (HeapObj.list k e l xs) = some (HeapObj.list kind elem limit ys) → False›
+        k e l xs rfl).elim
 
 /-- `coerceH` on a value that is not a heap object, into a type that is not a heap type. -/
 theorem coerceH_plain (env : Env) (b : Bool) (d : Nat) (h : Heap) (u : UintTy) (v : Value)
@@ -263,14 +293,21 @@ theorem setItem_list {env : Env} {h : Heap} {a : Nat} {k u l xs}
     (ho : h.objs a = some (.list k (.uint u) l xs)) (t : UintTy) (i : Nat) (v : Value)
     (hv : ∀ b, v ≠ .ref b) :
     setItem env h (.ref a) (.uint t i) v = (do
-      let v' ← coerceElem (.uint u) v
+      let v' ← if k = .list ∧ u = .width 8 then coerceByte v else coerceElem (.uint u) v
       if i < xs.length then .ok (h.set a (.list k (.uint u) l (xs.set i v')))
       else .error .indexError) := by
-  simp only [setItem, ho, Ssz.toIndex_uint, Except.bind_ok', coerceWith_uint env false h u v hv,
-    normIndex_nat]
-  cases coerceElem (.uint u) v with
-  | error => rfl
-  | ok v' => by_cases hi : i < xs.length <;> simp [hi]
+  by_cases hb : k = .list ∧ u = .width 8
+  · simp only [setItem, ho, Ssz.toIndex_uint, Except.bind_ok', normIndex_nat, hb, SszTy.uint.injEq,
+      if_true, and_self]
+    cases coerceByte v with
+    | error => rfl
+    | ok v' => by_cases hi : i < xs.length <;> simp [hi]
+  · have hb' : ¬(k = .list ∧ SszTy.uint u = .uint (.width 8)) := by simpa using hb
+    simp only [setItem, ho, Ssz.toIndex_uint, Except.bind_ok', normIndex_nat, hb, hb', if_false,
+      coerceWith_uint env false h u v hv]
+    cases coerceElem (.uint u) v with
+    | error => rfl
+    | ok v' => by_cases hi : i < xs.length <;> simp [hi]
 
 theorem getAttr_container (env : Env) {h : Heap} {a : Nat} {ty fs} {f i : Nat} {t : SszTy}
     (ho : h.objs a = some (.container ty fs)) (hf : fieldIndex env ty f = some (i, t)) :

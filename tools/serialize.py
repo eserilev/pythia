@@ -169,7 +169,11 @@ class Types:
             if issubclass(t, m[base]):
                 limit = None if kind == "progressiveList" else (t.LIMIT if kind == "list" else t.LENGTH)
                 lim = "none" if limit is None else f"(some {limit})"
-                return f"(.list .{kind} {self.ssz(t.ELEMENT_TYPE)} {lim})"
+                elem = self.ssz(t.ELEMENT_TYPE)
+                if elem == "(.uint (.width 8))":
+                    # The interpreter reads a list of `Uint8` as a `ByteList`.
+                    raise Unsupported(f"SSZ list of uint8: {t}")
+                return f"(.list .{kind} {elem} {lim})"
         raise Unsupported(f"SSZ type {t}")
 
     def container(self, t):
