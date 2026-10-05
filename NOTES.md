@@ -570,3 +570,21 @@ A new agent finished the fuzzer work from the files on disk.
   attribute of a byte string.
 - After the fixes: a second campaign of 10,000 programs found no difference and no hazard miss.
   EF minimal with the sharing check: 678 of 678 pass, 0 hits.
+
+Status at 15:30:
+
+- The cause of the crash: two tactic loops that never ended. One frame lemma unified a heap write
+  with a heap allocation, at default transparency. One `apply` also matched its own output, so it
+  made new goals forever. Each loop ate memory until the kernel killed it. The fixes: try the
+  allocation lemmas first under `with_reducible`, and use `refine` in place of `apply`. One proof
+  went from 4+ GB to 550 MB. Every proof check now runs in its own capped scope.
+- The path-count rule (`NoNewPaths`) replaces `Reach` (`144bb97`). It is a one-to-one map from
+  new paths to old paths that keeps the footprint patterns. Still 25 of 41 leaves.
+- Next blockers: the uint decoders do not check the range, so range checks in constructors cannot
+  be proved. And `process_eth1_data` shares `eth1_data` between the block and the state, so the
+  path count must cover only footprint objects.
+- The fuzzer branch is merged (`7dae481`). ByteList now behaves as bytes, as in CPython. The last
+  campaign of 10,000 programs found 0 differences and 0 hazard misses.
+
+Lesson: a proof tactic can loop like any program. Under no memory cap, one bad `apply` took down
+the machine.
