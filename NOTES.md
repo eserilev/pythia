@@ -436,7 +436,9 @@ For the proofs, the new rule makes the per-function theorems simpler. The cost m
 lemma: a write to an object with one path, with no new paths created, keeps the whole state free
 of unsafe sharing.
 
-Still to do: the mainnet preset and the 11 fuzzer bugs.
+Status at 21:30: the minimal preset is done. The interpreter has no real failure on any minimal
+case it can run. The mainnet vectors are almost generated (about 93%), and no mainnet run has
+started yet. The 11 fuzzer bugs come after mainnet.
 
 ### Next: split core and library (approved)
 
