@@ -503,11 +503,21 @@ Two places where the readable Lean differs from the spec text, open for now:
   converts it. Python keeps the argument's class. The vectors cannot see this. The proofs will:
   a theorem fails wherever the difference changes a result.
 
-Status at 10:20: item 3, the proof tactic, started at about 09:50 and is not committed. A
-generator writes one validation theorem per function, and a custom tactic applies the step lemmas
-in the order of the statements. The work is on the first tier: functions with no loops and no
-calls. The key number, how many of the 162 functions the tactic proves alone, is not in yet.
+Status at 11:40: the tactic proves 21 of 41 leaf functions alone (`5cf104e`), up from 12 an hour
+earlier. The work now is on functions with local variables. Calls, `for` loops and `while` loops
+come after. This is the slow part: each new statement shape is a new way for the tactic to get
+stuck, and each try means a Lean compile.
 
-In parallel, the fuzzer now runs with the sharing check on and has hazard tests that must
-trigger it. Its generator covers sets, closures, byte functions and more SSZ kinds. A campaign of
-21,000 programs is running.
+The fuzzer's second campaign (21,000 programs, merged as `092d4db`):
+
+- All 10 hand-written hazard tests trigger the sharing check: shared fields, callees, returned
+  refs, shared elements, appends, loops and deep call chains.
+- A new oracle: each program also runs in CPython with every stored value deep-copied. Where the
+  two runs differ, a value-based translation would be wrong, so the check must fire.
+- That oracle found a gap in the check: `v1 = Box(p=a0); a0.a = 1; return v1`. The write
+  through `a0` counted only one path, because the check did not count the path through the
+  local `v1`. The proofs still catch this case, because the theorem compares the returned value.
+  But the check is meant to catch it first. The fix is under way.
+- 3 more interpreter bugs (writes into `Bitlist`, `Bitvector` and `Boolean` fields that CPython
+  accepts) and a few missing builtins.
+- The early `IndexError` rate fell from 30% to 22%.
