@@ -57,6 +57,37 @@ ANNOTATION_ONLY = {"Any", "Callable", "Sequence", "SSZObject", "Uint", "List", "
                    "ProgressiveList", "Optional", "Tuple", "Set", "Dict"}
 
 
+def load_scope(rev: str, fork: str, preset: str, roots: list[str], extra=None):
+    """The scope of a build: the SpecObject, its source files, the pyspec module, and the
+    syntax trees of the roots and their callees, with the source text of each."""
+    commit = subprocess.check_output(["git", "rev-parse", rev], text=True).strip()
+    tmp = Path(tempfile.mkdtemp(prefix="spec-"))
+    archive = subprocess.run(["git", "archive", commit], check=True, capture_output=True).stdout
+    subprocess.run(["tar", "-x", "-C", str(tmp)], input=archive, check=True)
+    repo = Path.cwd()
+    spec_object, sources = build_spec_object(tmp, fork, preset)
+    os.chdir(repo)
+    spec = importlib.import_module(f"eth_consensus_specs.{fork}.{preset}")
+    sources_text = dict(spec_object.functions)
+    extra_names = []
+    if extra is not None:
+        extra_src = extra.read_text()
+        for node in ast.parse(extra_src).body:
+            if isinstance(node, ast.FunctionDef):
+                sources_text[node.name] = ast.get_source_segment(extra_src, node)
+                extra_names.append(node.name)
+    todo, fns = list(roots) + extra_names, {}
+    while todo:
+        name = todo.pop()
+        if (name in fns or name in ORACLE_FUNCTIONS or name in BLS_FUNCTIONS
+                or name not in sources_text):
+            continue
+        tree = ast.parse(sources_text[name]).body[0]
+        fns[name] = tree
+        todo += [c for c in free_names(tree) if c in sources_text]
+    return commit, spec_object, sources, spec, fns, sources_text, extra_names
+
+
 def build_spec_object(spec_dir: Path, fork: str, preset_name: str):
     sys.path.insert(0, str(spec_dir))
     os.chdir(spec_dir)
@@ -202,17 +233,11 @@ def main():
                     help="also emit the BeaconState of this fork, for the upgrade function")
     args = ap.parse_args()
 
-    repo = Path.cwd()
     out = Path(args.out).resolve()
     extra = Path(args.extra).resolve() if args.extra else None
-    commit = subprocess.check_output(["git", "rev-parse", args.rev], text=True).strip()
-    tmp = Path(tempfile.mkdtemp(prefix="spec-"))
-    archive = subprocess.run(["git", "archive", commit], check=True, capture_output=True).stdout
-    subprocess.run(["tar", "-x", "-C", str(tmp)], input=archive, check=True)
-
-    spec_object, sources = build_spec_object(tmp, args.fork, args.preset)
-    os.chdir(repo)
-    spec = importlib.import_module(f"eth_consensus_specs.{args.fork}.{args.preset}")
+    roots = [r for r in args.roots.split(",") if r]
+    commit, spec_object, sources, spec, fns, sources_text, extra_names = load_scope(
+        args.rev, args.fork, args.preset, roots, extra)
     import ssz.bitfields, ssz.boolean, ssz.byte_arrays, ssz.collections, ssz.container
     import ssz.ssz_base, ssz.uint
 
@@ -230,26 +255,6 @@ def main():
     intern = Interner()
     intern("bytes")
     types = Types(intern, m)
-
-    sources_text = dict(spec_object.functions)
-    extra_names = []
-    if extra is not None:
-        extra_src = extra.read_text()
-        for node in ast.parse(extra_src).body:
-            if isinstance(node, ast.FunctionDef):
-                sources_text[node.name] = ast.get_source_segment(extra_src, node)
-                extra_names.append(node.name)
-
-    roots = [r for r in args.roots.split(",") if r] + extra_names
-    todo, fns = list(roots), {}
-    while todo:
-        name = todo.pop()
-        if (name in fns or name in ORACLE_FUNCTIONS or name in BLS_FUNCTIONS
-                or name not in sources_text):
-            continue
-        tree = ast.parse(sources_text[name]).body[0]
-        fns[name] = tree
-        todo += [c for c in free_names(tree) if c in sources_text]
 
     defs, globals_, configs, base_lines = [], {}, set(), {}
     for name in sorted(fns):

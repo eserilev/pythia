@@ -1,0 +1,6 @@
+# The measure of each `while` loop in the version 1 scope (SPEC 9.1): a Python expression over
+# the loop's variables. It must get smaller at each step. The generated loop checks that at
+# run time and raises a bug otherwise, so a wrong measure shows up as a failed run.
+integer_squareroot: x
+process_slots: slot - state.slot
+compute_balance_weighted_selection: 2**64 - i

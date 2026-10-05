@@ -8,4 +8,4 @@ LIMIT=${2:-600}
 FLAGS=$3
 BIN=$(cd "$(dirname "$0")/.." && pwd)/.lake/build/bin/${4:-efrunner}
 find "$DIR" -name '*.case' | sort | xargs -P "$(nproc)" -I{} sh -c \
-  "out=\$(timeout $LIMIT $BIN $FLAGS {} | grep -E '^(PASS|FAIL|  HIT)'); [ -n \"\$out\" ] && echo \"\$out\" || echo 'FAIL {} timeout after ${LIMIT}s'"
+  "out=\$(timeout $LIMIT $BIN $FLAGS {} | grep -E '^(PASS|FAIL|RD-|  HIT)'); [ -n \"\$out\" ] && echo \"\$out\" || echo 'FAIL {} timeout after ${LIMIT}s'"

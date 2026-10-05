@@ -11,6 +11,9 @@ Runs case files from `tools/ef_cases.py` on the interpreter (SPEC 11, item 1).
     lake exe efrunner [--quiet] [--watch] FILE_OR_DIR...           (minimal preset)
     lake exe efrunner-mainnet [--quiet] [--watch] FILE_OR_DIR...   (mainnet preset)
 
+`--readable` (minimal only) also runs each case through the generated readable Lean, and prints
+`RD-PASS` or `RD-FAIL` for it.
+
 One line per case, then counts per runner and handler. `--watch` turns on the dynamic write
 condition check and prints its hits after each case.
 -/
@@ -115,12 +118,14 @@ def group (id : String) : String :=
   "/".intercalate ((id.splitOn "/").take 2)
 
 /-- The runner on the build `B`. -/
-def main (B : Build) (args : List String) : IO UInt32 := do
+def main (B : Build) (args : List String) (rd : Option (Build → Case → Verdict) := none) :
+    IO UInt32 := do
   let B := B.withIds
   let quiet := args.contains "--quiet"
   let watch := args.contains "--watch"
+  let readable := args.contains "--readable"
   let mut files := #[]
-  for a in args.filter (fun a => a != "--quiet" && a != "--watch") do
+  for a in args.filter (fun a => a != "--quiet" && a != "--watch" && a != "--readable") do
     files := files ++ (← caseFiles a)
   let mut counts : Std.HashMap String (Nat × Nat) := {}
   let mut order : Array String := #[]
@@ -130,7 +135,15 @@ def main (B : Build) (args : List String) : IO UInt32 := do
     let t ← IO.monoMsNow
     if watch then Watch.install B
     let (id, verdict) ← match parse B.ids data with
-      | .ok c => do let v ← IO.lazyPure fun _ => run B c; pure (c.id, v)
+      | .ok c => do
+        let v ← IO.lazyPure fun _ => run B c
+        if readable then
+          if let some f := rd then
+            let r ← IO.lazyPure fun _ => f B c
+            match r with
+            | .pass note => IO.println s!"RD-PASS {c.id} {note}"
+            | .fail why => IO.println s!"RD-FAIL {c.id} {why}"
+        pure (c.id, v)
       | .error e => pure (f.toString, .fail s!"parse: {e}")
     let ms := (← IO.monoMsNow) - t
     let g := group id
