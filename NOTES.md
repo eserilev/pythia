@@ -471,3 +471,16 @@ Decision (2026-10-05): do the split in two parts.
    60 places in the proofs match on them. Making them generic now means guessing the interface
    for a second target that we have not started. So we only measure the cost now, on a scratch
    copy, and decide when work on EELS or leanSpec starts.
+
+### Step 5: the translator (started 2026-10-05, autonomous)
+
+Item 1, the proof contract, is done (`87dbb47`, `eebf58e`). The theorems now use the narrow
+sharing rule that the EF runs use:
+
+- Each theorem asks only that the objects the function writes have one path.
+- The result no longer has to meet the global rule. One lemma, `wtree_compose`, gives that back
+  for any footprint: the function reaches no old object it did not reach before, and each new
+  object has one path.
+- One surprise: "reaches no new old object" was not enough. A function can build a new list that
+  holds one new object twice. So the lemma also needs "each new object has one path".
+- The three proofs got shorter: the parts that kept the global rule on the result are gone.
