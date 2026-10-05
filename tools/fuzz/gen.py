@@ -182,7 +182,7 @@ def uint_lits(c):
 INT_LITS = [0, 1, 2, 3, -1, 5, 7, 2 ** 64 - 1, 2 ** 64, -(2 ** 64), 255, 256, 2 ** 63, -2]
 
 
-GUARDABLE = {"field", "elem", "aug", "append", "hazard", "slice", "extend"}
+GUARDABLE = {"field", "elem", "aug", "append", "slice", "extend"}
 
 
 class Scope:
@@ -664,10 +664,13 @@ class Gen:
         if k in GUARDABLE and ch.flip(80):
             self.guarding, self.guard_bases = True, []
             start = len(self.lines)
+            bound = dict(sc.vars)
             getattr(self, "s_" + k)(sc, in_loop)
             self.guarding = False
             bases = list(dict.fromkeys(self.guard_bases))
-            if bases and len(self.lines) > start:
+            # A statement that binds a name stays unguarded, so that no later read of the
+            # name fails.
+            if bases and len(self.lines) > start and sc.vars == bound:
                 body = ["    " + line for line in self.lines[start:]]
                 cond = " and ".join(f"len({b}) > 0" for b in bases)
                 self.lines[start:] = ["    " * self.indent + f"if {cond}:"] + body
