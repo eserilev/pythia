@@ -532,3 +532,24 @@ because the spike is busy with the tactic. Done so far: the check gap, the `Bool
 Status at 12:15: no new commits since 11:50. The spike is running the full leaf tier through the
 generator and the proof check, which gives the next count. The fuzzer is rerunning the EF
 vectors with the sharing check, to confirm its interpreter fixes broke nothing.
+
+Status at 14:00:
+
+- The tactic proves 25 of 41 leaf functions (`9df8f29`), including leaves that write.
+- The proofs found their first bug that no test had found. In `a < b <= c + d`, the readable Lean
+  computed `c + d` even when `a < b` was false. Python stops early. So an overflow there gave a
+  "bug" error in Lean where Python gives "invalid". The vectors never reach this case.
+- The code was wrong and the spec was right once: `Frame` also covered free addresses, so any new
+  object broke it (`555d58a`).
+- A hole in the contract. `Reach` kept every object on a fixed path. That is false when a function
+  slices a list or pops from it, because the elements move. Two Gloas epoch functions do this. The
+  new rule counts paths instead: no old object may gain a path. Moved elements keep one path, and
+  dropped ones go to zero.
+
+The crash. At 13:44 the machine ran out of memory. The kernel killed one `lean` process at
+12.9 GB, during a proof build with the new path-count rule. The crash took down the session and
+both agents. Nothing committed was lost, and the uncommitted work stayed on disk. New agents
+picked up the work from the files. From now on, every Lean build runs under a hard memory cap.
+If the cap kills a proof, the proof gets fixed, not the cap raised.
+
+Lesson: an agent's progress lives in the files it commits, not in the agent. Commit often.
