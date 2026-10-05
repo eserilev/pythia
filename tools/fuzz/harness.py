@@ -28,6 +28,7 @@ from ssz.uint import BaseUint
 LEAN_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(LEAN_DIR / "tools"))
 import serialize  # noqa: E402
+from footprint import footprint  # noqa: E402
 
 RUNNER = LEAN_DIR / ".lake" / "build" / "bin" / "pythiafuzz"
 FUEL = 1_000_000
@@ -99,16 +100,45 @@ class PBox(ProgressiveContainer):
     pair: PtPair
 
 
+class Flags(BitVector):
+    LENGTH = 4
+
+
+class Blob(ByteList):
+    LIMIT = 4
+
+
+class Misc(Container):
+    fl: Flags
+    bl: Blob
+    n: Uint64
+    cp: Checkpoint
+
+
 class FuzzError(Exception):
     """The exception of a generated `raise`. The serializer keeps no `raise` expression."""
 
 
 POOL = {c.__name__: c for c in [
     Slot, Epoch, Gwei, ValidatorIndex, Uint64, Uint8, Boolean, Bytes4, Bytes32, Root, Checkpoint,
-    Pt, Gweis, Gweis2, Pts, PtPair, U64s, Epochs, PPts, Bits, Box, PBox]}
+    Pt, Gweis, Gweis2, Pts, PtPair, U64s, Epochs, PPts, Bits, Box, PBox, Flags, Blob, Misc]}
 POOL["FuzzError"] = FuzzError
-SEQ_CLASSES = [Gweis, Gweis2, Pts, PtPair, U64s, Epochs, PPts, Bits]
-CONTAINER_CLASSES = [Pt, Box, PBox, Checkpoint]
+POOL["hash_tree_root"] = spec.hash_tree_root
+POOL["ssz_serialize"] = spec.ssz_serialize
+SSZ_NAMES = {n for n, c in POOL.items() if isinstance(c, type) and issubclass(c, SSZType)}
+
+
+def fp_is_heap(t: str, steps) -> bool:
+    """Does the FP pattern `(t, steps)` name a container or a list?"""
+    cls = POOL.get(t)
+    for x in steps:
+        if cls is None:
+            return False
+        cls = getattr(cls, "ELEMENT_TYPE", None) if x == "*" else \
+            dict(getattr(cls, "_FIELD_TYPES", [])).get(x)
+    return cls is not None and not issubclass(cls, (BaseUint, Boolean, ByteVector))
+SEQ_CLASSES = [Gweis, Gweis2, Pts, PtPair, U64s, Epochs, PPts, Bits, Flags, Blob]
+CONTAINER_CLASSES = [Pt, Box, PBox, Checkpoint, Misc]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -180,13 +210,16 @@ def ty_str(t) -> str:
 
 def is_heap(v) -> bool:
     return isinstance(v, (list, set, dict, _SSZSequence, BitList, BitVector, ProgressiveBitList,
-                          Container, ProgressiveContainer))
+                          ByteList, Container, ProgressiveContainer))
 
 
 class Renderer:
-    """The CPython side of `Fuzz.Render.render`: one label space for the whole result."""
+    """The CPython side of `Fuzz.Render.render`: one label space for the whole result.
+    With `labels=False`, every visit prints the whole object and no label, so two runs compare
+    by value only."""
 
-    def __init__(self):
+    def __init__(self, labels: bool = True):
+        self.labels = labels
         self.seen: dict[int, int] = {}
         self.keep = []
 
@@ -209,10 +242,11 @@ class Renderer:
             return "(" + ",".join(self(x) for x in v) + ")"
         if not is_heap(v):
             return f"<{type(v).__name__}>"
-        if id(v) in self.seen:
+        if self.labels and id(v) in self.seen:
             return f"#{self.seen[id(v)]}"
         k = len(self.seen)
-        self.seen[id(v)] = k
+        if self.labels:
+            self.seen[id(v)] = k
         self.keep.append(v)
         if isinstance(v, list):
             body = "list[" + ",".join(self(x) for x in v) + "]"
@@ -225,7 +259,7 @@ class Renderer:
             body = type(v).__name__ + "{" + fields + "}"
         else:
             body = ty_str(type(v)) + "[" + ",".join(self(x) for x in v) + "]"
-        return f"#{k}={body}"
+        return f"#{k}={body}" if self.labels else body
 
 
 class Timeout(Exception):
@@ -238,13 +272,15 @@ def _alarm(signum, frame):
 
 def load(src: str) -> dict:
     ns = dict(POOL)
+    ns["_cp"] = _cp
     exec(compile(src, "<fuzz>", "exec"), ns)
     return ns
 
 
-def run_python(src: str, args: list, timeout: float = 2.0) -> str:
+def run_python(src: str, args: list, timeout: float = 2.0, labels: bool = True,
+               ns: dict | None = None) -> str:
     """Run `f(*args)` in CPython and render the result. `args` is changed in place."""
-    ns = load(src)
+    ns = load(src) if ns is None else ns
     old = signal.signal(signal.SIGALRM, _alarm)
     signal.setitimer(signal.ITIMER_REAL, timeout)
     try:
@@ -259,9 +295,84 @@ def run_python(src: str, args: list, timeout: float = 2.0) -> str:
         return "err other:RecursionError"
     except Exception as e:  # noqa: BLE001
         return err_line(e)
-    r = Renderer()
+    r = Renderer(labels)
     parts = ["ret=" + r(ret)] + [f"a{i}={r(a)}" for i, a in enumerate(args)]
     return "ok " + " | ".join(parts)
+
+
+# ---------------------------------------------------------------------------------------------
+# The copy-on-store model
+#
+# The same program, but every value that goes into an object (a field or element write, a
+# constructor argument, `append`, a list literal or a dict value) is a deep copy. So no two
+# paths ever reach one SSZ object, as in the readable Lean, which uses values. Where the
+# result differs from CPython, the program wrote through a shared object, and the write
+# condition check must have a hit.
+
+MUTATORS = {"append", "extend", "insert", "add"}
+
+
+def _cp(v):
+    if isinstance(v, (_SSZSequence, BitList, BitVector, ProgressiveBitList, ByteList,
+                      Container, ProgressiveContainer)):
+        return v.copy()
+    # A Python list keeps its identity: the check does not watch Python objects, and `log`
+    # must stay one list.
+    return v
+
+
+class CopyOnStore(ast.NodeTransformer):
+    @staticmethod
+    def wrap(e):
+        return ast.Call(func=ast.Name(id="_cp", ctx=ast.Load()), args=[e], keywords=[])
+
+    def visit_FunctionDef(self, node):
+        if node.name == "mk":
+            return node
+        self.generic_visit(node)
+        return node
+
+    def visit_Assign(self, node):
+        self.generic_visit(node)
+        if any(isinstance(t, (ast.Attribute, ast.Subscript)) for t in node.targets):
+            node.value = self.wrap(node.value)
+        return node
+
+    def visit_AnnAssign(self, node):
+        self.generic_visit(node)
+        if isinstance(node.target, (ast.Attribute, ast.Subscript)) and node.value is not None:
+            node.value = self.wrap(node.value)
+        return node
+
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        f = node.func
+        if isinstance(f, ast.Name) and f.id in POOL:
+            for k in node.keywords:
+                k.value = self.wrap(k.value)
+        elif isinstance(f, ast.Attribute) and f.attr in MUTATORS:
+            node.args = [self.wrap(a) for a in node.args]
+        return node
+
+    def visit_List(self, node):
+        self.generic_visit(node)
+        if isinstance(node.ctx, ast.Load):
+            node.elts = [self.wrap(e) for e in node.elts]
+        return node
+
+    def visit_ListComp(self, node):
+        self.generic_visit(node)
+        node.elt = self.wrap(node.elt)
+        return node
+
+    def visit_Dict(self, node):
+        self.generic_visit(node)
+        node.values = [self.wrap(v) for v in node.values]
+        return node
+
+
+def copy_model(src: str) -> str:
+    return ast.unparse(ast.fix_missing_locations(CopyOnStore().visit(ast.parse(src))))
 
 
 # ---------------------------------------------------------------------------------------------
@@ -325,7 +436,12 @@ class Encoder:
         else:
             t = self.types.ssz(type(v))
             assert t.startswith("(.list ") and t.endswith(")")
-            obj = f"{t[:-1]} [{', '.join(self.value(x) for x in v)}])"
+            if isinstance(v, ByteList):
+                # The interpreter models a byte list as a list of `Uint8`.
+                xs = [f"(.uint (.width 8) {x})" for x in v]
+            else:
+                xs = [self.value(x) for x in v]
+            obj = f"{t[:-1]} [{', '.join(xs)}])"
         self.heap[a] = obj
         return f"(.ref {a})"
 
@@ -344,12 +460,23 @@ class Encoder:
             for free in sorted(serialize.free_names(fn)):
                 if free in globals_ or free in names or free == "FuzzError":
                     continue
-                if free in serialize.BUILTINS:
+                if free in serialize.ORACLE_FUNCTIONS:
+                    globals_[free] = f"(.builtin .{serialize.ORACLE_FUNCTIONS[free]})"
+                elif free in serialize.BUILTINS:
                     globals_[free] = f"(.builtin .{serialize.BUILTINS[free]})"
-                elif free in POOL and self.types.is_ssz_class(POOL[free]):
+                elif free in POOL and isinstance(POOL[free], type) and \
+                        self.types.is_ssz_class(POOL[free]):
                     globals_[free] = f"(.type {self.types.ssz(POOL[free])})"
                 else:
                     raise serialize.Unsupported(f"free name {free}")
+        fp, _, per_fn = footprint({fn.name: fn for fn in fns}, SSZ_NAMES, fp_is_heap)
+        self.intern("*")
+        fp_t = ", ".join(f"({self.intern(t)}, [{', '.join(str(self.intern(x)) for x in st)}])"
+                         for t, st in fp)
+        fnfp_t = ", ".join(
+            f"({self.intern(n)}, [" + ", ".join(
+                f"({j}, [{', '.join(str(self.intern(x)) for x in st)}])" for j, st in ps) + "])"
+            for n, ps in sorted(per_fn.items()) if ps)
         gl = ", ".join(f"({self.intern(k)}, {v})" for k, v in globals_.items())
         containers = ", ".join(v for v in self.types.containers.values() if v)
         names_t = ", ".join(serialize.lean_str(s) for s in self.intern.names)
@@ -361,6 +488,9 @@ class Encoder:
             f"entry {self.intern('f')}",
             f"args [{', '.join(arg_terms)}]",
             f"fuel {FUEL}",
+            f"active [{', '.join(self.types.active.values())}]",
+            f"fp [{fp_t}]",
+            f"fnfp [{fnfp_t}]",
         ]) + "\n"
 
 
@@ -371,12 +501,13 @@ def encode(src: str, args: list) -> str:
 class LeanRunner:
     """A long-lived `pythiafuzz` process: one length-prefixed program in, one line out."""
 
-    def __init__(self, exe: Path = RUNNER):
+    def __init__(self, exe: Path = RUNNER, watch: bool = True):
         self.exe = exe
+        self.watch = watch
         self.proc = None
 
     def start(self):
-        self.proc = subprocess.Popen([str(self.exe)], stdin=subprocess.PIPE,
+        self.proc = subprocess.Popen([str(self.exe)] + (["--watch"] if self.watch else []), stdin=subprocess.PIPE,
                                      stdout=subprocess.PIPE, bufsize=0)
 
     def run(self, program: str) -> str:
@@ -401,22 +532,59 @@ class LeanRunner:
             self.proc.wait()
 
 
-def run_case(src: str, lean: LeanRunner) -> tuple[str, str]:
-    """Both results of one case: (CPython, Lean)."""
+# Hits that say that a write reached an object by two paths. FP and footprint misses are
+# about the static FP tables, not about sharing.
+SHARING_HITS = ("write ", "WTree ", "Reach ")
+
+
+class Outcome:
+    def __init__(self, py: str, lean: str, hits: list[str], py_copy: str | None = None,
+                 py_plain: str | None = None):
+        self.py, self.lean, self.hits = py, lean, hits
+        self.py_copy, self.py_plain = py_copy, py_plain
+
+    @property
+    def sharing_hits(self) -> list[str]:
+        return [h for h in self.hits if h.startswith(SHARING_HITS)]
+
+    @property
+    def copy_differs(self) -> bool:
+        return self.py_copy is not None and self.py_copy != self.py_plain
+
+    @property
+    def hazard_miss(self) -> bool:
+        """CPython differs from the copy-on-store model, and the check has no hit."""
+        return self.copy_differs and not self.sharing_hits
+
+
+def run_case(src: str, lean: LeanRunner, copy: bool = False) -> Outcome:
+    """The CPython result, the Lean result and the hits of the write condition check. With
+    `copy`, also CPython on the copy-on-store model, both rendered without labels."""
     ns = load(src)
     lean_in = encode(src, ns["mk"]())
-    py_out = run_python(src, ns["mk"]())
-    return py_out, lean.run(lean_in)
+    py_out = run_python(src, ns["mk"](), ns=ns)
+    line = lean.run(lean_in)
+    lean_out, *hits = line.split(" || HIT ")
+    out = Outcome(py_out, lean_out, hits)
+    if copy:
+        out.py_plain = run_python(src, ns["mk"](), labels=False, ns=load(src))
+        csrc = copy_model(src)
+        out.py_copy = run_python(csrc, ns["mk"](), labels=False, ns=load(csrc))
+    return out
 
 
 if __name__ == "__main__":
     # Run one case file: python harness.py CASE.py
     src = Path(sys.argv[1]).read_text()
     runner = LeanRunner()
-    py_out, lean_out = run_case(src, runner)
-    print("python:", py_out)
-    print("lean:  ", lean_out)
+    o = run_case(src, runner, copy=True)
+    print("python:", o.py)
+    print("lean:  ", o.lean)
+    for h in o.hits:
+        print("HIT   ", h)
+    if o.copy_differs:
+        print("copy-on-store model differs:", o.py_copy)
     if os.environ.get("SHOW_LEAN_INPUT"):
         print(encode(src, load(src)["mk"]()))
     runner.close()
-    sys.exit(0 if py_out == lean_out else 1)
+    sys.exit(0 if o.py == o.lean and not o.hazard_miss else 1)

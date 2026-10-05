@@ -27,6 +27,10 @@ INT, BOOL, BOOLEAN, NONE = ("int",), ("bool",), ("Boolean",), ("none",)
 # - "shortcircuit": `any` and `all` over a generator with side effects or errors.
 # - "negstep": `range` with a negative step.
 # - "dictorder": dict literals with more than one entry.
+# - "bitlength": `int.bit_length()`.
+# - "bytelist": the `ByteList` class `Blob` and the container `Misc` that holds one.
+# - "dictviews": `.items()`, `.values()` and `.keys()` of a dict.
+# - "setmethods": `union`, `intersection` and `difference` of a set.
 # - "subfield": uint arithmetic across classes, whose result (a subclass) can reach a field of
 #   the base class.
 AVOID: set[str] = set()
@@ -61,6 +65,10 @@ def DICT(k, v):
     return ("dict", k, v)
 
 
+def SET(e):
+    return ("set", e)
+
+
 UINTS = [H.Uint64, H.Slot, H.Epoch, H.Gwei, H.ValidatorIndex, H.Uint8]
 BYTES = [H.Bytes4, H.Root, H.Bytes32]
 
@@ -87,11 +95,13 @@ def elem(T):
     c = T[1]
     if issubclass(c, (H.BitList, H.BitVector)):
         return BOOLEAN
+    if issubclass(c, H.ByteList):
+        return INT
     return of_class(c.ELEMENT_TYPE)
 
 
 def is_ref(T):
-    return T[0] in ("cont", "seq", "pylist", "dict")
+    return T[0] in ("cont", "seq", "pylist", "dict", "set")
 
 
 def is_seq(T):
@@ -121,11 +131,18 @@ ARG_TYPES = [
     (2, S(H.Gweis)), (1, S(H.Gweis2)), (1, S(H.PPts)), (1, S(H.Epochs)), (1, S(H.Bits)),
     (1, S(H.U64s)), (1, S(H.PtPair)), (2, U(H.Gwei)), (1, U(H.Slot)), (1, U(H.Uint64)),
     (1, U(H.Uint8)), (1, INT), (1, BOOL), (1, BY(H.Root)), (1, PL(C(H.Pt))), (1, PL(INT)),
-    (1, PL(U(H.Gwei))),
+    (1, PL(U(H.Gwei))), (2, C(H.Misc)), (1, S(H.Flags)), (1, S(H.Blob)),
 ]
 
 LOCAL_TYPES = ARG_TYPES + [(1, BY(H.Bytes32)), (1, BOOLEAN), (1, U(H.Epoch)),
                            (1, U(H.ValidatorIndex)), (1, BY(bytes))]
+
+
+def avail(types):
+    """The weighted types without the ones that an `AVOID` knob switches off."""
+    if "bytelist" in AVOID:
+        types = [(w, T) for w, T in types if T not in (S(H.Blob), C(H.Misc))]
+    return types
 
 
 class Ch:
@@ -165,6 +182,9 @@ def uint_lits(c):
 INT_LITS = [0, 1, 2, 3, -1, 5, 7, 2 ** 64 - 1, 2 ** 64, -(2 ** 64), 255, 256, 2 ** 63, -2]
 
 
+GUARDABLE = {"field", "elem", "aug", "append", "slice", "extend"}
+
+
 class Scope:
     def __init__(self, vars_, in_helper):
         self.vars = dict(vars_)
@@ -180,6 +200,10 @@ class Gen:
         self.n = 0
         self.tr = 0
         self.helpers = []  # (name, param types, return type)
+        # A statement that indexes with 0 or -1 is often guarded by `if len(base) > 0:`, so
+        # that fewer programs end early in an IndexError.
+        self.guarding = False
+        self.guard_bases = []
         self.lines = []
         self.indent = 1
 
@@ -210,8 +234,10 @@ class Gen:
         return out
 
     def index(self, sc, base):
-        k = self.ch.weighted([(8, "0"), (3, "1"), (2, "-1"), (1, "2"), (1, "3"), (1, "len"),
-                              (1, "vi"), (1, "True"), (1, "-4"), (1, "tr")])
+        k = self.ch.weighted([(24, "0"), (4, "1"), (6, "-1"), (1, "2"), (1, "3"), (1, "len"),
+                              (2, "vi"), (1, "True"), (1, "-4"), (2, "tr")])
+        if self.guarding and k in ("0", "-1") and "tr(" not in base:
+            self.guard_bases.append(base)
         if k == "len":
             return f"len({base})"
         if k == "vi":
@@ -299,6 +325,16 @@ class Gen:
             return self.seq_expr(T, sc, d)
         if k == "pylist":
             return self.pylist_expr(T, sc, d)
+        if k == "set":
+            r = self.path_of(sc, lambda t: is_seq(t) and elem(t) == T[1])
+            j = ch.pick(["lit", "set", "comp", "empty"])
+            if r and j == "set":
+                return f"set({r[0]})"
+            if r and j == "comp":
+                return f"{{x for x in {r[0]}}}"
+            if j == "lit" and d > 0:
+                return "set([" + self.elems(T[1], sc, d, ch.int(1, 3)) + "])"
+            return "set()"
         if k == "dict":
             n = ch.int(0, 1 if "dictorder" in AVOID else 2) if d > 0 else 0
             kvs = [f"{self.expr(T[1], sc, d - 1)}: {self.expr(T[2], sc, d - 1)}" for _ in range(n)]
@@ -315,9 +351,23 @@ class Gen:
     def int_expr(self, sc, d):
         ch = self.ch
         k = ch.weighted([(4, "lit"), (2, "len"), (1, "int"), (2, "binop"), (1, "neg"),
-                         (1, "index"), (1, "count"), (1, "setlen"), (1, "sum")])
+                         (1, "index"), (1, "count"), (1, "setlen"), (1, "sum"),
+                         (0 if "bitlength" in AVOID else 1, "bitlen"), (1, "frombytes"),
+                         (1, "serlen"), (1, "star")])
         if d <= 0 or k == "lit":
             return str(ch.lit(INT_LITS))
+        if k == "bitlen":
+            e, _ = self.any_numeric(sc, d - 1)
+            return f"({e}).bit_length()"
+        if k == "frombytes":
+            b = self.expr(BY(ch.pick(BYTES + [bytes])), sc, d - 1)
+            return f"int.from_bytes({b}, {ch.pick([repr('little'), repr('big')])})"
+        if k == "serlen":
+            e, _ = self.any_numeric(sc, d - 1)
+            return f"len(ssz_serialize({e}))"
+        if k == "star":
+            return f"{ch.pick(['min', 'max'])}(*[{self.expr(INT, sc, d - 1)}, " \
+                   f"{self.expr(INT, sc, d - 1)}])"
         if k == "len":
             r = self.path_of(sc, is_seq)
             if r:
@@ -440,6 +490,19 @@ class Gen:
 
     def bytes_expr(self, c, sc, d):
         ch = self.ch
+        if c is H.Root and d > 0 and ch.flip(30):
+            r = self.path_of(sc, lambda t: t[0] in ("cont", "seq"))
+            if r:
+                return f"hash_tree_root({r[0]})"
+        if c is bytes and d > 0 and ch.flip(25):
+            k = ch.pick(["ser", "method", "blob"])
+            if k == "ser":
+                e = self.expr(ch.pick([U(H.Uint64), U(H.Gwei), U(H.Uint8), BOOLEAN]), sc, d - 1)
+                return f"ssz_serialize({e})"
+            r = self.path_of(sc, lambda t: t[0] in ("cont", "seq") and
+                             (k == "method" or t == S(H.Blob)))
+            if r:
+                return f"{r[0]}.hash_tree_root()" if k == "method" else f"{r[0]}[0:2]"
         if c is bytes:
             r = self.path_of(sc, lambda t: t[0] == "bytes")
             if r and d > 0:
@@ -458,7 +521,7 @@ class Gen:
     def cont_expr(self, T, sc, d):
         ch = self.ch
         c = T[1]
-        k = ch.weighted([(4, "ctor"), (1, "copy"), (1, "empty")])
+        k = ch.weighted([(8, "ctor"), (1, "copy"), (1, "empty")])
         if k == "copy" and d > 0:
             p = self.path_eq(sc, T)
             if p:
@@ -467,8 +530,8 @@ class Gen:
             return f"{c.__name__}()"
         kws = []
         for f, ft in fields(T):
-            if ch.flip(50):
-                ft2 = ch.weighted(LOCAL_TYPES) if ch.flip(mis(3)) else ft
+            if ch.flip(75):
+                ft2 = ch.weighted(avail(LOCAL_TYPES)) if ch.flip(mis(3)) else ft
                 kws.append(f"{f}={self.expr(ft2, sc, d - 1)}")
         return f"{c.__name__}({', '.join(kws)})"
 
@@ -479,7 +542,7 @@ class Gen:
         ch = self.ch
         c = T[1]
         E = elem(T)
-        k = ch.weighted([(4, "data"), (2, "share"), (1, "empty"), (1, "slice"), (1, "copy")])
+        k = ch.weighted([(6, "data"), (2, "share"), (1, "empty"), (1, "slice"), (1, "copy")])
         name = c.__name__
         if d <= 0 or k == "empty":
             return f"{name}()"
@@ -512,6 +575,20 @@ class Gen:
                          (0 if "pycopy" in AVOID else 1, "copy")])
         if d <= 0 or k == "lit":
             return f"[{self.elems(E, sc, d, ch.int(0, 3))}]"
+        if ch.flip(15):
+            r = self.path_of(sc, lambda t: t[0] == "set" and t[1] == E)
+            if r:
+                other = self.path_of(sc, lambda t: is_seq(t) and elem(t) == E)
+                arg = f"set({other[0]})" if other else "set()"
+                m = "" if "setmethods" in AVOID else ch.pick(["union", "intersection", "difference", ""])
+                return f"sorted({r[0]}.{m}({arg}))" if m else f"sorted({r[0]})"
+            r = self.path_of(sc, lambda t: t[0] == "dict" and t[2] == E)
+            if r and "dictviews" not in AVOID:
+                return ch.pick([f"list({r[0]}.values())", f"[v for k, v in {r[0]}.items()]"])
+            r = self.path_of(sc, lambda t: t[0] == "dict" and t[1] == E)
+            if r:
+                return ch.pick([f"[k for k in {r[0]}]"] +
+                               ([] if "dictviews" in AVOID else [f"list({r[0]}.keys())"]))
         if k == "grow":
             r = self.path_of(sc, lambda t: growable(t) and elem(t) == E)
             if r:
@@ -582,8 +659,23 @@ class Gen:
                          (4, "pattern"), (2, "for"), (1, "while"), (2, "if"), (1, "assert"),
                          (2, "call"), (1, "raise"), (1, "swap"), (1, "multi"), (1, "slice"),
                          (1, "extend"), (1, "ret"), (1, "brk" if in_loop else "local"),
-                         (1, "unpack"), (1, "each"), (2, "dict")])
-        getattr(self, "s_" + k)(sc, in_loop)
+                         (1, "unpack"), (1, "each"), (2, "dict"), (2, "set"), (1, "closure"),
+                         (1, "hazard")])
+        if k in GUARDABLE and ch.flip(80):
+            self.guarding, self.guard_bases = True, []
+            start = len(self.lines)
+            bound = dict(sc.vars)
+            getattr(self, "s_" + k)(sc, in_loop)
+            self.guarding = False
+            bases = list(dict.fromkeys(self.guard_bases))
+            # A statement that binds a name stays unguarded, so that no later read of the
+            # name fails.
+            if bases and len(self.lines) > start and sc.vars == bound:
+                body = ["    " + line for line in self.lines[start:]]
+                cond = " and ".join(f"len({b}) > 0" for b in bases)
+                self.lines[start:] = ["    " * self.indent + f"if {cond}:"] + body
+        else:
+            getattr(self, "s_" + k)(sc, in_loop)
 
     def s_local(self, sc, in_loop):
         ch = self.ch
@@ -592,7 +684,7 @@ class Gen:
             v = ch.pick(locs)
             T = sc.vars[v]
         else:
-            T = ch.weighted(LOCAL_TYPES)
+            T = ch.weighted(avail(LOCAL_TYPES))
             v = self.fresh("v")
         e = self.expr(T, sc)
         if ch.flip(10):
@@ -602,9 +694,10 @@ class Gen:
         sc.vars[v] = T
 
     def annot(self, T):
-        if T[0] in ("uint", "bytes", "cont", "seq"):
+        if T[0] in ("uint", "cont", "seq") or (T[0] == "bytes" and T[1] is not bytes):
             return T[1].__name__
-        return {"int": "int", "bool": "bool", "Boolean": "Boolean", "pylist": "list", "dict": "dict"}.get(T[0],
+        return {"int": "int", "bool": "bool", "Boolean": "Boolean", "pylist": "list", "dict": "dict",
+                "set": "set", "bytes": "bytes"}.get(T[0],
                                                                                          "int")
 
     def s_field(self, sc, in_loop):
@@ -614,7 +707,7 @@ class Gen:
         p, T = r
         f, ft = self.ch.pick(fields(T))
         if self.ch.flip(mis(5)):
-            ft = self.ch.weighted(LOCAL_TYPES)
+            ft = self.ch.weighted(avail(LOCAL_TYPES))
         self.emit(f"{p}.{f} = {self.expr(ft, sc)}")
 
     def s_elem(self, sc, in_loop):
@@ -624,7 +717,7 @@ class Gen:
         p, T = r
         E = elem(T)
         if self.ch.flip(mis(5)):
-            E = self.ch.weighted(LOCAL_TYPES)
+            E = self.ch.weighted(avail(LOCAL_TYPES))
         idx = self.index(sc, p)
         self.emit(f"{p}[{idx}] = {self.expr(E, sc)}")
 
@@ -645,7 +738,7 @@ class Gen:
         if r is None:
             return self.s_local(sc, in_loop)
         p, T = r
-        E = self.ch.weighted(LOCAL_TYPES) if self.ch.flip(mis(5)) else elem(T)
+        E = self.ch.weighted(avail(LOCAL_TYPES)) if self.ch.flip(mis(5)) else elem(T)
         self.guard_append(p, T, self.expr(E, sc))
 
     def s_extend(self, sc, in_loop):
@@ -736,7 +829,7 @@ class Gen:
                 return self.s_local(sc, in_loop)
             e, T = ch.pick(ps)
             p = self.fill(sc, e)
-            idx = self.trace(ch.pick(["0", "-1", "1", "5"]))
+            idx = self.trace(ch.weighted([(4, "0"), (2, "-1"), (1, "1"), (1, "5")]))
             obj = self.trace(p) if ch.flip(50) else p
             if k == "evalorder":
                 self.emit(f"{obj}[{idx}] = {self.trace(self.expr(elem(T), sc, 1))}")
@@ -817,10 +910,12 @@ class Gen:
             return self.s_local(sc, in_loop)
         name, ps, _ = self.ch.pick(self.helpers)
         args = ", ".join(["log"] + [self.expr(p, sc, 1) for p in ps])
+        if self.ch.flip(20):
+            args = f"*[{args}]"
         self.emit(f"{name}({args})")
 
     def s_unpack(self, sc, in_loop):
-        ta, tb = self.ch.weighted(LOCAL_TYPES), self.ch.weighted(LOCAL_TYPES)
+        ta, tb = self.ch.weighted(avail(LOCAL_TYPES)), self.ch.weighted(avail(LOCAL_TYPES))
         a, b = self.fresh("v"), self.fresh("v")
         self.emit(f"{a}, {b} = {self.expr(ta, sc)}, {self.expr(tb, sc)}")
         sc.vars[a], sc.vars[b] = ta, tb
@@ -836,6 +931,96 @@ class Gen:
             body = self.trace("x")
         self.emit(f"each({p}, lambda x: {body})")
 
+    def s_set(self, sc, in_loop):
+        ch = self.ch
+        ss = [v for v, t in sc.vars.items() if t[0] == "set"]
+        if not ss or ch.flip(30):
+            T = SET(ch.pick([U(H.Gwei), U(H.Slot), INT, BY(H.Root)]))
+            v = self.fresh("s")
+            self.emit(f"{v} = {self.expr(T, sc)}")
+            sc.vars[v] = T
+            if ch.flip(50):
+                return
+        else:
+            v = ch.pick(ss)
+        E = sc.vars[v][1]
+        k = ch.pick(["add", "add", "in", "len", "iter", "method", "method"])
+        if k == "method":
+            other = self.path_of(sc, lambda t: is_seq(t) and elem(t) == E)
+            arg = f"set({other[0]})" if other else f"set([{self.expr(E, sc, 1)}])"
+            ms = ["union", "intersection"] + ([] if "setmethods" in AVOID else ["difference"])
+            w = self.fresh("s")
+            self.emit(f"{w} = {v}.{ch.pick(ms)}({arg})")
+            sc.vars[w] = sc.vars[v]
+            self.emit(f"log.append(sorted({w}))")
+        elif k == "add":
+            self.emit(f"{v}.add({self.expr(E, sc, 1)})")
+        elif k == "in":
+            self.emit(f"log.append({self.expr(E, sc, 1)} in {v})")
+        elif k == "len":
+            self.emit(f"log.append(len({v}))")
+        else:
+            x = self.fresh("x")
+            self.emit(f"for {x} in sorted({v}):")
+            self.indent += 1
+            self.emit(f"log.append({x})")
+            self.indent -= 1
+
+    def s_closure(self, sc, in_loop):
+        """A nested `def` that reads only its parameter and `log`, then a call of it."""
+        ch = self.ch
+        c = self.fresh("c")
+        self.emit(f"def {c}(x):")
+        self.indent += 1
+        self.emit(f"log.append({ch.pick(['x', '1', 'len(log)'])})")
+        self.emit("return x")
+        self.indent -= 1
+        r = self.path_of(sc, is_seq)
+        if r and ch.flip(60):
+            self.emit(f"each({r[0]}, {c})")
+        else:
+            self.emit(f"{c}({self.expr(ch.weighted(avail(LOCAL_TYPES)), sc, 1)})")
+
+    def s_hazard(self, sc, in_loop):
+        """A write through an object that a second path reaches (SPEC 9.4)."""
+        ch = self.ch
+        k = ch.pick(["ctorshare", "appendshared", "fieldcopy", "calleealias"])
+        if k == "ctorshare":
+            r = self.path_of(sc, lambda t: t == C(H.Box))
+            if r is None:
+                return self.s_pattern(sc, in_loop)
+            v = self.fresh("v")
+            self.emit(f"{v} = Box(ps={r[0]}.ps, p={r[0]}.q)")
+            sc.vars[v] = C(H.Box)
+            self.emit(ch.pick([f"{v}.p.a = Uint64(3)", f"{v}.ps.append(Pt())",
+                               f"{r[0]}.q.s = Slot(4)"]))
+        elif k == "appendshared":
+            r = self.path_of(sc, lambda t: t == C(H.Box))
+            if r is None:
+                return self.s_pattern(sc, in_loop)
+            self.emit(f"{r[0]}.ps.append({r[0]}.{ch.pick(['p', 'q'])})")
+            self.emit(f"{r[0]}.ps[-1].a = Uint64(5)")
+        elif k == "fieldcopy":
+            r = self.path_of(sc, lambda t: t in (C(H.Box), C(H.PBox)))
+            if r is None:
+                return self.s_pattern(sc, in_loop)
+            if r[1] == C(H.Box):
+                self.emit(f"{r[0]}.q = {r[0]}.p")
+                self.emit(f"{r[0]}.p.f = True")
+            else:
+                self.emit(f"{r[0]}.pair[1] = {r[0]}.pair[0]")
+                self.emit(f"{r[0]}.pair[0].a = Uint64(6)")
+        else:
+            hs = [h for h in self.helpers if C(H.Pt) in h[1]]
+            r = self.path_of(sc, lambda t: t == C(H.Box))
+            if not hs or r is None:
+                return self.s_pattern(sc, in_loop)
+            name, ps, _ = ch.pick(hs)
+            self.emit(f"{r[0]}.q = {r[0]}.p")
+            args = ", ".join(["log"] + [f"{r[0]}.p" if p == C(H.Pt) else self.expr(p, sc, 1)
+                                        for p in ps])
+            self.emit(f"{name}({args})")
+
     def s_dict(self, sc, in_loop):
         ch = self.ch
         ds = [v for v, t in sc.vars.items() if t[0] == "dict"]
@@ -845,12 +1030,15 @@ class Gen:
             v = self.fresh("d")
             self.emit(f"{v} = {self.expr(T, sc)}")
             sc.vars[v] = T
-            return
-        v = ch.pick(ds)
+            if ch.flip(50):
+                return
+        else:
+            v = ch.pick(ds)
         T = sc.vars[v]
         key = self.expr(T[1], sc, 1)
         k = ch.weighted([(4, "set"), (2, "get"), (2, "index"), (1, "in"), (1, "iter"),
-                         (1, "write")])
+                         (1, "write"), (0 if "dictviews" in AVOID else 1, "items"),
+                         (0 if "dictviews" in AVOID else 1, "values")])
         if k == "set":
             self.emit(f"{v}[{key}] = {self.expr(T[2], sc)}")
         elif k == "get":
@@ -865,6 +1053,18 @@ class Gen:
             sc.vars[w] = T[2]
         elif k == "in":
             self.emit(f"assert ({key} {ch.pick(['in', 'not in'])} {v}) or len({v}) >= 0")
+        elif k == "items":
+            x, y = self.fresh("x"), self.fresh("x")
+            self.emit(f"for {x}, {y} in {v}.items():")
+            self.indent += 1
+            self.emit(f"log.append({x})")
+            self.indent -= 1
+        elif k == "values":
+            x = self.fresh("x")
+            self.emit(f"for {x} in {v}.values():")
+            self.indent += 1
+            self.emit(f"log.append({x})")
+            self.indent -= 1
         elif k == "iter":
             x = self.fresh("x")
             self.emit(f"for {x} in {ch.pick([v, f'sorted({v})'])}:")
@@ -887,7 +1087,7 @@ class Gen:
         self.emit(f"{a}, {b} = {b}, {a}")
 
     def s_multi(self, sc, in_loop):
-        T = self.ch.weighted(LOCAL_TYPES)
+        T = self.ch.weighted(avail(LOCAL_TYPES))
         a, b = self.fresh("v"), self.fresh("v")
         self.emit(f"{a} = {b} = {self.expr(T, sc)}")
         sc.vars[a] = sc.vars[b] = T
@@ -908,9 +1108,10 @@ class Gen:
     # Functions and inputs
 
     def function(self, name, params, ret, n_stmts, in_helper):
-        self.lines.append(f"def {name}({', '.join(['log'] if in_helper else [])}"
-                          f"{', ' if in_helper and params else ''}"
-                          f"{', '.join(p for p, _ in params)}{'' if in_helper else ', log'}):")
+        ps = [f"{p}: {self.annot(T)}" for p, T in params]
+        ps = ["log"] + ps if in_helper else ps + ["log"]
+        rann = f" -> {self.annot(ret)}" if in_helper and ret[0] in ("cont", "seq") else ""
+        self.lines.append(f"def {name}({', '.join(ps)}){rann}:")
         sc = Scope(params, in_helper)
         self.indent = 1
         self.ret_type = ret
@@ -946,18 +1147,20 @@ def mk_value(ch, T, lines, objs, d=0):
         kws = [f"{f}={mk_value(ch, ft, lines, objs, d + 1)}" for f, ft in fields(T)
                if d < 2 and ch.flip(85)]
         e = f"{T[1].__name__}({', '.join(kws)})"
+    elif k == "seq" and T[1] is H.Blob:
+        e = f"Blob(data=bytes([{', '.join(str(ch.pick([0, 1, 255])) for _ in range(ch.int(0, 4)))}]))"
     elif k == "seq":
         c = T[1]
         if issubclass(c, (H.Vector, H.BitVector)):
             n = c.LENGTH
         else:
-            n = ch.weighted([(4, 1), (1, 0), (3, 2), (2, getattr(c, "LIMIT", None) or 4)])
+            n = ch.weighted([(4, 1), (1, 0), (3, 2), (3, getattr(c, "LIMIT", None) or 4)])
         es = [mk_value(ch, elem(T), lines, objs, d + 1) for _ in range(n)] if d < 3 else []
         if len(es) != n:
             return f"{c.__name__}()"
         e = f"{c.__name__}(data=[{', '.join(es)}])"
     else:
-        n = ch.int(0, 3) if d < 3 else 0
+        n = ch.weighted([(4, 1), (1, 0), (3, 2), (2, 3)]) if d < 3 else 0
         e = f"[{', '.join(mk_value(ch, T[1], lines, objs, d + 1) for _ in range(n))}]"
     name = f"o{len(objs)}"
     lines.append(f"    {name} = {e}")
@@ -985,18 +1188,18 @@ def each(xs, fn):
 
 def gen_case(ch: Ch) -> str:
     g = Gen(ch)
-    arg_types = [ch.weighted(ARG_TYPES) for _ in range(ch.int(1, 3))]
+    arg_types = [ch.weighted(avail(ARG_TYPES)) for _ in range(ch.int(1, 3))]
     mk_lines, objs = [], []
     arg_names = [mk_value(ch, T, mk_lines, objs) for T in arg_types]
     mk = "def mk():\n" + "\n".join(mk_lines) + \
          f"\n    return [{', '.join(arg_names)}, []]\n\n"
-    for i in range(ch.int(0, 2)):
-        ps = [(f"p{j}", ch.weighted(ARG_TYPES)) for j in range(ch.int(1, 2))]
-        ret = ch.weighted([(3, NONE)] + ARG_TYPES)
+    for i in range(ch.weighted([(3, 0), (4, 1), (3, 2), (1, 3), (1, 4)])):
+        ps = [(f"p{j}", ch.weighted(avail(ARG_TYPES))) for j in range(ch.int(1, 2))]
+        ret = ch.weighted([(3, NONE)] + avail(ARG_TYPES))
         g.function(f"g{i}", ps, ret, ch.int(1, 3), True)
         g.helpers.append((f"g{i}", [t for _, t in ps], ret))
     params = [(f"a{i}", T) for i, T in enumerate(arg_types)]
-    ret = ch.weighted([(2, NONE)] + ARG_TYPES)
+    ret = ch.weighted([(2, NONE)] + avail(ARG_TYPES))
     g.function("f", params, ret, ch.int(1, 6), False)
     src = mk + TR + "\n".join(g.lines)
     ast.parse(src)
