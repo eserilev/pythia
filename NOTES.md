@@ -436,9 +436,22 @@ For the proofs, the new rule makes the per-function theorems simpler. The cost m
 lemma: a write to an object with one path, with no new paths created, keeps the whole state free
 of unsafe sharing.
 
-Status at 22:00: the minimal preset is done. All 678 runnable cases pass, with the sharing
-check on and 0 hits. The 3 cases that need real BLS are skipped. The mainnet vectors are
-generated (50 minutes). The mainnet run comes next, then the 11 fuzzer bugs.
+Final result (committed as `4ebc9c3`):
+
+- Minimal: all 678 runnable cases pass. With the sharing check on: 0 hits, 4 minutes on 16 cores.
+- Mainnet: 598 of 605 pass, with 0 wrong results. 7 multi-epoch cases time out at 30 minutes.
+- Skipped: about 100 cases per preset that need real BLS, and 9 mainnet cases that change the
+  blob schedule in the config.
+
+The big speed fix: heap and local-name lookups walked a growing chain of closures. A persistent
+trie behind each one cut one sanity case from 355 s to 5 s. The definitions that proofs read did
+not change, so the proofs did not change either.
+
+The vectors found more interpreter bugs: list `+`, `*` and `+=`, `Uint64(Boolean)`, a missing
+BLS constant, and a BLS helper that pyspec routes through the oracle.
+
+The fuzzer had one diagnosis wrong. It said a dict literal evaluates all keys first. CPython
+evaluates key 1, value 1, key 2, value 2. The fuzzer's own repro shows this order.
 
 ### Next: split core and library (approved)
 
@@ -449,3 +462,12 @@ as the execution specs (EELS) or leanSpec, then needs only a new plugin.
 
 Why now: the split changes the `Value` type. Step 5 adds many proofs that depend on it, so the
 split is cheaper before step 5.
+
+Decision (2026-10-05): do the split in two parts.
+
+1. Now: move every SSZ behavior into a plugin (`LibModel`, with `sszModel` as the first one). The
+   core asks the plugin first and falls back to Python rules. The serializer splits the same way.
+2. Later: the data types. Heap objects still carry SSZ tags (list kind, element type, limit). About
+   60 places in the proofs match on them. Making them generic now means guessing the interface
+   for a second target that we have not started. So we only measure the cost now, on a scratch
+   copy, and decide when work on EELS or leanSpec starts.
