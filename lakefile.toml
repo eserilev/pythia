@@ -1,0 +1,10 @@
+name = "ConsensusSpecsLean"
+version = "0.1.0"
+defaultTargets = ["SpecLean"]
+
+[[lean_lib]]
+name = "SpecLean"
+
+[[lean_lib]]
+name = "Tests"
+globs = ["Tests.Harness", "Tests.ValueRules", "Tests.Sha256", "Tests.Render", "Tests.Gen.Constructs"]
