@@ -25,6 +25,7 @@ INT, BOOL, BOOLEAN, NONE = ("int",), ("bool",), ("Boolean",), ("none",)
 # - "livecomp": a comprehension that appends to the list it iterates (`grow`).
 # - "pycopy": `.copy()` of a Python list.
 # - "shortcircuit": `any` and `all` over a generator with side effects or errors.
+# - "negstep": `range` with a negative step.
 AVOID: set[str] = set()
 
 
@@ -762,7 +763,10 @@ class Gen:
             inner.vars[x] = elem(T)
             inner.vars[y] = elem(r2[1])
         elif k == "range":
-            self.emit(f"for {x} in range({ch.pick([f'len({p})', '3', '0', '1, 3', '0, 4, 2', '3, 0, -1'])}):")
+            bounds = [f"len({p})", "3", "0", "1, 3", "0, 4, 2"]
+            if "negstep" not in AVOID:
+                bounds.append("3, 0, -1")
+            self.emit(f"for {x} in range({ch.pick(bounds)}):")
             inner.vars[x] = INT
         elif k == "sorted" and numeric(elem(T)):
             self.emit(f"for {x} in sorted({p}):")
