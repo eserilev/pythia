@@ -265,7 +265,7 @@ theorem peb_step (h0 : Heap) (Ly : PebLayout)
     exact get_max_effective_balance_run sha _ h r v hdx
   simp [assignTarget, assignTargets, execBlock, execStmt, evalExpr, evalList, evalArgs, lookupName,
     hLs, hL28, hL29, hL31, hL33, hLu, hLm, hLg, g_EBI sha, g_HQ sha, g_HDM sha, g_HUM sha,
-    g_Uint64 sha, g_min sha, g_get_max sha, call_Uint64, c11, call_min, applyType,
+    g_Uint64 sha, g_min sha, g_get_max sha, call_Uint64, c11, call_min, Ssz.construct,
     getAttr_container _ hroot (fi_balances sha), hfb, getItem_list_int hoba]
   rw [peb_body_eq]
   simp only [hv]
@@ -327,7 +327,8 @@ theorem peb_step (h0 : Heap) (Ly : PebLayout)
       .uint gweiTy (Readable.get_max_effective_balance v).val] [] =
       .ok (.uint gweiTy (Readable.umin (⟨g.val - g.val % 1000000000⟩ : Readable.Gwei)
         (Readable.get_max_effective_balance v)).val, h) := by
-    simp only [applyBuiltin, pickBest, cmp_uint (hr := rgg), cmpInt, Except.bind_ok',
+    simp only [applyBuiltin, LibModel.builtin, Ssz.builtin, pickBest, cmp_uint (hr := rgg),
+      cmpInt, Except.bind_ok',
       decide_eq_true_eq, Int.ofNat_lt, Readable.umin, Except.pure_ok']
     by_cases hm : (Readable.get_max_effective_balance v).val < g.val - g.val % 1000000000
     · simp [hm, Readable.val]
@@ -341,7 +342,7 @@ theorem peb_step (h0 : Heap) (Ly : PebLayout)
     rw [setAttr_container _ hvo (fi_eb sha) _ (fun _ e => by cases e)]
     simp only [coerceField, gweiTy, UintTy.bits] at hm64 ⊢
     simp [hm64]
-  simp only [Except.map_ok', Except.bind_ok', cmpInt, Int.ofNat_lt, decide_eq_true_eq, truthy,
+  simp only [Except.map_ok', Except.bind_ok', cmpInt, Int.ofNat_lt, decide_eq_true_eq, truthy, LibValues.truthy, Ssz.truthy, pyTruthy,
     c11', compareOp, truthyH, getAttr_container _ hvo (fi_eb sha), hveb, cmp_uint (hr := rgg),
     seqBinop_uu,
     binop_mod (hr := rgg) (hb := rfl), binop_sub (hr := rgg) (hb := rfl), hmod, hsub, erase_ok]
@@ -417,6 +418,7 @@ theorem process_effective_balance_updates_run (k : Nat) (h : Heap) (root : Nat)
   simp [callFn, fn_process_effective_balance_updates, execBlock, execStmt, evalExpr, evalList,
     evalArgs, lookupName, bindArgs, bindArgs.go, g_enumerate sha,
     getAttr_container _ hroot (fi_validators sha), hfv, call_enumerate, applyBuiltin,
+    LibModel.builtin, Ssz.builtin,
     iterSource, toSeq, hova]
   rw [show k + state.validators.length + 24 = k + state.validators.length + 3 + 20 + 1 by omega]
   rw [Readable.process_effective_balance_updates]

@@ -19,7 +19,7 @@ theorem saturating_sub_run (k : Nat) (h : Heap) (a b : Nat) :
   rw [callValue_fn _ _ _ (g_saturating_sub sha)]
   have rg : resolveUint gweiTy gweiTy = .ok gweiTy := rfl
   simp [callFn, fn_saturating_sub, execBlock, execStmt, evalExpr, evalCmp, evalList, lookupName,
-    bindArgs, bindArgs.go, compareOp, cmp_uint (hr := rg), cmpInt, truthyH, truthy,
+    bindArgs, bindArgs.go, compareOp, cmp_uint (hr := rg), cmpInt, truthyH, truthy, LibValues.truthy, Ssz.truthy, pyTruthy,
     binop_sub (hr := rg) (hb := rfl), satSub]
   by_cases hab : b < a
   · simp only [hab, ↓reduceIte]; cases chkSub a b <;> rfl

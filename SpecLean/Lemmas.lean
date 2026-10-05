@@ -1,4 +1,5 @@
 import SpecLean.Interp
+import SpecLean.Ssz
 
 /-!
 # Generic lemmas about the interpreter
@@ -169,10 +170,10 @@ theorem interp_while {σ σ' : Type} (env : Env) (c : Expr) (body : List Stmt) (
     intro s L h hR hμ
     rw [execWhile, hcond 0 s L h hR, hloop]
     cases hc : cond s
-    · simp [truthy, StepRel]; exact ⟨s, hR, hc, rfl⟩
+    · simp [truthy, LibValues.truthy, Ssz.truthy, pyTruthy, StepRel]; exact ⟨s, hR, hc, rfl⟩
     · obtain hb := hbody 0 s L h hR hc
       rw [Nat.zero_add] at hb
-      simp only [Except.bind_ok', truthy, ↓reduceIte, Nat.zero_add]
+      simp only [Except.bind_ok', truthy, LibValues.truthy, Ssz.truthy, pyTruthy, ↓reduceIte, Nat.zero_add]
       cases hs : step s with
       | error e =>
         rw [hs] at hb
@@ -184,9 +185,9 @@ theorem interp_while {σ σ' : Type} (env : Env) (c : Expr) (body : List Stmt) (
     intro s L h hR hμ
     rw [execWhile, hcond (n + 1) s L h hR, hloop]
     cases hc : cond s
-    · simp [truthy, StepRel]; exact ⟨s, hR, hc, rfl⟩
+    · simp [truthy, LibValues.truthy, Ssz.truthy, pyTruthy, StepRel]; exact ⟨s, hR, hc, rfl⟩
     · obtain hb := hbody (n + 1) s L h hR hc
-      simp only [Except.bind_ok', truthy, ↓reduceIte]
+      simp only [Except.bind_ok', truthy, LibValues.truthy, Ssz.truthy, pyTruthy, ↓reduceIte]
       revert hb
       cases hs : step s with
       | error e =>
@@ -229,7 +230,7 @@ theorem getItem_list {h : Heap} {a : Nat} {k e l xs} (ho : h.objs a = some (.lis
       match xs[i]? with
       | some v => .ok v
       | none => .error .indexError := by
-  simp only [getItem, toIndex, Except.bind_ok', ho, normIndex_nat]
+  simp only [getItem, Ssz.toIndex_uint, Ssz.toIndex_int, Except.bind_ok', ho, normIndex_nat]
   by_cases hi : i < xs.length
   · simp [hi]
   · simp [hi]
@@ -240,16 +241,23 @@ theorem getItem_list_int {h : Heap} {a : Nat} {k e l xs} (ho : h.objs a = some (
       match xs[i]? with
       | some v => .ok v
       | none => .error .indexError := by
-  simp only [getItem, toIndex, Except.bind_ok', ho, normIndex_nat]
+  simp only [getItem, Ssz.toIndex_uint, Ssz.toIndex_int, Except.bind_ok', ho, normIndex_nat]
   by_cases hi : i < xs.length <;> simp [hi]
 
 /-- `coerceH` on a value that is not a heap object, into a type that is not a heap type. -/
 theorem coerceH_plain (env : Env) (b : Bool) (d : Nat) (h : Heap) (u : UintTy) (v : Value)
     (hv : ∀ a, v ≠ .ref a) :
-    coerceH env b (d + 1) h (.uint u) v =
+    Ssz.coerceH env b (d + 1) h (.uint u) v =
       (fun x => (x, h)) <$> (if b then coerceField (.uint u) v else coerceElem (.uint u) v) := by
-  rw [coerceH.eq_def]
+  rw [Ssz.coerceH.eq_def]
   cases v <;> first | (exact absurd rfl (hv _)) | (cases b <;> simp <;> rfl)
+
+/-- The coercion of a value that is not a heap object, into a uint type. -/
+theorem coerceWith_uint (env : Env) (b : Bool) (h : Heap) (u : UintTy) (v : Value)
+    (hv : ∀ a, v ≠ .ref a) :
+    coerceWith env b h (.uint u) v =
+      (fun x => (x, h)) <$> (if b then coerceField (.uint u) v else coerceElem (.uint u) v) := by
+  simp only [coerceWith, LibModel.coerce, Ssz.coerce, depthBound, coerceH_plain env b 63 h u v hv]
 
 theorem setItem_list {env : Env} {h : Heap} {a : Nat} {k u l xs}
     (ho : h.objs a = some (.list k (.uint u) l xs)) (t : UintTy) (i : Nat) (v : Value)
@@ -258,7 +266,7 @@ theorem setItem_list {env : Env} {h : Heap} {a : Nat} {k u l xs}
       let v' ← coerceElem (.uint u) v
       if i < xs.length then .ok (h.set a (.list k (.uint u) l (xs.set i v')))
       else .error .indexError) := by
-  simp only [setItem, ho, toIndex, Except.bind_ok', depthBound, coerceH_plain env false 63 h u v hv,
+  simp only [setItem, ho, Ssz.toIndex_uint, Except.bind_ok', coerceWith_uint env false h u v hv,
     normIndex_nat]
   cases coerceElem (.uint u) v with
   | error => rfl
@@ -278,7 +286,7 @@ theorem setAttr_container (env : Env) {h : Heap} {a : Nat} {ty fs} {f i : Nat} {
     setAttr env h (.ref a) f v = (do
       let v' ← coerceField (.uint u) v
       .ok (h.set a (.container ty (fs.set i v')))) := by
-  simp only [setAttr, ho, hf, depthBound, coerceH_plain env true 63 h u v hv]
+  simp only [setAttr, ho, hf, coerceWith_uint env true h u v hv]
   cases coerceField (.uint u) v <;> rfl
 
 /-- A binary operator on values outside the heap does not go through `seqBinop`. -/

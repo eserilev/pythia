@@ -124,42 +124,4 @@ def alloc (h : Heap) (o : HeapObj) : Nat × Heap :=
 
 end Heap
 
-/-- Element write of a value that is not a heap object, into a list
-(`_SSZList._validate_element`). The exact class passes. An ancestor class (a plain `int` or
-the width class) is wrapped with a range check. Anything else raises `SSZTypeError`. -/
-def coerceElem : SszTy → Value → Res Value
-  | .uint t, .uint t' n =>
-    if t' = t then .ok (.uint t n)
-    else if t' = .width t.bits then wrapUint t n
-    else .error .typeError
-  | .uint t, .int n => wrapUint t n
-  | .container _, .ref a => .ok (.ref a)
-  | .boolean, .boolean b => .ok (.boolean b)
-  | .boolean, .bool b => .ok (.boolean b)
-  | .boolean, .int n =>
-    if n = 0 then .ok (.boolean false) else if n = 1 then .ok (.boolean true)
-    else .error .sszValue
-  | .bytes ty len, .bytes _ b => if b.length = len then .ok (.bytes ty b) else .error .sszValue
-  | .any, v => .ok v
-  | _, _ => .error .typeError
-
-/-- Field write of a value that is not a heap object, into a container (pydantic
-`validate_assignment`). The field schema is a strict `int` in range, so every uint class
-passes, siblings included. A subclass of the field type keeps its class (probed: `Slot` into a
-`Uint64` field stays `Slot`). A range failure raises a pydantic `ValidationError`. -/
-def coerceField : SszTy → Value → Res Value
-  | .uint t, .uint t' n =>
-    if n < 2 ^ t.bits then
-      .ok (.uint (if t'.subOf t then t' else t) n)
-    else .error .validation
-  | .uint t, .int n =>
-    if 0 ≤ n ∧ n < 2 ^ t.bits then .ok (.uint t n.toNat) else .error .validation
-  -- A Python `bool` passes. An `int`, even 0 or 1, does not (probed).
-  | .boolean, .boolean b => .ok (.boolean b)
-  | .boolean, .bool b => .ok (.boolean b)
-  | .boolean, _ => .error .validation
-  | .bytes ty len, .bytes _ b => if b.length = len then .ok (.bytes ty b) else .error .validation
-  | .any, v => .ok v
-  | _, _ => .error .validation
-
 end SpecLean

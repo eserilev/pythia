@@ -1,6 +1,6 @@
 import Runner.Case
 import Runner.Watch
-import SpecLean.Htr
+import SpecLean.Ssz
 import Tests.Sha256
 
 /-!

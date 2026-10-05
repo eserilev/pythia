@@ -11,6 +11,8 @@ Sequencing of statements and of arguments costs nothing. Running out of fuel is 
 
 namespace SpecLean
 
+variable [LibModel]
+
 def Locals.empty : Locals := ⟨fun _ => none, .nil⟩
 
 /-- Watches for the EF vector runner (SPEC 9.4): a local binding, and the entry and exit of a
@@ -331,7 +333,7 @@ def callValue (env : Env) : Nat → Value → List Value → List (Name × Value
           pure (allocPyList h1 ys)
         | _, _ => applyBuiltin env h .sorted vs kws
       | some (.builtin b) => applyBuiltin env h b vs kws
-      | some (.type t) => applyType env h t vs kws
+      | some (.type t) => LibModel.construct env h t vs kws
       | some (.dataclass ty) => applyDataclass env h ty vs kws
       | _ => .error .typeError
     | .ref a =>

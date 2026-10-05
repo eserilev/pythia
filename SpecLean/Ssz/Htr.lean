@@ -1,4 +1,5 @@
 import SpecLean.Builtins
+import SpecLean.Ssz.Values
 
 /-!
 # SSZ `hash_tree_root`

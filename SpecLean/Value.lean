@@ -62,10 +62,11 @@ def SpecError.fail : SpecError → Fail
 
 inductive Value where
   | int (n : Int)
+  /-- An SSZ uint of class `t`. The library (`SpecLean/Ssz`) owns its rules. -/
   | uint (t : UintTy) (n : Nat)
   /-- Python `bool`. -/
   | bool (b : Bool)
-  /-- SSZ `Boolean`. It is nominal: `Boolean == True` raises `TypeError`. -/
+  /-- SSZ `Boolean`. The library owns its rules. -/
   | boolean (b : Bool)
   | str (s : String)
   | none
@@ -86,18 +87,14 @@ inductive Value where
   | member (base : Value) (m : Name)
   deriving Repr, Inhabited
 
-/-- The result class of an operation on two uints: the more derived class wins.
-Unrelated classes raise `TypeError`. -/
-def resolveUint : UintTy → UintTy → Res UintTy
-  | .width b, .width b' => if b = b' then .ok (.width b) else .error .typeError
-  | .width b, .nominal n b' => if b = b' then .ok (.nominal n b') else .error .typeError
-  | .nominal n b, .width b' => if b = b' then .ok (.nominal n b) else .error .typeError
-  | .nominal n b, .nominal n' b' =>
-    if n = n' ∧ b = b' then .ok (.nominal n b) else .error .typeError
-
-/-- `cls._wrap`: the range check of a uint result. -/
-def wrapUint (t : UintTy) (r : Int) : Res Value :=
-  if 0 ≤ r ∧ r < 2 ^ t.bits then .ok (.uint t r.toNat) else .error .sszValue
+/-- The value rules of a Python library: SSZ for the spec (`SpecLean/Ssz`). The core asks the
+library first. A hook gives `none` when plain Python rules apply. -/
+class LibValues where
+  binop : BinOp → Value → Value → Option (Res Value)
+  unop : UnOp → Value → Option (Res Value)
+  compare : CmpOp → Value → Value → Option (Res Bool)
+  truthy : Value → Option (Res Bool)
+  index : Value → Option (Res Int)
 
 /-! ## Python integer bit operations, in two's complement -/
 
@@ -141,23 +138,13 @@ def intArith : BinOp → Int → Int → Res Int
     else if b < 2 ^ 32 then .ok (a * 2 ^ b.toNat) else .error (.other "MemoryError")
   | .rShift, a, b => if 0 ≤ b then .ok (a.fdiv (2 ^ b.toNat)) else .error .valueError
 
-/-- A binary operator. A plain `int` operand takes the class of the uint operand. The class
-check comes before the arithmetic, as in `BaseUint.__add__`. A Python `bool` acts as an `int`
-with another `int` or `bool`, and raises `TypeError` with a uint. -/
-def binopVal (op : BinOp) : Value → Value → Res Value
+/-- A binary operator on Python values: `int`, `bool`, `bytes` and `tuple`. A `bool` acts as
+an `int`. `bytes` of any class concatenate and repeat into plain `bytes`. -/
+def pyBinop (op : BinOp) : Value → Value → Res Value
   | .int a, .int b => .int <$> intArith op a b
-  | .uint t a, .uint t' b => do
-    let r ← resolveUint t t'
-    wrapUint r (← intArith op a b)
-  | .uint t a, .int b => do wrapUint t (← intArith op a b)
-  | .int a, .uint t b => do wrapUint t (← intArith op a b)
-  | .boolean _, _ | _, .boolean _ => .error .typeError
   | .bool a, .int b => .int <$> intArith op (if a then 1 else 0) b
   | .int a, .bool b => .int <$> intArith op a (if b then 1 else 0)
   | .bool a, .bool b => .int <$> intArith op (if a then 1 else 0) (if b then 1 else 0)
-  -- A `bool` on the left uses `int` rules (probed): `True + Uint64(1)` is the `int` 2.
-  | .bool a, .uint _ b => .int <$> intArith op (if a then 1 else 0) b
-  | .uint _ _, .bool _ => .error .typeError
   | .bytes _ a, .bytes _ b =>
     -- `Bytes32 + bytes` gives Python `bytes`. The interpreter names that class `bytes` = 0.
     match op with
@@ -178,15 +165,24 @@ def binopVal (op : BinOp) : Value → Value → Res Value
     | _ => .error .typeError
   | _, _ => .error .unsupported
 
-/-- A unary operator. `-x` and `~x` of a uint give a plain `int`. -/
-def unopVal : UnOp → Value → Res Value
+/-- A binary operator: the library first, then Python. -/
+def binopVal [LibValues] (op : BinOp) (x y : Value) : Res Value :=
+  match LibValues.binop op x y with
+  | some r => r
+  | none => pyBinop op x y
+
+/-- A unary operator on Python values. -/
+def pyUnop : UnOp → Value → Res Value
   | .neg, .int n => .ok (.int (-n))
-  | .neg, .uint _ n => .ok (.int (-(n : Int)))
   | .invert, .int n => .ok (.int (Int.not n))
-  | .invert, .uint _ n => .ok (.int (Int.not n))
   | .neg, .bool b => .ok (.int (if b then -1 else 0))
-  | _, .boolean _ => .error .typeError
   | _, _ => .error .unsupported
+
+/-- A unary operator: the library first, then Python. -/
+def unopVal [LibValues] (op : UnOp) (x : Value) : Res Value :=
+  match LibValues.unop op x with
+  | some r => r
+  | none => pyUnop op x
 
 def cmpInt : CmpOp → Int → Int → Bool
   | .eq, a, b => a == b
@@ -203,32 +199,15 @@ def eqLex : List Bool → Bool
   | [] => true
   | b :: bs => b && eqLex bs
 
-/-- An ordinary comparison of two values that need no heap. Two uints need related classes,
-as in `BaseUint._require_relation`. A uint against `None` or a `bool` raises `TypeError`. Two
-byte strings compare their contents, whatever their classes. -/
-def cmpVal (op : CmpOp) : Value → Value → Res Bool
+/-- An ordinary comparison of two Python values that need no heap. Two byte strings compare
+their contents, whatever their classes. -/
+def pyCmp (op : CmpOp) : Value → Value → Res Bool
   | .int a, .int b => .ok (cmpInt op a b)
-  | .uint t a, .uint t' b => do
-    let _ ← resolveUint t t'
-    pure (cmpInt op a b)
-  | .uint _ a, .int b => .ok (cmpInt op a b)
-  | .int a, .uint _ b => .ok (cmpInt op a b)
   | .bytes _ a, .bytes _ b =>
     match op with
     | .eq => .ok (a == b)
     | .notEq => .ok (a != b)
     | _ => .error .unsupported
-  | .boolean a, .boolean b =>
-    match op with
-    | .eq => .ok (a == b)
-    | .notEq => .ok (a != b)
-    | _ => .error .unsupported
-  -- `Boolean` is nominal: it does not compare with `bool`, `int` or a uint.
-  | .boolean _, _ | _, .boolean _ => .error .typeError
-  -- A `bool` on the left compares as an `int` (probed): `True == Gwei(0)` is `False`.
-  | .bool a, .uint _ b => .ok (cmpInt op (if a then 1 else 0) b)
-  -- A uint against any value that is not an `int` or a uint raises (`_require_relation`).
-  | .uint _ _, _ | _, .uint _ _ => .error .typeError
   | .bool a, .bool b => .ok (cmpInt op (if a then 1 else 0) (if b then 1 else 0))
   | .bool a, .int b => .ok (cmpInt op (if a then 1 else 0) b)
   | .int a, .bool b => .ok (cmpInt op a (if b then 1 else 0))
@@ -252,30 +231,45 @@ def cmpVal (op : CmpOp) : Value → Value → Res Bool
     | _ => .error .typeError
   | _, _ => .error .unsupported
 
+/-- An ordinary comparison: the library first, then Python. -/
+def cmpVal [LibValues] (op : CmpOp) (x y : Value) : Res Bool :=
+  match LibValues.compare op x y with
+  | some r => r
+  | none => pyCmp op x y
+
 /-- `a is b`. Only `None` and heap objects have an identity that spec code tests. -/
 def isVal : Value → Value → Bool
   | .none, .none => true
   | .ref a, .ref b => a == b
   | _, _ => false
 
-/-- Python truth value of a value that needs no heap. -/
-def truthy : Value → Res Bool
+/-- Python truth value of a Python value that needs no heap. -/
+def pyTruthy : Value → Res Bool
   | .bool b => .ok b
-  | .boolean b => .ok b
   | .int n => .ok (n != 0)
-  | .uint _ n => .ok (n != 0)
   | .none => .ok false
   | .str s => .ok (!s.isEmpty)
   | .bytes _ b => .ok (!b.isEmpty)
   | .tuple xs => .ok (!xs.isEmpty)
   | _ => .error .unsupported
 
-/-- A Python index: an `int`, a `bool` or a uint. -/
-def toIndex : Value → Res Int
+/-- Truth value: the library first, then Python. -/
+def truthy [LibValues] (v : Value) : Res Bool :=
+  match LibValues.truthy v with
+  | some r => r
+  | none => pyTruthy v
+
+/-- A Python index: an `int` or a `bool`. -/
+def pyIndex : Value → Res Int
   | .int n => .ok n
-  | .uint _ n => .ok n
   | .bool b => .ok (if b then 1 else 0)
   | _ => .error .typeError
+
+/-- An index: the library first, then Python. -/
+def toIndex [LibValues] (v : Value) : Res Int :=
+  match LibValues.index v with
+  | some r => r
+  | none => pyIndex v
 
 /-- Resolve a Python index against a length. A negative index counts from the end. -/
 def normIndex (len : Nat) (i : Int) : Option Nat :=

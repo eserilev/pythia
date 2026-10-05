@@ -136,11 +136,11 @@ theorem integer_squareroot_run (k B : Nat) (h : Heap) (N : Nat) (hN : N < 2 ^ 64
     Readable.UINT64_MAX]
   by_cases hmax : N = 18446744073709551615
   · subst hmax
-    simp [truthy, g_UINT64_MAX_SQRT, Readable.UINT64_MAX_SQRT, ResultMatches, IsqrtExpect,
+    simp [truthy, LibValues.truthy, Ssz.truthy, pyTruthy, g_UINT64_MAX_SQRT, Readable.UINT64_MAX_SQRT, ResultMatches, IsqrtExpect,
       decU64, decUint, u64Ty, UintTy.bits]
     exact pure_result (by rintro k ⟨a, fs, hk, -⟩; match k with | 0 | 1 => simp at hk | _ + 2 => simp at hk)
   have hmax' : ¬ ((N : Int) = 18446744073709551615) := by omega
-  simp [hmax, hmax', truthy, assignTarget, add1_int u64Ty rfl, uAdd_eq, uDiv_eq]
+  simp [hmax, hmax', truthy, LibValues.truthy, Ssz.truthy, pyTruthy, assignTarget, add1_int u64Ty rfl, uAdd_eq, uDiv_eq]
   cases hA : chkAdd N 1 with
   | error e => simp [ResultMatches, chkAdd_ne_oof hA]
   | ok a =>

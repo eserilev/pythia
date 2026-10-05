@@ -1,4 +1,5 @@
 import SpecLean.Interp
+import SpecLean.Ssz
 import Std.Data.HashMap
 
 /-!

@@ -69,10 +69,10 @@ include hr
 
 theorem binop_uint (op : BinOp) :
     binopVal op (.uint t a) (.uint t' b) = (intArith op a b >>= wrapUint r) := by
-  simp [binopVal, hr]
+  simp [Ssz.binopVal_uint, hr]
 
 theorem cmp_uint (op : CmpOp) : cmpVal op (.uint t a) (.uint t' b) = .ok (cmpInt op a b) := by
-  simp [cmpVal, hr]
+  simp [Ssz.cmpVal_uint, hr]
 
 include hb
 
@@ -97,7 +97,7 @@ end ops
 /-- A uint and a plain `int`: the `int` takes the class of the uint. -/
 theorem binop_uint_int (op : BinOp) (t : UintTy) (a : Nat) (b : Int) :
     binopVal op (.uint t a) (.int b) = (intArith op a b >>= wrapUint t) := by
-  simp [binopVal]
+  simp [Ssz.binopVal_uint_int]
 
 theorem div2_int (t : UintTy) (ht : t.bits = 64) (a : Nat) :
     binopVal .floorDiv (.uint t a) (.int 2) = (Value.uint t ·) <$> chkDiv a 2 := by

@@ -61,9 +61,9 @@ theorem g_enumerate : (env sha).globals.lookup Id.enumerate = some (.builtin .en
 
 theorem call_Uint64 (n : Nat) (w : Value) (h : Heap) :
     callValue (env sha) n (.glob Id.Uint64) [w] [] h =
-      applyType (env sha) h (.uint u64Ty) [w] [] := by
+      Ssz.construct (env sha) h (.uint u64Ty) [w] [] := by
   have g : (env sha).globals.lookup Id.Uint64 = some (.type (.uint u64Ty)) := rfl
-  rw [callValue.eq_def]; simp only [g]
+  rw [callValue.eq_def]; simp only [g, LibModel.construct]
 
 theorem call_min (n : Nat) (a b : Value) (h : Heap) :
     callValue (env sha) n (.glob Id.min) [a, b] [] h = applyBuiltin (env sha) h .min [a, b] [] := by

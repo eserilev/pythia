@@ -19,13 +19,13 @@ theorem is_compounding_withdrawal_credential_run (k : Nat) (h : Heap) (wc : List
       .ok (.bool (Readable.is_compounding_withdrawal_credential ⟨wc⟩), h) := by
   rw [callValue_fn _ _ _ (g_is_comp sha)]
   simp [callFn, fn_is_compounding_withdrawal_credential, execBlock, execStmt, evalExpr, evalCmp,
-    evalOpt, evalList, lookupName, bindArgs, bindArgs.go, getSlice, sliceRange, toIndex,
+    evalOpt, evalList, lookupName, bindArgs, bindArgs.go, getSlice, sliceRange, toIndex, LibValues.index, Ssz.index, pyIndex,
     sliceBound, compareOp]
   have ht : List.take (min 1 wc.length) wc = List.take 1 wc :=
     List.take_eq_take_iff.mpr (by omega)
   simp only [g_PREFIX, ht, Except.bind_ok', deepEq_bytes]
   simp [Readable.is_compounding_withdrawal_credential, Readable.COMPOUNDING_WITHDRAWAL_PREFIX,
-    cmpVal]
+    cmpVal, LibValues.compare, Ssz.compare, pyCmp]
   by_cases he : List.take 1 wc = [2] <;> simp [he]
 
 theorem has_compounding_withdrawal_credential_run (k : Nat) (h : Heap) (r : Nat)
@@ -49,7 +49,7 @@ theorem get_max_effective_balance_run (k : Nat) (h : Heap) (r : Nat) (x : Readab
   simp [callFn, fn_get_max_effective_balance, execBlock, execStmt, evalExpr,
     evalList, evalArgs, lookupName, bindArgs, bindArgs.go, g_has_comp]
   rw [show k + 11 = (k + 1) + 10 by omega, has_compounding_withdrawal_credential_run sha _ h r x hx]
-  simp [truthy, Readable.get_max_effective_balance]
+  simp [truthy, LibValues.truthy, Ssz.truthy, pyTruthy, Readable.get_max_effective_balance]
   cases Readable.has_compounding_withdrawal_credential x <;> rfl
 
 /-! ## Validation theorems (SPEC 9.2 shape) -/
