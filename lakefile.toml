@@ -8,3 +8,11 @@ name = "SpecLean"
 [[lean_lib]]
 name = "Tests"
 globs = ["Tests.Harness", "Tests.ValueRules", "Tests.Sha256", "Tests.Render", "Tests.Gen.Constructs"]
+
+[[lean_lib]]
+name = "Fuzz"
+
+[[lean_exe]]
+name = "pythiafuzz"
+root = "Fuzz.Main"
+supportInterpreter = false
