@@ -517,7 +517,14 @@ The fuzzer's second campaign (21,000 programs, merged as `092d4db`):
 - That oracle found a gap in the check: `v1 = Box(p=a0); a0.a = 1; return v1`. The write
   through `a0` counted only one path, because the check did not count the path through the
   local `v1`. The proofs still catch this case, because the theorem compares the returned value.
-  But the check is meant to catch it first. The fix is under way.
+  But the check is meant to catch it first. Fixed at 11:50 (`2a850bf`, branch `fuzzer`): paths
+  through locals now count.
 - 3 more interpreter bugs (writes into `Bitlist`, `Bitvector` and `Boolean` fields that CPython
   accepts) and a few missing builtins.
 - The early `IndexError` rate fell from 30% to 22%.
+
+Status at 11:50: the tactic count is still 21 of 41 leaf functions. The work on functions with
+local variables is not committed yet. The fuzzer is fixing the interpreter on its own branch,
+because the spike is busy with the tactic. Done so far: the check gap, the `Boolean` coercions,
+`bit_length`, set `difference` and dict views. Still to do: the bitlist and bitvector writes,
+`ssz_serialize` of an int, the `ByteList` model, an EF rerun with the check, and a new campaign.
