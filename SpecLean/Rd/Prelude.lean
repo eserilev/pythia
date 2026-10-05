@@ -26,12 +26,14 @@ class UintC (α : Type) where
   bits : Nat
   val : α → Nat
   ofNat : Nat → α
+  val_ofNat : ∀ n, val (ofNat n) = n
 
 /-- A byte vector class: its length and its bytes. -/
 class BytesC (α : Type) where
   len : Nat
   data : α → Bytes
   ofBytes : Bytes → α
+  data_ofBytes : ∀ b, data (ofBytes b) = b
 
 structure Boolean where
   val : Bool
@@ -231,12 +233,22 @@ def decUintC [UintC α] : Dec α
   | _, .uint _ n => some (UintC.ofNat n)
   | _, _ => none
 
+/-- A uint of class `t`. A heap field holds its exact class: a write coerces to it. -/
+def decUintT [UintC α] (t : UintTy) : Dec α
+  | _, .uint t' n => if t' = t then some (UintC.ofNat n) else none
+  | _, _ => none
+
 def decBooleanV : Dec Boolean
   | _, .boolean b => some ⟨b⟩
   | _, _ => none
 
 def decBytesC [BytesC α] : Dec α
   | _, .bytes _ b => some (BytesC.ofBytes b)
+  | _, _ => none
+
+/-- A byte vector of class `cls`. -/
+def decBytesT [BytesC α] (cls : Name) : Dec α
+  | _, .bytes c b => if c = cls then some (BytesC.ofBytes b) else none
   | _, _ => none
 
 def decListV (f : Dec α) : Dec (List α)
@@ -250,6 +262,14 @@ def containerFields : Heap → Value → Option (List Value)
   | h, .ref a =>
     match h.objs a with
     | some (.container _ fs) => some fs
+    | _ => none
+  | _, _ => none
+
+/-- The fields of a container of class `ty`. -/
+def containerFieldsT (ty : Name) : Heap → Value → Option (List Value)
+  | h, .ref a =>
+    match h.objs a with
+    | some (.container ty' fs) => if ty' = ty then some fs else none
     | _ => none
   | _, _ => none
 
