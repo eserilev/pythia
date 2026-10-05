@@ -393,14 +393,57 @@ them in minutes.
 
 The Lean interpreter runs the Gloas EF vectors on the minimal preset.
 
-- 545 cases pass, 36 fail, and 137 are skipped (mostly cases that need real BLS).
-- 20 failures are timeouts at 600 s, all in finality and multi-epoch sanity blocks. The
-  interpreter is too slow for runs over several epochs. Profiling is under way.
-- 15 failures are a `TypeError`, most of them in `process_attestation`. This is likely one
-  value-rule bug.
-- 1 failure is an invalid-signature case. The BLS stub accepts every signature, so this case
-  belongs with the skipped ones.
-- The dynamic sharing check (`WTree`) and the mainnet preset have no results yet.
+First run: 545 pass, 36 fail, 137 skipped (mostly cases that need real BLS). The failures were 20
+timeouts on multi-epoch runs and 15 `TypeError`s, most in `process_attestation`.
 
-So far: simple operations and epoch processing match pyspec. The open problems are speed and
-one type bug.
+Latest run without the sharing check: 646 pass, 1 fails. The speed problem and the type bug are
+fixed. The one failure is an invalid-signature case: the BLS stub accepts every signature, so the
+case belongs with the skipped ones. So the interpreter matches pyspec on every minimal vector it
+can run.
+
+With the sharing check (`WTree`) on, the first runs reported many hits. All were false alarms:
+
+- `is_eligible_for_activation(state, validator)` gets the state and one of its validators, so that
+  validator has two paths at call entry.
+- `set_or_append_list` returns with the new validator both in the list and in its argument.
+- `upgrade_to_gloas` returns a `post` that shares fields with `pre`. That is expected: the upgrades
+  are entry points.
+
+None of these functions writes the shared object. The rule counted sharing among a call's
+arguments, which is too strict, because many spec helpers take `state` plus a part of it.
+
+The new rule:
+
+- At each write: the written object has exactly one path from all live names. This is the real
+  hazard check, and it did not change.
+- At call entry: only the objects that the callee writes must have one path.
+- At call exit: the callee creates no new path to an old object, and writes nothing outside its
+  footprint.
+- At the top level: the whole state meets the rule at entry and exit.
+
+Result on the minimal preset, with the check on: 0 hits. 678 of 681 cases pass, including the
+fork tests. The other 3 test invalid signatures and need real BLS. A full run takes about 4
+minutes on 16 cores with the check, and about 1 minute without it.
+
+The serializer now computes each function's write footprint. 63 functions write in place. No
+function wrote outside its footprint.
+
+Blind spot: no minimal vector writes to a shared object, so the real hazard check never fired.
+The pass shows that the hazard does not occur. It does not yet show that the check catches it.
+The fuzzer needs to run with the check on, plus one program that must trigger it.
+
+For the proofs, the new rule makes the per-function theorems simpler. The cost moves to one new
+lemma: a write to an object with one path, with no new paths created, keeps the whole state free
+of unsafe sharing.
+
+Still to do: the mainnet preset and the 11 fuzzer bugs.
+
+### Next: split core and library (approved)
+
+The interpreter mixes Python rules (loops, assignment, `int + int`) with SSZ library rules
+(`Slot + Epoch` is an error, uint coercion, `hash_tree_root`). After step 3, the SSZ rules move
+into a plugin. The core asks the plugin first and falls back to plain Python. A new target, such
+as the execution specs (EELS) or leanSpec, then needs only a new plugin.
+
+Why now: the split changes the `Value` type. Step 5 adds many proofs that depend on it, so the
+split is cheaper before step 5.
