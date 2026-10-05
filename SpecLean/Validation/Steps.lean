@@ -61,7 +61,7 @@ end SpecLean.Validation.Steps
 
 /-- The error of a step is not out of fuel. -/
 macro "rd_oof" : tactic => `(tactic| first
-  | exact SpecLean.Validation.Steps.intArith_ne_oof ‹_›
+  | with_reducible exact SpecLean.Validation.Steps.intArith_ne_oof ‹_›
   | decide)
 
 /-- Close a leaf goal of the split tree. -/
@@ -70,7 +70,9 @@ macro "rd_finish" : tactic => `(tactic| first
   | omega
   | (exfalso; omega)
   | assumption
-  | contradiction
+  -- Reducible only: at default transparency `contradiction` can unfold a large heap term
+  -- past the recursion limit, and that error escapes `first`.
+  | with_reducible contradiction
   | rd_oof
   | (simp [rd_simp] at * <;> first
       | done | omega | rd_oof | (exfalso; omega)))

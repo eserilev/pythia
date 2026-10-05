@@ -6,6 +6,7 @@ import SpecLean.Validation.Where
 import SpecLean.Validation.Local
 import SpecLean.Validation.Steps
 import SpecLean.Validation.Grow
+import SpecLean.Validation.Sub
 
 /-!
 # Tactics for the generated validation theorems
@@ -172,6 +173,8 @@ def firstParts (x : Lean.Expr) : MetaM (Option (List Lean.Expr)) := do
 /-- What to split on next: an `if` condition (`true`) or a result (`false`). It is the first
 closed term on the path of evaluation that is not a value. -/
 partial def nextSplit (x : Lean.Expr) : MetaM (Option (Bool × Lean.Expr)) := do
+  -- `generalize` leaves metadata on the goal.
+  let x := x.consumeMData
   if x.hasLooseBVars then return none
   if x.isAppOfArity ``ite 5 || x.isAppOfArity ``dite 5 then
     let c := x.getArg! 1
@@ -302,6 +305,49 @@ elab "rd_split" : tactic => withMainContext do
 end SpecLean.Validation.Tactic
 
 namespace SpecLean.Validation.Tactic
+
+/-- A call of a spec function that the proofs do not unfold: the theorem of the callee gives
+its result (SPEC 9.2, calls). -/
+def callStop (env : Env) (n : Nat) (g : Name) (vs : List Value) (h : Heap) :
+    Res (Value × Heap) :=
+  interp env n g vs h
+
+theorem callStop_eq (env : Env) (n : Nat) (g : Name) (vs : List Value) (h : Heap) :
+    callValue env n (.glob g) vs [] h = callStop env n g vs h := rfl
+
+theorem callStop_def (env : Env) (n : Nat) (g : Name) (vs : List Value) (h : Heap) :
+    callStop env n g vs h = interp env n g vs h := rfl
+
+attribute [irreducible] callStop
+
+open Lean Meta in
+/-- A call of a spec function as `callStop`, once its function value is known. -/
+def stopCall? (e : Lean.Expr) : MetaM (Option Simp.Step) := do
+  unless e.isAppOf ``SpecLean.callValue do return none
+  -- The last six arguments; the first ones are section variables.
+  let a := e.getAppArgs
+  unless a.size ≥ 6 do return none
+  let a := a.extract (a.size - 6) a.size
+  let (env, n, vs, kws, h) := (a[0]!, a[1]!, a[3]!, a[4]!, a[5]!)
+  let f ← whnfR a[2]!
+  unless f.isAppOfArity ``SpecLean.Value.glob 1 do return none
+  let g := f.appArg!
+  unless (← whnfR kws).isAppOf ``List.nil do return none
+  let some gn := (← whnfD g).rawNatLit? | return none
+  let globals ← whnfD (← mkAppM ``SpecLean.Env.globals #[env])
+  let some (some v) ← findEntry gn globals | return none
+  unless (← whnfD v).isAppOf ``SpecLean.Global.fn do return none
+  let e' ← mkAppM ``callStop #[env, n, g, vs, h]
+  let pf ← mkAppM ``callStop_eq #[env, n, g, vs, h]
+  return some (.done { expr := e', proof? := pf })
+
+/-- Stop at a call of a spec function: it becomes `callStop`. Before and after its arguments
+are simplified. -/
+simproc ↓ stop_call (callValue _ _ _ _ _ _) := fun e => do
+  return (← stopCall? e).getD .continue
+
+simproc stop_call_post (callValue _ _ _ _ _ _) := fun e => do
+  return (← stopCall? e).getD .continue
 
 /-- One evaluation step on both sides of the goal, then the reads of written objects. Defined
 after `rd_disch`. -/
@@ -510,6 +556,7 @@ macro "rd_disch" : tactic => `(tactic| first
 macro_rules
   | `(tactic| rd_step) => `(tactic| (
       (try simp (config := { maxSteps := 2000000 }) [rd_simp, SpecLean.Validation.Tactic.unfold_known,
+        SpecLean.Validation.Tactic.stop_call, SpecLean.Validation.Tactic.stop_call_post,
         SpecLean.Validation.Tactic.fieldIndex_lit, SpecLean.Encode.ResultMatches,
         -SpecLean.Heap.set_objs, SpecLean.Validation.Where.alloc_fst,
         SpecLean.Validation.Where.alloc_next, SpecLean.Validation.Where.set_next, *] at ⊢)
@@ -632,7 +679,7 @@ macro "rd_skel" : tactic => `(tactic| first
 
 /-- Split a goal that is syntactically a conjunction. -/
 elab "rd_and" : tactic => do
-  let t ← instantiateMVars (← getMainTarget)
+  let t := (← instantiateMVars (← getMainTarget)).consumeMData
   unless t.isAppOfArity ``And 2 do throwError "rd_and: not a conjunction"
   evalTactic (← `(tactic| apply And.intro))
 
@@ -810,3 +857,116 @@ macro_rules
   | with_reducible apply SpecLean.Validation.Where.reach_set
   | rfl
   | rd_and))
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- Fill a hypothesis of a callee theorem from the context: a fact with the same statement. -/
+def fillFromContext (m : Lean.Expr) : MetaM Bool := do
+  let ty ← instantiateMVars (← inferType m)
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let dty ← instantiateMVars d.type
+    -- Only a fact of the same shape: a full unification would unfold the decoders.
+    unless dty.getAppFn == ty.getAppFn && dty.getAppNumArgs == ty.getAppNumArgs do continue
+    if ty.isAppOfArity ``Eq 3 && !(dty.getArg! 1).getAppFn.isFVar &&
+        (dty.getArg! 1).getAppFn != (ty.getArg! 1).getAppFn then continue
+    let s ← saveState
+    if ← withReducible (isDefEq dty ty) then
+      if ← isDefEq m d.toExpr then return true
+    restoreState s
+  return false
+
+/-- The first subterm of `e` that `p` holds on and that has no loose bound variables. -/
+def findClosed (e : Lean.Expr) (p : Lean.Expr → Bool) : Option Lean.Expr :=
+  e.find? fun x => p x && !x.hasLooseBVars
+
+/-- A call of a callee with a theorem: the theorem `L` of the callee relates the call to the
+readable call. Both results are split, and a pair of results that `L` rules out closes. -/
+elab "rd_call" "[" ls:ident,* "]" : tactic => withMainContext do
+  let g ← getMainGoal
+  let t ← instantiateMVars (← g.getType)
+  let some cs := findClosed t (·.isAppOfArity ``callStop 5) | throwError "rd_call: no call"
+  let callee := cs.getArg! 2
+  for l in ls.getElems do
+    let s ← saveState
+    try
+      let c ← elabTerm l none
+      let (ms, _, concl) ← forallMetaTelescopeReducing (← inferType c)
+      -- `ResultMatches gfp fp h vs E (interp env N g vs h) R`
+      unless concl.isAppOfArity ``SpecLean.Encode.ResultMatches 8 do
+        throwError "rd_call: not a validation theorem"
+      let run := concl.getArg! 6
+      let rd := concl.getArg! 7
+      unless run.isAppOf ``SpecLean.interp && run.getAppNumArgs ≥ 5 do
+        throwError "rd_call: no interp"
+      unless ← isDefEq (run.getArg! (run.getAppNumArgs - 3)) callee do
+        throwError "rd_call: other callee"
+      let target ← mkAppM ``SpecLean.interp cs.getAppArgs
+      unless ← withTransparency .default (isDefEq run target) do
+        throwError "rd_call: the call does not match"
+      -- The readable call of the goal: the same head constant.
+      let rdh ← instantiateMVars rd
+      let some fc := rdh.getAppFn.constName? | throwError "rd_call: no readable head"
+      let some rg := findClosed t (fun x => x.isAppOf fc && x.getAppNumArgs == rdh.getAppNumArgs)
+        | throwError "rd_call: no readable call"
+      unless ← withTransparency .default (isDefEq rdh rg) do
+        throwError "rd_call: the readable call does not match"
+      -- The hypotheses: from the context, or the caller's footprint.
+      for m in ms do
+        if (← m.mvarId!.isAssigned) then continue
+        let ty ← instantiateMVars (← inferType m)
+        if ty.isConstOf ``SpecLean.Encode.Footprint then
+          for d in ← getLCtx do
+            if d.userName == `gfp then
+              m.mvarId!.assign d.toExpr
+          continue
+        if (← isClass? ty).isSome then
+          m.mvarId!.assign (← synthInstance ty)
+          continue
+        if (← inferType ty).isProp then
+          unless ← fillFromContext m do throwError m!"rd_call: no fact for {ty}"
+      let pf ← instantiateMVars (mkAppN c ms)
+      if pf.hasMVar then throwError "rd_call: open arguments"
+      -- The fact about the call as the goal writes it: `callStop`, not `interp`.
+      let concl ← instantiateMVars concl
+      let cargs := concl.getAppArgs
+      let rmOf (x : Lean.Expr) := mkAppN concl.getAppFn ((cargs.set! 6 x).set! 7 rg)
+      let eqT ← mkCongrArg (← withLocalDeclD `x (← inferType cs) fun x => do
+        mkLambdaFVars #[x] (rmOf x)) (← mkAppM ``callStop_def cs.getAppArgs)
+      let hcallPf ← mkEqMPR eqT pf
+      let (_, g1) ← (← g.assert `hcall (rmOf cs) hcallPf).intro1P
+      let css ← Term.exprToSyntax cs
+      let rgs ← Term.exprToSyntax rg
+      let hc := mkIdent `hcall
+      let rc := mkIdent `rcall
+      let rdc := mkIdent `rdcall
+      let mut gs := [g1]
+      let steps : List (TSyntax `tactic) := [
+        ← `(tactic| generalize $css:term = $rc:ident at $hc:ident ⊢),
+        ← `(tactic| generalize $rgs:term = $rdc:ident at $hc:ident ⊢),
+        ← `(tactic| rcases $rc:ident with _ | ⟨_, _⟩),
+        ← `(tactic| all_goals rcases $rdc:ident with _ | _),
+        ← `(tactic| all_goals simp only [SpecLean.Encode.ResultMatches] at $hc:ident)]
+      for st in steps do
+        gs ← gs.flatMapM fun sg => evalTacticAt st sg
+      let mut out := []
+      for sg in gs do
+        out := out ++ (← evalTacticAt (← `(tactic| (
+          (try simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp,
+            Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left',
+            exists_eq_right] at $hc:ident)
+          (try rd_split_hyps)
+          (try rd_step)))) sg)
+      -- `generalize` leaves metadata on the goal.
+      let out' ← out.mapM fun sg => do
+        sg.replaceTargetDefEq (← instantiateMVars (← sg.getType)).consumeMData
+      replaceMainGoal out'
+      return
+    catch e =>
+      restoreState s
+      trace[debug] "rd_call {l}: {e.toMessageData}"
+  throwError "rd_call: no theorem fits the call"
+
+end SpecLean.Validation.Tactic

@@ -615,7 +615,11 @@ Unfolding `interp` naively does not scale. The proofs use generic lemmas, proved
 - Loop termination: each readable index loop is well-founded recursion on `len - i`. It needs a
   lemma that the body keeps the length. One generic tactic proves it for bodies that do not append.
   A loop whose body appends needs a measure from the annotation file.
-- Calls: as in section 9.2.
+- Calls: as in section 9.2. A function without loops has a fixed fuel bound `N`, so the generator
+  states a `f_run` theorem at fuel `k + N` for every `k`, and `f_valid` follows from it. The
+  tactic does not unfold a call of a spec function: it stops at the call (`callStop`) and
+  applies the `_run` theorem of the callee. A caller's bound is 64 more than the largest bound
+  of its callees.
 
 A custom tactic applies these lemmas in the order of the function's statements. Names are `Nat`
 indices, and the heap is a finite map with decidable lookups, so the kernel does not reduce
