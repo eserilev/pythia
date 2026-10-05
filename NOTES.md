@@ -484,3 +484,13 @@ sharing rule that the EF runs use:
 - One surprise: "reaches no new old object" was not enough. A function can build a new list that
   holds one new object twice. So the lemma also needs "each new object has one path".
 - The three proofs got shorter: the parts that kept the global rule on the result are gone.
+
+Status at 09:30: item 2, the translator, is in progress and not committed. It already writes one
+Lean structure per uint class (`Uint64`, `Gwei`, `Slot`, and the rest) and a first readable file
+of about 1,400 lines with no `sorry`. Not known yet: how many of the 163 functions it covers,
+whether the output builds, and whether it matches the EF vectors. Item 3, the proof tactic, has
+not started.
+
+In parallel, the fuzzer now runs with the sharing check on and has hazard tests that must
+trigger it. Its generator covers sets, closures, byte functions and more SSZ kinds. A campaign of
+21,000 programs is running.
