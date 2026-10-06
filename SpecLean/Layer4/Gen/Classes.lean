@@ -202,6 +202,18 @@ def fpsGen : Name → Footprint
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_Version : BytesC.len Version = 4 :=
   Eq.trans rfl rfl
+@[l4_simp] theorem po_Uint64 (a b : Uint64) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
+@[l4_simp] theorem po_Slot (a b : Slot) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
+@[l4_simp] theorem po_Epoch (a b : Epoch) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
+@[l4_simp] theorem po_ValidatorIndex (a b : ValidatorIndex) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
+@[l4_simp] theorem po_Gwei (a b : Gwei) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
+@[l4_simp] theorem po_ParticipationFlags (a b : ParticipationFlags) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
+@[l4_simp] theorem po_WithdrawalIndex (a b : WithdrawalIndex) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
+@[l4_simp] theorem po_Uint8 (a b : Uint8) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
+@[l4_simp] theorem po_BuilderIndex (a b : BuilderIndex) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
+@[l4_simp] theorem po_CommitteeIndex (a b : CommitteeIndex) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
+@[l4_simp] theorem po_Uint32 (a b : Uint32) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
+@[l4_simp] theorem po_Uint256 (a b : Uint256) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
 @[l4_simp] theorem cfg_BLOB_SCHEDULE : @Cfg.BLOB_SCHEDULE Cfg.default = [] := Eq.trans rfl rfl
 @[l4_simp] theorem cfg_CAPELLA_FORK_VERSION : @Cfg.CAPELLA_FORK_VERSION Cfg.default = (⟨[3, 0, 0, 1]⟩ : Version) := Eq.trans rfl rfl
 @[l4_simp] theorem cfg_CHURN_LIMIT_QUOTIENT_GLOAS : @Cfg.CHURN_LIMIT_QUOTIENT_GLOAS Cfg.default = (⟨16⟩ : Uint64) := Eq.trans rfl rfl

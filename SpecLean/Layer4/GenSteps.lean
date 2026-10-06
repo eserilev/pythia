@@ -473,6 +473,28 @@ theorem fite_app {α β : Type} (c : Prop) [Decidable c] (f g : α → β) (a : 
 theorem dst_loc_ite (c : Prop) [Decidable c] (R : List DV) (L1 L2 : Name → Option DRes) :
     (DSt.mk R (if c then L1 else L2)).loc = if c then L1 else L2 := Eq.trans rfl rfl
 
+theorem flat_int (n : Int) : Flat (.int n) = true := Eq.trans rfl rfl
+theorem flat_bool (b : Bool) : Flat (.bool b) = true := Eq.trans rfl rfl
+theorem flat_lib (v : LibVal) : Flat (.lib v) = true := Eq.trans rfl rfl
+theorem flat_none : Flat .none = true := Eq.trans rfl rfl
+theorem flat_bytes (c : Name) (b : List UInt8) : Flat (.bytes c b) = true := Eq.trans rfl rfl
+theorem flat_str (x : String) : Flat (.str x) = true := Eq.trans rfl rfl
+
+theorem flat_ite (c : Prop) [Decidable c] (a b : Value) :
+    Flat (if c then a else b) = if c then Flat a else Flat b := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+theorem val_ite (c : Prop) [Decidable c] (a b : Value) :
+    DRes.val (if c then a else b) = if c then DRes.val a else DRes.val b := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+theorem bmin_max : (Builtin.min == Builtin.max) = false := Eq.trans rfl rfl
+theorem bmax_max : (Builtin.max == Builtin.max) = true := Eq.trans rfl rfl
+
 theorem dmb_none {α β : Type} (f : α → DM β) : DM.bind none f = none := Eq.trans rfl rfl
 
 end push
@@ -621,7 +643,7 @@ macro_rules
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
       dGlobal, env_globals, env_containers, env_config, env_bytesName,
       Validation.Tactic.lookup_lit, Validation.Tactic.fieldIndex_lit, ↓reduceIte,
-      DM.ok, Flat, Nat.reduceEqDiff, dBinop, resolveUint,
+      DM.ok, flat_int, flat_bool, flat_lib, flat_none, flat_bytes, flat_str, Nat.reduceEqDiff, dBinop, resolveUint,
       intArith, wrapUint, UintTy.bits, eb_ite, eb_okp, eb_errp, lift_ite, lift_okp, lift_errp, dm_ite,
       GenLemmas.dmb_okp, GenLemmas.dmb_errp, GenLemmas.dmb_okd, map_ite, Option.map_some, if_true,
       if_false, and_self, and_true, true_and, ne_eq, reduceCtorEq, not_false_eq_true, some_ite,
@@ -641,7 +663,8 @@ macro_rules
       List.any_nil, Bool.or_false, Bool.or_true, Bool.false_or, Bool.true_or, beq_self_eq_true, Nat.reduceBEq, List.set_cons_zero, List.set_cons_succ,
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
-      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
+      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, bmin_max, bmax_max, pickBest, flat_ite, val_ite,
+      Rd.pyMin, Rd.pyMax, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_coe, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
@@ -650,7 +673,7 @@ macro_rules
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
       dGlobal, env_globals, env_containers, env_config, env_bytesName,
       Validation.Tactic.lookup_lit, Validation.Tactic.fieldIndex_lit, ↓reduceIte,
-      DM.ok, Flat, Nat.reduceEqDiff, dBinop, resolveUint,
+      DM.ok, flat_int, flat_bool, flat_lib, flat_none, flat_bytes, flat_str, Nat.reduceEqDiff, dBinop, resolveUint,
       intArith, wrapUint, UintTy.bits, eb_ite, eb_okp, eb_errp, lift_ite, lift_okp, lift_errp, dm_ite,
       GenLemmas.dmb_okp, GenLemmas.dmb_errp, GenLemmas.dmb_okd, map_ite, Option.map_some, if_true,
       if_false, and_self, and_true, true_and, ne_eq, reduceCtorEq, not_false_eq_true, some_ite,
@@ -670,7 +693,8 @@ macro_rules
       List.any_nil, Bool.or_false, Bool.or_true, Bool.false_or, Bool.true_or, beq_self_eq_true, Nat.reduceBEq, List.set_cons_zero, List.set_cons_succ,
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
-      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
+      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, bmin_max, bmax_max, pickBest, flat_ite, val_ite,
+      Rd.pyMin, Rd.pyMax, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_coe, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
 
 /-- The side conditions of a loop lemma: fuel, and the locals of the parameters. -/
 macro "l4_disch" : tactic => `(tactic| first

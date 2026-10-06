@@ -337,6 +337,9 @@ def classes_file(m):
     for c in sorted(m.bytes):
         out.append("@[l4_simp] theorem bd_%s (y : %s) : BytesC.data y = y.data :=\n  Eq.trans rfl rfl" % (c, c))
         out.append("@[l4_simp] theorem bl_%s : BytesC.len %s = %d :=\n  Eq.trans rfl rfl" % (c, c, m.bytes[c]))
+    for c, rhs in re.findall(r"^instance : PyOrd (\w+) := ⟨fun a b => (decide \(a\.val < b\.val\))⟩", m.rd, re.M):
+        out.append("@[l4_simp] theorem po_%s (a b : %s) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl"
+                   % (c, c))
     cfg = m.rd[m.rd.index("def Cfg.default : Cfg where"):]
     cfg = cfg[:cfg.index("\n\n")]
     for f, v in re.findall(r"^  (\w+) := (.+)$", cfg, re.M):
@@ -1071,9 +1074,14 @@ def main():
         sys.exit(1)
     if args.show:
         # Against the proved functions of the last run.
-        fuel = dict(re.findall(r"theorem (\w+)_den \(sha : Oracle\) \(m : Nat\) .*?\(m \+ (\d+)\)\)\.fn",
+        fuel = dict(re.findall(r"theorem (\w+)_den \(sha : Oracle\) \(m : Nat\) .*?m \+ (\d+)\)\)\.fn",
                                (GEN / "Funcs.lean").read_text(), re.S)) if (GEN / "Funcs.lean").exists() else {}
         fuel = {k: int(v) for k, v in fuel.items()}
+        for n in order(m, set(fuel)):
+            try:
+                candidate(m, n, fuel)
+            except Unsupported:
+                pass
         pre = ("import SpecLean.Layer4.Gen.Funcs\n" if fuel else "import SpecLean.Layer4.Gen.Classes\n") + \
             OPEN + "\nnamespace SpecLean.Layer4.Gen\n\n"
         print(check(pre + candidate(m, args.show, fuel)[0] + "\nend SpecLean.Layer4.Gen\n", "show", True)[1])
