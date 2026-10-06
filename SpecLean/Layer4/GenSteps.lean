@@ -81,6 +81,17 @@ theorem s_unop (l : Line) (op : UnOp) (hop : op ≠ .not) (a : Expr) :
   · exact absurd rfl hop
   all_goals (rw [den_expr]; rfl)
 
+theorem s_slice (l : Line) (o : Expr) (lo hi : Option Expr) :
+    (den env fps (n + 1)).expr fp s (.slice l o lo hi none) =
+      DM.bind ((den env fps n).expr fp s o) fun ro =>
+        match ro with
+        | .val (.bytes c bs) =>
+          DM.bind (optOf ((den env fps n).expr fp s) lo) fun lov =>
+            DM.bind (optOf ((den env fps n).expr fp s) hi) fun hiv =>
+              DM.bind (lift (getSlice env.bytesName Heap.empty (.bytes c bs) lov hiv)) fun x =>
+                if Flat x.1 then .ok (.val x.1) else none
+        | _ => none := by rw [den_expr]; rfl
+
 theorem s_ifExp (l : Line) (c a b : Expr) :
     (den env fps (n + 1)).expr fp s (.ifExp l c a b) =
       DM.bind ((den env fps n).expr fp s c) fun rc =>
@@ -554,7 +565,8 @@ macro_rules
   | `(tactic| l4_eval $[[$extra,*]]?) => do
     let extra := (extra.map (·.getElems)).getD #[]
     `(tactic| simp only [l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
-      s_boolop, s_not, s_unop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
+      s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
+      Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
       s_augAssign, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
@@ -582,7 +594,8 @@ macro_rules
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
-      s_boolop, s_not, s_unop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
+      s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
+      Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
       s_augAssign, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
