@@ -183,6 +183,8 @@ partial def nextSplit (x : Lean.Expr) : MetaM (Option (Bool × Lean.Expr)) := do
   match ← firstParts x with
   | some parts =>
     for p in parts do
+      -- A `Bool` variable that a `match` waits on: split on its two values.
+      if p.isFVar && (← whnfR (← inferType p)).isConstOf ``Bool then return some (false, p)
       if let some r ← nextSplit p then return some r
       if !p.hasLooseBVars && !isValueHead p && (← firstParts p).isNone then
         let ty ← whnfR (← inferType p)
@@ -283,6 +285,11 @@ elab "rd_split" : tactic => withMainContext do
         false_and, not_and, not_or] at ⊢)) sg)
     replaceMainGoal gs
   else
+    if x.isFVar then
+      let gs ← evalTacticAt
+        (← `(tactic| (cases $(← Term.exprToSyntax x):term <;> try simp only at ⊢))) g
+      replaceMainGoal gs
+      return
     -- A known result: rewrite with its fact, do not split.
     let known ← g.withContext do
       for d in ← getLCtx do
@@ -810,28 +817,76 @@ elab "rd_heapwf" : tactic => withMainContext do
 
 end SpecLean.Validation.Tactic
 
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- `Grows h h' n`: one step back along the writes of `h'`, by its last write. -/
+elab "rd_grows" : tactic => withMainContext do
+  let g ← getMainGoal
+  let t := (← instantiateMVars (← g.getType)).consumeMData
+  unless t.isAppOfArity ``SpecLean.Validation.Grow.Grows 3 do throwError "rd_grows: not Grows"
+  let h := t.getArg! 0
+  let h' := t.getArg! 1
+  if h' == h then
+    let gs ← evalTacticAt (← `(tactic|
+      exact SpecLean.Validation.Grow.grows_refl _ _ (by assumption) (Nat.le_refl _))) g
+    replaceMainGoal gs
+    return
+  if h'.isAppOfArity ``SpecLean.Heap.set 3 then
+    let h1 ← Term.exprToSyntax (h'.getArg! 0)
+    let a ← Term.exprToSyntax (h'.getArg! 1)
+    let o ← Term.exprToSyntax (h'.getArg! 2)
+    let gs ← evalTacticAt (← `(tactic|
+      refine SpecLean.Validation.Grow.grows_set (h1 := $h1) (a := $a) (o' := $o) (o := ?_) ?_ ?_ ?_ ?_)) g
+    -- Read the old object first: the goal `ObjGrows n ?o o'` needs it.
+    let mut out := []
+    for sg in gs do
+      let ty := (← instantiateMVars (← sg.getType)).consumeMData
+      if ty.isAppOfArity ``Eq 3 && (ty.getArg! 1).isApp &&
+          (ty.getArg! 1).appFn!.isAppOf ``SpecLean.Heap.objs then
+        let s ← saveState
+        try
+          let r ← evalTacticAt (← `(tactic| (rd_objs; done))) sg
+          out := out ++ r
+          continue
+        catch _ => s.restore
+      out := out ++ [sg]
+    let open_ ← out.filterM fun sg => return !(← sg.isAssigned)
+    replaceMainGoal open_
+    return
+  if h'.isAppOfArity ``Prod.snd 3 && (h'.getArg! 2).isAppOfArity ``SpecLean.Heap.alloc 2 then
+    let al := h'.getArg! 2
+    let h1 ← Term.exprToSyntax (al.getArg! 0)
+    let o ← Term.exprToSyntax (al.getArg! 1)
+    let gs ← evalTacticAt (← `(tactic|
+      refine SpecLean.Validation.Grow.grows_alloc (h1 := $h1) (o := $o) ?_ ?_ ?_ ?_)) g
+    replaceMainGoal gs
+    return
+  throwError "rd_grows: no write"
+
+end SpecLean.Validation.Tactic
+
 macro_rules
   | `(tactic| rd_reach) => `(tactic| (
   apply SpecLean.Validation.Grow.reach_of_grows (by assumption) (by assumption)
   repeat' (first
-    | exact SpecLean.Validation.Grow.grows_refl _ _ (by assumption) (Nat.le_refl _)
+    | rd_grows
     | rd_old
     | rd_newval
     | (rd_objs; done)
     | rd_heapwf
     | ((try simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
         SpecLean.Validation.Where.alloc_fst]); omega)
-    | apply SpecLean.Validation.Grow.objGrows_list_set
-    | apply SpecLean.Validation.Grow.objGrows_container_set
-    | apply SpecLean.Validation.Grow.objGrows_list_append
-    | apply SpecLean.Validation.Grow.newObj_container
-    | apply SpecLean.Validation.Grow.newObj_list
+    | with_reducible apply SpecLean.Validation.Grow.objGrows_list_set
+    | with_reducible apply SpecLean.Validation.Grow.objGrows_container_set
+    | with_reducible apply SpecLean.Validation.Grow.objGrows_list_append
+    | with_reducible apply SpecLean.Validation.Grow.newObj_container
+    | with_reducible apply SpecLean.Validation.Grow.newObj_list
     | (intro _; first
-        | apply SpecLean.Validation.Grow.newObj_container
-        | apply SpecLean.Validation.Grow.newObj_list)
-    -- Reducible only, alloc first: at default transparency `grows_set` matches a new object.
-    | with_reducible apply SpecLean.Validation.Grow.grows_alloc
-    | with_reducible apply SpecLean.Validation.Grow.grows_set)))
+        | with_reducible apply SpecLean.Validation.Grow.newObj_container
+        | with_reducible apply SpecLean.Validation.Grow.newObj_list)
+)))
 
 macro_rules
   | `(tactic| rd_frame) => `(tactic| repeat' (first

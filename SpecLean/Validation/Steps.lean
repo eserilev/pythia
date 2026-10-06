@@ -98,7 +98,7 @@ attribute [rd_simp] cmpInt assignTarget assignTargets assignAll sliceBound coerc
 
 @[rd_simp] theorem pyIndex_eq : Rd.pyIndex = normIndex := rfl
 
-attribute [rd_simp] Rd.lget Rd.lset Rd.lappend
+attribute [rd_simp] Rd.lget Rd.lset Rd.lappend Ssz.defaultOf Ssz.defaultList
 
 @[rd_simp] theorem sliceBound'_eq : Rd.sliceBound' = sliceBound := rfl
 
