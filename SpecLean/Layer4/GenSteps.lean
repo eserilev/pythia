@@ -1,0 +1,474 @@
+import SpecLean.Layer4.GenLemmas
+import SpecLean.Layer4.GenAttr
+
+/-!
+# Layer 4: one step of `den` per syntax node, as a rewrite
+
+`den_expr` and its siblings are `rfl` lemmas. `simp` uses an `rfl` lemma as a definitional
+step, and the kernel then checks it by unfolding `den` at a fuel such as `m + 9`, which recurses
+too deep. The lemmas here say the same thing one syntax node at a time, and each is a rewrite,
+so a generated proof can run `simp` over a whole function body.
+-/
+
+namespace SpecLean.Layer4.GenSteps
+
+open SpecLean SpecLean.Encode SpecLean.Layer4
+
+variable [LibModel]
+
+attribute [local instance high] LibModel.toLibValues
+
+variable (env : Env) (fps : Name → Footprint) (n : Nat) (fp : Footprint) (s : DSt)
+
+section expr
+
+theorem s_name (l : Line) (x : Name) :
+    (den env fps (n + 1)).expr fp s (.name l x) =
+      match s.loc x with
+      | some r => .ok r
+      | none => dGlobal env x := by rw [den_expr]; rfl
+
+theorem s_int (l : Line) (k : Int) :
+    (den env fps (n + 1)).expr fp s (.int l k) = some (.ok (.val (.int k))) := by rw [den_expr]; rfl
+
+theorem s_bool (l : Line) (b : Bool) :
+    (den env fps (n + 1)).expr fp s (.bool l b) = some (.ok (.val (.bool b))) := by rw [den_expr]; rfl
+
+theorem s_noneLit (l : Line) :
+    (den env fps (n + 1)).expr fp s (.noneLit l) = some (.ok (.val .none)) := by rw [den_expr]; rfl
+
+theorem s_attr (l : Line) (o : Expr) (f : Name) :
+    (den env fps (n + 1)).expr fp s (.attr l o f) =
+      DM.bind ((den env fps n).expr fp s o) fun ro => dAttr env s ro f := by rw [den_expr]; rfl
+
+theorem s_index (l : Line) (o i : Expr) :
+    (den env fps (n + 1)).expr fp s (.index l o i) =
+      DM.bind ((den env fps n).expr fp s o) fun ro =>
+        DM.bind ((den env fps n).expr fp s i) fun ri => dIndex s ro ri := by rw [den_expr]; rfl
+
+theorem s_binop (l : Line) (op : BinOp) (a b : Expr) :
+    (den env fps (n + 1)).expr fp s (.binop l op a b) =
+      DM.bind ((den env fps n).expr fp s a) fun ra =>
+        DM.bind ((den env fps n).expr fp s b) fun rb => dBinop op ra rb := by rw [den_expr]; rfl
+
+theorem s_compare (l : Line) (a : Expr) (rest : List (CmpOp × Expr)) :
+    (den env fps (n + 1)).expr fp s (.compare l a rest) =
+      DM.bind ((den env fps n).expr fp s a) fun ra =>
+        match ra with
+        | .val x => cmpOf ((den env fps n).expr fp s) x rest
+        | _ => none := by rw [den_expr]; rfl
+
+theorem s_boolop (l : Line) (op : BoolOp) (es : List Expr) :
+    (den env fps (n + 1)).expr fp s (.boolop l op es) = boolOf ((den env fps n).expr fp s) op es := by
+  rw [den_expr]; rfl
+
+theorem s_not (l : Line) (a : Expr) :
+    (den env fps (n + 1)).expr fp s (.unop l .not a) =
+      DM.bind ((den env fps n).expr fp s a) fun r =>
+        match r with
+        | .val v => DM.bind (lift (truthy v)) fun b => .ok (.val (.bool !b))
+        | _ => none := by rw [den_expr]; rfl
+
+theorem s_unop (l : Line) (op : UnOp) (hop : op ≠ .not) (a : Expr) :
+    (den env fps (n + 1)).expr fp s (.unop l op a) =
+      DM.bind ((den env fps n).expr fp s a) fun r =>
+        match r with
+        | .val v => DM.bind (lift (unopVal op v)) fun w => if Flat w then .ok (.val w) else none
+        | _ => none := by
+  cases op
+  · exact absurd rfl hop
+  all_goals (rw [den_expr]; rfl)
+
+theorem s_ifExp (l : Line) (c a b : Expr) :
+    (den env fps (n + 1)).expr fp s (.ifExp l c a b) =
+      DM.bind ((den env fps n).expr fp s c) fun rc =>
+        match rc with
+        | .val v => DM.bind (lift (truthy v)) fun t =>
+            if t then (den env fps n).expr fp s a else (den env fps n).expr fp s b
+        | _ => none := by rw [den_expr]; rfl
+
+theorem s_comp (l : Line) (elt : Expr) (t : Target) (it : Expr) (ifs : List Expr) :
+    (den env fps (n + 1)).expr fp s (.comp l .list elt [.mk t it ifs]) =
+      DM.bind ((den env fps n).iter fp s it) fun ls =>
+        DM.bind ((den env fps n).items fp s t ifs elt ls 0) fun ds =>
+          .ok (.tree (.list .pyList .any none ds)) := by rw [den_expr]; rfl
+
+theorem s_call (l : Line) (f : Expr) (args : List Arg) :
+    (den env fps (n + 2)).expr fp s (.call l f args) =
+      match callHead env s (.call l f args) with
+      | some (g, args) =>
+        DM.bind (argsOf ((den env fps (n + 1)).expr fp s) args) fun rs =>
+          dCallRO env fps (den env fps (n + 1)).fn s g rs
+      | none => none := by
+  rw [den_expr]; show (match n + 1, callHead env s (.call l f args) with
+    | _ + 1, some (g, args) => _
+    | _, _ => _) = _
+  cases callHead env s (.call l f args) <;> rfl
+
+end expr
+
+section call
+
+theorem s_callStep (e : Expr) :
+    (den env fps (n + 2)).call fp s e =
+      match callHead env s e with
+      | some (g, args) =>
+        DM.bind (argsOf ((den env fps (n + 1)).expr fp s) args) fun rs =>
+          dCallW env fps (den env fps (n + 1)).fn fp s g rs
+      | none => ((den env fps (n + 2)).expr fp s e).map (·.map (·, s.roots)) := by
+  rw [den_call]; show (match n + 1, callHead env s e with
+    | _ + 1, some (g, args) => _
+    | _, _ => _) = _
+  cases callHead env s e <;> rfl
+
+end call
+
+section stmt
+
+theorem s_assign (l : Line) (t : Target) (e : Expr) :
+    (den env fps (n + 1)).stmt fp s (.assign l [t] e) =
+      DM.bind ((den env fps n).call fp s e) fun (r, rs) =>
+        (den env fps n).target fp { s with roots := rs } t r := by rw [den_stmt]; rfl
+
+theorem s_annAssign (l : Line) (t : Target) (e : Expr) :
+    (den env fps (n + 1)).stmt fp s (.annAssign l t e) =
+      DM.bind ((den env fps n).call fp s e) fun (r, rs) =>
+        (den env fps n).target fp { s with roots := rs } t r := by rw [den_stmt]; rfl
+
+theorem s_exprStmt (l : Line) (e : Expr) :
+    (den env fps (n + 1)).stmt fp s (.exprStmt l e) =
+      DM.bind ((den env fps n).call fp s e) fun (_, rs) => .ok (.normal, { s with roots := rs }) := by
+  rw [den_stmt]; rfl
+
+theorem s_augAssign (l l' : Line) (o ie : Expr) (op : BinOp) (e : Expr) :
+    (den env fps (n + 1)).stmt fp s (.augAssign l (.index l' o ie) op e) =
+      augStep env (den env fps n) fp s o ie op e := by rw [den_stmt]; rfl
+
+theorem s_ifStmt (l : Line) (c : Expr) (thn els : List Stmt) :
+    (den env fps (n + 1)).stmt fp s (.ifStmt l c thn els) =
+      DM.bind ((den env fps n).expr fp s c) fun r =>
+        match r with
+        | .val v => DM.bind (lift (truthy v)) fun b =>
+            if b then blockOf ((den env fps n).stmt fp) s thn else blockOf ((den env fps n).stmt fp) s els
+        | _ => none := by rw [den_stmt]; rfl
+
+theorem s_ret (l : Line) (e : Expr) :
+    (den env fps (n + 1)).stmt fp s (.ret l (some e)) =
+      DM.bind ((den env fps n).expr fp s e) fun r =>
+        match r with
+        | .val v => .ok (.ret (.val v), s)
+        | .tree d => .ok (.ret (.tree d), s)
+        | .place _ _ => none := by rw [den_stmt]; rfl
+
+theorem s_retNone (l : Line) :
+    (den env fps (n + 1)).stmt fp s (.ret l none) = .ok (.ret (.val .none), s) := by rw [den_stmt]; rfl
+
+theorem s_assert (l : Line) (e : Expr) :
+    (den env fps (n + 1)).stmt fp s (.assert l e) =
+      DM.bind ((den env fps n).expr fp s e) fun r =>
+        match r with
+        | .val v => DM.bind (lift (truthy v)) fun b =>
+            if b then .ok (.normal, s) else some (.error .assertionFailed)
+        | _ => none := by rw [den_stmt]; rfl
+
+theorem s_pass (l : Line) : (den env fps (n + 1)).stmt fp s (.pass l) = .ok (.normal, s) := by
+  rw [den_stmt]; rfl
+
+theorem s_forStmt (l : Line) (t : Target) (it : Expr) (body : List Stmt) :
+    (den env fps (n + 1)).stmt fp s (.forStmt l t it body) =
+      DM.bind ((den env fps n).iter fp s it) fun ls => (den env fps n).loop fp s t ls 0 body := by
+  rw [den_stmt]; rfl
+
+end stmt
+
+section target
+
+theorem s_tname (l : Line) (x : Name) (r : DRes) :
+    (den env fps (n + 1)).target fp s (.name l x) r = .ok (.normal, { s with loc := setLoc s.loc x r }) := by
+  rw [den_target]; rfl
+
+theorem s_tattr (l : Line) (o : Expr) (f : Name) (v : Value) :
+    (den env fps (n + 1)).target fp s (.attr l o f) (.val v) =
+      DM.bind ((den env fps n).expr fp s o) fun ro =>
+        match ro with
+        | .place k p =>
+          match s.deref k p with
+          | some (.cont ty _) =>
+            match fieldIndex env ty f with
+            | some (i, t) => DM.bind (dCoerce env true t v) fun v' => dWriteD fp s k p i v'
+            | none => none
+          | _ => none
+        | _ => none := by rw [den_target]; rfl
+
+theorem s_tindex (l : Line) (o ie : Expr) (v : Value) :
+    (den env fps (n + 1)).target fp s (.index l o ie) (.val v) =
+      DM.bind ((den env fps n).expr fp s o) fun ro => DM.bind ((den env fps n).expr fp s ie) fun ri =>
+        match ro, ri with
+        | .place k p, .val iv =>
+          match s.deref k p with
+          | some (.list kd e _ ds) =>
+            if isByteList kd e then none else
+            DM.bind (lift (toIndex iv)) fun j =>
+            DM.bind (dCoerce env false e v) fun v' =>
+              match normIndex ds.length j with
+              | some m => dWriteD fp s k p m v'
+              | none => some (.error .indexError)
+          | _ => none
+        | _, _ => none := by rw [den_target]; rfl
+
+end target
+
+section fn
+
+theorem s_fn (d : FunctionDef) (roots : List DV) :
+    (den env fps (n + 1)).fn fp d roots =
+      if d.params.defaults = [] ∧ d.params.vararg = none ∧ d.params.names.length = roots.length then
+        DM.bind (blockOf ((den env fps n).stmt fp)
+            { roots, loc := initLoc roots (fun _ => none) d.params.names.zipIdx } d.body) fun (o, s1) =>
+          match o with
+          | .ret r => .ok (r, s1.roots)
+          | _ => .ok (.val .none, s1.roots)
+      else none := by rw [den_fn]; rfl
+
+theorem s_iter (e : Expr) :
+    (den env fps (n + 1)).iter fp s e = iterStep env fps n (den env fps n) fp s e := by rw [den_iter]
+
+theorem s_loop (t : Target) (ls : LSrc) (i : Nat) (body : List Stmt) :
+    (den env fps (n + 1)).loop fp s t ls i body = loopStep n (den env fps n) fp s t ls i body := by
+  rw [den_loop]
+
+theorem s_items (t : Target) (ifs : List Expr) (elt : Expr) (ls : LSrc) (i : Nat) :
+    (den env fps (n + 1)).items fp s t ifs elt ls i = itemsStep n (den env fps n) fp s t ifs elt ls i := by
+  rw [den_items]
+
+end fn
+
+section block
+variable (st : DSt → Stmt → DM (DOut × DSt))
+
+theorem b_nil : blockOf st s [] = some (.ok (.normal, s)) := Eq.trans rfl rfl
+
+theorem b_cons (x : Stmt) (xs : List Stmt) :
+    blockOf st s (x :: xs) =
+      DM.bind (st s x) fun (o, s1) =>
+        match o with
+        | .normal => blockOf st s1 xs
+        | _ => .ok (o, s1) := Eq.trans rfl rfl
+
+end block
+
+section push
+
+theorem dm_ite {α β : Type} (c : Prop) [Decidable c] (x y : DM α) (f : α → DM β) :
+    DM.bind (if c then x else y) f = if c then DM.bind x f else DM.bind y f := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+theorem eb_ite {ε α β : Type} (c : Prop) [Decidable c] (x y : Except ε α) (f : α → Except ε β) :
+    (if c then x else y) >>= f = if c then x >>= f else y >>= f := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+theorem lift_ite {α : Type} (c : Prop) [Decidable c] (x y : Res α) :
+    lift (if c then x else y) = if c then lift x else lift y := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+theorem lift_okp {α : Type} (a : α) : lift (.ok a : Res α) = some (.ok a) := Eq.trans rfl rfl
+
+theorem lift_errp {α : Type} (e : SpecError) (h : e ≠ .outOfFuel) :
+    lift (.error e : Res α) = some (.error e) := lift_err e h
+
+theorem eb_okp {ε α β : Type} (a : α) (f : α → Except ε β) : (Except.ok a >>= f) = f a := Eq.trans rfl rfl
+
+theorem eb_errp {ε α β : Type} (e : ε) (f : α → Except ε β) :
+    (Except.error e >>= f) = (Except.error e : Except ε β) := Eq.trans rfl rfl
+
+theorem map_ite {α β : Type} (c : Prop) [Decidable c] (x y : Option α) (f : α → β) :
+    Option.map f (if c then x else y) = if c then Option.map f x else Option.map f y := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+theorem emap_ite {ε α β : Type} (c : Prop) [Decidable c] (x y : Except ε α) (f : α → β) :
+    f <$> (if c then x else y) = if c then f <$> x else f <$> y := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+theorem emap_ok {ε α β : Type} (a : α) (f : α → β) : f <$> (Except.ok a : Except ε α) = .ok (f a) := rfl
+theorem emap_err {ε α β : Type} (e : ε) (f : α → β) : f <$> (Except.error e : Except ε α) = .error e := rfl
+theorem merr_ok {ε ε' α : Type} (a : α) (f : ε → ε') : Except.mapError f (.ok a : Except ε α) = .ok a := rfl
+theorem merr_err {ε ε' α : Type} (e : ε) (f : ε → ε') :
+    Except.mapError f (.error e : Except ε α) = .error (f e) := rfl
+theorem epure {ε α : Type} (a : α) : (pure a : Except ε α) = .ok a := rfl
+theorem ethrow {ε α : Type} (e : ε) : (throw e : Except ε α) = .error e := rfl
+theorem ebind_pure {ε α : Type} (x : Except ε α) : (x >>= fun a => pure a) = x := by cases x <;> rfl
+
+theorem some_ite {α : Type} (c : Prop) [Decidable c] (x y : α) :
+    some (if c then x else y) = if c then some x else some y := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+theorem uv_ofNat {α : Type} [Rd.UintC α] (n : Nat) : Rd.UintC.val (Rd.UintC.ofNat n : α) = n :=
+  Rd.UintC.val_ofNat n
+
+theorem merr_ite {ε ε' α : Type} (c : Prop) [Decidable c] (x y : Except ε α) (f : ε → ε') :
+    Except.mapError f (if c then x else y) = if c then Except.mapError f x else Except.mapError f y := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+theorem eb_assoc {ε α β γ : Type} (x : Except ε α) (f : α → Except ε β) (g : β → Except ε γ) :
+    (x >>= f) >>= g = x >>= fun a => f a >>= g := by cases x <;> rfl
+
+theorem dm_assoc {α β γ : Type} (x : DM α) (f : α → DM β) (g : β → DM γ) :
+    DM.bind (DM.bind x f) g = DM.bind x fun a => DM.bind (f a) g := by
+  rcases x with _ | _ | _ <;> rfl
+
+theorem getD_ite {α : Type} (c : Prop) [Decidable c] (x y : Option α) (d : α) :
+    (if c then x else y).getD d = if c then x.getD d else y.getD d := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+/-- The rest of a run after a call: the callee result decides it. -/
+def callK {β γ : Type} (y : Except Fail β) (g : β → Option (Except Fail γ)) : Option (Except Fail γ) :=
+  match y with
+  | .ok b => g b
+  | .error e => some (.error e)
+
+theorem callK_ok {β γ : Type} (b : β) (g : β → Option (Except Fail γ)) : callK (.ok b) g = g b := rfl
+
+theorem callK_err {β γ : Type} (e : Fail) (g : β → Option (Except Fail γ)) :
+    callK (.error e) g = some (.error e) := rfl
+
+theorem callK_ite {β γ : Type} (c : Prop) [Decidable c] (x y : Except Fail β)
+    (g : β → Option (Except Fail γ)) :
+    callK (if c then x else y) g = if c then callK x g else callK y g := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+theorem callK_congr {β γ : Type} (y : Except Fail β) {g g' : β → Option (Except Fail γ)}
+    (h : ∀ b, g b = g' b) : callK y g = callK y g' := by
+  cases y
+  · rfl
+  · exact h _
+
+/-- A call of a proved callee: the readable result decides the rest. -/
+theorem bind_call {α β γ : Type} {x : DM α} {y : Except Fail β} {enc : β → α}
+    (hx : Option.map (Except.mapError SpecError.fail) x = some (enc <$> y)) (k : α → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind x k) =
+      callK y fun b => Option.map (Except.mapError SpecError.fail) (k (enc b)) := by
+  rcases x with _ | ⟨e | a⟩
+  · cases hx
+  · cases y with
+    | ok b => cases hx
+    | error e' => simp only [Option.map_some, Except.mapError, Option.some.injEq] at hx; cases hx; rfl
+  · cases y with
+    | ok b =>
+      simp only [Option.map_some, Except.mapError, Option.some.injEq] at hx
+      cases hx; rfl
+    | error e' => cases hx
+
+/-- The readable side of a call: the same split on the callee result. -/
+theorem rd_bind {β δ ε : Type} (f : δ → ε) (y : Except Fail β) (h : β → Except Fail δ) :
+    some (f <$> (y >>= h)) = callK y fun b => some (f <$> h b) := by
+  cases y <;> rfl
+
+theorem ob_some {α β : Type} (a : α) (f : α → Option β) : (some a >>= f) = f a := rfl
+theorem ob_none {α β : Type} (f : α → Option β) : ((none : Option α) >>= f) = none := rfl
+theorem opure {α : Type} (a : α) : (pure a : Option α) = some a := rfl
+
+theorem dmb_none {α β : Type} (f : α → DM β) : DM.bind none f = none := Eq.trans rfl rfl
+
+end push
+
+section model
+
+/-- The value rules of the SSZ model, as one `match` each: `simp` then reduces the `match` on the
+constructors of the operands. -/
+theorem bv_eq (op : BinOp) (x y : Value) :
+    @binopVal (@LibModel.toLibValues Ssz.model) op x y =
+      (Ssz.binop op x y).getD (pyBinop op x y) := by
+  show (match Ssz.binop op x y with | some r => r | none => pyBinop op x y) = _
+  cases Ssz.binop op x y <;> rfl
+
+theorem cv_eq (op : CmpOp) (x y : Value) :
+    @cmpVal (@LibModel.toLibValues Ssz.model) op x y =
+      (Ssz.compare op x y).getD (pyCmp op x y) := by
+  show (match Ssz.compare op x y with | some r => r | none => pyCmp op x y) = _
+  cases Ssz.compare op x y <;> rfl
+
+theorem uv_eq (op : UnOp) (x : Value) :
+    @unopVal (@LibModel.toLibValues Ssz.model) op x = (Ssz.unop op x).getD (pyUnop op x) := by
+  show (match Ssz.unop op x with | some r => r | none => pyUnop op x) = _
+  cases Ssz.unop op x <;> rfl
+
+theorem iv_eq (x : Value) :
+    @toIndex (@LibModel.toLibValues Ssz.model) x = (Ssz.index x).getD (pyIndex x) := by
+  show (match Ssz.index x with | some r => r | none => pyIndex x) = _
+  cases Ssz.index x <;> rfl
+
+theorem tv_eq (x : Value) :
+    @truthy (@LibModel.toLibValues Ssz.model) x =
+      (Ssz.truthy x).getD (pyTruthy x) := by
+  show (match Ssz.truthy x with | some r => r | none => pyTruthy x) = _
+  cases Ssz.truthy x <;> rfl
+
+end model
+
+section env
+
+/-- The parts of `Scope.env` that the rules read. `Scope.env` itself stays folded, so the
+callee lemmas, which name it, still match. -/
+theorem env_globals (o : Oracle) : (Scope.env o).globals = Scope.globals := rfl
+theorem env_containers (o : Oracle) : (Scope.env o).containers = Scope.containers := rfl
+theorem env_config (o : Oracle) : (Scope.env o).config = Scope.config := rfl
+theorem env_bytesName (o : Oracle) : (Scope.env o).bytesName = 0 := rfl
+
+end env
+
+/-- One pass of the generated proofs: the `den` steps, the locals, the globals, the value rules,
+the readable rules, and the pushes of `bind` and `map` into an `if`. `l4_simp` holds the rewrites of
+the classes and of the proved callees. -/
+syntax "l4_eval" ("[" Lean.Parser.Tactic.simpLemma,* "]")? : tactic
+
+macro_rules
+  | `(tactic| l4_eval $[[$extra,*]]?) => do
+    let extra := (extra.map (·.getElems)).getD #[]
+    `(tactic| simp only [l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
+      s_boolop, s_not, s_unop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
+      s_augAssign, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
+      s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
+      List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
+      dGlobal, env_globals, env_containers, env_config, env_bytesName,
+      Validation.Tactic.lookup_lit, Validation.Tactic.fieldIndex_lit, ↓reduceIte,
+      DM.ok, Flat, Nat.reduceEqDiff, dBinop, resolveUint,
+      intArith, wrapUint, UintTy.bits, eb_ite, eb_okp, eb_errp, lift_ite, lift_okp, lift_errp, dm_ite,
+      GenLemmas.dmb_okp, GenLemmas.dmb_errp, GenLemmas.dmb_okd, map_ite, Option.map_some, if_true,
+      if_false, and_self, and_true, true_and, ne_eq, reduceCtorEq, not_false_eq_true, some_ite,
+      uv_ofNat, Rd.uOp, Rd.uOf, Rd.erase, Rd.uv, emap_ite, emap_ok, emap_err,
+      merr_ok, merr_err, epure, ethrow, ebind_pure, SpecError.fail, callHead, callable, Option.isNone,
+      Bool.and_true, Bool.true_and, Bool.and_false, Bool.false_and, Bool.not_true, Bool.not_false,
+      argsOf, dCallRO, dCallW, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
+      Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,
+      Validation.Steps.construct_uint_int, Validation.Steps.construct_uint_uint,
+      Validation.Steps.construct_uint_boolean, Except.map, bv_eq, cv_eq, tv_eq, uv_eq, Ssz.binop, Ssz.unop, pyUnop,
+      Ssz.compare, Ssz.truthy, pyBinop, pyCmp, pyTruthy, cmpF, cmpOf, cmpInt, boolOf, List.isEmpty_cons,
+      List.isEmpty_nil, dAttr, DSt.deref, subAt, DV.kids, ofChild, List.nil_append,
+      List.cons_append, dIndex, isByteList, iv_eq, Ssz.index, pyIndex, normIndex, List.getElem?_map,
+      List.length_map, Option.bind_some, ob_some, ob_none, opure, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
+
+/-- The end of a generated proof: both sides are the same tree of `if`s up to instances. -/
+macro "l4_close" : tactic =>
+  `(tactic| first | with_reducible rfl |
+    ((repeat' (first | split | (refine callK_congr _ fun _ => ?_))) <;>
+      first | with_reducible rfl | (simp_all <;> omega) | simp_all))
+
+end SpecLean.Layer4.GenSteps
