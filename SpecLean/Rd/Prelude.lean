@@ -114,9 +114,10 @@ def lindex [BEq α] (xs : List α) (x : α) : SpecM Int :=
 
 def lcount [BEq α] (xs : List α) (x : α) : Int := (xs.filter (· == x)).length
 
-/-- A set: the first copy of each element, in order. -/
+/-- A set: the first copy of each element, in order. This is `Prim.dedupBy` on `Id`
+(`PrimRel.dedup_eq_prim`), written out because the proofs unfold it. -/
 def dedup [BEq α] (xs : List α) : List α :=
-  Id.run (Prim.dedupBy (fun x acc => pure (acc.contains x)) [] xs)
+  xs.foldl (fun acc x => if acc.contains x then acc else acc ++ [x]) []
 
 def bget (b : Bytes) (i : Int) : SpecM Int := do pure (← lget b i).toNat
 

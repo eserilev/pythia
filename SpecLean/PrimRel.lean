@@ -217,6 +217,20 @@ theorem applyBuiltin_sorted (env : Env) (h : Heap) (v : Value) (xs : List Value)
       (do let ys ← Prim.sortBy (cmpVal .lt) false (xs.map fun x => (x, x)); pure (allocPyList h ys)) := by
   simp only [applyBuiltin, hb, hx, Except.bind_ok', kwArg, List.lookup, stableSort]
 
+/-- The interpreter's `set` is the primitive with Python's `in` for sets. -/
+theorem dedupe_eq_prim (h : Heap) : ∀ (acc xs : List Value),
+    dedupe h acc xs = Prim.dedupBy (fun x acc => do pure (← findKey h x acc).isSome) acc xs
+  | acc, [] => rfl
+  | acc, x :: xs => by
+    simp only [dedupe, Prim.dedupBy]
+    cases findKey h x acc with
+    | error => rfl
+    | ok o =>
+      simp only [Except.bind_ok', Except.pure_ok']
+      cases o.isSome
+      · exact dedupe_eq_prim h _ xs
+      · exact dedupe_eq_prim h _ xs
+
 /-- `set(xs)` is the primitive with Python's `in` for sets, then a new set. -/
 theorem applyBuiltin_set (env : Env) (h : Heap) (v : Value) (xs : List Value)
     (hb : LibModel.builtin env h .set [v] [] = none) (hx : iterElems h v = .ok xs) :
@@ -224,7 +238,7 @@ theorem applyBuiltin_set (env : Env) (h : Heap) (v : Value) (xs : List Value)
       let ys ← Prim.dedupBy (fun x acc => do pure (← findKey h x acc).isSome) [] xs
       let (a, h1) := h.alloc (.set ys)
       pure (.ref a, h1)) := by
-  simp only [applyBuiltin, hb, hx, Except.bind_ok', dedupe]
+  simp only [applyBuiltin, hb, hx, Except.bind_ok', dedupe_eq_prim]
 
 /-- `ssz_serialize` of a uint or a `Boolean` is the primitive. -/
 theorem sszSerialize_uint (env : Env) (h : Heap) (t : UintTy) (n : Nat) :
@@ -261,6 +275,18 @@ theorem lslice_eq_prim {γ : Type} (xs : List γ) (lo hi : Option Int) :
 /-- The readable `sum` of uints is the primitive with the checked addition. -/
 theorem sumU_eq_prim {γ : Type} [UintC γ] (start : γ) (xs : List γ) :
     sumU start xs = Prim.sum (fun acc x => uOp .add (uv acc) (uv x)) start xs := rfl
+
+/-- The readable `set` is the primitive on `Id`. -/
+theorem dedup_eq_prim {γ : Type} [BEq γ] (xs : List γ) :
+    dedup xs = Id.run (Prim.dedupBy (fun x acc => pure (acc.contains x)) [] xs) := by
+  suffices ∀ acc : List γ, xs.foldl (fun acc x => if acc.contains x then acc else acc ++ [x]) acc =
+      Id.run (Prim.dedupBy (fun x acc => pure (acc.contains x)) acc xs) from this []
+  induction xs with
+  | nil => intro acc; rfl
+  | cons x xs ih =>
+    intro acc
+    simp only [List.foldl_cons, Prim.dedupBy]
+    cases acc.contains x <;> simp [ih]
 
 /-- The readable `min` is the primitive on `Id`. -/
 theorem pyMin_eq_prim {γ : Type} [PyOrd γ] (x : γ) (xs : List γ) :

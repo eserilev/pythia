@@ -506,9 +506,12 @@ def seqAugAdd (h : Heap) (op : BinOp) (x y : Value) : Option (Res (Value × Heap
     | _ => none
   | _, _ => none
 
-/-- `set(xs)` from `acc`: the primitive with Python's `in` for sets (`findKey`). -/
-def dedupe (h : Heap) (acc xs : List Value) : Res (List Value) :=
-  Prim.dedupBy (fun x acc => do pure (← findKey h x acc).isSome) acc xs
+/-- `set(xs)` from `acc`. This is `Prim.dedupBy` with Python's `in` for sets
+(`PrimRel.dedupe_eq_prim`), written out because the proofs unfold it. -/
+def dedupe (h : Heap) : List Value → List Value → Res (List Value)
+  | acc, [] => .ok acc
+  | acc, x :: xs => do
+    if (← findKey h x acc).isSome then dedupe h acc xs else dedupe h (acc ++ [x]) xs
 
 def applyBuiltin (env : Env) (h : Heap) (b : Builtin) (args : List Value)
     (kws : List (Name × Value)) : Res (Value × Heap) :=
