@@ -627,8 +627,12 @@ Unfolding `interp` naively does not scale. The proofs use generic lemmas, proved
   reads, and the readable accumulator in the locals that the loop writes. The theorem holds at
   fuel `m + F` when `len - i ≤ m`, because each iteration costs one unit of fuel. So the bound
   of the function depends on its input: `_run` has fuel `k + len + F + 64`. The tactic stops at
-  the loop (`rd_loop`) and applies the loop theorem. The generator now covers loops that keep
-  the heap, run over a list field of the one container argument, and do not exit early.
+  the loop (`rd_loop`) and applies the loop theorem. A `while` loop has the same theorem, with
+  the readable measure in place of `len - i`. Every measure is below `2 ^ 64`, so that is the
+  bound of a `while` loop. The readable loop raises a bug when the measure does not decrease;
+  the condition of the loop proves that this case does not occur. The generator now covers
+  loops that keep the heap, are at the top level of the body, and do not exit early. A `for`
+  loop must run over a list field of the one container argument.
 
 A custom tactic applies these lemmas in the order of the function's statements. Names are `Nat`
 indices, and the heap is a finite map with decidable lookups, so the kernel does not reduce

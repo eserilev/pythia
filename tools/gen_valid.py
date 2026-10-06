@@ -247,7 +247,7 @@ class Gen:
         """The binders and the result type of each readable loop function of `name`."""
         out, k = [], 1
         while True:
-            m = re.search(rf"^def {re.escape(T.ident(name))}\.loop{k} (.*?) : SpecM (.*?) :=$",
+            m = re.search(rf"^def {re.escape(T.ident(name))}\.loop{k} (.*?) : SpecM (.*?) :=(?: do)?$",
                           self.readable, re.M)
             if not m:
                 return out
@@ -255,45 +255,48 @@ class Gen:
             k += 1
 
     def loops(self, name, sig, tree, callees=(), fuel=64):
-        """The theorem of each `for` loop of a function (SPEC 9.3): the loop runs over a list
-        field of a container argument, at the top level of the body, and keeps the heap. Each
-        iteration keeps the locals that the loop reads, and the locals that it writes hold the
-        readable accumulator. Returns the text, the theorem names, the readable lengths and the
-        container argument."""
+        """The theorem of each loop of a function (SPEC 9.3). The loop is at the top level of the
+        body and keeps the heap. A `for` loop runs over a list field of the container argument.
+        A `while` loop has a measure below `2 ^ 64`. Each iteration keeps the locals that the loop
+        reads, and the locals that it writes hold the readable values. Returns the text, the
+        theorem names, the fuel bound of each loop and the container argument."""
         c = self.cls[name]
         body = S.strip_docstring(tree.body)
-        fors = [(p, s) for p, s in enumerate(body) if isinstance(s, ast.For)]
-        if not fors:
+        loops = [(p, s) for p, s in enumerate(body) if isinstance(s, (ast.For, ast.While))]
+        if not loops:
             return "", [], [], None
-        if c["whiles"] or sig.mutated or any(isinstance(x, ast.comprehension)
-                                             for x in ast.walk(tree)):
+        if sig.mutated or any(isinstance(x, ast.comprehension) for x in ast.walk(tree)):
             raise Unsupported("loop kind")
-        if len(fors) != sum(isinstance(x, ast.For) for x in ast.walk(tree)):
+        if len(loops) != sum(isinstance(x, (ast.For, ast.While)) for x in ast.walk(tree)):
             raise Unsupported("nested loop")
         defs = self.loop_defs(name)
-        if len(defs) != len(fors):
+        if len(defs) != len(loops):
             raise Unsupported("loop functions")
         pnames = [pn for pn, _ in sig.params]
         conts = [j for j, (_, t) in enumerate(sig.params) if t[0] == "container"]
-        if len(conts) != 1:
+        if len(conts) > 1:
             raise Unsupported("loop: one container argument")
-        jj = conts[0]
-        cont = sig.params[jj][1][1]
-        fields = [f for f, _ in cont._FIELD_TYPES]
+        jj = conts[0] if conts else None
         args = [self.arg(j, t) for j, (_, t) in enumerate(sig.params)]
         fname = T.ident(name)
-        text, names, lens = "", [], []
-        for k, ((p, s), (binders, rty)) in enumerate(zip(fors, defs), 1):
+        text, names, bounds = "", [], []
+        for k, ((p, s), (binders, rty)) in enumerate(zip(loops, defs), 1):
             for x in ast.walk(s):
                 if isinstance(x, (ast.Return, ast.Break, ast.Continue)):
                     raise Unsupported("loop exit")
-            it = s.iter
-            if not (isinstance(it, ast.Attribute) and isinstance(it.value, ast.Name) and
-                    it.value.id == pnames[jj] and it.attr in fields and
-                    isinstance(s.target, ast.Name)):
-                raise Unsupported("loop source")
-            ni = next(i for i, (b, ty) in enumerate(binders) if b == "i_")
-            cap, carry = binders[:ni - 1], binders[ni + 1:]
+            loop = f"{fname}.loop{k}"
+            if isinstance(s, ast.For):
+                it = s.iter
+                if not (jj is not None and isinstance(it, ast.Attribute) and
+                        isinstance(it.value, ast.Name) and it.value.id == pnames[jj] and
+                        isinstance(s.target, ast.Name)):
+                    raise Unsupported("loop source")
+                fields = [f for f, _ in sig.params[jj][1][1]._FIELD_TYPES]
+                ni = next(i for i, (b, ty) in enumerate(binders) if b == "i_")
+                cap, carry = binders[:ni - 1], binders[ni + 1:]
+            else:
+                cap = [(b, ty) for b, ty in binders if not b.endswith("_in")]
+                carry = binders[len(cap):]
             if any(b not in pnames for b, _ in cap) or not carry:
                 raise Unsupported("loop: captured local")
             carried = []
@@ -302,7 +305,7 @@ class Gen:
                 if cl is None or not T.is_uint_cls(cl) or not b.endswith("_in"):
                     raise Unsupported(f"loop: carried {ty}")
                 ut = translate.uint_ty_term(self.n, cl)
-                carried.append((b[:-3], ut, re.findall(r"\d+", ut)[-1]))
+                carried.append((b[:-3], ty, ut, re.findall(r"\d+", ut)[-1]))
             capj = [pnames.index(b) for b, _ in cap]
             for j in capj:
                 if sig.params[j][1][0] not in ("container", "uint"):
@@ -311,31 +314,37 @@ class Gen:
             relb = " ".join(f"(r{j} : Nat)" if j == jj else f"(x{j} : Nat)" for j in capj)
             rela = " ".join(f"r{j}" if j == jj else f"x{j}" for j in capj)
             n = len(carried)
-            accs = [rd_fn.Fn.proj(None, "acc", i, n) if n > 1 else "acc" for i in range(n)]
+            res = [rd_fn.Fn.proj(None, "acc", i, n) if n > 1 else "acc" for i in range(n)]
+            accs = [f"acc{i}" for i in range(n)]
 
-            def facts(L):
+            def facts(L, vals):
                 cf = [f"{L} Scope.Id.«{x}» = some (.uint {ut} ({a}).val)"
-                      for (x, ut, _), a in zip(carried, accs)]
-                cf += [f"({a}).val < 2 ^ {w}" for (_, _, w), a in zip(carried, accs)]
+                      for (x, _, ut, _), a in zip(carried, vals)]
+                cf += [f"({a}).val < 2 ^ {w}" for (_, _, _, w), a in zip(carried, vals)]
                 pf = [f"{L} Scope.Id.«{pnames[j]}» = some {args[j][1]}" for j in capj]
                 return pf + cf
-            rty_rel = rty if n == 1 else f"({rty})" if not rty.startswith("(") else rty
+            rty_rel = rty
             text += f"""
 /-- An iteration of the loop {k} of `{name}`: the heap stays, and the locals hold the readable
 values. -/
 def {rel} (h : Heap) {relb} : Res (Outcome × Locals × Heap) → SpecM {rty_rel} → Prop
-  | .ok (.normal, L', h'), .ok acc => h' = h ∧ {" ∧ ".join(facts("L'"))}
+  | .ok (.normal, L', h'), .ok acc => h' = h ∧ {" ∧ ".join(facts("L'", res))}
   | .error e, .error f => e ≠ .outOfFuel ∧ e.fail = f
   | _, _ => False
 
 attribute [local irreducible] {rel}
 """
-            ln = f"x{jj}.{T.ident(it.attr)}.length"
-            lens.append(ln)
-            hl = [f"hL{i}" for i in range(len(facts("L")))]
-            bnd = " ".join(args[j][0] for j in sorted(set(capj) | {jj}))
+            hl = [f"hL{i}" for i in range(len(facts("L", accs)))]
+            bnd = " ".join(args[j][0] for j in sorted(set(capj) | ({jj} if jj is not None
+                                                                     else set())))
+            accb = " ".join(f"({a} : {ty})" for a, (_, ty, _, _) in zip(accs, carried))
             hy = f"hy{jj}"
+
             def dec(ind):
+                if jj is None:
+                    return (f"try simp only [{loop}.μ, rd_simp] at hn\n{ind}simp [rd_simp, "
+                            f"lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, "
+                            f"Scope.env, Scope.knownNames, {loop}.μ, *]")
                 cp = f"have {hy}c := {hy}\n{ind}" if callees else ""
                 return (cp + f"simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, "
                         f"rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, "
@@ -344,43 +353,76 @@ attribute [local irreducible] {rel}
                         f"stop_call_post, follow, Scope.env, Scope.knownNames, *]")
             rargs = " ".join(args[j][2] for j in capj)
             call = (f"rd_call [{', '.join(c + '_run' for c in callees)}] | " if callees else "")
-            text += f"""
+            steps = f"""rd_step
+      repeat' (first | rd_ih | {call}(rd_items; try rd_step) |
+        (rd_split <;> (try rd_step) <;> (try simp only [{rel}] at ⊢)))
+      all_goals (first | rd_finish | (simp only [{rel}]; simp [*]) | omega)"""
+            head = f"""
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 8192 in
-theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat) (t : Target) (it : Expr) (body : List Stmt)
+theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
+            if isinstance(s, ast.For):
+                ln = f"x{jj}.{T.ident(it.attr)}.length"
+                bounds.append(ln)
+                text += head + f""" (t : Target) (it : Expr) (body : List Stmt)
     (hfor : Scope.fn_{name}.body[{p}]? = some (.forStmt l t it body)) (src : IterSrc)
     (hsrc : ∀ i, iterItem h src i = .ok (follow h (.ref r{jj}) [{fields.index(it.attr)}, i])) :
-    ∀ m i (acc : {rty_rel}) (L : Locals), {" → ".join(facts("L"))} → {ln} - i ≤ m →
+    ∀ m i {accb} (L : Locals), {" → ".join(facts("L", accs))} → {ln} - i ≤ m →
       {rel} h {rela} (execFor (Scope.env sha) (m + {fuel}) L h t src i body)
-        ({fname}.loop{k} {rargs} {ln} i acc) := by
+        ({loop} {rargs} {ln} i {" ".join(accs)}) := by
   simp only [Scope.fn_{name}, List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq,
     Stmt.forStmt.injEq] at hfor
-  obtain ⟨_, rfl, _, rfl⟩ := hfor
+  obtain ⟨rfl, rfl, rfl, rfl⟩ := hfor
   intro m
   induction m with
   | zero =>
-    intro i acc L {" ".join(hl)} hn
-    rw [execFor, {fname}.loop{k}, hsrc, dif_neg (show ¬ i < {ln} by omega)]
+    intro i {" ".join(accs)} L {" ".join(hl)} hn
+    rw [execFor, {loop}, hsrc, dif_neg (show ¬ i < {ln} by omega)]
     {dec("    ")}
     simp (disch := omega) only [List.getElem?_eq_none]
     all_goals (simp only [{rel}]; simp [*])
   | succ m ih =>
     replace ih := Hide.mk ih
-    intro i acc L {" ".join(hl)} hn
-    rw [execFor, {fname}.loop{k}, hsrc]
+    intro i {" ".join(accs)} L {" ".join(hl)} hn
+    rw [execFor, {loop}, hsrc]
     by_cases hi : i < {ln}
     · rw [dif_pos hi]
       {dec("      ")}
-      rd_step
-      repeat' (first | rd_ih | {call}(rd_items; try rd_step) |
-        (rd_split <;> (try rd_step) <;> (try simp only [{rel}] at ⊢)))
-      all_goals (first | rd_finish | (simp only [{rel}]; simp [*]))
+      {steps}
     · rw [dif_neg hi]
       {dec("      ")}
       all_goals (simp only [{rel}]; simp [*])
 """
+            else:
+                # Every measure is a uint or a difference of uints: below `2 ^ 64`.
+                bounds.append("18446744073709551616")
+                text += f"\nattribute [local simp] {loop}.μ\n" + head + f""" (c : Expr) (body : List Stmt)
+    (hw : Scope.fn_{name}.body[{p}]? = some (.whileStmt l c body)) :
+    ∀ m {accb} (L : Locals), {" → ".join(facts("L", accs))} →
+      {loop}.μ {rargs} {" ".join(accs)} ≤ m →
+      {rel} h {rela} (execWhile (Scope.env sha) (m + {fuel}) L h c body)
+        ({loop} {rargs} {" ".join(accs)}) := by
+  simp only [Scope.fn_{name}, List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq,
+    Stmt.whileStmt.injEq] at hw
+  obtain ⟨rfl, rfl, rfl⟩ := hw
+  intro m
+  induction m with
+  | zero =>
+    intro {" ".join(accs)} L {" ".join(hl)} hn
+    rw [execWhile, {loop}]
+    {dec("    ")}
+    all_goals (
+      {steps})
+  | succ m ih =>
+    replace ih := Hide.mk ih
+    intro {" ".join(accs)} L {" ".join(hl)} hn
+    rw [execWhile, {loop}]
+    {dec("    ")}
+    all_goals (
+      {steps})
+"""
             names.append(f"{name}_loop{k}")
-        return text, names, lens, jj
+        return text, names, bounds, jj
 
     def theorem(self, name, sig, tree, callees=(), fuel=64, poly=None, tie=False):
         """The `_run` theorem at fuel `k + fuel` and the `_valid` theorem of SPEC 9.2. A call to
@@ -455,7 +497,7 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat) (t : Target) (it : Expr) (body
             inv += (f"  simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, "
                    f"rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', "
                    f"exists_eq_right] at {' '.join(hys)}\n  " +
-                    (f"rd_split_keep x{jj}\n" if lnames else "rd_split_hyps\n"))
+                    (f"rd_split_keep x{jj}\n" if lnames and jj is not None else "rd_split_hyps\n"))
         vs = "[" + ", ".join(a[1] for a in args) + "]"
         rargs = " ".join(a[2] for a in args)
         hw = (f" (hw : WTree h {vs} {fp}) (hwf : HeapWF h) (haw : ArgsWF h {vs})"

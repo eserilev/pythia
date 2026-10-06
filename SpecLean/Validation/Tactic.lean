@@ -160,7 +160,7 @@ def isValueHead (a : Lean.Expr) : Bool :=
     f.isConstOf ``Option.none || f.isConstOf ``Pure.pure || a.isFVar || isDecoder f ||
     -- A call waits for `rd_call`, which needs the readable call too; the next iteration of a
     -- loop waits for the induction hypothesis.
-    f.isConstOf `SpecLean.Validation.Tactic.callStop || f.isConstOf ``SpecLean.execFor ||
+    f.isConstOf `SpecLean.Validation.Tactic.callStop || f.isConstOf ``SpecLean.execFor || f.isConstOf ``SpecLean.execWhile ||
     (match f.constName? with
      | some (.str _ s) => s.startsWith "loop"
      | _ => false)
@@ -1291,7 +1291,7 @@ theorem Hide.get {p : Prop} (h : Hide p) : p := by unfold Hide at h; exact h
 elab "rd_loop_tail" : tactic => withMainContext do
   let t := (← instantiateMVars (← getMainTarget)).consumeMData
   let args := t.getAppArgs
-  unless args.size ≥ 2 && (args[args.size - 2]!).isAppOf ``SpecLean.execFor do
+  unless args.size ≥ 2 && ((args[args.size - 2]!).isAppOf ``SpecLean.execFor || (args[args.size - 2]!).isAppOf ``SpecLean.execWhile) do
     throwError "rd_loop_tail: no"
 
 /-- A hypothesis of a loop theorem: an iteration source, a local, a range or a bound. -/
@@ -1302,6 +1302,7 @@ macro "rd_loophyp" : tactic => `(tactic| first
   | (simp only [SpecLean.Locals.set_apply]
      simp (config := { decide := true }) only [ite_true, ite_false, *]; done)
   | (simp [*]; omega)
+  | (simp [rd_simp, *]; omega)
   | rfl)
 
 /-- The next iteration of a loop: the induction hypothesis `Hide _` of the context. -/
@@ -1316,7 +1317,7 @@ results are split, with the facts of the relation. -/
 elab "rd_loop" "[" ls:ident,* "]" : tactic => withMainContext do
   let g ← getMainGoal
   let t ← instantiateMVars (← g.getType)
-  let some ex := findClosed t (·.isAppOf ``SpecLean.execFor) | throwError "rd_loop: no loop"
+  let some ex := findClosed t (fun e => e.isAppOf ``SpecLean.execFor || e.isAppOf ``SpecLean.execWhile) | throwError "rd_loop: no loop"
   let some rd := findClosed t (fun e => match e.getAppFn.constName? with
       | some (.str _ s) => s.startsWith "loop"
       | _ => false) | throwError "rd_loop: no readable loop"
