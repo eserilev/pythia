@@ -187,6 +187,9 @@ class Spec where
   /-- G1 point addition and negation, on points as their 48 bytes. -/
   blsG1Add : Bytes → Bytes → Bytes
   blsG1Neg : Bytes → Bytes
+  /-- `hash_tree_root` of an encoded value: an oracle, the same one the interpreter calls. The
+  runner sets it to `Htr.root`. -/
+  hashTreeRoot : Heap → Value → Res Bytes
 
 variable [Spec]
 
@@ -196,10 +199,10 @@ def hasher : Htr.Hasher where
   containers := Spec.containers
   active := Spec.active
 
-/-- `hash_tree_root` of an encoded value. -/
+/-- `hash_tree_root` of an encoded value, through the oracle. -/
 def htrObj (o : SszObj) : SpecM Bytes :=
   let (v, h) := o.enc Heap.empty
-  erase (Htr.root hasher h 64 v)
+  erase (Spec.hashTreeRoot h v)
 
 def htr (enc : Enc α) (x : α) : SpecM Bytes := htrObj ⟨enc x⟩
 

@@ -3,16 +3,14 @@ import SpecLean.Validation.DecodeExtra
 import SpecLean.Validation.Where
 
 /-!
-# `hash_tree_root`: the oracle against the readable Lean
+# `hash_tree_root` as an oracle on both sides
 
-The interpreter calls the oracle field `hashTreeRoot` on a heap value. The readable Lean calls
-`Htr.root` on its own encoding of the value, in a new heap (`htr`). Two facts link them.
-
-- `OracleHtr sha`: the oracle is `Htr.root` with the hasher of the readable Lean. The EF runner
-  sets the oracle this way (`Runner/Main.lean`), with no cache.
-- `root_bis`: `Htr.root` reads only the content of a value: two values with the same content
-  (`Bis`) in two heaps have the same root. A decoded heap value has the content of the encoding
-  of its readable value, so its root is the readable root (`htr_ForkData`, `htr_SigningData`).
+The interpreter calls the oracle field `sha.hashTreeRoot` on a heap value. The readable Lean calls
+the oracle `Spec.hashTreeRoot` on its own encoding of the value, in a new heap (`htrObj`). The
+proofs treat both as one oracle and assume one property of it (`OracleHtr`): it reads only the
+content of a value (`Bis`). So a heap value and the encoding of its readable value get one root
+(`htr_bridge`). `Htr.root` is only the executable oracle of the runner: `htrRoot_ext` and
+`root_noOof` show that it has the assumed properties.
 
 The decoders do not check the number of fields of a container. `Shaped` says that each
 container object of the heap has the fields of its class, as every object that Python builds
@@ -22,15 +20,6 @@ does.
 namespace SpecLean.Validation.HtrBridge
 
 open SpecLean SpecLean.Rd SpecLean.Rd.Gen
-
-/-! ## The oracle -/
-
-/-- The oracle computes `hash_tree_root` as the readable Lean does, and `sha256` too. -/
-structure OracleHtr [Spec] (sha : Oracle) : Prop where
-  htr : ∀ h v, sha.hashTreeRoot h v = Htr.root hasher h 64 v
-  sha256 : sha.sha256 = Spec.sha256
-  /-- A root has 32 bytes: `sha256` gives 32 bytes, and so does each zero root. -/
-  len : ∀ h v r, sha.hashTreeRoot h v = .ok r → r.length = 32
 
 /-! ## The content of a value -/
 
@@ -62,6 +51,90 @@ theorem Bis_ref {d : Nat} {h h' : Heap} {a : Nat} {v' : Value} (hb : Bis d h (.r
 theorem Bis_self_scalar (d : Nat) (h h' : Heap) {v : Value} (hv : ∀ a, v ≠ .ref a) :
     Bis d h v h' v := by
   cases v <;> cases d <;> simp_all [Bis]
+
+theorem Bis_symm : ∀ d h v h' v', Bis d h v h' v' → Bis d h' v' h v := by
+  intro d
+  induction d with
+  | zero =>
+    intro h v h' v' hb
+    by_cases hv : ∃ a, v = .ref a
+    · obtain ⟨a, rfl⟩ := hv; obtain ⟨a', rfl⟩ := Bis_ref hb; simp [Bis]
+    · rw [Bis_scalar (fun a e => hv ⟨a, e⟩) hb]; exact Bis_self_scalar 0 h' h (fun a e => hv ⟨a, e⟩)
+  | succ d ih =>
+    intro h v h' v' hb
+    by_cases hv : ∃ a, v = .ref a
+    · obtain ⟨a, rfl⟩ := hv
+      obtain ⟨a', rfl⟩ := Bis_ref hb
+      simp only [Bis] at hb ⊢
+      split at hb
+      · rename_i ty fs ty' fs' ho ho'
+        obtain ⟨rfl, hl, hi⟩ := hb
+        rw [ho, ho']
+        exact ⟨rfl, hl.symm, fun i x' x hx' hx => ih h x h' x' (hi i x x' hx hx')⟩
+      · rename_i k e l xs k' e' l' xs' ho ho'
+        obtain ⟨rfl, rfl, rfl, hl, hi⟩ := hb
+        rw [ho, ho']
+        exact ⟨rfl, rfl, rfl, hl.symm, fun i x' x hx' hx => ih h x h' x' (hi i x x' hx hx')⟩
+      · exact hb.elim
+    · rw [Bis_scalar (fun a e => hv ⟨a, e⟩) hb]
+      exact Bis_self_scalar _ h' h (fun a e => hv ⟨a, e⟩)
+
+theorem Bis_trans : ∀ d h1 v1 h2 v2 h3 v3, Bis d h1 v1 h2 v2 → Bis d h2 v2 h3 v3 →
+    Bis d h1 v1 h3 v3 := by
+  intro d
+  induction d with
+  | zero =>
+    intro h1 v1 h2 v2 h3 v3 b12 b23
+    by_cases hv : ∃ a, v1 = .ref a
+    · obtain ⟨a, rfl⟩ := hv; obtain ⟨a2, rfl⟩ := Bis_ref b12; obtain ⟨a3, rfl⟩ := Bis_ref b23
+      simp [Bis]
+    · have e2 := Bis_scalar (fun a e => hv ⟨a, e⟩) b12
+      subst e2
+      rw [Bis_scalar (fun a e => hv ⟨a, e⟩) b23]
+      exact Bis_self_scalar 0 h1 h3 (fun a e => hv ⟨a, e⟩)
+  | succ d ih =>
+    intro h1 v1 h2 v2 h3 v3 b12 b23
+    by_cases hv : ∃ a, v1 = .ref a
+    · obtain ⟨a1, rfl⟩ := hv
+      obtain ⟨a2, rfl⟩ := Bis_ref b12
+      obtain ⟨a3, rfl⟩ := Bis_ref b23
+      simp only [Bis] at b12 b23 ⊢
+      split at b12
+      · rename_i ty fs ty' fs' ho1 ho2
+        obtain ⟨rfl, hl, hi⟩ := b12
+        rw [ho2] at b23
+        split at b23
+        · rename_i ty2 fs2 ty3 fs3 hc ho3
+          cases hc
+          obtain ⟨rfl, hl', hi'⟩ := b23
+          rw [ho1, ho3]
+          refine ⟨rfl, hl.trans hl', fun i x z hx hz => ?_⟩
+          obtain ⟨y, hy⟩ : ∃ y, fs'[i]? = some y :=
+            ⟨fs'[i]'(by have := (List.getElem?_eq_some_iff.mp hx).1; omega),
+              List.getElem?_eq_getElem _⟩
+          exact ih _ _ _ _ _ _ (hi i x y hx hy) (hi' i y z hy hz)
+        · simp at *
+        · exact b23.elim
+      · rename_i k e l xs k' e' l' xs' ho1 ho2
+        obtain ⟨rfl, rfl, rfl, hl, hi⟩ := b12
+        rw [ho2] at b23
+        split at b23
+        · simp at *
+        · rename_i k2 e2 l2 xs2 k3 e3 l3 xs3 hc ho3
+          cases hc
+          obtain ⟨rfl, rfl, rfl, hl', hi'⟩ := b23
+          rw [ho1, ho3]
+          refine ⟨rfl, rfl, rfl, hl.trans hl', fun i x z hx hz => ?_⟩
+          obtain ⟨y, hy⟩ : ∃ y, xs'[i]? = some y :=
+            ⟨xs'[i]'(by have := (List.getElem?_eq_some_iff.mp hx).1; omega),
+              List.getElem?_eq_getElem _⟩
+          exact ih _ _ _ _ _ _ (hi i x y hx hy) (hi' i y z hy hz)
+        · exact b23.elim
+      · exact b12.elim
+    · have e2 := Bis_scalar (fun a e => hv ⟨a, e⟩) b12
+      subst e2
+      rw [Bis_scalar (fun a e => hv ⟨a, e⟩) b23]
+      exact Bis_self_scalar _ h1 h3 (fun a e => hv ⟨a, e⟩)
 
 /-- `mapM` of two related lists with functions that agree on related items. -/
 theorem mapM_rel {α : Type} {f g : Value → Res α} {R : Value → Value → Prop} :
@@ -183,6 +256,40 @@ theorem root_noOof (H : Htr.Hasher) : ∀ d h v, NoOof (Htr.root H h d v) := by
       | refine noOof_bind ?_ fun _ => ?_
       | split)
 
+/-! ## The oracle -/
+
+/-- The assumptions on the `hash_tree_root` oracle, stated once.
+
+- `same`: the readable Lean calls the oracle of the interpreter.
+- `ext`: the oracle reads only the content of a value. Two heap values with the same content
+  have the same root. This is weaker than "the same decoded value": a decoder that forgets
+  part of a value would make that version unsatisfiable.
+- `noOof`: the oracle never runs out of fuel, and `len`: a root has 32 bytes. -/
+structure OracleHtr [Spec] (sha : Oracle) : Prop where
+  same : Spec.hashTreeRoot = sha.hashTreeRoot
+  ext : ∀ h v h' v', Bis 64 h v h' v' → sha.hashTreeRoot h v = sha.hashTreeRoot h' v'
+  noOof : ∀ h v, sha.hashTreeRoot h v ≠ .error .outOfFuel
+  len : ∀ h v r, sha.hashTreeRoot h v = .ok r → r.length = 32
+
+/-- The executable oracle `Htr.root` reads only the content of a value. -/
+theorem htrRoot_ext (H : Htr.Hasher) :
+    ∀ h v h' v', Bis 64 h v h' v' → Htr.root H h 64 v = Htr.root H h' 64 v' :=
+  root_bis H 64
+
+/-- The interpreter's oracle call on a heap value against the readable call on an object whose
+encoding has the same content. -/
+theorem htrObj_bridge [Spec] {sha : Oracle} (ho : OracleHtr sha) {h : Heap} {v : Value}
+    {o : SszObj} (hb : Bis 64 h v (o.enc Heap.empty).2 (o.enc Heap.empty).1) :
+    erase (sha.hashTreeRoot h v) = htrObj o := by
+  unfold htrObj
+  rw [ho.same, ho.ext h v _ _ hb]
+
+theorem htr_bridge [Spec] {α : Type} {sha : Oracle} (ho : OracleHtr sha) (enc : Enc α)
+    {h : Heap} {v : Value} {x : α}
+    (hb : Bis 64 h v (enc x Heap.empty).2 (enc x Heap.empty).1) :
+    erase (sha.hashTreeRoot h v) = htr enc x :=
+  htrObj_bridge ho hb
+
 /-! ## Decoded values against their encodings -/
 
 /-- Each container object that `v` reaches has the fields of its class, as every object that
@@ -266,16 +373,6 @@ theorem bis_SigningData {h : Heap} {v : Value} {x : SigningData} (hsh : Shaped h
   rw [enc_SigningData_eq]
   exact bis_container_scalars ho Where.objs_alloc_self (by simp) d
 
-/-! ## The bridge -/
-
-/-- The oracle on a decoded heap value gives the readable `htr` of its value. -/
-theorem htr_bridge [Spec] {α : Type} {sha : Oracle} (ho : OracleHtr sha) (enc : Enc α)
-    {h : Heap} {v : Value} {x : α}
-    (hb : Bis 64 h v (enc x Heap.empty).2 (enc x Heap.empty).1) :
-    erase (sha.hashTreeRoot h v) = htr enc x := by
-  rw [ho.htr, root_bis hasher 64 h v _ _ hb]
-  rfl
-
 theorem htr_ForkData [Spec] {sha : Oracle} (ho : OracleHtr sha) {h : Heap} {v : Value}
     {x : ForkData} (hsh : Shaped h v) (hd : dec_ForkData h v = some x) :
     erase (sha.hashTreeRoot h v) = htr enc_ForkData x :=
@@ -285,5 +382,13 @@ theorem htr_SigningData [Spec] {sha : Oracle} (ho : OracleHtr sha) {h : Heap} {v
     {x : SigningData} (hsh : Shaped h v) (hd : dec_SigningData h v = some x) :
     erase (sha.hashTreeRoot h v) = htr enc_SigningData x :=
   htr_bridge ho enc_SigningData (bis_SigningData hsh hd 63 Heap.empty)
+
+/-- Two heap values that decode to one `ForkData` get one root. -/
+theorem oracle_dec_ForkData [Spec] {sha : Oracle} (ho : OracleHtr sha) {h h' : Heap}
+    {v v' : Value} {x : ForkData} (hs : Shaped h v) (hs' : Shaped h' v')
+    (hd : dec_ForkData h v = some x) (hd' : dec_ForkData h' v' = some x) :
+    sha.hashTreeRoot h v = sha.hashTreeRoot h' v' :=
+  ho.ext _ _ _ _ (Bis_trans _ _ _ _ _ _ _ (bis_ForkData hs hd 63 Heap.empty)
+    (Bis_symm _ _ _ _ _ (bis_ForkData hs' hd' 63 Heap.empty)))
 
 end SpecLean.Validation.HtrBridge
