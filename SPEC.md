@@ -147,8 +147,20 @@ scope above. The proofs cover less:
   once, at a fork boundary, and they share objects between `pre` and `post`, which neither proof
   strategy handles well.
 
-The claim is: every function of the state transition, except the upgrades, is proved equal to
-the interpreter, with hashing and signatures as oracles.
+- Library and builtin operations are trusted primitives, as Aeneas treats Rust's standard
+  library (`Aeneas.Std`). Spec functions, the code written in the consensus specs, are proved.
+  - Each primitive is defined once, in Lean, on decoded values. The interpreter's builtin decodes
+    its arguments, calls that same function and encodes the result. So the interpreter and the
+    readable Lean agree on a primitive by definition. Only the model itself is trusted.
+  - The fuzzer and the value-rule probes test each primitive against CPython and `eth-ssz-specs`.
+  - The primitives: `set`, `sorted`, `sum`, `min`, `max`, `len`, `any`, `all`, `ssz_serialize`,
+    `ssz_deserialize`, `int.from_bytes`, `bit_length`, bytes slicing and concatenation, and the
+    uint arithmetic and coercion table of section 6.2. Anything not on this list is spec code.
+  - A primitive that already has a proof keeps it. A proof only lowers the trust.
+
+The claim is: every spec function of the state transition, except the upgrades, is proved equal
+to the interpreter. Hashing and signatures are oracles, and library operations are trusted
+primitives with one shared model.
 
 ## 5. Pipeline
 
