@@ -746,6 +746,7 @@ The interpreter defines the meaning of the spec, so it gets the heaviest tests.
 | 3 | Serializer from the `SpecObject`, and `FP` computed from it. The interpreter runs the Gloas EF vectors, with `hash_tree_root`, the BLS oracle and the dynamic `WTree` check |
 | 4 | Differential fuzzing, spec-level fuzzing and mutation testing of the interpreter |
 | 5 | Translator to readable Lean, `decode` instances, loop measures, generic lemmas, the validation tactic, the entry-point theorems for the upgrades and the `WTree` induction of section 9.4 |
+| 5b | Readability pass on the readable Lean, before step 6: uint operator notation in place of the `uv` and `⟨… .val⟩` casts, pure functions outside `SpecM` when they cannot raise, fewer parentheses, and loop state limited to what the loop changes. The validation tactic and proofs move with it |
 | 6 | One-time migration: pin one spec version, prove the existing hand-written epoch `Spec/` equal to the generated Lean, instantiate its `hash_tree_root_*` oracle fields with the Lean implementation, then move the Lighthouse proofs onto the generated Lean |
 | 7 | Layer 4, if steps 1 to 6 show a need |
 
