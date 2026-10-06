@@ -588,3 +588,20 @@ Status at 15:30:
 
 Lesson: a proof tactic can loop like any program. Under no memory cap, one bad `apply` took down
 the machine.
+
+Status at 23:00: the tactic proves 49 of 162 functions alone: 29 leaves, 17 calls and 3 loops.
+
+- The call rule worked at once (0 to 15 calls). After that, progress came about one function per
+  commit, which is the pattern we wanted to avoid.
+- The general loop lemmas are on master (`944f700`), built by a second agent in parallel:
+  `for_sim` for every `for` loop with the contract chained over each pass, variants for live
+  lists, `enumerate` and `zip`, and `while_sim`.
+- The tactic proves its first loops (`e6c4e43`, `a3d6a6a`): two `for` loops and
+  `integer_squareroot`. So far only simple loops: they write nothing to the heap and carry only
+  uint locals.
+- Not covered yet, and where most of the remaining functions are: loops that write the heap (all
+  the `process_*` epoch functions), callers of loop functions (their fuel depends on the input),
+  and comprehensions.
+
+Honest read: the machinery is in place, but the count is rising slowly. The next rule, loops that
+write the heap, is the test. It covers the functions that the Lighthouse proofs need most.
