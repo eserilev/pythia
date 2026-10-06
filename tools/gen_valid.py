@@ -144,7 +144,13 @@ class Gen:
     def expect(self, t, rv="r"):
         """The relation of the return value `v` to the readable value `rv`, and simp names."""
         k = t[0]
-        if k in ("uint", "bytesN"):
+        if k == "uint":
+            # The range too: a caller that stores the result decodes it again.
+            c = self.n.cls(t[1])
+            w = re.findall(r"\d+", translate.uint_ty_term(self.n, t[1]))[-1]
+            return (f"v = (enc_{c} {rv} h').1 ∧ UintC.val {rv} < 2 ^ {w}",
+                    [f"enc_{c}", "encUint", "encBytesN"])
+        if k == "bytesN":
             c = self.n.cls(t[1])
             return f"v = (enc_{c} {rv} h').1", [f"enc_{c}", "encUint", "encBytesN"]
         if k == "bool":
@@ -188,7 +194,7 @@ class Gen:
                 pats.append(p)
         return "[" + ", ".join(pats) + "]"
 
-    def theorem(self, name, sig, tree, callees=(), fuel=64, poly=None):
+    def theorem(self, name, sig, tree, callees=(), fuel=64, poly=None, tie=False):
         """The `_run` theorem at fuel `k + fuel` and the `_valid` theorem of SPEC 9.2. A call to
         a callee in `callees` uses the callee's `_run` theorem (`rd_call`).
 
@@ -208,14 +214,24 @@ class Gen:
             x = f"x{poly}"
             args[poly] = (f"(t{poly} : UintTy) (ht{poly} : t{poly}.bits = {w}) ({x} : Nat)",
                           f"(.uint t{poly} {x})", args[poly][2], f"t{poly} ht{poly} {x}")
+            if tie:
+                # Each `int` parameter gets a uint of the same class, as `delta: Gwei` passed to
+                # `b: int` in `saturating_sub(balance, delta)`.
+                ints = [j for j, (_, t) in enumerate(sig.params) if t[0] == "int"]
+                if not ints:
+                    raise Unsupported("tie")
+                for j in ints:
+                    y = f"x{j}"
+                    args[j] = (f"({y} : Nat)", f"(.uint t{poly} {y})", f"({y} : Int)", y)
         ret = sig.ret
         outs = rd_fn.out_types(sig)
         rt = ("Unit" if not outs else self.em.lean_param(outs[0]) if len(outs) == 1 else
               "(" + " × ".join(self.em.lean_param(t) for t in outs) + ")")
         if poly is not None:
-            exp = f"v = .uint t{poly} (UintC.val r) ∧ h' = h"
+            exp = f"v = .uint t{poly} (UintC.val r) ∧ UintC.val r < 2 ^ {w} ∧ h' = h"
             encs = []
-            name_run, name_valid = f"{name}_p{poly}_run", f"{name}_p{poly}_valid"
+            sfx = f"_p{poly}" + ("i" if tie else "")
+            name_run, name_valid = f"{name}{sfx}_run", f"{name}{sfx}_valid"
         elif not sig.mutated:
             e, encs = self.expect(ret)
             exp = f"{e} ∧ h' = h"
@@ -414,10 +430,12 @@ def main():
             sig = em.sigs[n]
             for j, (_, t) in enumerate(sig.params):
                 if t[0] == "uint" and sig.ret[0] == "uint" and not sig.mutated:
-                    try:
-                        cands[f"{n}_p{j}"] = (g.theorem(n, sig, fns[n], lemmas, f, poly=j), f)
-                    except (Unsupported, S.Unsupported, ValueError):
-                        pass
+                    for tie in (False, True):
+                        try:
+                            cands[f"{n}_p{j}" + ("i" if tie else "")] = (
+                                g.theorem(n, sig, fns[n], lemmas, f, poly=j, tie=tie), f)
+                        except (Unsupported, S.Unsupported, ValueError):
+                            pass
         todo = [n for n in todo if n not in cands and n not in skipped]
         if not cands:
             break
@@ -445,7 +463,8 @@ def main():
     for n in todo:
         skipped.setdefault(n, "a callee has no theorem")
     print(f"tier {args.tier}: {len(proved)}/{len(tier)} proved, wrote {out}")
-    print(f"  class-polymorphic variants: {sorted(k for k in fuel if k not in tier and '_p' in k)}")
+    print(f"  class-polymorphic variants: "
+          f"{sorted(k for k in fuel if k not in tier and re.search(r'_p\d+i?$', k))}")
     for n in sorted(skipped):
         print(f"  SKIP {n}: {skipped[n]}")
     for n in sorted(failed):

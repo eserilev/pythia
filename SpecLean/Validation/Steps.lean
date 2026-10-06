@@ -53,6 +53,16 @@ open SpecLean SpecLean.Encode
     NoNewPaths h h vs fp :=
   NoNewPaths_refl h vs fp
 
+/-! Integer arithmetic that cannot fail: the proofs compute it, they do not split on it. -/
+@[rd_simp] theorem intArith_add (a b : Int) : intArith .add a b = .ok (a + b) := rfl
+@[rd_simp] theorem intArith_sub (a b : Int) : intArith .sub a b = .ok (a - b) := rfl
+@[rd_simp] theorem intArith_mul (a b : Int) : intArith .mul a b = .ok (a * b) := rfl
+@[rd_simp] theorem intArith_mod (a b : Int) (hb : b ≠ 0) : intArith .mod a b = .ok (a.fmod b) := by
+  simp [intArith, hb]
+@[rd_simp] theorem intArith_floorDiv (a b : Int) (hb : b ≠ 0) :
+    intArith .floorDiv a b = .ok (a.fdiv b) := by
+  simp [intArith, hb]
+
 theorem intArith_ne_oof {op : BinOp} {a b : Int} {e : SpecError}
     (h : intArith op a b = .error e) : e ≠ .outOfFuel := by
   cases op <;> simp only [intArith] at h <;> (repeat' split at h) <;> cases h <;> decide

@@ -937,6 +937,26 @@ def fillFromContext (m : Lean.Expr) : MetaM Bool := do
 def findClosed (e : Lean.Expr) (p : Lean.Expr → Bool) : Option Lean.Expr :=
   e.find? fun x => p x && !x.hasLooseBVars
 
+/-- Each `ref` argument of the callee is the caller's at the same position. -/
+macro "rd_subargs" : tactic => `(tactic| (
+  intro k a hk
+  rcases k with _ | _ | _ | _ | _ | _ | _ | _ | k <;>
+    simp only [List.getElem?_cons_zero, List.getElem?_cons_succ, List.getElem?_nil, id,
+      Option.some.injEq, SpecLean.Value.ref.injEq, reduceCtorEq] at hk ⊢ <;>
+    first | (subst hk; rfl) | exact hk | rfl))
+
+/-- A hypothesis of a callee theorem at a call: a fact about literals, or the write condition
+of the callee from the caller's, when the callee takes the caller's arguments in place. -/
+macro "rd_callhyp" : tactic => `(tactic| first
+  | rfl
+  | decide
+  | (refine SpecLean.Encode.WTree_sub (σ := id) ‹_› ?_ (by decide)
+      (fun _ _ _ _ _ _ e => e)
+     rd_subargs)
+  | (refine SpecLean.Encode.ArgsWF_sub (σ := id) ‹_› ?_
+     rd_subargs)
+  | rd_heapwf)
+
 /-- A call of a callee with a theorem: the theorem `L` of the callee relates the call to the
 readable call. Both results are split, and a pair of results that `L` rules out closes. -/
 elab "rd_call" "[" ls:ident,* "]" : tactic => withMainContext do
@@ -982,8 +1002,9 @@ elab "rd_call" "[" ls:ident,* "]" : tactic => withMainContext do
           continue
         if (← inferType ty).isProp then
           if ← fillFromContext m then continue
-          -- A fact about literals, such as the width of a uint class.
-          let gs ← try evalTacticAt (← `(tactic| first | rfl | decide)) m.mvarId!
+          -- A fact about literals, such as the width of a uint class, or the write condition of
+          -- the callee from the caller's.
+          let gs ← try evalTacticAt (← `(tactic| rd_callhyp)) m.mvarId!
             catch _ => throwError m!"rd_call: no fact for {ty}"
           unless gs.isEmpty do throwError m!"rd_call: no fact for {ty}"
       let pf ← instantiateMVars (mkAppN c ms)
@@ -1029,3 +1050,39 @@ elab "rd_call" "[" ls:ident,* "]" : tactic => withMainContext do
   throwError "rd_call: no theorem fits the call"
 
 end SpecLean.Validation.Tactic
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- The facts of the items that a proof read from decoded lists: for `l[i]? = some v` and
+`∀ y ∈ l, P y`, add `P v`. -/
+elab "rd_range" : tactic => withMainContext do
+  let mut g ← getMainGoal
+  let mut added := false
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let_expr Eq _ lhs rhs := ty | continue
+    unless lhs.isAppOfArity ``GetElem?.getElem? 7 do continue
+    let_expr Option.some _ v := rhs | continue
+    let l := lhs.getArg! 5
+    for e in ← getLCtx do
+      if e.isImplementationDetail then continue
+      let ety ← instantiateMVars e.type
+      unless ety.isForall do continue
+      let s ← saveState
+      try
+        let mem ← mkAppM ``List.mem_of_getElem? #[d.toExpr]
+        let pf ← mkAppM' e.toExpr #[v, mem]
+        let (_, g') ← (← g.assert `hrange (← inferType pf) pf).intro1P
+        g := g'
+        added := true
+        let _ := l
+      catch _ => s.restore
+  unless added do throwError "rd_range: none"
+  replaceMainGoal [g]
+
+end SpecLean.Validation.Tactic
+
+macro_rules | `(tactic| rd_finish) => `(tactic| (rd_range; omega))

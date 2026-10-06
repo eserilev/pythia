@@ -28,7 +28,7 @@ attribute [local rd_simp] encUint encBytesN encBoolean enc_Uint64 enc_Root enc_S
 
 set_option maxHeartbeats 4000000 in
 theorem add_flag_run (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) (k : Nat) :
-      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] (fun (r : ParticipationFlags) h' v => v = (enc_ParticipationFlags r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] (fun (r : ParticipationFlags) h' v => v = (enc_ParticipationFlags r h').1 ∧ UintC.val r < 2 ^ 8 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«add_flag» [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] h)
         (add_flag (⟨x0⟩ : ParticipationFlags) x1) := by
   all_goals (
@@ -40,7 +40,7 @@ theorem add_flag_run (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) (k : Nat
 
 theorem add_flag_valid (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] (fun (r : ParticipationFlags) h' v => v = (enc_ParticipationFlags r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] (fun (r : ParticipationFlags) h' v => v = (enc_ParticipationFlags r h').1 ∧ UintC.val r < 2 ^ 8 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«add_flag» [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] h)
         (add_flag (⟨x0⟩ : ParticipationFlags) x1) :=
   ⟨64, fun fuel hf => by
@@ -49,7 +49,7 @@ theorem add_flag_valid (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) :
 
 set_option maxHeartbeats 4000000 in
 theorem bytes_to_uint64_run (gfp : Footprint) (h : Heap) (x0 : List UInt8) (k : Nat) :
-      ResultMatches gfp [] h [(.bytes 0 x0)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.bytes 0 x0)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«bytes_to_uint64» [(.bytes 0 x0)] h)
         (bytes_to_uint64 x0) := by
   all_goals (
@@ -61,7 +61,7 @@ theorem bytes_to_uint64_run (gfp : Footprint) (h : Heap) (x0 : List UInt8) (k : 
 
 theorem bytes_to_uint64_valid (gfp : Footprint) (h : Heap) (x0 : List UInt8) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.bytes 0 x0)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.bytes 0 x0)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«bytes_to_uint64» [(.bytes 0 x0)] h)
         (bytes_to_uint64 x0) :=
   ⟨64, fun fuel hf => by
@@ -70,7 +70,7 @@ theorem bytes_to_uint64_valid (gfp : Footprint) (h : Heap) (x0 : List UInt8) :
 
 set_option maxHeartbeats 4000000 in
 theorem compute_activation_exit_epoch_run (gfp : Footprint) (h : Heap) (x0 : Nat) (k : Nat) :
-      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«compute_activation_exit_epoch» [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] h)
         (compute_activation_exit_epoch (⟨x0⟩ : Epoch)) := by
   all_goals (
@@ -82,7 +82,7 @@ theorem compute_activation_exit_epoch_run (gfp : Footprint) (h : Heap) (x0 : Nat
 
 theorem compute_activation_exit_epoch_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«compute_activation_exit_epoch» [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] h)
         (compute_activation_exit_epoch (⟨x0⟩ : Epoch)) :=
   ⟨64, fun fuel hf => by
@@ -91,7 +91,7 @@ theorem compute_activation_exit_epoch_valid (gfp : Footprint) (h : Heap) (x0 : N
 
 set_option maxHeartbeats 4000000 in
 theorem compute_epoch_at_slot_run (gfp : Footprint) (h : Heap) (x0 : Nat) (k : Nat) :
-      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Slot» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Slot» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«compute_epoch_at_slot» [(.uint (.nominal Scope.Id.«Slot» 64) x0)] h)
         (compute_epoch_at_slot (⟨x0⟩ : Slot)) := by
   all_goals (
@@ -103,7 +103,7 @@ theorem compute_epoch_at_slot_run (gfp : Footprint) (h : Heap) (x0 : Nat) (k : N
 
 theorem compute_epoch_at_slot_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Slot» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Slot» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«compute_epoch_at_slot» [(.uint (.nominal Scope.Id.«Slot» 64) x0)] h)
         (compute_epoch_at_slot (⟨x0⟩ : Slot)) :=
   ⟨64, fun fuel hf => by
@@ -112,7 +112,7 @@ theorem compute_epoch_at_slot_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
 
 set_option maxHeartbeats 4000000 in
 theorem compute_start_slot_at_epoch_run (gfp : Footprint) (h : Heap) (x0 : Nat) (k : Nat) :
-      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Slot) h' v => v = (enc_Slot r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Slot) h' v => v = (enc_Slot r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«compute_start_slot_at_epoch» [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] h)
         (compute_start_slot_at_epoch (⟨x0⟩ : Epoch)) := by
   all_goals (
@@ -124,7 +124,7 @@ theorem compute_start_slot_at_epoch_run (gfp : Footprint) (h : Heap) (x0 : Nat) 
 
 theorem compute_start_slot_at_epoch_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Slot) h' v => v = (enc_Slot r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Slot) h' v => v = (enc_Slot r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«compute_start_slot_at_epoch» [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] h)
         (compute_start_slot_at_epoch (⟨x0⟩ : Epoch)) :=
   ⟨64, fun fuel hf => by
@@ -133,7 +133,7 @@ theorem compute_start_slot_at_epoch_valid (gfp : Footprint) (h : Heap) (x0 : Nat
 
 set_option maxHeartbeats 4000000 in
 theorem convert_builder_index_to_validator_index_run (gfp : Footprint) (h : Heap) (x0 : Nat) (k : Nat) :
-      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«BuilderIndex» 64) x0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«BuilderIndex» 64) x0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«convert_builder_index_to_validator_index» [(.uint (.nominal Scope.Id.«BuilderIndex» 64) x0)] h)
         (convert_builder_index_to_validator_index (⟨x0⟩ : BuilderIndex)) := by
   all_goals (
@@ -145,7 +145,7 @@ theorem convert_builder_index_to_validator_index_run (gfp : Footprint) (h : Heap
 
 theorem convert_builder_index_to_validator_index_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«BuilderIndex» 64) x0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«BuilderIndex» 64) x0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«convert_builder_index_to_validator_index» [(.uint (.nominal Scope.Id.«BuilderIndex» 64) x0)] h)
         (convert_builder_index_to_validator_index (⟨x0⟩ : BuilderIndex)) :=
   ⟨64, fun fuel hf => by
@@ -154,7 +154,7 @@ theorem convert_builder_index_to_validator_index_valid (gfp : Footprint) (h : He
 
 set_option maxHeartbeats 4000000 in
 theorem convert_validator_index_to_builder_index_run (gfp : Footprint) (h : Heap) (x0 : Nat) (k : Nat) :
-      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] (fun (r : BuilderIndex) h' v => v = (enc_BuilderIndex r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] (fun (r : BuilderIndex) h' v => v = (enc_BuilderIndex r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«convert_validator_index_to_builder_index» [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] h)
         (convert_validator_index_to_builder_index (⟨x0⟩ : ValidatorIndex)) := by
   all_goals (
@@ -166,7 +166,7 @@ theorem convert_validator_index_to_builder_index_run (gfp : Footprint) (h : Heap
 
 theorem convert_validator_index_to_builder_index_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] (fun (r : BuilderIndex) h' v => v = (enc_BuilderIndex r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] (fun (r : BuilderIndex) h' v => v = (enc_BuilderIndex r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«convert_validator_index_to_builder_index» [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] h)
         (convert_validator_index_to_builder_index (⟨x0⟩ : ValidatorIndex)) :=
   ⟨64, fun fuel hf => by
@@ -175,7 +175,7 @@ theorem convert_validator_index_to_builder_index_valid (gfp : Footprint) (h : He
 
 set_option maxHeartbeats 4000000 in
 theorem get_beacon_proposer_index_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (k : Nat) :
-      ResultMatches gfp [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«get_beacon_proposer_index» [(.ref r0)] h)
         (get_beacon_proposer_index x0) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -189,7 +189,7 @@ theorem get_beacon_proposer_index_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x
 
 theorem get_beacon_proposer_index_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«get_beacon_proposer_index» [(.ref r0)] h)
         (get_beacon_proposer_index x0) :=
   ⟨64, fun fuel hf => by
@@ -221,7 +221,7 @@ theorem get_block_root_at_slot_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0
 
 set_option maxHeartbeats 4000000 in
 theorem get_index_for_new_validator_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (k : Nat) :
-      ResultMatches gfp [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«get_index_for_new_validator» [(.ref r0)] h)
         (get_index_for_new_validator x0) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -235,7 +235,7 @@ theorem get_index_for_new_validator_run (gfp : Footprint) (h : Heap) (r0 : Nat) 
 
 theorem get_index_for_new_validator_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«get_index_for_new_validator» [(.ref r0)] h)
         (get_index_for_new_validator x0) :=
   ⟨64, fun fuel hf => by
@@ -558,7 +558,7 @@ theorem process_deposit_request_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x
 
 set_option maxHeartbeats 4000000 in
 theorem saturating_sub_run (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) (k : Nat) :
-      ResultMatches gfp [] h [(.uint (.width 64) x0), (.int x1)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.width 64) x0), (.int x1)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«saturating_sub» [(.uint (.width 64) x0), (.int x1)] h)
         (saturating_sub (⟨x0⟩ : Uint64) x1) := by
   all_goals (
@@ -570,7 +570,7 @@ theorem saturating_sub_run (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) (k
 
 theorem saturating_sub_valid (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.uint (.width 64) x0), (.int x1)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.uint (.width 64) x0), (.int x1)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«saturating_sub» [(.uint (.width 64) x0), (.int x1)] h)
         (saturating_sub (⟨x0⟩ : Uint64) x1) :=
   ⟨64, fun fuel hf => by
@@ -579,7 +579,7 @@ theorem saturating_sub_valid (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) 
 
 set_option maxHeartbeats 4000000 in
 theorem saturating_sub_p0_run (gfp : Footprint) (h : Heap) (t0 : UintTy) (ht0 : t0.bits = 64) (x0 : Nat) (x1 : Int) (k : Nat) :
-      ResultMatches gfp [] h [(.uint t0 x0), (.int x1)] (fun (r : Uint64) h' v => v = .uint t0 (UintC.val r) ∧ h' = h)
+      ResultMatches gfp [] h [(.uint t0 x0), (.int x1)] (fun (r : Uint64) h' v => v = .uint t0 (UintC.val r) ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«saturating_sub» [(.uint t0 x0), (.int x1)] h)
         (saturating_sub (⟨x0⟩ : Uint64) x1) := by
   rcases t0 with _ | ⟨_, _⟩ <;> simp only [UintTy.bits] at ht0 <;> subst ht0
@@ -592,12 +592,34 @@ theorem saturating_sub_p0_run (gfp : Footprint) (h : Heap) (t0 : UintTy) (ht0 : 
 
 theorem saturating_sub_p0_valid (gfp : Footprint) (h : Heap) (t0 : UintTy) (ht0 : t0.bits = 64) (x0 : Nat) (x1 : Int) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.uint t0 x0), (.int x1)] (fun (r : Uint64) h' v => v = .uint t0 (UintC.val r) ∧ h' = h)
+      ResultMatches gfp [] h [(.uint t0 x0), (.int x1)] (fun (r : Uint64) h' v => v = .uint t0 (UintC.val r) ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«saturating_sub» [(.uint t0 x0), (.int x1)] h)
         (saturating_sub (⟨x0⟩ : Uint64) x1) :=
   ⟨64, fun fuel hf => by
     obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le' hf
     exact saturating_sub_p0_run sha gfp h t0 ht0 x0 x1 k⟩
+
+set_option maxHeartbeats 4000000 in
+theorem saturating_sub_p0i_run (gfp : Footprint) (h : Heap) (t0 : UintTy) (ht0 : t0.bits = 64) (x0 : Nat) (x1 : Nat) (k : Nat) :
+      ResultMatches gfp [] h [(.uint t0 x0), (.uint t0 x1)] (fun (r : Uint64) h' v => v = .uint t0 (UintC.val r) ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
+        (interp (Scope.env sha) (k + 64) Scope.Id.«saturating_sub» [(.uint t0 x0), (.uint t0 x1)] h)
+        (saturating_sub (⟨x0⟩ : Uint64) (x1 : Int)) := by
+  rcases t0 with _ | ⟨_, _⟩ <;> simp only [UintTy.bits] at ht0 <;> subst ht0
+  all_goals (
+  rw [interp, callName, callValue.eq_def]
+  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_saturating_sub, saturating_sub, Scope.env, Scope.knownNames]
+  rd_step
+  repeat' (rd_split <;> (try rd_step))
+  all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
+
+theorem saturating_sub_p0i_valid (gfp : Footprint) (h : Heap) (t0 : UintTy) (ht0 : t0.bits = 64) (x0 : Nat) (x1 : Nat) :
+    ∃ N, ∀ fuel ≥ N,
+      ResultMatches gfp [] h [(.uint t0 x0), (.uint t0 x1)] (fun (r : Uint64) h' v => v = .uint t0 (UintC.val r) ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
+        (interp (Scope.env sha) fuel Scope.Id.«saturating_sub» [(.uint t0 x0), (.uint t0 x1)] h)
+        (saturating_sub (⟨x0⟩ : Uint64) (x1 : Int)) :=
+  ⟨64, fun fuel hf => by
+    obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le' hf
+    exact saturating_sub_p0i_run sha gfp h t0 ht0 x0 x1 k⟩
 
 set_option maxHeartbeats 4000000 in
 theorem update_next_withdrawal_builder_index_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (hw : WTree h [(.ref r0), (.uint (.width 64) x1)] [⟨Scope.Id.«BeaconState», []⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.width 64) x1)]) (k : Nat) :
