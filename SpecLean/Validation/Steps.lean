@@ -110,6 +110,18 @@ attribute [rd_simp] cmpInt assignTarget assignTargets assignAll sliceBound coerc
 
 attribute [rd_simp] Rd.lget Rd.lset Rd.lappend Ssz.defaultOf Ssz.defaultList Rd.bytesOf
 
+/-- An item that a fact gives as an option, read by its bound index. -/
+@[rd_simp] theorem getElem_of_getElem?_some {α : Type} {xs : List α} {i : Nat} {y : α}
+    (h : xs[i]? = some y) (p : i < xs.length) : xs[i] = y := by
+  rw [List.getElem?_eq_getElem p] at h; exact Option.some.inj h
+
+/-- A list index from a `Nat` below the length. -/
+@[rd_simp] theorem normIndex_of_lt {n i : Nat} (h : i < n) : normIndex n (i : Int) = some i := by
+  rw [normIndex_nat, if_pos h]
+
+-- Python's `%` and `//` by a positive number: `omega` reads `%` and `/`.
+attribute [rd_simp] Int.fmod_eq_emod_of_nonneg Int.fdiv_eq_ediv_of_nonneg
+
 @[rd_simp] theorem sliceBound'_eq : Rd.sliceBound' = sliceBound := rfl
 
 @[rd_simp] theorem lslice_eq {α : Type} (xs : List α) (lo hi : Option Int) :

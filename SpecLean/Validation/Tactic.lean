@@ -95,7 +95,8 @@ partial def known (e : Lean.Expr) : MetaM Bool := do
   return true
 
 /-- The library functions that the proofs unfold once their value arguments are known. -/
-def unfoldNames : NameSet := NameSet.ofList [``SpecLean.compareOp,
+def unfoldNames : NameSet := NameSet.ofList [``SpecLean.compareOp, ``SpecLean.seqAugAdd,
+  ``SpecLean.iterSource, ``SpecLean.toSeq,
   ``SpecLean.cmpVal, ``SpecLean.LibValues.compare, ``SpecLean.Ssz.compare, ``SpecLean.pyCmp,
   ``SpecLean.truthyH, ``SpecLean.truthy, ``SpecLean.LibValues.truthy, ``SpecLean.Ssz.truthy,
   ``SpecLean.pyTruthy, ``SpecLean.binopVal, ``SpecLean.LibValues.binop, ``SpecLean.Ssz.binop,
@@ -157,8 +158,12 @@ def isValueHead (a : Lean.Expr) : Bool :=
   let f := a.getAppFn
   f.isConstOf ``Except.ok || f.isConstOf ``Except.error || f.isConstOf ``Option.some ||
     f.isConstOf ``Option.none || f.isConstOf ``Pure.pure || a.isFVar || isDecoder f ||
-    -- A call waits for `rd_call`, which needs the readable call too.
-    f.isConstOf `SpecLean.Validation.Tactic.callStop
+    -- A call waits for `rd_call`, which needs the readable call too; the next iteration of a
+    -- loop waits for the induction hypothesis.
+    f.isConstOf `SpecLean.Validation.Tactic.callStop || f.isConstOf ``SpecLean.execFor ||
+    (match f.constName? with
+     | some (.str _ s) => s.startsWith "loop"
+     | _ => false)
 
 /-- The terms that `x` evaluates first: the first argument of a `bind`, the scrutinees of a
 `match`, the condition of an `if`. `none`: every explicit argument. -/
@@ -1151,8 +1156,13 @@ elab "rd_items" : tactic => withMainContext do
       unless lhs.isAppOf ``List.mapM && lhs.appArg! == xs do continue
       let pf ← mkAppM ``SpecLean.Validation.Decode.mapM_getElem_some #[d.toExpr, i, p]
       let pfs ← Term.exprToSyntax pf
+      let xis ← Term.exprToSyntax x
+      -- The item becomes a variable: a term `xs[i]` with its bound proof in the facts makes
+      -- `simp` build proofs that never end.
       let gs ← evalTacticAt (← `(tactic| (
         obtain ⟨_, _, hitem⟩ := $pfs:term
+        generalize hxi : $xis = xitem at hitem ⊢
+        clear hxi
         simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp,
           Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left',
           exists_eq_right] at hitem
@@ -1258,5 +1268,113 @@ elab_rules : tactic | `(tactic| rd_after_call) => withMainContext do
       restoreState s
     catch _ => restoreState s
   throwError "rd_after_call: none"
+
+end SpecLean.Validation.Tactic
+
+-- A list index from a `Nat` that a fact says is out of range, against a bound.
+macro_rules | `(tactic| rd_finish) => `(tactic| (
+  simp only [normIndex_nat] at *
+  simp only [ite_eq_right_iff, ite_eq_left_iff, Option.some.injEq, reduceCtorEq, imp_false,
+    Nat.not_lt] at *
+  omega))
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- A fact that `simp` does not use: the induction hypothesis of a loop proof. -/
+@[irreducible] def Hide (p : Prop) : Prop := p
+theorem Hide.mk {p : Prop} (h : p) : Hide p := by unfold Hide; exact h
+theorem Hide.get {p : Prop} (h : Hide p) : p := by unfold Hide at h; exact h
+
+/-- The goal relates the next iteration of a loop on both sides. -/
+elab "rd_loop_tail" : tactic => withMainContext do
+  let t := (← instantiateMVars (← getMainTarget)).consumeMData
+  let args := t.getAppArgs
+  unless args.size ≥ 2 && (args[args.size - 2]!).isAppOf ``SpecLean.execFor do
+    throwError "rd_loop_tail: no"
+
+/-- A hypothesis of a loop theorem: an iteration source, a local, a range or a bound. -/
+macro "rd_loophyp" : tactic => `(tactic| first
+  | (intro i; simp [SpecLean.iterItem, SpecLean.seqItem, SpecLean.Encode.follow, *])
+  | omega
+  | (dsimp only; omega)
+  | (simp only [SpecLean.Locals.set_apply]
+     simp (config := { decide := true }) only [ite_true, ite_false, *]; done)
+  | (simp [*]; omega)
+  | rfl)
+
+/-- The next iteration of a loop: the induction hypothesis `Hide _` of the context. -/
+macro "rd_ih" : tactic => `(tactic| (
+  rd_loop_tail
+  have ihh := SpecLean.Validation.Tactic.Hide.get ‹SpecLean.Validation.Tactic.Hide _›
+  apply ihh
+  all_goals rd_loophyp))
+
+/-- A loop: the loop theorem `L` relates the interpreter's `for` to the readable loop. Both
+results are split, with the facts of the relation. -/
+elab "rd_loop" "[" ls:ident,* "]" : tactic => withMainContext do
+  let g ← getMainGoal
+  let t ← instantiateMVars (← g.getType)
+  let some ex := findClosed t (·.isAppOf ``SpecLean.execFor) | throwError "rd_loop: no loop"
+  let some rd := findClosed t (fun e => match e.getAppFn.constName? with
+      | some (.str _ s) => s.startsWith "loop"
+      | _ => false) | throwError "rd_loop: no readable loop"
+  for l in ls.getElems do
+    let s ← saveState
+    try
+      let c ← elabTerm l none
+      let (ms, _, concl) ← forallMetaTelescopeReducing (← inferType c)
+      let cargs := concl.getAppArgs
+      unless cargs.size ≥ 2 do throwError "rd_loop: no relation"
+      unless ← isDefEq cargs[cargs.size - 2]! ex do throwError "rd_loop: the loop does not match"
+      unless ← isDefEq cargs[cargs.size - 1]! rd do throwError "rd_loop: the readable loop does not match"
+      for m in ms do
+        if (← m.mvarId!.isAssigned) then continue
+        let ty ← instantiateMVars (← inferType m)
+        if (← isClass? ty).isSome then
+          m.mvarId!.assign (← synthInstance ty)
+          continue
+        if (← inferType ty).isProp then
+          if ← fillFromContext m then continue
+          let gs ← try evalTacticAt (← `(tactic| rd_loophyp)) m.mvarId!
+            catch _ => throwError m!"rd_loop: no fact for {ty}"
+          unless gs.isEmpty do throwError m!"rd_loop: no fact for {ty}"
+      let pf ← instantiateMVars (mkAppN c ms)
+      if pf.hasMVar then throwError "rd_loop: open arguments"
+      let rel := concl.getAppFn
+      let some relName := rel.constName? | throwError "rd_loop: no relation name"
+      -- The fact names the loop terms of the goal, so `generalize` finds them.
+      let cargs' ← cargs.mapM instantiateMVars
+      let hty := mkAppN rel (cargs'.extract 0 (cargs'.size - 2) ++ #[ex, rd])
+      let (_, g1) ← (← g.assert `hloop hty pf).intro1P
+      let exs ← Term.exprToSyntax ex
+      let rds ← Term.exprToSyntax rd
+      let hc := mkIdent `hloop
+      let rc := mkIdent `rloop
+      let rdc := mkIdent `rdloop
+      let relId := mkIdent relName
+      let mut gs := [g1]
+      let steps : List (TSyntax `tactic) := [
+        ← `(tactic| generalize $exs:term = $rc:ident at $hc:ident ⊢),
+        ← `(tactic| generalize $rds:term = $rdc:ident at $hc:ident ⊢),
+        ← `(tactic| rcases $rc:ident with _ | ⟨⟨⟩ | ⟨⟩ | ⟨⟩ | _, _, _⟩),
+        ← `(tactic| all_goals rcases $rdc:ident with _ | _),
+        ← `(tactic| all_goals simp only [$relId:ident] at $hc:ident)]
+      for st in steps do
+        gs ← gs.flatMapM fun sg => evalTacticAt st sg
+      let mut out := []
+      for sg in gs do
+        out := out ++ (← evalTacticAt (← `(tactic| (
+          (try rd_split_hyps)
+          (try rd_step)))) sg)
+      let out' ← out.mapM fun sg => do
+        sg.replaceTargetDefEq (← instantiateMVars (← sg.getType)).consumeMData
+      replaceMainGoal out'
+      return
+    catch e =>
+      restoreState s
+      trace[debug] "rd_loop {l}: {e.toMessageData}"
+  throwError "rd_loop: no theorem fits the loop"
 
 end SpecLean.Validation.Tactic

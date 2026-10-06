@@ -8,3 +8,4 @@ import SpecLean.Validation.Gen.Calls
 import SpecLean.Validation.Loop
 import SpecLean.Validation.While
 import SpecLean.Validation.EffectiveBalanceLoop
+import SpecLean.Validation.Gen.Loops

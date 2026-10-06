@@ -22,9 +22,9 @@ set_option linter.unusedSimpArgs false
 -- `whnf` of a result would evaluate a range check on a literal in unary.
 attribute [local irreducible] ResultMatches
 
-attribute [local rd_dec] dec_Uint64 dec_Root dec_Slot dec_Version dec_Epoch dec_Fork dec_ValidatorIndex dec_BeaconBlockHeader dec_Hash32 dec_Eth1Data dec_BLSPubkey dec_Bytes32 dec_Gwei dec_Validator dec_ParticipationFlags dec_Checkpoint dec_SyncCommittee dec_WithdrawalIndex dec_HistoricalSummary dec_BLSSignature dec_PendingDeposit dec_PendingPartialWithdrawal dec_PendingConsolidation dec_Uint8 dec_ExecutionAddress dec_Builder dec_BuilderIndex dec_BuilderPendingWithdrawal dec_BuilderPendingPayment dec_KZGCommitment dec_ExecutionPayloadBid dec_Withdrawal dec_BeaconState dec_WithdrawalRequest dec_VoluntaryExit dec_SignedVoluntaryExit dec_Domain dec_SigningData dec_DomainType dec_ForkData dec_SyncAggregate dec_SignedBeaconBlockHeader dec_ProposerSlashing dec_PayloadAttestationData dec_PayloadAttestation dec_IndexedPayloadAttestation dec_CommitteeIndex dec_AttestationData dec_IndexedAttestation dec_AttesterSlashing dec_Attestation dec_DepositData dec_Deposit dec_BLSToExecutionChange dec_SignedBLSToExecutionChange dec_SignedExecutionPayloadBid dec_DepositRequest dec_ConsolidationRequest dec_BuilderDepositRequest dec_BuilderExitRequest dec_ExecutionRequests dec_BeaconBlockBody dec_BeaconBlock dec_DepositMessage dec_Uint32 dec_LogsBloom dec_Uint256 dec_fulu_ExecutionPayloadHeader dec_fulu_BeaconState dec_SignedBeaconBlock dec_Bytes1
+attribute [local rd_dec] dec_Uint64 dec_Root dec_Slot dec_Version dec_Epoch dec_Fork dec_ValidatorIndex dec_BeaconBlockHeader dec_Hash32 dec_Eth1Data dec_BLSPubkey dec_Bytes32 dec_Gwei dec_Validator dec_ParticipationFlags dec_Checkpoint dec_SyncCommittee dec_WithdrawalIndex dec_HistoricalSummary dec_BLSSignature dec_PendingDeposit dec_PendingPartialWithdrawal dec_PendingConsolidation dec_Uint8 dec_ExecutionAddress dec_Builder dec_BuilderIndex dec_BuilderPendingWithdrawal dec_BuilderPendingPayment dec_KZGCommitment dec_ExecutionPayloadBid dec_Withdrawal dec_BeaconState dec_WithdrawalRequest dec_VoluntaryExit dec_SignedVoluntaryExit dec_DomainType dec_Domain dec_ForkData dec_SigningData dec_SyncAggregate dec_SignedBeaconBlockHeader dec_ProposerSlashing dec_PayloadAttestationData dec_PayloadAttestation dec_IndexedPayloadAttestation dec_CommitteeIndex dec_AttestationData dec_IndexedAttestation dec_AttesterSlashing dec_Attestation dec_DepositData dec_Deposit dec_BLSToExecutionChange dec_SignedBLSToExecutionChange dec_SignedExecutionPayloadBid dec_DepositRequest dec_ConsolidationRequest dec_BuilderDepositRequest dec_BuilderExitRequest dec_ExecutionRequests dec_BeaconBlockBody dec_BeaconBlock dec_DepositMessage dec_Uint32 dec_LogsBloom dec_Uint256 dec_fulu_ExecutionPayloadHeader dec_fulu_BeaconState dec_SignedBeaconBlock dec_Bytes1
 
-attribute [local rd_simp] encUint encBytesN encBoolean enc_Uint64 enc_Root enc_Slot enc_Version enc_Epoch enc_ValidatorIndex enc_Hash32 enc_BLSPubkey enc_Bytes32 enc_Gwei enc_ParticipationFlags enc_WithdrawalIndex enc_BLSSignature enc_Uint8 enc_ExecutionAddress enc_BuilderIndex enc_KZGCommitment enc_Domain enc_DomainType enc_CommitteeIndex enc_Uint32 enc_LogsBloom enc_Uint256 enc_Bytes1
+attribute [local rd_simp] encUint encBytesN encBoolean enc_Uint64 enc_Root enc_Slot enc_Version enc_Epoch enc_ValidatorIndex enc_Hash32 enc_BLSPubkey enc_Bytes32 enc_Gwei enc_ParticipationFlags enc_WithdrawalIndex enc_BLSSignature enc_Uint8 enc_ExecutionAddress enc_BuilderIndex enc_KZGCommitment enc_DomainType enc_Domain enc_CommitteeIndex enc_Uint32 enc_LogsBloom enc_Uint256 enc_Bytes1
 
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 8192 in
@@ -207,7 +207,7 @@ theorem get_beacon_proposer_index_valid (gfp : Footprint) (h : Heap) (r0 : Nat) 
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 8192 in
 theorem get_block_root_at_slot_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (k : Nat) :
-      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Slot» 64) x1)] (fun (r : Root) h' v => v = (enc_Root r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Slot» 64) x1)] (fun (r : Root) h' v => v = (enc_Root r h').1 ∧ (BytesC.data r).length = 32 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«get_block_root_at_slot» [(.ref r0), (.uint (.nominal Scope.Id.«Slot» 64) x1)] h)
         (get_block_root_at_slot x0 (⟨x1⟩ : Slot)) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -221,7 +221,7 @@ theorem get_block_root_at_slot_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 :
 
 theorem get_block_root_at_slot_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Slot» 64) x1)] (fun (r : Root) h' v => v = (enc_Root r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Slot» 64) x1)] (fun (r : Root) h' v => v = (enc_Root r h').1 ∧ (BytesC.data r).length = 32 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«get_block_root_at_slot» [(.ref r0), (.uint (.nominal Scope.Id.«Slot» 64) x1)] h)
         (get_block_root_at_slot x0 (⟨x1⟩ : Slot)) :=
   ⟨64, fun fuel hf => by
@@ -255,7 +255,7 @@ theorem get_index_for_new_validator_valid (gfp : Footprint) (h : Heap) (r0 : Nat
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 8192 in
 theorem get_randao_mix_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (k : Nat) :
-      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bytes32) h' v => v = (enc_Bytes32 r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bytes32) h' v => v = (enc_Bytes32 r h').1 ∧ (BytesC.data r).length = 32 ∧ h' = h)
         (interp (Scope.env sha) (k + 64) Scope.Id.«get_randao_mix» [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] h)
         (get_randao_mix x0 (⟨x1⟩ : Epoch)) := by
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -269,7 +269,7 @@ theorem get_randao_mix_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconS
 
 theorem get_randao_mix_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bytes32) h' v => v = (enc_Bytes32 r h').1 ∧ h' = h)
+      ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bytes32) h' v => v = (enc_Bytes32 r h').1 ∧ (BytesC.data r).length = 32 ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«get_randao_mix» [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] h)
         (get_randao_mix x0 (⟨x1⟩ : Epoch)) :=
   ⟨64, fun fuel hf => by
