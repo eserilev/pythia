@@ -109,4 +109,21 @@ theorem assign_name_err {env : Env} {fps : Name → Footprint} {n : Nat} {fp : F
     (den env fps (n + 2)).stmt fp s (.assign l [.name l' x] e) = some (.error err) := by
   simp [stmtStep, hc, DM.bind]
 
+theorem dm_bind_ok {α β : Type} (a : α) (f : α → DM β) : DM.bind (some (.ok a)) f = f a := rfl
+
+theorem dm_ok {α : Type} (a : α) : (DM.ok a : DM α) = some (.ok a) := rfl
+
+theorem blockOf_ret {stmt : DSt → Stmt → DM (Outcome × DSt)} {s s' : DSt} {st : Stmt}
+    {ss : List Stmt} {v : Value} (h : stmt s st = some (.ok (.ret v, s'))) :
+    blockOf stmt s (st :: ss) = some (.ok (.ret v, s')) := by
+  simp only [blockOf, h, DM.bind]; rfl
+
+theorem args1 {ev : Expr → DM DRes} {e : Expr} {r : DRes} (h : ev e = some (.ok r)) :
+    argsOf ev [.pos e] = some (.ok [r]) := by
+  simp only [argsOf, h, dm_bind_ok, DM.ok]
+
+theorem args2 {ev : Expr → DM DRes} {e e' : Expr} {r r' : DRes} (h : ev e = some (.ok r))
+    (h' : ev e' = some (.ok r')) : argsOf ev [.pos e, .pos e'] = some (.ok [r, r']) := by
+  simp only [argsOf, h, h', dm_bind_ok, DM.ok]
+
 end SpecLean.Layer4
