@@ -25,12 +25,53 @@ structure CInv (fp : Footprint) (h0 h : Heap) (vs : List Value) (s : DSt) (L : L
     Prop where
   i : SInv fp h0 h vs s L
   skel : Skel h0 h
-  ro : fp = [] → h = h0
+  ro : fp = [] → Ext h0 h
+  wf0 : HeapWF h0
 
 theorem CInv.start {fp : Footprint} {h : Heap} {vs : List Value} {s : DSt} {L : Locals}
-    (hr : RInv h vs s L) (hw : WTree h vs fp) : CInv fp h h vs s L :=
+    (hr : RInv h vs s L) (hw : WTree h vs fp) (hwf : HeapWF h) : CInv fp h h vs s L :=
   ⟨⟨hr, hw, fun _ _ _ => Iff.rfl, fun _ _ => Iff.rfl, Frame_refl h vs fp, Fresh_refl h⟩,
-    Skel_refl h, fun _ => rfl⟩
+    Skel_refl h, fun _ => Ext_refl h, hwf⟩
+
+theorem CInv.wf {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
+    (hI : CInv fp h0 h vs s L) : HeapWF h := hI.i.fresh.2 hI.wf0
+
+/-- The arguments reach only objects below `next`. -/
+theorem CInv.below {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
+    (hI : CInv fp h0 h vs s L) : BelowArgs h vs :=
+  decArgs_below hI.wf hI.i.r.roots hI.i.r.len
+
+theorem ERel_ext {h h' : Heap} {vs : List Value} (hb : BelowArgs h vs) (e : Ext h h') {r : DRes}
+    {w : Value} (hr : ERel h vs r w) : ERel h' vs r w := by
+  cases r with
+  | val v => exact hr
+  | place k p =>
+    obtain ⟨a, rfl, hat⟩ := hr
+    exact ⟨a, rfl, (at?_Skel (Skel_of_Ext e) hb k p a).mpr hat⟩
+
+theorem dec_ext {h h' : Heap} (e : Ext h h') {v : Value} (hb : Below h v) (n : Nat) :
+    dec h' n v = dec h n v :=
+  dec_unchanged n v fun q a ha => e.2.2 a (hb q a ha)
+
+/-- A run that changes no old object keeps the invariant. -/
+theorem CInv.ext {fp : Footprint} {h0 h h' : Heap} {vs : List Value} {s : DSt} {L : Locals}
+    (hI : CInv fp h0 h vs s L) (e : Ext h h') : CInv fp h0 h' vs s L := by
+  have hb := hI.below
+  have hsk := Skel_of_Ext e
+  refine ⟨⟨⟨hI.i.r.len, fun k v d hv hd => ?_, fun x => ?_⟩, hI.i.wt, fun k q b => ?_,
+    fun k ty => ?_, fun a ha hn => ?_, Fresh_trans hI.i.fresh (Fresh_of_Skel hsk)⟩,
+    Skel_trans hI.skel hsk, fun hf => Ext_trans (hI.ro hf) e, hI.wf0⟩
+  · obtain ⟨n, hn⟩ := hI.i.r.roots k v d hv hd
+    exact ⟨n, (dec_ext e (hb k v hv) n).trans hn⟩
+  · have := hI.i.r.loc x
+    revert this
+    cases s.loc x <;> cases L x <;> simp only [LRel] <;> try exact id
+    exact ERel_ext hb e
+  · rw [at?_Skel hsk hb]; exact hI.i.refs k q b
+  · rw [rootTy_Skel hsk hb]; exact hI.i.rty k ty
+  · have ha0 : a < h0.next := Nat.lt_of_not_le fun hle => ha (hI.wf0 a hle)
+    rw [e.2.2 a (Nat.lt_of_lt_of_le ha0 hI.i.fresh.1)]
+    exact hI.i.frame a ha hn
 
 /-- The written object keeps its shape. -/
 theorem write_skel {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
@@ -75,7 +116,7 @@ theorem write_cinv {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L
       { s with roots := s.roots.set k (updAt p d i (.leaf u)) } L :=
   ⟨write_inv hI.i hat hroot hu hfp hleaf ho,
     Skel_trans hI.skel (Skel_set ho (write_skel hI.i hat hroot hu hleaf ho)),
-    fun e => absurd e (fpOk_ne hfp)⟩
+    fun e => absurd e (fpOk_ne hfp), hI.wf0⟩
 
 /-! ## Results -/
 
@@ -98,7 +139,7 @@ def CallOK (fp : Footprint) (h0 : Heap) (vs : List Value) (s : DSt) (L : Locals)
 def FnRel (fp : Footprint) (h : Heap) (vs : List Value) :
     Res (Value × List DV) → Res (Value × Heap) → Prop
   | .ok (v, rs), .ok (w, h') =>
-    w = v ∧ DecArgs h' vs rs ∧ Frame h h' vs fp ∧ Skel h h' ∧ (fp = [] → h' = h)
+    w = v ∧ DecArgs h' vs rs ∧ Frame h h' vs fp ∧ Skel h h' ∧ (fp = [] → Ext h h')
   | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
   | _, _ => False
 
@@ -288,12 +329,13 @@ theorem call_rule (hI : CInv fp h0 h vs s L) (hrel : ERels h vs rs ws)
     obtain ⟨a, he, hat⟩ := hp i _ ws[i] hi (List.getElem?_eq_getElem hlt)
     exact ⟨a, by rw [List.getElem?_eq_getElem hlt, he], hat⟩
   -- Every changed object is at a callee footprint path, so below `p` with one caller path.
-  have changed : ∀ b, h'.objs b ≠ h.objs b → AtFp h vs fp b ∧ ∃ q,
+  have hbl := hI.below
+  have changed : ∀ b, b < h.next → h'.objs b ≠ h.objs b → AtFp h vs fp b ∧ ∃ q,
       ∀ k' q', at? h vs k' q' = some (.ref b) → k' = k ∧ q' = p ++ q := by
-    intro b hne
+    intro b hb hne
     have hold : h.objs b ≠ none := by
       intro hn
-      rcases hsk.2 b with e | ⟨o, -, ho, -, -⟩
+      rcases hsk.2.2 b hb with e | ⟨o, -, ho, -, -⟩
       · exact hne e
       · rw [hn] at ho; cases ho
     have hat' : AtFp h ws fpG b := Classical.byContradiction fun hn => hne (hfr b hold hn)
@@ -301,11 +343,11 @@ theorem call_rule (hI : CInv fp h0 h vs s L) (hrel : ERels h vs rs ws)
     obtain ⟨-, hfp, huniq⟩ := callee_fp hI hrel hone hdk hcov hpg hty hq hb
     exact ⟨hfp, q, huniq⟩
   have hset : ∀ k' q b, at? h' vs k' q = some (.ref b) ↔ at? h vs k' q = some (.ref b) :=
-    fun k' q b => at?_Skel hsk vs k' q b
+    fun k' q b => at?_Skel hsk hbl k' q b
   obtain ⟨v0, hv0, hf0⟩ := at?_some hat
   obtain ⟨ddi, hddi⟩ := hda.2 i (.ref a) di hwi hdi
   refine ⟨⟨⟨by simp [hI.i.r.len], fun k' v' d'' hv' hd'' => ?_, fun x => ?_⟩, hI.i.wt, ?_, ?_,
-    ?_, ?_⟩, Skel_trans hI.skel hsk, fun e => absurd e hfpne⟩
+    ?_, ?_⟩, Skel_trans hI.skel hsk, fun e => absurd e hfpne, hI.wf0⟩
   · simp only [List.getElem?_set] at hd''
     by_cases hkk : k = k'
     · subst hkk
@@ -314,14 +356,14 @@ theorem call_rule (hI : CInv fp h0 h vs s L) (hrel : ERels h vs rs ws)
       simp [hlt] at hd''; subst hd''
       obtain ⟨n, hn⟩ := hI.i.r.roots k v0 dr hv0 hdr
       refine dec_graft (.ref a) di ddi hddi p n v0 dr hn hf0 fun q b e hne => ?_
-      obtain ⟨-, q0, huniq⟩ := changed b hne
+      obtain ⟨-, q0, huniq⟩ := changed b (hbl k v0 hv0 q b e) hne
       exact ⟨q0, (huniq k q (by simp [at?, hv0, e])).2⟩
     · simp only [hkk, if_false] at hd''
       obtain ⟨n', hn'⟩ := hI.i.r.roots k' v' d'' hv' hd''
       refine ⟨n', ?_⟩
       rw [dec_unchanged n' v' fun q b e => Classical.byContradiction fun hne => ?_]
       · exact hn'
-      · obtain ⟨-, q0, huniq⟩ := changed b hne
+      · obtain ⟨-, q0, huniq⟩ := changed b (hbl k' v' hv' q b e) hne
         exact hkk (huniq k' q (by simp [at?, hv', e])).1.symm
   · have := hI.i.r.loc x
     revert this
@@ -338,9 +380,9 @@ theorem call_rule (hI : CInv fp h0 h vs s L) (hrel : ERels h vs rs ws)
           rintro ⟨b, rfl, hb⟩
           exact ⟨b, rfl, (hset k2 p2 b).mpr hb⟩
   · intro k' q b; rw [hset]; exact hI.i.refs k' q b
-  · intro k' ty; rw [rootTy_Skel hsk]; exact hI.i.rty k' ty
+  · intro k' ty; rw [rootTy_Skel hsk hbl]; exact hI.i.rty k' ty
   · refine Frame_trans hI.i.frame (fun b hold hn => Classical.byContradiction fun hne =>
-      hn (changed b hne).1) fun a2 ⟨k2, pat, q, hp2, hty, hmq, hq⟩ => ?_
+      hn (changed b (Nat.lt_of_not_le fun hle => hold (hI.wf b hle)) hne).1) fun a2 ⟨k2, pat, q, hp2, hty, hmq, hq⟩ => ?_
     exact ⟨k2, pat, q, hp2, (hI.i.rty k2 _).mp hty, hmq, (hI.i.refs k2 q a2).mp hq⟩
   · exact Fresh_trans hI.i.fresh (Fresh_of_Skel hsk)
 

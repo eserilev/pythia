@@ -1042,7 +1042,7 @@ theorem process_effective_balance_updates_denote (sha : Oracle) (m : Nat) (ds : 
 
 /-- SPEC 9.2 for `process_effective_balance_updates`: a loop over a live list, with a write
 through the loop variable. -/
-theorem process_effective_balance_updates_l4 (sha : Oracle) (gfp : Footprint) (h : Heap)
+theorem process_effective_balance_updates_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
     (r0 n : Nat) (ds : List DV) (kV : ListKind) (lV : Option Nat) (kB : ListKind) (lB : Option Nat)
     (st : BeaconState) (hd : dec h n (.ref r0) = some (.cont Scope.Id.«BeaconState» ds))
     (hv : ds[11]? = some (.list kV (.container Scope.Id.«Validator») lV (st.validators.map Examples.vdv)))
@@ -1071,7 +1071,7 @@ theorem process_effective_balance_updates_l4 (sha : Oracle) (gfp : Footprint) (h
       | _ + 1, hv, _ => simp at hv
     have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp pebuFp
       (f := Scope.Id.«process_effective_balance_updates»)
-      (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hdn
+      (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
     rw [hden] at hm
     refine resultMatches_mono hf (Examples.resultMatches_map (fun st' h' v he => ⟨he.1, ?_⟩) hm)
     obtain ⟨-, hr⟩ := he.2

@@ -956,7 +956,7 @@ theorem apply_withdrawals_denote (sha : Oracle) (M : Nat) (ds : List DV) (kB : L
 
 /-- SPEC 9.2 for `apply_withdrawals`: a loop over a parameter list, with a write-back call
 (`decrease_balance(state, ...)`) and a write through an index (`state.builders[i].balance`). -/
-theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (r0 n nw : Nat) (wv : Value)
+theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (r0 n nw : Nat) (wv : Value)
     (ds : List DV) (kB : ListKind) (lB : Option Nat) (kD : ListKind) (lD : Option Nat) (kW : ListKind)
     (lW : Option Nat) (st : BeaconState) (ws : List Withdrawal)
     (hd : dec h n (.ref r0) = some (.cont Scope.Id.«BeaconState» ds))
@@ -989,7 +989,7 @@ theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (r0 n n
       | _ + 2, hv, _ => simp at hv
     have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp awFp
       (f := Scope.Id.«apply_withdrawals»)
-      (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hdn
+      (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
     rw [hden] at hm
     refine resultMatches_mono hf (Examples.resultMatches_map (fun st' h' v he => ⟨he.1, ?_⟩) hm)
     obtain ⟨-, hr⟩ := he.2

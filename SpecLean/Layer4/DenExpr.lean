@@ -30,68 +30,117 @@ structure LibFlat (env : Env) : Prop where
   builtin : ∀ h b args kws, (b = .len ∨ b = .min ∨ b = .max ∨ b = .enumerate) →
     LibModel.builtin env h b args kws = none
 
-/-- The expressions at fuel `n` agree with the interpreter. -/
+/-- An expression result and the interpreter's: the heap only gains objects (`Ext`), and the
+values agree in the new heap. A call of a function that writes nothing can allocate. -/
+def GOK (h : Heap) (vs : List Value) : Res DRes → Res (Value × Heap) → Prop
+  | .ok r, .ok (w, h') => Ext h h' ∧ ERel h' vs r w
+  | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
+  | _, _ => False
+
+theorem gok_ok {h : Heap} {vs : List Value} {r : DRes} {res : Res (Value × Heap)}
+    (hk : GOK h vs (.ok r) res) : ∃ w h', res = .ok (w, h') ∧ Ext h h' ∧ ERel h' vs r w := by
+  cases res with
+  | error e' => cases hk
+  | ok p => obtain ⟨w, h'⟩ := p; exact ⟨w, h', rfl, hk⟩
+
+theorem gok_error {h : Heap} {vs : List Value} {e : SpecError} {res : Res (Value × Heap)}
+    (hk : GOK h vs (.error e) res) : res = .error e ∧ e ≠ .outOfFuel := by
+  cases res with
+  | error e' => obtain ⟨rfl, hne⟩ := hk; exact ⟨rfl, hne⟩
+  | ok p => cases hk
+
+theorem gok_err {h : Heap} {vs : List Value} {e : SpecError} (hne : e ≠ .outOfFuel) :
+    GOK h vs (.error e) (.error e) := ⟨rfl, hne⟩
+
+theorem gok_ext {h h1 : Heap} {vs : List Value} {r : Res DRes} {res : Res (Value × Heap)}
+    (e : Ext h h1) (hk : GOK h1 vs r res) : GOK h vs r res := by
+  cases r <;> cases res
+  · exact hk
+  · cases hk
+  · cases hk
+  · obtain ⟨e2, hr⟩ := hk; exact ⟨Ext_trans e e2, hr⟩
+
+theorem gok_of {h : Heap} {vs : List Value} {r : Res DRes} {res : Res (Value × Heap)}
+    (hk : ExprOK h vs r res) : GOK h vs r res := by
+  cases r <;> cases res
+  · exact hk
+  · cases hk
+  · cases hk
+  · next a b => obtain ⟨w, h'⟩ := b; obtain ⟨rfl, hr⟩ := hk; exact ⟨Ext_refl _, hr⟩
+
+/-- The expressions at fuel `n` agree with the interpreter at heap `h`. -/
 def EvOK (env : Env) (h : Heap) (vs : List Value) (L : Locals) (n : Nat)
     (ev : Expr → DM DRes) : Prop :=
-  ∀ e r, ev e = some r → ExprOK h vs r (evalExpr env n L h e)
+  ∀ e r, ev e = some r → GOK h vs r (evalExpr env n L h e)
+
+/-- `EvOK` at every heap of the invariant. -/
+def EvF (env : Env) (fp : Footprint) (h0 : Heap) (vs : List Value) (s : DSt) (L : Locals) (n : Nat)
+    (ev : Expr → DM DRes) : Prop :=
+  ∀ h, CInv fp h0 h vs s L → EvOK env h vs L n ev
 
 /-- The function bodies at fuel `n` agree with `callFn n`. -/
 def FnOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop :=
   ∀ (fp : Footprint) (d : FunctionDef) (roots : List DV) (vs : List Value) (h : Heap)
-    (r : Res (Value × List DV)), DecArgs h vs roots → WTree h vs fp →
+    (r : Res (Value × List DV)), DecArgs h vs roots → WTree h vs fp → HeapWF h →
     (den env fps n).fn fp d roots = some r →
     FnRel fp h vs r (callFn env n d.params (.stmts d.body) Locals.empty vs [] h)
 
 def ArgsOK (h : Heap) (vs : List Value) :
     Res (List DRes) → Res (List Value × List (Name × Value) × Heap) → Prop
-  | .ok rs, .ok (ws, kws, h') => h' = h ∧ kws = [] ∧ ERels h vs rs ws
+  | .ok rs, .ok (ws, kws, h') => Ext h h' ∧ kws = [] ∧ ERels h' vs rs ws
   | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
   | _, _ => False
 
-theorem cmpOf_sound {env : Env} {h : Heap} {vs : List Value} {L : Locals} {n : Nat}
-    {ev : Expr → DM DRes} (hE : EvOK env h vs L n ev) :
-    ∀ (rest : List (CmpOp × Expr)) (x : Value) (r : Res DRes), Flat x = true →
-      cmpOf ev x rest = some r → ExprOK h vs r (evalCmp env n L h x rest)
-  | [], x, r, _, hd => by
+section comb
+variable {env : Env} {fp : Footprint} {h0 : Heap} {vs : List Value} {s : DSt} {L : Locals} {n : Nat}
+  {ev : Expr → DM DRes}
+
+theorem cmpOf_sound (hE : EvF env fp h0 vs s L n ev) :
+    ∀ (rest : List (CmpOp × Expr)) (h : Heap) (x : Value) (r : Res DRes), CInv fp h0 h vs s L →
+      Flat x = true → cmpOf ev x rest = some r → GOK h vs r (evalCmp env n L h x rest)
+  | [], h, x, r, _, _, hd => by
     simp [cmpOf, DM.ok] at hd; subst hd
-    rw [evalCmp]; exact ⟨rfl, rfl, rfl⟩
-  | (op, e) :: rest, x, r, hx, hd => by
+    rw [evalCmp]; exact ⟨Ext_refl h, rfl, rfl⟩
+  | (op, e) :: rest, h, x, r, hI, hx, hd => by
     simp only [cmpOf] at hd
     rw [evalCmp]
     rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ry, he, hd2⟩
-    · obtain ⟨hi, hne⟩ := exprOK_error (hE e _ he)
-      simp [hi, error_ok hne]
-    · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE e _ he)
+    · obtain ⟨hi, hne⟩ := gok_error (hE h hI e _ he)
+      simp [hi, gok_err hne]
+    · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (hE h hI e _ he)
       simp only [hi, Except.bind_ok']
+      refine gok_ext hx1 ?_
       cases ry with
       | place _ _ => simp at hd2
       | val y =>
         obtain ⟨rfl, hy⟩ := hrel
         simp only at hd2
         rcases bind_case hd2 with ⟨err, hc, rfl⟩ | ⟨b, hc, hd3⟩
-        · obtain ⟨hco, hne⟩ := cmpF_sound h hx hy hc
-          simp [hco, error_ok (hne err rfl)]
-        · obtain ⟨hco, -⟩ := cmpF_sound h hx hy hc
+        · obtain ⟨hco, hne⟩ := cmpF_sound h1 hx hy hc
+          simp [hco, gok_err (hne err rfl)]
+        · obtain ⟨hco, -⟩ := cmpF_sound h1 hx hy hc
           simp only [hco, Except.bind_ok']
           cases b with
-          | true => simp only [↓reduceIte] at hd3 ⊢; exact cmpOf_sound hE rest _ r hy hd3
+          | true =>
+            simp only [↓reduceIte] at hd3 ⊢
+            exact cmpOf_sound hE rest h1 _ r (hI.ext hx1) hy hd3
           | false =>
             simp [DM.ok] at hd3; subst hd3
-            exact ⟨rfl, rfl, rfl⟩
+            exact ⟨Ext_refl _, rfl, rfl⟩
 
-theorem boolOf_sound {env : Env} {h : Heap} {vs : List Value} {L : Locals} {n : Nat}
-    {ev : Expr → DM DRes} (hE : EvOK env h vs L n ev) :
-    ∀ (es : List Expr) (op : BoolOp) (r : Res DRes),
-      boolOf ev op es = some r → ExprOK h vs r (evalBoolOp env n L h op es)
-  | [], _, _, hd => by simp [boolOf] at hd
-  | e :: es, op, r, hd => by
+theorem boolOf_sound (hE : EvF env fp h0 vs s L n ev) :
+    ∀ (es : List Expr) (h : Heap) (op : BoolOp) (r : Res DRes), CInv fp h0 h vs s L →
+      boolOf ev op es = some r → GOK h vs r (evalBoolOp env n L h op es)
+  | [], _, _, _, _, hd => by simp [boolOf] at hd
+  | e :: es, h, op, r, hI, hd => by
     simp only [boolOf] at hd
     rw [evalBoolOp]
     rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rv, he, hd2⟩
-    · obtain ⟨hi, hne⟩ := exprOK_error (hE e _ he)
-      simp [hi, error_ok hne]
-    · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE e _ he)
+    · obtain ⟨hi, hne⟩ := gok_error (hE h hI e _ he)
+      simp [hi, gok_err hne]
+    · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (hE h hI e _ he)
       simp only [hi, Except.bind_ok']
+      refine gok_ext hx1 ?_
       cases rv with
       | place _ _ => simp at hd2
       | val v =>
@@ -99,51 +148,53 @@ theorem boolOf_sound {env : Env} {h : Heap} {vs : List Value} {L : Locals} {n : 
         simp only at hd2
         by_cases hes : es.isEmpty = true
         · simp [hes, DM.ok] at hd2; subst hd2
-          simp [hes]; exact ⟨rfl, rfl, hv⟩
+          simp [hes]; exact ⟨Ext_refl _, rfl, hv⟩
         · simp only [hes, Bool.false_eq_true, ↓reduceIte] at hd2 ⊢
           rcases bind_case hd2 with ⟨err, ht, rfl⟩ | ⟨b, ht, hd3⟩
           · obtain ⟨htr, hne⟩ := lift_some ht
-            simp [truthyH_flat h hv, ← htr, error_ok (hne err htr.symm)]
+            simp [truthyH_flat h1 hv, ← htr, gok_err (hne err htr.symm)]
           · obtain ⟨htr, -⟩ := lift_some ht
-            simp only [truthyH_flat h hv, ← htr, Except.bind_ok']
+            simp only [truthyH_flat h1 hv, ← htr, Except.bind_ok']
             cases op <;> cases b <;> simp only [DM.ok, Option.some.injEq] at hd3 ⊢ <;>
               first
-              | exact boolOf_sound hE es _ r hd3
-              | (subst hd3; exact ⟨rfl, rfl, hv⟩)
+              | exact boolOf_sound hE es h1 _ r (hI.ext hx1) hd3
+              | (subst hd3; exact ⟨Ext_refl _, rfl, hv⟩)
 
-theorem argsOf_sound {env : Env} {h : Heap} {vs : List Value} {L : Locals} {n : Nat}
-    {ev : Expr → DM DRes} (hE : EvOK env h vs L n ev) :
-    ∀ (args : List Arg) (r : Res (List DRes)), argsOf ev args = some r →
-      ArgsOK h vs r (evalArgs env n L h args)
-  | [], r, hd => by
+theorem argsOf_sound (hE : EvF env fp h0 vs s L n ev) :
+    ∀ (args : List Arg) (h : Heap) (r : Res (List DRes)), CInv fp h0 h vs s L →
+      argsOf ev args = some r → ArgsOK h vs r (evalArgs env n L h args)
+  | [], h, r, _, hd => by
     simp [argsOf, DM.ok] at hd; subst hd
-    rw [evalArgs]; exact ⟨rfl, rfl, trivial⟩
-  | .pos e :: as, r, hd => by
+    rw [evalArgs]; exact ⟨Ext_refl h, rfl, trivial⟩
+  | .pos e :: as, h, r, hI, hd => by
     simp only [argsOf] at hd
     rw [evalArgs]
     rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rv, he, hd2⟩
-    · obtain ⟨hi, hne⟩ := exprOK_error (hE e _ he)
+    · obtain ⟨hi, hne⟩ := gok_error (hE h hI e _ he)
       simp [hi, hne, ArgsOK]
-    · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE e _ he)
+    · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (hE h hI e _ he)
+      have hI1 := hI.ext hx1
       simp only [hi, Except.bind_ok']
       rcases bind_case hd2 with ⟨err, he2, rfl⟩ | ⟨rs, he2, hd3⟩
-      · have := argsOf_sound hE as _ he2
+      · have := argsOf_sound hE as h1 _ hI1 he2
         revert this
-        cases evalArgs env n L h as with
+        cases evalArgs env n L h1 as with
         | error e' => rintro ⟨rfl, hne⟩; simp [hne, ArgsOK]
         | ok q => intro hx; cases hx
       · simp [DM.ok] at hd3; subst hd3
-        have := argsOf_sound hE as _ he2
+        have := argsOf_sound hE as h1 _ hI1 he2
         revert this
-        cases evalArgs env n L h as with
+        cases evalArgs env n L h1 as with
         | error e' => intro hx; cases hx
         | ok q =>
           obtain ⟨ws, kws, h2⟩ := q
-          rintro ⟨rfl, rfl, hr⟩
+          rintro ⟨hx2, rfl, hr⟩
           simp only [Except.bind_ok', Except.pure_ok']
-          exact ⟨rfl, rfl, And.intro hrel hr⟩
-  | .starred _ :: _, r, hd => by simp [argsOf] at hd
-  | .kw _ _ :: _, r, hd => by simp [argsOf] at hd
+          exact ⟨Ext_trans hx1 hx2, rfl, And.intro (ERel_ext hI1.below hx2 hrel) hr⟩
+  | .starred _ :: _, _, r, _, hd => by simp [argsOf] at hd
+  | .kw _ _ :: _, _, r, _, hd => by simp [argsOf] at hd
+
+end comb
 
 theorem allVals_spec {h : Heap} {vs : List Value} :
     ∀ {rs : List DRes} {ws vals : List Value}, ERels h vs rs ws → allVals rs = some vals →
@@ -202,12 +253,12 @@ theorem pickBest_heap {env : Env} (hlf : LibFlat env) (h : Heap) (isMin : Bool) 
 /-- A call that writes nothing, in an expression. -/
 theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) {m : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
-    (hI : CInv fp h0 h vs s L) (ih : EvOK env h vs L (m + 1) ((den env fps (m + 1)).expr fp s))
+    (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L (m + 1) ((den env fps (m + 1)).expr fp s))
     (hF : FnOK env fps (m + 1)) {g : Name} {l l' : Line} {args : List Arg}
     (hloc : s.loc g = none) (hc : callable env g = true) {r : Res DRes}
     (hd : DM.bind (argsOf ((den env fps (m + 1)).expr fp s) args)
       (fun rs => dCallRO env fps (den env fps (m + 1)).fn s g rs) = some r) :
-    ExprOK h vs r (evalExpr env (m + 2) L h (.call l (.name l' g) args)) := by
+    GOK h vs r (evalExpr env (m + 2) L h (.call l (.name l' g) args)) := by
   have hL : L g = none := by
     have := hI.i.r.loc g; rw [hloc] at this
     revert this; cases L g <;> simp [LRel]
@@ -217,19 +268,20 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
     rw [evalExpr]; simp [hlk]
   simp only [hname, Except.bind_ok', hany]
   rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rs, he, hd2⟩
-  · have := argsOf_sound ih args _ he
+  · have := argsOf_sound ih args h _ hI he
     revert this
     cases evalArgs env (m + 1) L h args with
     | error e' => rintro ⟨rfl, hne⟩; exact ⟨rfl, hne⟩
     | ok q => intro hx; cases hx
-  · have := argsOf_sound ih args _ he
+  · have := argsOf_sound ih args h _ hI he
     revert this
     cases hea : evalArgs env (m + 1) L h args with
     | error e' => intro hx; cases hx
     | ok q =>
       obtain ⟨ws, kws, h2⟩ := q
-      rintro ⟨hh, rfl, hrel⟩
-      subst h2
+      rintro ⟨hx2, rfl, hrel⟩
+      have hI2 := hI.ext hx2
+      refine gok_ext hx2 ?_
       simp only [Except.bind_ok']
       unfold dCallRO at hd2
       cases hg : env.globals.lookup g with
@@ -248,21 +300,20 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
               rw [hm] at hd2
               simp only at hd2
               rcases bind_case hd2 with ⟨err, hf, rfl⟩ | ⟨⟨v, rg'⟩, hf, hd3⟩
-              · have := hF [] d rg ws h _ (argRoots_dec hI.i.r hrel hm) (fun _ _ hp => by simp at hp) hf
+              · have := hF [] d rg ws h2 _ (argRoots_dec hI2.i.r hrel hm) (fun _ _ hp => by simp at hp) hI2.wf hf
                 revert this
-                cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h with
+                cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h2 with
                 | error e' => rintro ⟨rfl, hne⟩; exact ⟨rfl, hne⟩
                 | ok q => intro hx; cases hx
-              · have := hF [] d rg ws h _ (argRoots_dec hI.i.r hrel hm) (fun _ _ hp => by simp at hp) hf
+              · have := hF [] d rg ws h2 _ (argRoots_dec hI2.i.r hrel hm) (fun _ _ hp => by simp at hp) hI2.wf hf
                 revert this
-                cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h with
+                cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h2 with
                 | error e' => intro hx; cases hx
                 | ok q =>
                   obtain ⟨w, h'⟩ := q
                   rintro ⟨rfl, -, -, -, hro⟩
-                  cases hro rfl
                   by_cases hv : Flat w = true
-                  · simp [hv, DM.ok] at hd3; subst hd3; exact ⟨rfl, rfl, hv⟩
+                  · simp [hv, DM.ok] at hd3; subst hd3; exact ⟨hro rfl, rfl, hv⟩
                   · simp [hv] at hd3
           · rw [if_neg hfe] at hd2; cases hd2
         | type t =>
@@ -277,7 +328,7 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
               rw [hav] at hd2
               simp only at hd2
               obtain ⟨rfl, hfl⟩ := allVals_spec hrel hav
-              rw [hlf.ctor h t ws hct hfl]
+              rw [hlf.ctor h2 t ws hct hfl]
               rcases bind_case hd2 with ⟨err, hl, rfl⟩ | ⟨v, hl, hd3⟩
               · obtain ⟨hr, hne⟩ := lift_some hl
                 cases hk : LibModel.construct env Heap.empty t ws [] with
@@ -289,7 +340,7 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
                 | ok q =>
                   rw [hk] at hr; cases hr
                   by_cases hv : Flat q.1 = true
-                  · simp [hv, DM.ok] at hd3; subst hd3; exact ⟨rfl, rfl, hv⟩
+                  · simp [hv, DM.ok] at hd3; subst hd3; exact ⟨Ext_refl _, rfl, hv⟩
                   · simp [hv] at hd3
           · cases hd2
         | builtin b =>
@@ -298,7 +349,7 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
           have hns : b ≠ .sorted := by rintro rfl; simp [dBuiltin] at hd2
           rw [callValue_builtin _ _ _ hg hnf hns]
           have minmax : ∀ (isMin : Bool), dBuiltin s (if isMin then .min else .max) rs = some r →
-              ExprOK h vs r (applyBuiltin env h (if isMin then .min else .max) ws []) := by
+              GOK h2 vs r (applyBuiltin env h2 (if isMin then .min else .max) ws []) := by
             intro isMin hd3
             have hb : dBuiltin s (if isMin then .min else .max) rs = (match allVals rs with
                 | some (x :: y :: ys) => DM.bind (lift (pickBest (!isMin) x (y :: ys))) fun w =>
@@ -321,7 +372,7 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
                 · obtain ⟨hr, -⟩ := lift_some hl
                   rw [← hr]
                   by_cases hv : Flat w = true
-                  · simp [hv, DM.ok] at hd4; subst hd4; exact ⟨rfl, rfl, hv⟩
+                  · simp [hv, DM.ok] at hd4; subst hd4; exact ⟨Ext_refl _, rfl, hv⟩
                   · simp [hv] at hd4
               | [], hd3 => simp at hd3
               | [_], hd3 => simp at hd3
@@ -343,12 +394,12 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
                 | cont _ _ => simp at hd2
                 | list kd el ll ds =>
                   simp [DM.ok] at hd2; subst hd2
-                  obtain ⟨nn, hn⟩ := deref_dec hI.i.r hat hdr
+                  obtain ⟨nn, hn⟩ := deref_dec hI2.i.r hat hdr
                   obtain ⟨a', mm, xs, ha, -, ho, hm⟩ := dec_list hn
                   cases ha
                   have hlen := ((mapM_some_iff xs ds).mp hm).1
-                  simp [applyBuiltin, hlf.builtin h .len _ [] (by simp), ho, hlen]
-                  exact ⟨rfl, rfl, rfl⟩
+                  simp [applyBuiltin, hlf.builtin h2 .len _ [] (by simp), ho, hlen]
+                  exact ⟨Ext_refl _, rfl, rfl⟩
             | [.val _], _, _, hd2 => simp at hd2
             | [], _, _, hd2 => simp at hd2
             | _ :: _ :: _, _, _, hd2 => simp at hd2
@@ -356,30 +407,31 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
         | _ => simp at hd2
 
 def OptOK (h : Heap) : Res (Option Value) → Res (Option Value × Heap) → Prop
-  | .ok ov, .ok (ov', h') => h' = h ∧ ov' = ov ∧ ∀ v, ov = some v → Flat v = true
+  | .ok ov, .ok (ov', h') => Ext h h' ∧ ov' = ov ∧ ∀ v, ov = some v → Flat v = true
   | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
   | _, _ => False
 
-theorem optOf_sound {env : Env} {h : Heap} {vs : List Value} {L : Locals} {n : Nat}
-    {ev : Expr → DM DRes} (hE : EvOK env h vs L n ev) :
+theorem optOf_sound {env : Env} {fp : Footprint} {h0 : Heap} {vs : List Value} {s : DSt} {L : Locals}
+    {n : Nat} {ev : Expr → DM DRes} (hE : EvF env fp h0 vs s L n ev) {h : Heap}
+    (hI : CInv fp h0 h vs s L) :
     ∀ (o : Option Expr) (r : Res (Option Value)), optOf ev o = some r → OptOK h r (evalOpt env n L h o)
   | none, r, hd => by
     simp [optOf, DM.ok] at hd; subst hd
-    rw [evalOpt]; exact ⟨rfl, rfl, by simp⟩
+    rw [evalOpt]; exact ⟨Ext_refl h, rfl, by simp⟩
   | some e, r, hd => by
     simp only [optOf] at hd
     rw [evalOpt]
     rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rv, he, hd2⟩
-    · obtain ⟨hi, hne⟩ := exprOK_error (hE e _ he)
+    · obtain ⟨hi, hne⟩ := gok_error (hE h hI e _ he)
       simp [hi, hne, OptOK]
-    · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE e _ he)
+    · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (hE h hI e _ he)
       simp only [hi, Except.bind_ok']
       cases rv with
       | place _ _ => simp at hd2
       | val v =>
         obtain ⟨rfl, hv⟩ := hrel
         simp [DM.ok] at hd2; subst hd2
-        exact ⟨rfl, rfl, by simp [hv]⟩
+        exact ⟨hx1, rfl, by simp [hv]⟩
 
 theorem getSlice_bytes (bn : Name) (h : Heap) (c : Name) (bs : List UInt8) (lo hi : Option Value) :
     getSlice bn h (.bytes c bs) lo hi = (fun x => (x.1, h)) <$> getSlice bn Heap.empty (.bytes c bs) lo hi := by
@@ -388,33 +440,35 @@ theorem getSlice_bytes (bn : Name) (h : Heap) (c : Name) (bs : List UInt8) (lo h
 
 /-- One fuel step of the expressions. -/
 theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
-    {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
-    (hI : CInv fp h0 h vs s L) (ih : EvOK env h vs L n ((den env fps n).expr fp s))
-    (hF : FnOK env fps n) :
+    {fp : Footprint} {h0 : Heap} {vs : List Value} {s : DSt} {L : Locals}
+    (ih : EvF env fp h0 vs s L n ((den env fps n).expr fp s))
+    (hF : FnOK env fps n) {h : Heap} (hI : CInv fp h0 h vs s L) :
     EvOK env h vs L (n + 1) (exprStep env fps n (den env fps n) fp s) := by
   have hr := hI.i.r
   intro e r hd
   cases e with
   | name l x =>
     have := name_sound hr x (l := l) hd
-    rw [evalExpr]; exact this
+    rw [evalExpr]; exact gok_of this
   | int l k =>
     simp [exprStep, DM.ok] at hd; subst hd
-    rw [evalExpr]; exact ⟨rfl, rfl, rfl⟩
+    rw [evalExpr]; exact ⟨Ext_refl h, rfl, rfl⟩
   | bool l b =>
     simp [exprStep, DM.ok] at hd; subst hd
-    rw [evalExpr]; exact ⟨rfl, rfl, rfl⟩
+    rw [evalExpr]; exact ⟨Ext_refl h, rfl, rfl⟩
   | noneLit l =>
     simp [exprStep, DM.ok] at hd; subst hd
-    rw [evalExpr]; exact ⟨rfl, rfl, rfl⟩
+    rw [evalExpr]; exact ⟨Ext_refl h, rfl, rfl⟩
   | attr l o f =>
     simp only [exprStep] at hd
     rw [evalExpr]
     rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ro, he, hd2⟩
-    · obtain ⟨hi, hne⟩ := exprOK_error (ih o _ he)
-      simp [hi, error_ok hne]
-    · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih o _ he)
+    · obtain ⟨hi, hne⟩ := gok_error (ih h hI o _ he)
+      simp [hi, gok_err hne]
+    · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (ih h hI o _ he)
+      have hI1 := hI.ext hx1
       simp only [hi, Except.bind_ok']
+      refine gok_ext hx1 ?_
       cases ro with
       | val _ => simp [dAttr] at hd2
       | place k p =>
@@ -429,7 +483,7 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
           | list _ _ _ _ => simp at hd2
           | cont ty ds =>
             simp only at hd2
-            obtain ⟨nn, hn⟩ := deref_dec hr hat hdr
+            obtain ⟨nn, hn⟩ := deref_dec hI1.i.r hat hdr
             obtain ⟨a', m, fs, ha, -, ho, hm⟩ := dec_cont hn
             cases ha
             cases hfi : fieldIndex env ty f with
@@ -444,27 +498,31 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
                 simp [hc, DM.ok] at hd2; subst hd2
                 obtain ⟨x, hx, hdx⟩ := mapM_get hm hc
                 simp [getAttr, ho, hfi, hx]
-                exact ⟨rfl, child_rel hat (by simp [okids, ho]) hx hdx⟩
+                exact ⟨Ext_refl _, child_rel hat (by simp [okids, ho]) hx hdx⟩
   | index l o ie =>
     simp only [exprStep] at hd
     rw [evalExpr]
     rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ro, he, hd2⟩
-    · obtain ⟨hi, hne⟩ := exprOK_error (ih o _ he)
-      simp [hi, error_ok hne]
-    · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih o _ he)
+    · obtain ⟨hi, hne⟩ := gok_error (ih h hI o _ he)
+      simp [hi, gok_err hne]
+    · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (ih h hI o _ he)
+      have hI1 := hI.ext hx1
       simp only [hi, Except.bind_ok']
+      refine gok_ext hx1 ?_
       rcases bind_case hd2 with ⟨err, he2, rfl⟩ | ⟨ri, he2, hd3⟩
-      · obtain ⟨hi2, hne⟩ := exprOK_error (ih ie _ he2)
-        simp [hi2, error_ok hne]
-      · obtain ⟨wi, hi2, hrel2⟩ := exprOK_ok (ih ie _ he2)
+      · obtain ⟨hi2, hne⟩ := gok_error (ih h1 hI1 ie _ he2)
+        simp [hi2, gok_err hne]
+      · obtain ⟨wi, h2, hi2, hx2, hrel2⟩ := gok_ok (ih h1 hI1 ie _ he2)
+        have hI2 := hI1.ext hx2
         simp only [hi2, Except.bind_ok']
+        refine gok_ext hx2 ?_
         cases ro with
         | val _ => simp [dIndex] at hd3
         | place k p =>
         cases ri with
         | place _ _ => simp [dIndex] at hd3
         | val iv =>
-        obtain ⟨a, rfl, hat⟩ := hrel
+        obtain ⟨a, rfl, hat⟩ := ERel_ext hI1.below hx2 hrel
         obtain ⟨rfl, -⟩ := hrel2
         simp only [dIndex] at hd3
         cases hdr : s.deref k p with
@@ -476,7 +534,7 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
           | cont _ _ => simp at hd3
           | list kd el ll ds =>
             simp only at hd3
-            obtain ⟨nn, hn⟩ := deref_dec hr hat hdr
+            obtain ⟨nn, hn⟩ := deref_dec hI2.i.r hat hdr
             obtain ⟨a', m, xs, ha, -, ho, hm⟩ := dec_list hn
             cases ha
             have hlen := ((mapM_some_iff xs ds).mp hm).1
@@ -487,7 +545,7 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
               rw [getItem_list_gen ho hb]
               rcases bind_case hd3 with ⟨err, ht, rfl⟩ | ⟨j, ht, hd4⟩
               · obtain ⟨htr, hne⟩ := lift_some ht
-                simp [← htr, error_ok (hne err htr.symm)]
+                simp [← htr, gok_err (hne err htr.symm)]
               · obtain ⟨htr, -⟩ := lift_some ht
                 simp only [← htr, Except.bind_ok']
                 rw [hlen] at hd4
@@ -504,20 +562,23 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
                     simp [hc, DM.ok] at hd4; subst hd4
                     obtain ⟨x, hx, hdx⟩ := mapM_get hm hc
                     simp [hni, hx]
-                    exact ⟨rfl, child_rel hat (by simp [okids, ho]) hx hdx⟩
+                    exact ⟨Ext_refl _, child_rel hat (by simp [okids, ho]) hx hdx⟩
   | binop l op a b =>
     simp only [exprStep] at hd
     rw [evalExpr]
     rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ra, he, hd2⟩
-    · obtain ⟨hi, hne⟩ := exprOK_error (ih a _ he)
-      simp [hi, error_ok hne]
-    · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih a _ he)
+    · obtain ⟨hi, hne⟩ := gok_error (ih h hI a _ he)
+      simp [hi, gok_err hne]
+    · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (ih h hI a _ he)
+      have hI1 := hI.ext hx1
       simp only [hi, Except.bind_ok']
+      refine gok_ext hx1 ?_
       rcases bind_case hd2 with ⟨err, he2, rfl⟩ | ⟨rb, he2, hd3⟩
-      · obtain ⟨hi2, hne⟩ := exprOK_error (ih b _ he2)
-        simp [hi2, error_ok hne]
-      · obtain ⟨wb, hi2, hrel2⟩ := exprOK_ok (ih b _ he2)
+      · obtain ⟨hi2, hne⟩ := gok_error (ih h1 hI1 b _ he2)
+        simp [hi2, gok_err hne]
+      · obtain ⟨wb, h2, hi2, hx2, hrel2⟩ := gok_ok (ih h1 hI1 b _ he2)
         simp only [hi2, Except.bind_ok']
+        refine gok_ext hx2 ?_
         cases ra with
         | place _ _ => simp [dBinop] at hd3
         | val x =>
@@ -530,37 +591,40 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
         rw [seqBinop_flat (flat_nonref hx) (flat_nonref hy)]
         rcases bind_case hd3 with ⟨err, ht, rfl⟩ | ⟨v, ht, hd4⟩
         · obtain ⟨htr, hne⟩ := lift_some ht
-          simp [← htr, error_ok (hne err htr.symm)]
+          simp [← htr, gok_err (hne err htr.symm)]
         · obtain ⟨htr, -⟩ := lift_some ht
           simp only [← htr, Except.bind_ok']
           by_cases hv : Flat v = true
-          · simp [hv, DM.ok] at hd4; subst hd4; exact ⟨rfl, rfl, hv⟩
+          · simp [hv, DM.ok] at hd4; subst hd4; exact ⟨Ext_refl _, rfl, hv⟩
           · simp [hv] at hd4
   | compare l a rest =>
     simp only [exprStep] at hd
     rw [evalExpr]
     rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ra, he, hd2⟩
-    · obtain ⟨hi, hne⟩ := exprOK_error (ih a _ he)
-      simp [hi, error_ok hne]
-    · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih a _ he)
+    · obtain ⟨hi, hne⟩ := gok_error (ih h hI a _ he)
+      simp [hi, gok_err hne]
+    · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (ih h hI a _ he)
       simp only [hi, Except.bind_ok']
+      refine gok_ext hx1 ?_
       cases ra with
       | place _ _ => simp at hd2
       | val x =>
         obtain ⟨rfl, hx⟩ := hrel
-        exact cmpOf_sound ih rest _ r hx hd2
+        exact cmpOf_sound ih rest h1 _ r (hI.ext hx1) hx hd2
   | boolop l op es =>
     simp only [exprStep] at hd
     rw [evalExpr]
-    exact boolOf_sound ih es op r hd
+    exact boolOf_sound ih es h op r hI hd
   | ifExp l c a b =>
     simp only [exprStep] at hd
     rw [evalExpr]
     rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rc, he, hd2⟩
-    · obtain ⟨hi, hne⟩ := exprOK_error (ih c _ he)
-      simp [hi, error_ok hne]
-    · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih c _ he)
+    · obtain ⟨hi, hne⟩ := gok_error (ih h hI c _ he)
+      simp [hi, gok_err hne]
+    · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (ih h hI c _ he)
+      have hI1 := hI.ext hx1
       simp only [hi, Except.bind_ok']
+      refine gok_ext hx1 ?_
       cases rc with
       | place _ _ => simp at hd2
       | val v =>
@@ -568,12 +632,12 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
         simp only at hd2
         rcases bind_case hd2 with ⟨err, ht, rfl⟩ | ⟨t, ht, hd3⟩
         · obtain ⟨htr, hne⟩ := lift_some ht
-          simp [truthyH_flat h hv, ← htr, error_ok (hne err htr.symm)]
+          simp [truthyH_flat h1 hv, ← htr, gok_err (hne err htr.symm)]
         · obtain ⟨htr, -⟩ := lift_some ht
-          simp only [truthyH_flat h hv, ← htr, Except.bind_ok']
+          simp only [truthyH_flat h1 hv, ← htr, Except.bind_ok']
           cases t with
-          | true => simp only [↓reduceIte] at hd3 ⊢; exact ih a _ hd3
-          | false => simp only [Bool.false_eq_true, ↓reduceIte] at hd3 ⊢; exact ih b _ hd3
+          | true => simp only [↓reduceIte] at hd3 ⊢; exact ih h1 hI1 a _ hd3
+          | false => simp only [Bool.false_eq_true, ↓reduceIte] at hd3 ⊢; exact ih h1 hI1 b _ hd3
   | call l fn args =>
     simp only [exprStep] at hd
     cases n with
@@ -593,10 +657,11 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
       simp only [exprStep] at hd
       rw [evalExpr]
       rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ra, he, hd2⟩
-      · obtain ⟨hi, hne⟩ := exprOK_error (ih a _ he)
-        simp [hi, error_ok hne]
-      · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih a _ he)
+      · obtain ⟨hi, hne⟩ := gok_error (ih h hI a _ he)
+        simp [hi, gok_err hne]
+      · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (ih h hI a _ he)
         simp only [hi, Except.bind_ok']
+        refine gok_ext hx1 ?_
         cases ra with
         | place _ _ => simp at hd2
         | val v =>
@@ -604,19 +669,20 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
           simp only at hd2
           rcases bind_case hd2 with ⟨err, ht, rfl⟩ | ⟨b, ht, hd3⟩
           · obtain ⟨htr, hne⟩ := lift_some ht
-            simp [truthyH_flat h hv, ← htr, error_ok (hne err htr.symm)]
+            simp [truthyH_flat h1 hv, ← htr, gok_err (hne err htr.symm)]
           · obtain ⟨htr, -⟩ := lift_some ht
             simp [DM.ok] at hd3; subst hd3
-            simp [truthyH_flat h hv, ← htr]
-            exact ⟨rfl, rfl, rfl⟩
+            simp [truthyH_flat h1 hv, ← htr]
+            exact ⟨Ext_refl _, rfl, rfl⟩
     | neg =>
       simp (disch := decide) only [exprStep] at hd
       rw [evalExpr]
       rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ra, he, hd2⟩
-      · obtain ⟨hi, hne⟩ := exprOK_error (ih a _ he)
-        simp [hi, error_ok hne]
-      · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih a _ he)
+      · obtain ⟨hi, hne⟩ := gok_error (ih h hI a _ he)
+        simp [hi, gok_err hne]
+      · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (ih h hI a _ he)
         simp only [hi, Except.bind_ok']
+        refine gok_ext hx1 ?_
         cases ra with
         | place _ _ => simp at hd2
         | val v =>
@@ -624,21 +690,22 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
           simp only at hd2
           rcases bind_case hd2 with ⟨err, ht, rfl⟩ | ⟨x, ht, hd3⟩
           · obtain ⟨htr, hne⟩ := lift_some ht
-            simp [← htr, error_ok (hne err htr.symm)]
+            simp [← htr, gok_err (hne err htr.symm)]
           · obtain ⟨htr, -⟩ := lift_some ht
             simp only [← htr, Except.bind_ok']
             by_cases hx : Flat x = true
-            · simp [hx, DM.ok] at hd3; subst hd3; exact ⟨rfl, rfl, hx⟩
+            · simp [hx, DM.ok] at hd3; subst hd3; exact ⟨Ext_refl _, rfl, hx⟩
             · simp [hx] at hd3
       all_goals (intro hx; cases hx)
     | invert =>
       simp (disch := decide) only [exprStep] at hd
       rw [evalExpr]
       rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ra, he, hd2⟩
-      · obtain ⟨hi, hne⟩ := exprOK_error (ih a _ he)
-        simp [hi, error_ok hne]
-      · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih a _ he)
+      · obtain ⟨hi, hne⟩ := gok_error (ih h hI a _ he)
+        simp [hi, gok_err hne]
+      · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (ih h hI a _ he)
         simp only [hi, Except.bind_ok']
+        refine gok_ext hx1 ?_
         cases ra with
         | place _ _ => simp at hd2
         | val v =>
@@ -646,11 +713,11 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
           simp only at hd2
           rcases bind_case hd2 with ⟨err, ht, rfl⟩ | ⟨x, ht, hd3⟩
           · obtain ⟨htr, hne⟩ := lift_some ht
-            simp [← htr, error_ok (hne err htr.symm)]
+            simp [← htr, gok_err (hne err htr.symm)]
           · obtain ⟨htr, -⟩ := lift_some ht
             simp only [← htr, Except.bind_ok']
             by_cases hx : Flat x = true
-            · simp [hx, DM.ok] at hd3; subst hd3; exact ⟨rfl, rfl, hx⟩
+            · simp [hx, DM.ok] at hd3; subst hd3; exact ⟨Ext_refl _, rfl, hx⟩
             · simp [hx] at hd3
       all_goals (intro hx; cases hx)
   | slice l o lo up st =>
@@ -660,10 +727,12 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
       simp only [exprStep] at hd
       rw [evalExpr]
       rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ro, he, hd2⟩
-      · obtain ⟨hi, hne⟩ := exprOK_error (ih o _ he)
-        simp [hi, error_ok hne]
-      · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih o _ he)
+      · obtain ⟨hi, hne⟩ := gok_error (ih h hI o _ he)
+        simp [hi, gok_err hne]
+      · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (ih h hI o _ he)
+        have hI1 := hI.ext hx1
         simp only [hi, Except.bind_ok']
+        refine gok_ext hx1 ?_
         cases ro with
         | place _ _ => simp at hd2
         | val v =>
@@ -671,36 +740,37 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
           cases w with
           | bytes c bs =>
             simp only at hd2
-            rcases bind_case hd2 with ⟨err, h1, rfl⟩ | ⟨lov, h1, hd3⟩
-            · have := optOf_sound ih lo _ h1
+            rcases bind_case hd2 with ⟨err, h1e, rfl⟩ | ⟨lov, h1e, hd3⟩
+            · have := optOf_sound ih hI1 lo _ h1e
               revert this
-              cases evalOpt env n L h lo with
-              | error e' => rintro ⟨rfl, hne⟩; simp [error_ok hne]
+              cases evalOpt env n L h1 lo with
+              | error e' => rintro ⟨rfl, hne⟩; simp [gok_err hne]
               | ok q => intro hx; cases hx
-            · have := optOf_sound ih lo _ h1
+            · have := optOf_sound ih hI1 lo _ h1e
               revert this
-              cases evalOpt env n L h lo with
+              cases evalOpt env n L h1 lo with
               | error e' => intro hx; cases hx
               | ok q =>
                 obtain ⟨lov', h2⟩ := q
-                rintro ⟨hh, rfl, -⟩
-                subst h2
+                rintro ⟨hx2, rfl, -⟩
+                have hI2 := hI1.ext hx2
                 simp only [Except.bind_ok']
+                refine gok_ext hx2 ?_
                 rcases bind_case hd3 with ⟨err, h3, rfl⟩ | ⟨hiv, h3, hd4⟩
-                · have := optOf_sound ih up _ h3
+                · have := optOf_sound ih hI2 up _ h3
                   revert this
-                  cases evalOpt env n L h up with
-                  | error e' => rintro ⟨rfl, hne⟩; simp [error_ok hne]
+                  cases evalOpt env n L h2 up with
+                  | error e' => rintro ⟨rfl, hne⟩; simp [gok_err hne]
                   | ok q => intro hx; cases hx
-                · have := optOf_sound ih up _ h3
+                · have := optOf_sound ih hI2 up _ h3
                   revert this
-                  cases evalOpt env n L h up with
+                  cases evalOpt env n L h2 up with
                   | error e' => intro hx; cases hx
                   | ok q =>
                     obtain ⟨hiv', h4⟩ := q
-                    rintro ⟨hh, rfl, -⟩
-                    subst h4
+                    rintro ⟨hx4, rfl, -⟩
                     simp only [Except.bind_ok']
+                    refine gok_ext hx4 ?_
                     rw [getSlice_bytes]
                     cases hk : getSlice env.bytesName Heap.empty (.bytes c bs) lov' hiv' with
                     | error e' =>
@@ -713,7 +783,7 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
                       rw [hk, lift_ok] at hd4
                       simp only [DM.bind] at hd4
                       by_cases hx : Flat q.1 = true
-                      · simp [hx, DM.ok] at hd4; subst hd4; exact ⟨rfl, rfl, hx⟩
+                      · simp [hx, DM.ok] at hd4; subst hd4; exact ⟨Ext_refl _, rfl, hx⟩
                       · simp [hx] at hd4
           | _ => simp at hd2
   | _ => simp [exprStep] at hd
