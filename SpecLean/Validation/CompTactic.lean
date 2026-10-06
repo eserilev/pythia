@@ -253,3 +253,27 @@ macro "rd_list_end" : tactic => `(tactic| (
 macro "rd_comp_err" : tactic => `(tactic| first
   | exact ‹_ ≠ SpecLean.SpecError.outOfFuel ∧ _›
   | exact (‹_ ≠ SpecLean.SpecError.outOfFuel ∧ _›).2)
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- A new list from a callee: its reference and its object, as facts. -/
+elab "rd_listres" : tactic => withMainContext do
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    unless ty.isAppOf ``SpecLean.Validation.Steps.ListRes do continue
+    -- Give the fact a name, then take it apart: the fact goes away.
+    let g ← getMainGoal
+    let g ← g.assert `hlres ty d.toExpr
+    let (_, g) ← g.intro1P
+    let g ← g.clear d.fvarId
+    replaceMainGoal [g]
+    let hs := mkIdent `hlres
+    evalTactic (← `(tactic| obtain ⟨_, hlv, _, _⟩ := $hs:ident))
+    evalTactic (← `(tactic| first | subst hlv | cases hlv))
+    return
+  throwError "rd_listres: none"
+
+end SpecLean.Validation.Tactic

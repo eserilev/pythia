@@ -404,7 +404,7 @@ attribute [local irreducible] {inv} IterK
             consts = [T.ident(c) for c in sorted(gl) if c in self.b.consts]
             defs_ = ", ".join(["Scope.env", "Scope.knownNames", "assignTarget", "enumItem",
                                "execBlock"] + consts)
-            call = (f"rd_call [{', '.join(c + '_run' for c in callees)}] | " if callees else "")
+            call = (f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}] | " if callees else "")
             loopc = f"{fname}.loop{k}"
             lam = ("fun i s => " + loopc + " " + " ".join([capa] if capa else []) + f" {nvar} i " +
                    " ".join(proj("s", i) for i in range(nc)))
@@ -458,6 +458,27 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
             bounds.append(f"x{jj}.{T.ident(it.attr)}.length")
             names.append(f"{name}_loop{k}")
         return text, names, bounds, jj
+
+    def map_bound(self, name, callee, terms):
+        """The fuel bound terms of `callee` in the arguments of `name`: each call passes an argument
+        of `name` itself, or the bound is unknown."""
+        tree = self.b.fns[name]
+        pnames = [pn for pn, _ in self.em.sigs[name].params]
+        out = []
+        calls = [x for x in ast.walk(tree) if isinstance(x, ast.Call) and
+                 isinstance(x.func, ast.Name) and x.func.id == callee]
+        if not calls:
+            raise Unsupported("bounded callee: no call")
+        for call in calls:
+            for j, field in terms:
+                if j >= len(call.args) or not isinstance(call.args[j], ast.Name) or \
+                        call.args[j].id not in pnames:
+                    raise Unsupported("bounded callee: argument")
+                p = pnames.index(call.args[j].id)
+                term = f"x{p}.{field}.length" if field else f"x{p}.length"
+                if term not in out:
+                    out.append(term)
+        return out
 
     def comps(self, name, sig):
         """The comprehensions of a function with no loop (SPEC 9.3): each has one generator over a
@@ -591,7 +612,7 @@ attribute [local irreducible] {rel}
                         f"{ind}simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, "
                         f"stop_call_post, follow, Scope.env, Scope.knownNames, *]")
             rargs = " ".join(args[j][2] for j in capj)
-            call = (f"rd_call [{', '.join(c + '_run' for c in callees)}] | " if callees else "")
+            call = (f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}] | " if callees else "")
             steps = f"""rd_step
       repeat' (first | rd_ih | {call}(rd_items; try rd_step) |
         (rd_split <;> (try rd_step) <;> (try simp only [{rel}] at ⊢)))
@@ -663,7 +684,8 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             names.append(f"{name}_loop{k}")
         return text, names, bounds, jj
 
-    def theorem(self, name, sig, tree, callees=(), fuel=64, poly=None, tie=False):
+    def theorem(self, name, sig, tree, callees=(), fuel=64, poly=None, tie=False, extra=(),
+                wf=False, alloc=False):
         """The `_run` theorem at fuel `k + fuel` and the `_valid` theorem of SPEC 9.2. A call to
         a callee in `callees` uses the callee's `_run` theorem (`rd_call`).
 
@@ -704,7 +726,8 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         elif not sig.mutated:
             e, encs = self.expect(ret)
             # A new list is the one change of the heap: `ResultMatches` gives the rest.
-            exp = e if ret[0] == "list" else f"{e} ∧ h' = h"
+            # A callee that makes a new object: the heap grows, and `ResultMatches` says how.
+            exp = e if ret[0] == "list" or alloc else f"{e} ∧ h' = h"
         else:
             k0 = 1 if ret != T.NONE else 0
             e, encs = self.expect(ret, rd_fn.Fn.proj(None, "r", 0, len(outs)) if k0 else "r")
@@ -727,6 +750,10 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             ltext, lnames, lens, jj = (self.loops(name, sig, tree, callees, fuel) if poly is None
                                        else ("", [], [], None))
         bounded = bool(lnames or cbounds)
+        if extra:
+            # A callee whose fuel depends on its input: its bound, in the caller's arguments.
+            fuel = f"{' + '.join(extra)} + {fuel}"
+            bounded = True
         if lnames:
             # Each iteration of a loop costs one unit of fuel.
             # The literal stays last: the interpreter's equations match `n + 1`.
@@ -755,8 +782,9 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         if sig.mutated and lnames:
             # The loop rule chains the contract of the steps: the footprint is part of `gfp`.
             hw += f" (hsub : ∀ p ∈ {fp}, p ∈ gfp)"
-        if cbounds and not sig.mutated:
-            # The comprehension rule starts from `CContract.refl`.
+        wfb = (cbounds or wf) and not sig.mutated
+        if wfb:
+            # The comprehension rule starts from `CContract.refl`; a callee may need the same.
             hw += f" (hwf : HeapWF h) (haw : ArgsWF h {vs})"
         sl = sorted(self.slices(name))
         hw += "".join(f" (hgfp{f} : ∀ pat ∈ gfp, ∀ j j' rest, Matches pat.steps ({f} :: j :: rest) → "
@@ -776,12 +804,26 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             name_run, name_valid = f"{name}_run", f"{name}_valid"
         names = (" ".join(a[3] for a in args) + (" hw hwf haw" if sig.mutated else "") +
                  (" hsub" if sig.mutated and lnames else "") +
-                 (" hwf haw" if cbounds and not sig.mutated else "") +
+                 (" hwf haw" if wfb else "") +
                  "".join(f" hgfp{f}" for f in sl))
         alts = ([f"rd_loop [{', '.join(lnames)}]"] if lnames else []) + (
-            [f"rd_comp {kf} [{', '.join(c + '_run' for c in callees)}]"] if cbounds else []) + (
-            [f"rd_call [{', '.join(c + '_run' for c in callees)}]"] if callees else [])
+            [f"rd_comp {kf} [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"] if cbounds else []) + (
+            [f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"] if callees else [])
+        if alloc:
+            alts.append("(rd_listres; try rd_step)")
         step = "(first | " + " | ".join(alts + ["(rd_split <;> (try rd_step))"]) + ")"
+        runF = ""
+        if bounded:
+            # The fuel as a variable with its bound: a caller's fuel unifies with it.
+            runF = f"""
+set_option maxRecDepth 8192 in
+theorem {name_run}F (gfp : Footprint) (h : Heap) {binders}{hw} (F : Nat) (hF : {fuel} ≤ F) :
+    ResultMatches gfp {fp} h {vs} (fun (r : {rt}) h' v => {exp})
+      (interp (Scope.env sha) F Scope.Id.«{name}» {vs} h) ({fname} {rargs}) := by
+  obtain ⟨k, hk⟩ := Nat.exists_eq_add_of_le' hF
+  rw [show F = k + {fuel} by omega]
+  exact {name_run} sha gfp h {names} k
+"""
         return ltext + f"""
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 8192 in
@@ -806,7 +848,7 @@ theorem {name_valid} (gfp : Footprint) (h : Heap) {binders}{hw} :
     {"obtain ⟨k, hk⟩ := Nat.exists_eq_add_of_le' hf" if bounded else "obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le' hf"}{f"""
     rw [show fuel = k + {fuel} by omega]""" if bounded else ""}
     exact {name_run} sha gfp h {names} k⟩
-"""
+""" + runF
 
 
 MEM = "4G"
@@ -820,6 +862,29 @@ def run_fuels(text):
         parts = [x.strip() for x in m[2].split("+")]
         if all(x.isdigit() for x in parts):
             out[m[1]] = sum(int(x) for x in parts)
+    return out
+
+
+def bound_fuels(text):
+    """The fuel of each `_run` theorem whose fuel depends on its input: the constant and the
+    list lengths `(j, field)` of the arguments (`field` is None for a list argument)."""
+    out = {}
+    for m in re.finditer(r"^theorem (\w+)_run .*?\(interp \(Scope\.env sha\) \(k \+ ([^)]*)\)",
+                         text, re.M | re.S):
+        parts = [x.strip() for x in m[2].split("+")]
+        if all(x.isdigit() for x in parts):
+            continue
+        c, terms = 0, []
+        for x in parts:
+            if x.isdigit():
+                c += int(x)
+                continue
+            mm = re.fullmatch(r"x(\d+)(?:\.(\S+))?\.length", x)
+            if not mm:
+                break
+            terms.append((int(mm[1]), mm[2]))
+        else:
+            out[m[1]] = (c, terms)
     return out
 
 
@@ -874,9 +939,11 @@ def main():
         have = set(re.findall(r"^theorem (\w+)_run ", (gen_dir / "Leaves.lean").read_text(),
                               re.M))
         if args.tier == "loops":
-            tier = sorted(n for n, c in cls.items() if c["loops"])
             have |= set(re.findall(r"^theorem (\w+)_run ", (gen_dir / "Calls.lean").read_text(),
                                    re.M))
+            # The functions with loops, and the callers that the earlier tiers did not prove: a
+            # caller of a loop function comes after it.
+            tier = sorted(n for n, c in cls.items() if n not in have and (c["loops"] or c["calls"]))
     if args.only:
         tier = [n for n in tier if n in args.only.split(",")]
     g = Gen(b, em)
@@ -954,6 +1021,15 @@ def main():
     header = file_header = {"leaves": HEADER, "calls": CALLS_HEADER,
                             "loops": LOOPS_HEADER}[args.tier]
     fuel = {n: 64 for n in (have if args.tier != "leaves" else ())}
+    # The callees whose fuel depends on their input, and the callees that need `HeapWF`.
+    bfuel, wfneed, heq = {}, {}, {}
+    for f in ["Leaves", "Calls"] + (["Loops"] if args.tier == "loops" else []):
+        gp = gen_dir / f"{f}.lean"
+        if gp.exists() and f != "Loops":
+            txt = gp.read_text()
+            for m in re.finditer(r"^theorem (\w+)_run \(gfp(.*?):= by", txt, re.M | re.S):
+                wfneed[m[1]] = "(hwf : HeapWF h)" in m[2]
+                heq[m[1]] = "h' = h)" in m[2] or "(hw : WTree" in m[2]
     if args.tier == "loops":
         # The fuel of each theorem of the calls tier.
         fuel.update(run_fuels((gen_dir / "Calls.lean").read_text()))
@@ -962,13 +1038,20 @@ def main():
         cands = {}
         for n in todo:
             callees = cls[n]["calls"]
-            if args.tier != "leaves" and not all(c in fuel for c in callees):
+            if args.tier != "leaves" and not all(c in fuel or c in bfuel for c in callees):
                 continue
-            f = 64 + max((fuel[c] for c in callees), default=0)
+            f = 64 + max((fuel[c] if c in fuel else bfuel[c][0] for c in callees), default=0)
             # The theorems of each callee: the plain one and its class-polymorphic variants.
             lemmas = [k for c in callees for k in fuel if k == c or k.startswith(c + "_p")]
+            extra, wf = [], any(wfneed.get(c) for c in callees)
+            alloc = any(not heq.get(c, True) for c in callees)
             try:
-                cands[n] = (g.theorem(n, em.sigs[n], fns[n], lemmas, f), f)
+                for c in callees:
+                    if c in bfuel:
+                        lemmas.append(c + "_runF")
+                        extra += g.map_bound(n, c, bfuel[c][1])
+                cands[n] = (g.theorem(n, em.sigs[n], fns[n], lemmas, f, extra=extra, wf=wf,
+                                      alloc=alloc), f)
             except (Unsupported, S.Unsupported, ValueError) as e:
                 skipped[n] = f"no statement: {e}"
                 continue
@@ -993,10 +1076,15 @@ def main():
         proved += [n for n in new if n in tier]
         body += "".join(cands[n][0] for n in new)
         for n in new:
-            # A theorem whose fuel depends on its input is not a callee yet.
             fv = run_fuels(cands[n][0]).get(n)
             if fv is not None:
                 fuel[n] = fv
+            bv = bound_fuels(cands[n][0]).get(n)
+            if bv is not None:
+                bfuel[n] = bv
+            stmt = cands[n][0].split(f"theorem {n}_run ", 1)[-1].split(":= by", 1)[0]
+            wfneed[n] = "(hwf : HeapWF h)" in stmt
+            heq[n] = "h' = h)" in stmt or "(hw : WTree" in stmt
         out.write_text(f"-- Generated by tools/gen_valid.py. Do not edit.\n{file_header}{doc()}"
                        f"{PRELUDE}{body}{FOOTER}")
         if args.tier == "leaves" or not new:

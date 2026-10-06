@@ -1017,7 +1017,10 @@ macro "rd_callhyp" : tactic => `(tactic| first
   | (refine SpecLean.Encode.ArgsWF_sub (σ := id) (SpecLean.Encode.ArgsWF_skel ‹_› ?_ ‹_›) ?_
      rd_skel
      rd_subargs)
-  | rd_heapwf)
+  | rd_heapwf
+  -- The fuel bound of a callee whose fuel depends on its input (`_runF`).
+  | omega
+  | (dsimp only; omega))
 
 /-- A call of a callee with a theorem: the theorem `L` of the callee relates the call to the
 readable call. Both results are split, and a pair of results that `L` rules out closes. -/
