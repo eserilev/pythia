@@ -36,7 +36,7 @@ theorem take_bound (wc : List UInt8) : List.take (sliceBound wc.length 1) wc = w
 theorem icwc_den (sha : Oracle) (fp : Footprint) (m : Nat) (wc : List UInt8) :
     (den (Scope.env sha) fpsEx (m + 8)).fn fp Scope.fn_is_compounding_withdrawal_credential
         [.leaf (.bytes b32 wc)] =
-      some (.ok (.bool (wc.take 1 == [2]), [.leaf (.bytes b32 wc)])) := by
+      some (.ok (.val (.bool (wc.take 1 == [2])), [.leaf (.bytes b32 wc)])) := by
   simp [fnStep, Scope.fn_is_compounding_withdrawal_credential, Sem.block, blockOf, stmtStep,
     exprStep, DM.bind, DM.ok, initLoc, setLoc, slot, cmpOf, optOf, dGlobal,
     Validation.Tactic.lookup_lit, Flat, cmpF_eq_bytes, take_bound]
@@ -47,7 +47,7 @@ def comp (x : Validator) : Bool := (bd x.withdrawal_credentials).take 1 == [2]
 
 theorem hcwc_den (sha : Oracle) (fp : Footprint) (m : Nat) (x : Validator) :
     (den (Scope.env sha) fpsEx (m + 12)).fn fp Scope.fn_has_compounding_withdrawal_credential
-        [Examples.vdv x] = some (.ok (.bool (comp x), [Examples.vdv x])) := by
+        [Examples.vdv x] = some (.ok (.val (.bool (comp x)), [Examples.vdv x])) := by
   have hc := icwc_den sha [] (m + 1) (bd x.withdrawal_credentials)
   rw [show m + 1 + 8 = m + 9 by omega] at hc
   rw [den_fn]
@@ -63,7 +63,7 @@ def meb (x : Validator) : Nat := if comp x then 2048000000000 else 32000000000
 
 theorem gmeb_den (sha : Oracle) (fp : Footprint) (m : Nat) (x : Validator) :
     (den (Scope.env sha) fpsEx (m + 16)).fn fp Scope.fn_get_max_effective_balance
-        [Examples.vdv x] = some (.ok (.uint gwTy (meb x), [Examples.vdv x])) := by
+        [Examples.vdv x] = some (.ok (.val (.uint gwTy (meb x)), [Examples.vdv x])) := by
   have hc := hcwc_den sha [] (m + 1) x
   rw [show m + 1 + 12 = m + 13 by omega] at hc
   rw [den_fn]
@@ -448,7 +448,7 @@ theorem t_eb (sha : Oracle) (m : Nat) {ds : List DV} {kV : ListKind} {lV : Optio
   rw [hf]
   simp only [coerce_field_gw sha v hv]
   have hroot : s.roots[0]? = some (pebuRoot ds kV lV vals) := by simp [hc.roots]
-  simp only [dWrite, hroot]
+  simp only [dWriteD, dWrite, hroot, Option.map, Except.map]
   have hw := pebu_write ds kV lV vals i hi hc.l11 v
   have hleaf : leafAt (pebuRoot ds kV lV vals) [11, i] 2 = true := by
     simp [leafAt, subAt, DV.kids, pebuRoot, List.getElem?_set, hc.l11, hvx, Examples.vdv]
@@ -462,8 +462,8 @@ theorem newEb_lt {b M : Nat} (hb : b < 2 ^ 64) : newEb b M < 2 ^ 64 := by
 
 /-- The outcome of the `if` of the body. -/
 def ifOut (ds : List DV) (kV : ListKind) (lV : Option Nat) (vals : List Validator) (i : Nat)
-    (x : Validator) (b M dt ut : Nat) (s : DSt) : Res (Outcome × DSt) :=
-  let T : Res (Outcome × DSt) :=
+    (x : Validator) (b M dt ut : Nat) (s : DSt) : Res (DOut × DSt) :=
+  let T : Res (DOut × DSt) :=
     .ok (.normal, ⟨[pebuRoot ds kV lV (vals.set i { x with effective_balance := ⟨newEb b M⟩ })], s.loc⟩)
   if b + dt < 2 ^ 64 then
     if b + dt < x.effective_balance.val then T
@@ -535,7 +535,7 @@ theorem ifOut_normal {ds : List DV} {kV : ListKind} {lV : Option Nat} {vals : Li
 
 /-- The state after one iteration. -/
 def iterOut (ds : List DV) (kV : ListKind) (lV : Option Nat) (vals : List Validator) (i : Nat)
-    (x : Validator) (b : Nat) (loc : Name → Option DRes) : Res (Outcome × DSt) :=
+    (x : Validator) (b : Nat) (loc : Name → Option DRes) : Res (DOut × DSt) :=
   ifOut ds kV lV vals i x b (meb x) 250000000 1250000000 ⟨[pebuRoot ds kV lV vals], L5 loc i b (meb x)⟩
 
 theorem pebu_iter (sha : Oracle) (m : Nat) {ds : List DV} {kV : ListKind} {lV : Option Nat}
@@ -634,7 +634,7 @@ theorem pebuLoop_lt {n : Nat} {bals : List Gwei} {dt ut : Nat} {vals : List Vali
 theorem ifOut_step (ds : List DV) (kV : ListKind) (lV : Option Nat) (vals : List Validator) (i : Nat)
     (x : Validator) (b dt ut : Nat) (l : Name → Option DRes) :
     ifOut ds kV lV vals i x b (meb x) dt ut ⟨[pebuRoot ds kV lV vals], l⟩ =
-      (fun v => (Outcome.normal, (⟨[pebuRoot ds kV lV v], l⟩ : DSt))) <$> pebuStep vals i x b dt ut := by
+      (fun v => (DOut.normal, (⟨[pebuRoot ds kV lV v], l⟩ : DSt))) <$> pebuStep vals i x b dt ut := by
   simp only [ifOut, pebuStep]
   by_cases h1 : b + dt < 2 ^ 64
   · simp only [if_pos h1]
@@ -684,7 +684,7 @@ theorem pebu_loop (sha : Oracle) (m : Nat) {ds : List DV} {kV : ListKind} {lV : 
       d = vals.length - i → LocOK loc →
       ∃ loc', (den (Scope.env sha) fpsEx (m + 22 + d)).loop pebuFp ⟨[pebuRoot ds kV lV vals], loc⟩
           pebuTarget ⟨0, [11], true⟩ i pebuBody =
-        some ((fun v => (Outcome.normal, (⟨[pebuRoot ds kV lV v], loc'⟩ : DSt))) <$>
+        some ((fun v => (DOut.normal, (⟨[pebuRoot ds kV lV v], loc'⟩ : DSt))) <$>
           pebuLoop bals.length bals 250000000 1250000000 vals i) := by
   intro d
   induction d with
@@ -768,7 +768,7 @@ theorem pebu_den (sha : Oracle) (m : Nat) {ds : List DV} {kV : ListKind} {lV : O
     (hl : vals.length = bals.length) (hbr : ∀ g ∈ bals, g.val < 2 ^ 64) :
     (den (Scope.env sha) fpsEx (m + 24 + vals.length)).fn pebuFp
         Scope.fn_process_effective_balance_updates [.cont Scope.Id.«BeaconState» ds] =
-      some ((fun v => (Value.none, [pebuRoot ds kV lV v])) <$>
+      some ((fun v => (DRes.val (Value.none), [pebuRoot ds kV lV v])) <$>
         pebuLoop bals.length bals 250000000 1250000000 vals 0) := by
   have h11 : 11 < ds.length := by
     rcases Nat.lt_or_ge 11 ds.length with h | h
@@ -786,7 +786,7 @@ theorem pebu_den (sha : Oracle) (m : Nat) {ds : List DV} {kV : ListKind} {lV : O
   rw [show m + 19 + vals.length + 3 = m + 22 + vals.length by omega] at hit
   have hst : (den (Scope.env sha) fpsEx (m + 23 + vals.length)).stmt pebuFp
       ⟨[pebuRoot ds kV lV vals], loc0⟩ (.forStmt 1240 pebuTarget pebuIter pebuBody) =
-      some ((fun v => (Outcome.normal, (⟨[pebuRoot ds kV lV v], loc'⟩ : DSt))) <$>
+      some ((fun v => (DOut.normal, (⟨[pebuRoot ds kV lV v], loc'⟩ : DSt))) <$>
         pebuLoop bals.length bals 250000000 1250000000 vals 0) := by
     rw [show m + 23 + vals.length = (m + 22 + vals.length) + 1 by omega, den_stmt]
     simp only [stmtStep, hit, DM.bind]
@@ -1035,7 +1035,7 @@ theorem process_effective_balance_updates_denote (sha : Oracle) (m : Nat) (ds : 
     ((den (Scope.env sha) fpsEx (m + 24 + st.validators.length)).fn pebuFp
         Scope.fn_process_effective_balance_updates [.cont Scope.Id.«BeaconState» ds]).map
         (Except.mapError SpecError.fail) =
-      some ((fun st' : BeaconState => (Value.none, [pebuOut ds kV lV st'])) <$>
+      some ((fun st' : BeaconState => (DRes.val (Value.none), [pebuOut ds kV lV st'])) <$>
         process_effective_balance_updates st) := by
   rw [pebu_den sha m hv hb hl hbr, pebu_read st hl hbr]
   cases pebuLoop st.balances.length st.balances 250000000 1250000000 st.validators 0 <;> rfl
@@ -1073,7 +1073,7 @@ theorem process_effective_balance_updates_l4 (sha : Oracle) (gfp : Footprint) (h
       (f := Scope.Id.«process_effective_balance_updates»)
       (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
     rw [hden] at hm
-    refine resultMatches_mono hf (Examples.resultMatches_map (fun st' h' v he => ⟨he.1, ?_⟩) hm)
+    refine resultMatches_mono hf (Examples.resultMatches_map (fun st' h' v he => ⟨he.1.1, ?_⟩) hm)
     obtain ⟨-, hr⟩ := he.2
     exact hr 0 (.ref r0) _ rfl rfl
 

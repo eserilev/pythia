@@ -75,7 +75,7 @@ theorem ctor_epoch (env : Env) (h : Heap) (x : Nat) (hx : x < 2 ^ 64) :
 
 theorem ceas_den (sha : Oracle) (fp : Footprint) (m a : Nat) (ha : a < 2 ^ 64) :
     (den (Scope.env sha) fpsEx (m + 8)).fn fp Scope.fn_compute_epoch_at_slot [.leaf (.uint slotTy a)] =
-      some (.ok (.uint epTy (a / 8), [.leaf (.uint slotTy a)])) := by
+      some (.ok (.val (.uint epTy (a / 8)), [.leaf (.uint slotTy a)])) := by
   have hd : a / 8 < 2 ^ 64 := by omega
   have hb : dBinop .floorDiv (.val (.uint slotTy a)) (.val (.uint (.nominal 196 64) 8)) =
       some (.ok (.val (.uint slotTy (a / 8)))) := dBinop_eval (div_slot a ha) rfl
@@ -88,7 +88,7 @@ theorem ceas_den (sha : Oracle) (fp : Footprint) (m a : Nat) (ha : a < 2 ^ 64) :
 theorem gce_den (sha : Oracle) (fp : Footprint) (m : Nat) (ds : List DV) (a : Nat)
     (hs : ds[2]? = some (.leaf (.uint slotTy a))) (ha : a < 2 ^ 64) :
     (den (Scope.env sha) fpsEx (m + 12)).fn fp Scope.fn_get_current_epoch [.cont Scope.Id.«BeaconState» ds] =
-      some (.ok (.uint epTy (a / 8), [.cont Scope.Id.«BeaconState» ds])) := by
+      some (.ok (.val (.uint epTy (a / 8)), [.cont Scope.Id.«BeaconState» ds])) := by
   have hc := ceas_den sha [] (m + 1) a ha
   rw [show m + 1 + 8 = m + 9 by omega] at hc
   rw [den_fn]
@@ -138,7 +138,7 @@ theorem get_current_epoch_denote (sha : Oracle) (fp : Footprint) (m : Nat) (ds :
     (ha : st.slot.val < 2 ^ 64) :
     ((den (Scope.env sha) fpsEx (m + 12)).fn fp Scope.fn_get_current_epoch
         [.cont Scope.Id.«BeaconState» ds]).map (Except.mapError SpecError.fail) =
-      some ((fun e : Epoch => (Value.uint epTy e.val, [DV.cont Scope.Id.«BeaconState» ds])) <$>
+      some ((fun e : Epoch => (DRes.val (Value.uint epTy e.val), [DV.cont Scope.Id.«BeaconState» ds])) <$>
         get_current_epoch st) := by
   rw [gce_den sha fp m ds _ hs ha, gce_read st ha]; rfl
 
@@ -174,9 +174,9 @@ theorem get_current_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
     (f := Scope.Id.«get_current_epoch») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
     hdec (Examples.wtree_nil h _) hwf hden
   refine resultMatches_mono hf (Examples.resultMatches_map
-    (f := fun e : Epoch => (Value.uint epTy e.val, [DV.cont Scope.Id.«BeaconState» ds]))
-    (E := fun (x : Value × List DV) h' v => v = x.1 ∧ DecArgs h' [.ref r0] x.2)
-    (fun e h' v he => he.1) ?_)
+    (f := fun e : Epoch => (DRes.val (Value.uint epTy e.val), [DV.cont Scope.Id.«BeaconState» ds]))
+    (E := fun (x : DRes × List DV) h' v => ERel h' [.ref r0] x.1 v ∧ DecArgs h' [.ref r0] x.2)
+    (fun e h' v he => he.1.1) ?_)
   rw [gce_read st ha]
   exact hm
 
@@ -214,7 +214,7 @@ theorem truthy_b (b : Bool) : @truthy LibModel.toLibValues (.bool b) = .ok b := 
 theorem sat_den_ei (sha : Oracle) (fp : Footprint) (m x : Nat) (hx : x < 2 ^ 64) :
     (den (Scope.env sha) fpsEx (m + 8)).fn fp Scope.fn_saturating_sub
         [.leaf (.uint epTy x), .leaf (.int 1)] =
-      some (.ok (.uint epTy (if 1 < x then x - 1 else 0), [.leaf (.uint epTy x), .leaf (.int 1)])) := by
+      some (.ok (.val (.uint epTy (if 1 < x then x - 1 else 0)), [.leaf (.uint epTy x), .leaf (.int 1)])) := by
   have hc : cmpF .gt (.uint epTy x) (.int 1) = some (.ok (decide (1 < x))) :=
     cmpF_eval (gt_ui epTy x) (by simp)
   by_cases h1 : 1 < x
@@ -233,7 +233,7 @@ theorem sat_den_ei (sha : Oracle) (fp : Footprint) (m x : Nat) (hx : x < 2 ^ 64)
 theorem gpe_den (sha : Oracle) (fp : Footprint) (m : Nat) (ds : List DV) (a : Nat)
     (hs : ds[2]? = some (.leaf (.uint slotTy a))) (ha : a < 2 ^ 64) :
     (den (Scope.env sha) fpsEx (m + 16)).fn fp Scope.fn_get_previous_epoch [.cont Scope.Id.«BeaconState» ds] =
-      some (.ok (.uint epTy (if 1 < a / 8 then a / 8 - 1 else 0), [.cont Scope.Id.«BeaconState» ds])) := by
+      some (.ok (.val (.uint epTy (if 1 < a / 8 then a / 8 - 1 else 0)), [.cont Scope.Id.«BeaconState» ds])) := by
   have hg := gce_den sha [] m ds a hs ha
   have hsat := sat_den_ei sha [] (m + 5) (a / 8) (by omega)
   rw [show m + 5 + 8 = m + 13 by omega] at hsat
@@ -281,7 +281,7 @@ theorem get_previous_epoch_denote (sha : Oracle) (fp : Footprint) (m : Nat) (ds 
     (ha : st.slot.val < 2 ^ 64) :
     ((den (Scope.env sha) fpsEx (m + 16)).fn fp Scope.fn_get_previous_epoch
         [.cont Scope.Id.«BeaconState» ds]).map (Except.mapError SpecError.fail) =
-      some ((fun e : Epoch => (Value.uint epTy e.val, [DV.cont Scope.Id.«BeaconState» ds])) <$>
+      some ((fun e : Epoch => (DRes.val (Value.uint epTy e.val), [DV.cont Scope.Id.«BeaconState» ds])) <$>
         get_previous_epoch st) := by
   rw [gpe_den sha fp m ds _ hs ha, gpe_read st ha]; rfl
 
@@ -293,7 +293,7 @@ abbrev viTy : UintTy := .nominal Scope.Id.«ValidatorIndex» 64
 theorem sat_den_gg (sha : Oracle) (fp : Footprint) (m b d : Nat) (hb : b < 2 ^ 64) :
     (den (Scope.env sha) fpsEx (m + 8)).fn fp Scope.fn_saturating_sub
         [.leaf (.uint gwTy b), .leaf (.uint gwTy d)] =
-      some (.ok (.uint gwTy (if d < b then b - d else 0),
+      some (.ok (.val (.uint gwTy (if d < b then b - d else 0)),
         [.leaf (.uint gwTy b), .leaf (.uint gwTy d)])) := by
   have hr : resolveUint gwTy gwTy = .ok gwTy := by simp [resolveUint]
   have hc : cmpF .gt (.uint gwTy b) (.uint gwTy d) = some (.ok (decide (d < b))) :=
@@ -320,7 +320,7 @@ theorem dbal_den_ok (sha : Oracle) (m : Nat) (ds : List DV) (k : ListKind) (l : 
     (hi : i < bal.length) (hbi : bal[i].val < 2 ^ 64) :
     (den (Scope.env sha) fpsEx (m + 14)).fn Examples.ibFp Scope.fn_decrease_balance
         [.cont Scope.Id.«BeaconState» ds, .leaf (.uint viTy i), .leaf (.uint gwTy δ)] =
-      some (.ok (.none, [.cont Scope.Id.«BeaconState» (ds.set 12 (.list k (.uint gwTy) l
+      some (.ok (.val (.none), [.cont Scope.Id.«BeaconState» (ds.set 12 (.list k (.uint gwTy) l
           ((bal.set i ⟨if δ < bal[i].val then bal[i].val - δ else 0⟩).map Examples.gleaf))),
         .leaf (.uint viTy i), .leaf (.uint gwTy δ)])) := by
   have hsat := sat_den_gg sha [] (m + 3) bal[i].val δ hbi
@@ -333,7 +333,7 @@ theorem dbal_den_ok (sha : Oracle) (m : Nat) (ds : List DV) (k : ListKind) (l : 
     setLoc, slot, argsOf, dCallRO, dCallW, fpsEx, argRoot, Scope.Id.«decrease_balance»,
     Scope.Id.«saturating_sub», DSt.deref, subAt, DV.kids, dAttr, dIndex, ofChild, hb, hm,
     Validation.Tactic.fieldIndex_lit, isByteList, normIndex_nat, hi, targetStep, dCoerce_gwei,
-    dWrite, Flat, fpOk, Examples.ibFp, rootIs, matchesB, leafAt, updAt, List.map_set, Examples.gleaf]
+    dWriteD, dWrite, Except.map, Flat, fpOk, Examples.ibFp, rootIs, matchesB, leafAt, updAt, List.map_set, Examples.gleaf]
 
 theorem dbal_den_idx (sha : Oracle) (m : Nat) (ds : List DV) (k : ListKind) (l : Option Nat)
     (bal : List Gwei) (i δ : Nat) (hb : ds[12]? = some (.list k (.uint gwTy) l (bal.map Examples.gleaf)))
@@ -393,7 +393,7 @@ theorem decrease_balance_denote (sha : Oracle) (m : Nat) (ds : List DV) (k : Lis
     ((den (Scope.env sha) fpsEx (m + 14)).fn Examples.ibFp Scope.fn_decrease_balance
         [.cont Scope.Id.«BeaconState» ds, .leaf (.uint viTy i), .leaf (.uint gwTy δ)]).map
         (Except.mapError SpecError.fail) =
-      some ((fun st' : BeaconState => (Value.none,
+      some ((fun st' : BeaconState => (DRes.val (Value.none),
         [.cont Scope.Id.«BeaconState» (ds.set 12 (.list k (.uint gwTy) l (st'.balances.map Examples.gleaf))),
           .leaf (.uint viTy i), .leaf (.uint gwTy δ)])) <$> decrease_balance st ⟨i⟩ ⟨δ⟩) := by
   by_cases hi : i < st.balances.length
@@ -421,9 +421,9 @@ theorem get_previous_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf :
     (f := Scope.Id.«get_previous_epoch») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
     hdec (Examples.wtree_nil h _) hwf hden
   refine resultMatches_mono hf (Examples.resultMatches_map
-    (f := fun e : Epoch => (Value.uint epTy e.val, [DV.cont Scope.Id.«BeaconState» ds]))
-    (E := fun (x : Value × List DV) h' v => v = x.1 ∧ DecArgs h' [.ref r0] x.2)
-    (fun e h' v he => he.1) ?_)
+    (f := fun e : Epoch => (DRes.val (Value.uint epTy e.val), [DV.cont Scope.Id.«BeaconState» ds]))
+    (E := fun (x : DRes × List DV) h' v => ERel h' [.ref r0] x.1 v ∧ DecArgs h' [.ref r0] x.2)
+    (fun e h' v he => he.1.1) ?_)
   rw [gpe_read st ha]
   exact hm
 
@@ -463,7 +463,7 @@ theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : H
       (f := Scope.Id.«decrease_balance») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
       hdec hw hwf hdn
     rw [hden] at hm
-    refine resultMatches_mono hf (Examples.resultMatches_map (fun st' h' v he => ⟨he.1, ?_⟩) hm)
+    refine resultMatches_mono hf (Examples.resultMatches_map (fun st' h' v he => ⟨he.1.1, ?_⟩) hm)
     obtain ⟨-, hr⟩ := he.2
     exact hr 0 (.ref r0) _ rfl rfl
 

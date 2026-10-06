@@ -16,12 +16,40 @@ variable [LibModel]
 
 attribute [local instance high] LibModel.toLibValues
 
+theorem orel_cases {lo : Nat} {h : Heap} {vs : List Value} {o : DOut} {o' : Outcome}
+    (hr : ORel lo h vs o o') :
+    (o = .normal ∧ o' = .normal) ∨ (o = .brk ∧ o' = .brk) ∨ (o = .cont ∧ o' = .cont) ∨
+      ∃ r w, o = .ret r ∧ o' = .ret w ∧ ERel h vs r w ∧ TLo lo h r w := by
+  cases o <;> cases o' <;> simp_all [ORel]
+
+theorem initLoc_tree {roots : List DV} :
+    ∀ (xs : List (Name × Nat)) (dl : Name → Option DRes) (x : Name) (d : DV),
+      initLoc roots dl xs x = some (.tree d) → dl x = some (.tree d)
+  | [], dl, x, d, h => h
+  | (y, i) :: rest, dl, x, d, h => by
+    have := initLoc_tree rest _ x d h
+    simp only [setLoc] at this
+    split at this
+    · simp only [slot] at this
+      split at this <;> simp at this
+    · exact this
+
+/-- A new local keeps the invariant. A tree in it is new. -/
+theorem CInv.setLoc {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
+    (hI : CInv fp h0 h vs s L) (x : Name) {r : DRes} {w : Value} (hr : ERel h vs r w)
+    (hlo : TLo h0.next h r w) : CInv fp h0 h vs { s with loc := setLoc s.loc x r } (L.set x w) := by
+  refine ⟨setLoc_inv hI.i x hr, hI.skel, hI.ro, hI.wf0, fun y r' w' hy hw => ?_⟩
+  simp only [SpecLean.Layer4.setLoc, Locals.set_apply] at hy hw
+  by_cases hyx : y = x
+  · subst hyx; simp at hy hw; subst hy; subst hw; exact hlo
+  · simp only [hyx, if_false] at hy hw; exact hI.tlo y r' w' hy hw
+
 theorem dWrite_csound {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : CInv fp h0 h vs s L) {k : Nat} {p : List Nat} {a : Nat}
-    (hat : at? h vs k p = some (.ref a)) {i : Nat} {v' : Value} {res : Res (Outcome × DSt)}
-    (hw : dWrite fp s k p i v' = some res) {o : HeapObj} (ho : h.objs a = some o) :
+    (hat : at? h vs k p = some (.ref a)) {i : Nat} {v' : Value} {res : Res (DOut × DSt)}
+    (hw : dWriteD fp s k p i v' = some res) {o : HeapObj} (ho : h.objs a = some o) :
     CStmtOK fp h0 vs res (.ok (.normal, L, h.set a (o.setChild i v'))) := by
-  unfold dWrite at hw
+  unfold dWriteD dWrite at hw
   cases hrk : s.roots[k]? with
   | none => simp [hrk] at hw
   | some d =>
@@ -32,21 +60,21 @@ theorem dWrite_csound {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt}
       simp [DM.ok] at hw; subst hw
       simp only [Bool.and_eq_true] at hc
       obtain ⟨⟨hf, hfp⟩, hl⟩ := hc
-      exact ⟨rfl, write_cinv hI hat hrk hf hfp hl ho⟩
+      exact ⟨trivial, write_cinv hI hat hrk hf hfp hl ho⟩
     · rw [if_neg hc] at hw; cases hw
 
 /-- Assignment to a target, after the value is evaluated. -/
 theorem targetStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {m : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L m ((den env fps m).expr fp s)) (t : Target)
-    {r : DRes} {w : Value} (hr : ERel h vs r w) {res : Res (Outcome × DSt)}
+    {r : DRes} {w : Value} (hr : ERel h vs r w) (hlo : TLo h0.next h r w) {res : Res (DOut × DSt)}
     (hd : targetStep env (den env fps m) fp s t r = some res) :
     CStmtOK fp h0 vs res ((assignTarget env (m + 1) L h t w).bind fun p => pure (.normal, p.1, p.2)) := by
   cases t with
   | name l x =>
     simp [targetStep, DM.ok] at hd; subst hd
     rw [assignTarget]
-    exact ⟨rfl, setLoc_inv hI.i x hr, hI.skel, hI.ro, hI.wf0⟩
+    exact ⟨trivial, hI.setLoc x hr hlo⟩
   | attr l o f =>
         cases r with
     | place _ _ => simp [targetStep] at hd
@@ -165,16 +193,11 @@ theorem targetStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat e
               exact dWrite_csound hI2 hat hd5 (o := .list kd el ll xs) ho
   | _ => simp [targetStep] at hd
 
-theorem at?_below {h : Heap} {vs : List Value} (hb : BelowArgs h vs) {k : Nat} {p : List Nat}
-    {a : Nat} (hat : at? h vs k p = some (.ref a)) : a < h.next := by
-  obtain ⟨v, hv, hf⟩ := at?_some hat
-  exact hb k v hv p a hf
-
 /-- `obj[i] op= e`. -/
 theorem augStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L n ((den env fps n).expr fp s)) (l l' : Line)
-    (o ie : Expr) (op : BinOp) (e : Expr) {res : Res (Outcome × DSt)}
+    (o ie : Expr) (op : BinOp) (e : Expr) {res : Res (DOut × DSt)}
     (hd : augStep env (den env fps n) fp s o ie op e = some res) :
     CStmtOK fp h0 vs res (execStmt env (n + 1) L h (.augAssign l (.index l' o ie) op e)) := by
   rw [execStmt]
@@ -288,12 +311,12 @@ theorem bind_map {x : DM α} {f : α → DM β} (g : β → γ) :
 
 theorem callOK_of_exprOK {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : CInv fp h0 h vs s L) {r0 : Res DRes} {res : Res (Value × Heap)}
-    (he : GOK h vs r0 res) : CallOK fp h0 vs s L (r0.map (·, s.roots)) res := by
+    (he : GOK h0.next h vs r0 res) : CallOK fp h0 vs s L (r0.map (·, s.roots)) res := by
   cases r0 with
   | error e => obtain ⟨hr, hne⟩ := gok_error he; subst hr; exact ⟨rfl, hne⟩
   | ok r =>
-    obtain ⟨w, h', hr, hx, hrel⟩ := gok_ok he; subst hr
-    exact ⟨hrel, hI.ext hx⟩
+    obtain ⟨w, h', hr, hx, hlo, hrel⟩ := gok_ok_lo he; subst hr
+    exact ⟨hrel, hlo, hI.ext hx⟩
 
 /-- One fuel step of a statement-level expression: a call may write. -/
 theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
@@ -401,15 +424,17 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
                   | error e' => intro hx; cases hx
                   | ok q =>
                     obtain ⟨w, h'⟩ := q
-                    rintro ⟨rfl, hda, hfr, hsk, -⟩
-                    cases hdi : rg'[i]? with
-                    | none => simp [hdi] at hd3
-                    | some di =>
-                      simp only [hdi] at hd3
-                      by_cases hv : Flat w = true
-                      · simp [hv, DM.ok] at hd3; subst hd3
-                        exact ⟨⟨rfl, hv⟩, call_rule hI2 hrel hop hdk hdr hfpne hcov hfr hsk hda hdi⟩
-                      · simp [hv] at hd3
+                    rintro ⟨hrr, -, hda, hfr, hsk, -⟩
+                    cases v with
+                    | val v =>
+                      obtain ⟨rfl, hv⟩ := hrr
+                      cases hdi : rg'[i]? with
+                      | none => simp [hdi] at hd3
+                      | some di =>
+                        simp only [hdi] at hd3
+                        simp [hv, DM.ok] at hd3; subst hd3
+                        exact ⟨⟨rfl, hv⟩, trivial, call_rule hI2 hrel hop hdk hdr hfpne hcov hfr hsk hda hdi⟩
+                    | _ => simp at hd3
               · rw [if_neg hcnd] at hd2; cases hd2
       | _ =>
         simp only [hg] at hd
@@ -433,11 +458,11 @@ def IterRel (h : Heap) (vs : List Value) : Res LSrc → Res (Value × Heap) → 
 
 /-- The parts at one fuel agree with the interpreter, in every state of the invariant. -/
 structure LevelOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop where
-  expr : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → EvOK env h vs L n ((den env fps n).expr fp s)
+  expr : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → EvOK env h0.next h vs L n ((den env fps n).expr fp s)
   call : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ e r, (den env fps n).call fp s e = some r →
     CallOK fp h0 vs s L r (evalExpr env n L h e)
   target : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t r w res, ERel h vs r w →
-    (den env fps n).target fp s t r = some res →
+    TLo h0.next h r w → (den env fps n).target fp s t r = some res →
     CStmtOK fp h0 vs res ((assignTarget env n L h t w).bind fun p => pure (.normal, p.1, p.2))
   stmt : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ st res, (den env fps n).stmt fp s st = some res →
     CStmtOK fp h0 vs res (execStmt env n L h st)
@@ -450,12 +475,12 @@ structure LevelOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop where
 
 theorem blockOf_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : LevelOK env fps n)
     {fp : Footprint} {h0 : Heap} {vs : List Value} :
-    ∀ (ss : List Stmt) (s : DSt) (L : Locals) (h : Heap) (r : Res (Outcome × DSt)),
+    ∀ (ss : List Stmt) (s : DSt) (L : Locals) (h : Heap) (r : Res (DOut × DSt)),
       CInv fp h0 h vs s L → (den env fps n).block fp s ss = some r →
       CStmtOK fp h0 vs r (execBlock env n L h ss)
   | [], s, L, h, r, hI, hd => by
     simp [Sem.block, blockOf, DM.ok] at hd; subst hd
-    rw [execBlock]; exact ⟨rfl, hI⟩
+    rw [execBlock]; exact ⟨trivial, hI⟩
   | st :: ss, s, L, h, r, hI, hd => by
     simp only [Sem.block, blockOf] at hd
     rw [execBlock]
@@ -471,11 +496,13 @@ theorem blockOf_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : Lev
       | error e' => intro hx; cases hx
       | ok q =>
         obtain ⟨o', L1, h1⟩ := q
-        rintro ⟨rfl, hI1⟩
+        rintro ⟨hor, hI1⟩
         simp only [Except.bind_ok']
-        cases o' with
-        | normal => exact blockOf_sound hL ss s1 L1 h1 r hI1 hd2
-        | _ => simp [DM.ok] at hd2; subst hd2; exact ⟨rfl, hI1⟩
+        rcases orel_cases hor with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨r', w', rfl, rfl, hrr, hll⟩
+        · exact blockOf_sound hL ss s1 L1 h1 r hI1 hd2
+        · simp [DM.ok] at hd2; subst hd2; exact ⟨trivial, hI1⟩
+        · simp [DM.ok] at hd2; subst hd2; exact ⟨trivial, hI1⟩
+        · simp [DM.ok] at hd2; subst hd2; exact ⟨⟨hrr, hll⟩, hI1⟩
 
 theorem stmtStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
     (hL : LevelOK env fps n) {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt}
@@ -506,9 +533,9 @@ theorem stmtStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
       | error e' => intro hx; cases hx
       | ok q =>
         obtain ⟨w, h1⟩ := q
-        rintro ⟨hrel, hI1⟩
+        rintro ⟨hrel, hlo, hI1⟩
         simp only [Except.bind_ok']
-        have := hL.target fp h0 h1 vs _ L hI1 t rv w _ hrel hd2
+        have := hL.target fp h0 h1 vs _ L hI1 t rv w _ hrel hlo hd2
         revert this
         cases assignTarget env n L h1 t w with
         | error e' => simp
@@ -547,9 +574,9 @@ theorem stmtStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
       | error e' => intro hx; cases hx
       | ok q =>
         obtain ⟨w, h1⟩ := q
-        rintro ⟨-, hI1⟩
+        rintro ⟨-, -, hI1⟩
         simp [DM.ok] at hd2; subst hd2
-        exact ⟨rfl, hI1⟩
+        exact ⟨trivial, hI1⟩
   | ifStmt l c thn els =>
     simp only [stmtStep] at hd
     rw [execStmt]
@@ -580,22 +607,23 @@ theorem stmtStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
     cases oe with
     | none =>
       simp [stmtStep, DM.ok] at hd; subst hd
-      rw [execStmt]; exact ⟨rfl, hI⟩
+      rw [execStmt]; exact ⟨⟨⟨rfl, rfl⟩, trivial⟩, hI⟩
     | some e =>
       simp only [stmtStep] at hd
       rw [execStmt]
       rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rv, he, hd2⟩
       · obtain ⟨hi, hne⟩ := gok_error (hE e _ he)
         simp [hi, cstmtOK_err hne]
-      · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (hE e _ he)
+      · obtain ⟨w, h1, hi, hx1, hlo, hrel⟩ := gok_ok_lo (hE e _ he)
         simp only [hi, exb_ok, Except.bind_ok']
         cases rv with
-        | tree _ => simp at hd2
+        | tree _ =>
+          simp [DM.ok] at hd2; subst hd2
+          exact ⟨⟨hrel, hlo⟩, hI.ext hx1⟩
         | place _ _ => simp at hd2
         | val v =>
-        obtain ⟨rfl, -⟩ := hrel
-        simp [DM.ok] at hd2; subst hd2
-        exact ⟨rfl, hI.ext hx1⟩
+          simp [DM.ok] at hd2; subst hd2
+          exact ⟨⟨hrel, hlo⟩, hI.ext hx1⟩
   | assert l e =>
     simp only [stmtStep] at hd
     rw [execStmt]
@@ -616,11 +644,11 @@ theorem stmtStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
       · obtain ⟨htr, -⟩ := lift_some ht
         simp only [truthyH_flat h1 hv, ← htr, exb_ok, Except.bind_ok']
         cases b with
-        | true => simp [DM.ok] at hd3; subst hd3; exact ⟨rfl, hI.ext hx1⟩
+        | true => simp [DM.ok] at hd3; subst hd3; exact ⟨trivial, hI.ext hx1⟩
         | false => simp at hd3; subst hd3; exact cstmtOK_err (by decide)
   | pass l =>
     simp [stmtStep, DM.ok] at hd; subst hd
-    rw [execStmt]; exact ⟨rfl, hI⟩
+    rw [execStmt]; exact ⟨trivial, hI⟩
   | forStmt l t it body =>
     simp only [stmtStep] at hd
     rw [execStmt]
@@ -658,7 +686,10 @@ theorem fnStep_sound (env : Env) {fps : Name → Footprint} {n : Nat} (hL : Leve
         have := (List.mem_zipIdx hq).2.1
         simp at this ⊢; omega)
     have hI : CInv fp h h vs { roots, loc := initLoc roots (fun _ => none) d.params.names.zipIdx }
-        L0 := CInv.start ⟨hdec.1, hdec.2, hrel⟩ hw hwf
+        L0 := CInv.start ⟨hdec.1, hdec.2, hrel⟩ hw hwf fun x r w hx _ => by
+          cases r with
+          | tree d' => exact absurd (initLoc_tree _ _ x d' hx) (by simp)
+          | _ => trivial
     have hB := fun r => blockOf_sound hL d.body _ L0 h r hI
     dsimp only at hd
     rw [callFn]
@@ -676,13 +707,15 @@ theorem fnStep_sound (env : Env) {fps : Name → Footprint} {n : Nat} (hL : Leve
       | error e' => intro hx; cases hx
       | ok q =>
         obtain ⟨o', L1, h1⟩ := q
-        rintro ⟨rfl, hI1⟩
+        rintro ⟨hor, hI1⟩
         simp only [Except.bind_ok', exb_ok]
         have post : DecArgs h1 vs s1.roots ∧ Frame h h1 vs fp ∧ Skel h h1 ∧ (fp = [] → Ext h h1) :=
           ⟨⟨hI1.i.r.len, hI1.i.r.roots⟩, hI1.i.frame, hI1.skel, hI1.ro⟩
-        cases o' with
-        | ret v => simp [DM.ok] at hd2; subst hd2; exact ⟨rfl, post⟩
-        | _ => simp [DM.ok] at hd2; subst hd2; exact ⟨rfl, post⟩
+        rcases orel_cases hor with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨r', w', rfl, rfl, hrr, hll⟩
+        · simp [DM.ok] at hd2; subst hd2; exact ⟨⟨rfl, rfl⟩, trivial, post⟩
+        · simp [DM.ok] at hd2; subst hd2; exact ⟨⟨rfl, rfl⟩, trivial, post⟩
+        · simp [DM.ok] at hd2; subst hd2; exact ⟨⟨rfl, rfl⟩, trivial, post⟩
+        · simp [DM.ok] at hd2; subst hd2; exact ⟨hrr, hll, post⟩
   · cases hd
 
 theorem toSeq_live {h : Heap} {a : Nat} {kd : ListKind} {e : SszTy} {l : Option Nat}
@@ -805,7 +838,7 @@ theorem iterStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
 /-- Bind the loop target, as `assignTarget n` does. -/
 theorem bindLoop_sound {env : Env} {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt}
     {L : Locals} (hI : CInv fp h0 h vs s L) {n : Nat} {enum : Bool} {t : Target} {i : Nat}
-    {xr : DRes} {x : Value} (hx : ERel h vs xr x) {s1 : DSt}
+    {xr : DRes} {x : Value} (hx : ERel h vs xr x) (hxlo : TLo h0.next h xr x) {s1 : DSt}
     (hb : bindLoop n enum s t i xr = some s1) :
     ∃ L1, assignTarget env n L h t (if enum then enumItem i x else x) = .ok (L1, h) ∧
       CInv fp h0 h vs s1 L1 := by
@@ -813,21 +846,21 @@ theorem bindLoop_sound {env : Env} {fp : Footprint} {h0 h : Heap} {vs : List Val
   split at hb
   · next a m =>
     simp at hb; subst hb
-    refine ⟨L.set a x, ?_, ⟨setLoc_inv hI.i a hx, hI.skel, hI.ro, hI.wf0⟩⟩
+    refine ⟨L.set a x, ?_, hI.setLoc a hx hxlo⟩
     simp [assignTarget]
   · next l a l' b m =>
     simp at hb; subst hb
     refine ⟨(L.set a (.int i)).set b x, ?_, ?_⟩
     · simp [assignTarget, assignTargets, enumItem]
     · have h1 : CInv fp h0 h vs { s with loc := setLoc s.loc a (.val (.int i)) } (L.set a (.int i)) :=
-        ⟨setLoc_inv hI.i a (r := .val (.int i)) (w := .int i) ⟨rfl, rfl⟩, hI.skel, hI.ro, hI.wf0⟩
-      exact ⟨setLoc_inv h1.i b hx, hI.skel, hI.ro, hI.wf0⟩
+        hI.setLoc a (r := .val (.int i)) (w := .int i) ⟨rfl, rfl⟩ trivial
+      exact h1.setLoc b hx hxlo
   · cases hb
 
 theorem loopStep_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : LevelOK env fps n)
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : CInv fp h0 h vs s L) {t : Target} {ls : LSrc} {i : Nat} {body : List Stmt}
-    {r : Res (Outcome × DSt)} {a : Nat} (hat : at? h vs ls.k ls.p = some (.ref a))
+    {r : Res (DOut × DSt)} {a : Nat} (hat : at? h vs ls.k ls.p = some (.ref a))
     (hd : loopStep n (den env fps n) fp s t ls i body = some r) :
     CStmtOK fp h0 vs r (execFor env (n + 1) L h t (ls.src a) i body) := by
   unfold loopStep at hd
@@ -855,7 +888,7 @@ theorem loopStep_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : Le
   | none =>
     have : xs[i]? = none := by rw [List.getElem?_eq_none_iff] at hc ⊢; omega
     simp [hc, DM.ok] at hd; subst hd
-    simp [this]; exact ⟨rfl, hI⟩
+    simp [this]; exact ⟨trivial, hI⟩
   | some c =>
     obtain ⟨x, hx, hdx⟩ := mapM_get hm hc
     have hrel := child_rel hat (by simp [okids, ho]) hx hdx
@@ -864,7 +897,7 @@ theorem loopStep_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : Le
     | none => simp [hbl] at hd
     | some s1 =>
     simp only [hbl] at hd
-    obtain ⟨L1, hasg, hI1⟩ := bindLoop_sound hI hrel hbl
+    obtain ⟨L1, hasg, hI1⟩ := bindLoop_sound hI hrel (tlo_ofChild _ _ _ _) hbl
     simp only [hx, Option.map_some]
     rw [hasg]
     simp only [Except.bind_ok']
@@ -881,20 +914,20 @@ theorem loopStep_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : Le
       | error e' => intro hx; cases hx
       | ok q =>
         obtain ⟨o', L2, h2⟩ := q
-        rintro ⟨rfl, hI2⟩
+        rintro ⟨hor, hI2⟩
         simp only [Except.bind_ok']
         have hat2 : at? h2 vs ls.k ls.p = some (.ref a) :=
           (hI2.i.refs _ _ a).mpr ((hI.i.refs _ _ a).mp hat)
-        cases o' with
-        | brk => simp [DM.ok] at hd2; subst hd2; exact ⟨rfl, hI2⟩
-        | ret v => simp [DM.ok] at hd2; subst hd2; exact ⟨rfl, hI2⟩
-        | normal => exact hL.loop fp h0 h2 vs s2 L2 hI2 t ls (i + 1) body r a hat2 hd2
-        | cont => exact hL.loop fp h0 h2 vs s2 L2 hI2 t ls (i + 1) body r a hat2 hd2
+        rcases orel_cases hor with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨r', w', rfl, rfl, hrr, hll⟩
+        · exact hL.loop fp h0 h2 vs s2 L2 hI2 t ls (i + 1) body r a hat2 hd2
+        · simp [DM.ok] at hd2; subst hd2; exact ⟨trivial, hI2⟩
+        · exact hL.loop fp h0 h2 vs s2 L2 hI2 t ls (i + 1) body r a hat2 hd2
+        · simp [DM.ok] at hd2; subst hd2; exact ⟨⟨hrr, hll⟩, hI2⟩
 
 theorem level_zero (env : Env) (fps : Name → Footprint) : LevelOK env fps 0 :=
   ⟨fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
-   fun _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
+   fun _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
@@ -906,8 +939,8 @@ theorem level_succ (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n
      exprStep_sound env fps hlf (fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1) hL.fn hI,
    fun fp h0 h vs s L hI =>
      callStep_sound env fps hlf hI (fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1) hL.fn,
-   fun fp h0 h vs s L hI t r w res hr hd =>
-     targetStep_sound env fps hlf hI (fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1) t hr hd,
+   fun fp h0 h vs s L hI t r w res hr hlo hd =>
+     targetStep_sound env fps hlf hI (fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1) t hr hlo hd,
    fun fp h0 h vs s L hI => stmtStep_sound env fps hlf hL hI,
    fnStep_sound env hL,
    fun fp h0 h vs s L hI => iterStep_sound env fps hlf hL hI,
@@ -924,9 +957,9 @@ well-formed heap, the interpreter at fuel `n` matches `r`. Reads and calls may a
 theorem denote_sound_calls (env : Env) (fps : Name → Footprint) (hlf : LibFlat env)
     (gfp fp : Footprint) {f : Name} {d : FunctionDef} (hg : env.globals.lookup f = some (.fn d))
     {h : Heap} {vs : List Value} {roots : List DV} (hdec : DecArgs h vs roots)
-    (hw : WTree h vs fp) (hwf : HeapWF h) {n : Nat} {r : Res (Value × List DV)}
+    (hw : WTree h vs fp) (hwf : HeapWF h) {n : Nat} {r : Res (DRes × List DV)}
     (hd : (den env fps n).fn fp d roots = some r) :
-    ResultMatches gfp fp h vs (fun (x : Value × List DV) h' v => v = x.1 ∧ DecArgs h' vs x.2)
+    ResultMatches gfp fp h vs (fun (x : DRes × List DV) h' v => ERel h' vs x.1 v ∧ DecArgs h' vs x.2)
       (interp env n f vs h) (r.mapError SpecError.fail) := by
   have hrel := (level_ok env fps hlf n).fn fp d roots vs h r hdec hw hwf hd
   rw [interp, callName, callValue_glob_fn _ _ _ hg]
@@ -942,8 +975,8 @@ theorem denote_sound_calls (env : Env) (fps : Name → Footprint) (hlf : LibFlat
     | error _ => intro hx; cases hx
     | ok x =>
       obtain ⟨v, rs⟩ := x
-      rintro ⟨rfl, hda, hfr, hsk, -⟩
-      exact ⟨⟨rfl, hda⟩, hfr, Fresh_of_Skel hsk,
+      rintro ⟨hrr, -, hda, hfr, hsk, -⟩
+      exact ⟨⟨hrr, hda⟩, hfr, Fresh_of_Skel hsk,
         noNewPaths_of_reach (Reach_of_Skel hsk (decArgs_below hwf hdec.2 hdec.1))⟩
 
 end SpecLean.Layer4
