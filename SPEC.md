@@ -622,6 +622,13 @@ Unfolding `interp` naively does not scale. The proofs use generic lemmas, proved
   tactic does not unfold a call of a spec function: it stops at the call (`callStop`) and
   applies the `_run` theorem of the callee. A caller's bound is 64 more than the largest bound
   of its callees.
+- Loops: the generator states one theorem for each `for` loop, by induction on the fuel. A
+  relation for each loop states what an iteration keeps: the heap, the locals that the loop
+  reads, and the readable accumulator in the locals that the loop writes. The theorem holds at
+  fuel `m + F` when `len - i ≤ m`, because each iteration costs one unit of fuel. So the bound
+  of the function depends on its input: `_run` has fuel `k + len + F + 64`. The tactic stops at
+  the loop (`rd_loop`) and applies the loop theorem. The generator now covers loops that keep
+  the heap, run over a list field of the one container argument, and do not exit early.
 
 A custom tactic applies these lemmas in the order of the function's statements. Names are `Nat`
 indices, and the heap is a finite map with decidable lookups, so the kernel does not reduce
