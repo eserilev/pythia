@@ -16,3 +16,5 @@ import SpecLean.Compose
 import SpecLean.FuelMono
 import SpecLean.Validation
 import SpecLean.Layer4.Examples2
+import SpecLean.Layer4.Examples3
+import SpecLean.Layer4.Examples4

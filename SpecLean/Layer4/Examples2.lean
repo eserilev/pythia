@@ -41,7 +41,9 @@ theorem constructFlat_ssz (env : Env) : ConstructFlat env := by
   cases t <;> simp [ctorFlat] at hc <;> simp only [LibModel.construct, Ssz.construct] <;>
     split <;> first | rfl | exact bind_pair h _ | contradiction | (simp_all; done) | (exfalso; simp_all)
 
-theorem libFlat_ssz (env : Env) : LibFlat env := ⟨Examples.coerceFlat_ssz env, constructFlat_ssz env⟩
+theorem libFlat_ssz (env : Env) : LibFlat env :=
+  ⟨Examples.coerceFlat_ssz env, constructFlat_ssz env, fun h b args kws hb => by
+    rcases hb with rfl | rfl | rfl | rfl <;> simp [LibModel.builtin, Ssz.builtin]⟩
 
 -- The value rules as the denotation and the interpreter see them.
 attribute [local instance high] LibModel.toLibValues
@@ -51,9 +53,14 @@ attribute [local instance high] LibModel.toLibValues
 abbrev slotTy : UintTy := .nominal Scope.Id.«Slot» 64
 abbrev epTy : UintTy := .nominal Scope.Id.«Epoch» 64
 
-/-- The footprints of the examples: only `decrease_balance` writes. -/
+/-- The footprints of the examples, by name id: `decrease_balance` (89) writes the balances,
+`process_effective_balance_updates` (532) each validator, `apply_withdrawals` (90) the balances
+and each builder. The others write nothing. -/
 def fpsEx : Name → Footprint := fun g =>
-  if g = Scope.Id.«decrease_balance» then [⟨Scope.Id.«BeaconState», [.exact 12]⟩] else []
+  if g = 89 then [⟨Scope.Id.«BeaconState», [.exact 12]⟩]
+  else if g = 532 then [⟨Scope.Id.«BeaconState», [.exact 11, .any]⟩]
+  else if g = 90 then [⟨Scope.Id.«BeaconState», [.exact 12]⟩, ⟨Scope.Id.«BeaconState», [.exact 38, .any]⟩]
+  else []
 
 theorem div_slot (a : Nat) (ha : a < 2 ^ 64) :
     @binopVal LibModel.toLibValues .floorDiv (.uint slotTy a) (.uint slotTy 8) = .ok (.uint slotTy (a / 8)) := by

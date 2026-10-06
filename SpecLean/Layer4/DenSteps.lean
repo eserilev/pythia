@@ -37,4 +37,93 @@ theorem cmpF_eval {op : CmpOp} {x y : Value} {b : Bool} (h : cmpVal op x y = .ok
 theorem truthy_lift {v : Value} {b : Bool} (h : truthy v = .ok b) :
     lift (truthy v) = some (.ok b) := by rw [h]; rfl
 
+/-! ## Statements, one at a time -/
+
+theorem blockOf_ok {stmt : DSt → Stmt → DM (Outcome × DSt)} {s s1 : DSt} {st : Stmt}
+    {ss : List Stmt} (h : stmt s st = some (.ok (.normal, s1))) :
+    blockOf stmt s (st :: ss) = blockOf stmt s1 ss := by
+  simp [blockOf, h, DM.bind]
+
+theorem blockOf_err {stmt : DSt → Stmt → DM (Outcome × DSt)} {s : DSt} {st : Stmt}
+    {ss : List Stmt} {e : SpecError} (h : stmt s st = some (.error e)) :
+    blockOf stmt s (st :: ss) = some (.error e) := by
+  simp [blockOf, h, DM.bind]
+
+theorem blockOf_nil {stmt : DSt → Stmt → DM (Outcome × DSt)} {s : DSt} :
+    blockOf stmt s [] = some (.ok (.normal, s)) := rfl
+
+/-- A last statement that ends normally or with an error is the block. -/
+theorem blockOf_one {stmt : DSt → Stmt → DM (Outcome × DSt)} {s : DSt} {st : Stmt}
+    {r : Res (Outcome × DSt)} (h : stmt s st = some r)
+    (hr : ∀ o s', r = .ok (o, s') → o = .normal) : blockOf stmt s [st] = some r := by
+  rcases r with e | ⟨o, s'⟩
+  · simp [blockOf, h, DM.bind]
+  · obtain rfl := hr o s' rfl
+    simp [blockOf, h, DM.bind, DM.ok]
+
+/-- A call in a statement that writes nothing is the expression. -/
+theorem call_ro {env : Env} {fps : Name → Footprint} {n : Nat} {P : Sem} {fp : Footprint}
+    {s : DSt} {e : Expr}
+    (h : ∀ g args, callHead env s e = some (g, args) →
+      (fps g).isEmpty = true ∨ ∃ t, env.globals.lookup g = some (.type t)) :
+    callStep env fps n P fp s e = (exprStep env fps n P fp s e).map (·.map (·, s.roots)) := by
+  unfold callStep
+  split
+  · next m g args hch =>
+    obtain hro := h g args hch
+    obtain ⟨l, l', rfl, -, -⟩ : ∃ l l', e = .call l (.name l' g) args ∧ True ∧ True := by
+      unfold callHead at hch
+      split at hch
+      · next l l' g' args' => split at hch <;> simp at hch; obtain ⟨rfl, rfl⟩ := hch; exact ⟨l, l', rfl, trivial, trivial⟩
+      · cases hch
+    simp only [exprStep, hch]
+    rw [show (fun rs => dCallW env fps P.fn fp s g rs) = fun rs =>
+        (dCallRO env fps P.fn s g rs).map (·.map (·, s.roots)) from ?_]
+    · cases argsOf (P.expr fp s) args with
+      | none => rfl
+      | some r => cases r <;> rfl
+    · funext rs
+      unfold dCallW
+      rcases hro with he | ⟨t, ht⟩
+      · split
+        · next d hg =>
+          simp only [he, ↓reduceIte]
+          cases dCallRO env fps P.fn s g rs with
+          | none => rfl
+          | some q => cases q <;> rfl
+        · rfl
+      · simp [ht]
+  · rfl
+
+/-- `x = e` with an expression that writes nothing. -/
+theorem assign_name {env : Env} {fps : Name → Footprint} {n : Nat} {fp : Footprint} {s : DSt}
+    {l l' : Line} {x : Name} {e : Expr} {r : DRes}
+    (hc : (den env fps (n + 1)).call fp s e = some (.ok (r, s.roots))) :
+    (den env fps (n + 2)).stmt fp s (.assign l [.name l' x] e) =
+      some (.ok (.normal, { s with loc := setLoc s.loc x r })) := by
+  simp [stmtStep, hc, DM.bind, targetStep, DM.ok]
+
+theorem assign_name_err {env : Env} {fps : Name → Footprint} {n : Nat} {fp : Footprint}
+    {s : DSt} {l l' : Line} {x : Name} {e : Expr} {err : SpecError}
+    (hc : (den env fps (n + 1)).call fp s e = some (.error err)) :
+    (den env fps (n + 2)).stmt fp s (.assign l [.name l' x] e) = some (.error err) := by
+  simp [stmtStep, hc, DM.bind]
+
+theorem dm_bind_ok {α β : Type} (a : α) (f : α → DM β) : DM.bind (some (.ok a)) f = f a := rfl
+
+theorem dm_ok {α : Type} (a : α) : (DM.ok a : DM α) = some (.ok a) := rfl
+
+theorem blockOf_ret {stmt : DSt → Stmt → DM (Outcome × DSt)} {s s' : DSt} {st : Stmt}
+    {ss : List Stmt} {v : Value} (h : stmt s st = some (.ok (.ret v, s'))) :
+    blockOf stmt s (st :: ss) = some (.ok (.ret v, s')) := by
+  simp only [blockOf, h, DM.bind]; rfl
+
+theorem args1 {ev : Expr → DM DRes} {e : Expr} {r : DRes} (h : ev e = some (.ok r)) :
+    argsOf ev [.pos e] = some (.ok [r]) := by
+  simp only [argsOf, h, dm_bind_ok, DM.ok]
+
+theorem args2 {ev : Expr → DM DRes} {e e' : Expr} {r r' : DRes} (h : ev e = some (.ok r))
+    (h' : ev e' = some (.ok r')) : argsOf ev [.pos e, .pos e'] = some (.ok [r, r']) := by
+  simp only [argsOf, h, h', dm_bind_ok, DM.ok]
+
 end SpecLean.Layer4

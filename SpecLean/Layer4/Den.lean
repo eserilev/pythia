@@ -85,6 +85,12 @@ def allVals : List DRes → Option (List Value)
 
 /-! ## The parts at one fuel -/
 
+/-- A loop over the list at place `(k, p)`, read live at each item; `enum` for `enumerate`. -/
+structure LSrc where
+  k : Nat
+  p : List Nat
+  enum : Bool
+
 /-- The denotation at one fuel. `fp` is the footprint of the running function. -/
 structure Sem where
   expr : Footprint → DSt → Expr → DM DRes
@@ -94,6 +100,10 @@ structure Sem where
   stmt : Footprint → DSt → Stmt → DM (Outcome × DSt)
   /-- The body of a spec function, on the decoded arguments. -/
   fn : Footprint → FunctionDef → List DV → DM (Value × List DV)
+  /-- The iterable of a `for` loop: `evalExpr` then `iterSource`. -/
+  iter : Footprint → DSt → Expr → DM LSrc
+  /-- `execFor`: a loop from item `i`, one fuel unit per item. -/
+  loop : Footprint → DSt → Target → LSrc → Nat → List Stmt → DM (Outcome × DSt)
 
 def blockOf (stmt : DSt → Stmt → DM (Outcome × DSt)) : DSt → List Stmt → DM (Outcome × DSt)
   | s, [] => .ok (.normal, s)
@@ -132,6 +142,14 @@ def boolOf (ev : Expr → DM DRes) (op : BoolOp) : List Expr → DM DRes
           | _, _ => boolOf ev op es
       | _ => none
 
+/-- An optional slice bound. -/
+def optOf (ev : Expr → DM DRes) : Option Expr → DM (Option Value)
+  | none => .ok none
+  | some e => DM.bind (ev e) fun r =>
+    match r with
+    | .val v => .ok (some v)
+    | _ => none
+
 def argsOf (ev : Expr → DM DRes) : List Arg → DM (List DRes)
   | [] => .ok []
   | .pos e :: as => DM.bind (ev e) fun r => DM.bind (argsOf ev as) fun rs => .ok (r :: rs)
@@ -147,6 +165,23 @@ def dCtor (env : Env) (t : SszTy) (rs : List DRes) : DM DRes :=
     | none => none
   else none
 
+/-- `min`, `max` of two or more flat values, and `len` of a list at a place. -/
+def dBuiltin (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
+  match b with
+  | .min | .max =>
+    match allVals rs with
+    | some (x :: y :: ys) =>
+      DM.bind (lift (pickBest (b == .max) x (y :: ys))) fun w => if Flat w then .ok (.val w) else none
+    | _ => none
+  | .len =>
+    match rs with
+    | [.place k p] =>
+      match s.deref k p with
+      | some (.list _ _ _ ds) => .ok (.val (.int ds.length))
+      | _ => none
+    | _ => none
+  | _ => none
+
 /-- A call that writes nothing. `fn` is the callee body at the fuel of the call. -/
 def dCallRO (env : Env) (fps : Name → Footprint)
     (fn : Footprint → FunctionDef → List DV → DM (Value × List DV)) (s : DSt) (g : Name)
@@ -159,6 +194,7 @@ def dCallRO (env : Env) (fps : Name → Footprint)
       | none => none
     else none
   | some (.type t) => dCtor env t rs
+  | some (.builtin b) => dBuiltin s b rs
   | _ => none
 
 /-- A call at statement level: it may write through its one place argument. -/
@@ -189,6 +225,7 @@ def dCallW (env : Env) (fps : Name → Footprint)
 def callable (env : Env) (g : Name) : Bool :=
   match env.globals.lookup g with
   | some (.fn _) | some (.type _) => true
+  | some (.builtin .min) | some (.builtin .max) | some (.builtin .len) => true
   | _ => false
 
 /-- A call expression `g(args)` to a callable global that no local hides. The interpreter looks
@@ -218,6 +255,24 @@ def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
       | .val x => cmpOf (P.expr fp s) x rest
       | _ => none
   | .boolop _ op es => boolOf (P.expr fp s) op es
+  | .unop _ .not a =>
+    DM.bind (P.expr fp s a) fun r =>
+      match r with
+      | .val v => DM.bind (lift (truthy v)) fun b => .ok (.val (.bool !b))
+      | _ => none
+  | .unop _ op a =>
+    DM.bind (P.expr fp s a) fun r =>
+      match r with
+      | .val v => DM.bind (lift (unopVal op v)) fun w => if Flat w then .ok (.val w) else none
+      | _ => none
+  | .slice _ o lo hi none =>
+    DM.bind (P.expr fp s o) fun ro =>
+      match ro with
+      | .val (.bytes c bs) =>
+        DM.bind (optOf (P.expr fp s) lo) fun lov => DM.bind (optOf (P.expr fp s) hi) fun hiv =>
+          DM.bind (lift (getSlice env.bytesName Heap.empty (.bytes c bs) lov hiv)) fun x =>
+            if Flat x.1 then .ok (.val x.1) else none
+      | _ => none
   | .ifExp _ c a b =>
     DM.bind (P.expr fp s c) fun rc =>
       match rc with
@@ -266,6 +321,63 @@ def targetStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) :
         | _ => none
       | _, _ => none
   | _, _ => none
+
+/-- The list at a place, with items that are not bytes. -/
+def listPlace (s : DSt) (k : Nat) (p : List Nat) : Bool :=
+  match s.deref k p with
+  | some (.list kd e _ _) => !isByteList kd e
+  | _ => false
+
+def isEnumerate (env : Env) (g : Name) : Bool :=
+  match env.globals.lookup g with
+  | some (.builtin .enumerate) => true
+  | _ => false
+
+/-- The iterable of a loop at fuel `n + 1`: a list at a place, or `enumerate` of one. -/
+def iterStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Footprint)
+    (s : DSt) : Expr → DM LSrc
+  | .call _ (.name _ g) [.pos e] =>
+    match n with
+    | 0 => none
+    | _ + 1 =>
+      if (s.loc g).isNone && isEnumerate env g then
+        DM.bind (P.expr fp s e) fun r =>
+          match r with
+          | .place k p => if listPlace s k p then .ok ⟨k, p, true⟩ else none
+          | _ => none
+      else none
+  | e =>
+    DM.bind (exprStep env fps n P fp s e) fun r =>
+      match r with
+      | .place k p => if listPlace s k p then .ok ⟨k, p, false⟩ else none
+      | _ => none
+
+/-- Bind the loop target at fuel `n`, as `assignTarget n`. -/
+def bindLoop (n : Nat) (enum : Bool) (s : DSt) (t : Target) (i : Nat) (x : DRes) : Option DSt :=
+  match enum, t, n with
+  | false, .name _ a, _ + 1 => some { s with loc := setLoc s.loc a x }
+  | true, .tuple _ [.name _ a, .name _ b], _ + 2 =>
+    some { s with loc := setLoc (setLoc s.loc a (.val (.int i))) b x }
+  | _, _, _ => none
+
+/-- `execFor (n + 1)`: item `i`, the body at fuel `n`, then the rest at fuel `n`. -/
+def loopStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ls : LSrc) (i : Nat)
+    (body : List Stmt) : DM (Outcome × DSt) :=
+  match s.deref ls.k ls.p with
+  | some (.list kd e _ ds) =>
+    if isByteList kd e then none else
+    match ds[i]? with
+    | none => .ok (.normal, s)
+    | some c =>
+      match bindLoop n ls.enum s t i (ofChild ls.k (ls.p ++ [i]) c) with
+      | some s1 =>
+        DM.bind (P.block fp s1 body) fun (o, s2) =>
+          match o with
+          | .brk => .ok (.normal, s2)
+          | .ret v => .ok (.ret v, s2)
+          | _ => P.loop fp s2 t ls (i + 1) body
+      | none => none
+  | _ => none
 
 /-- `obj[i] op= e`, with the parts at the fuel below. -/
 def augStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) (o ie : Expr) (op : BinOp)
@@ -319,6 +431,7 @@ def stmtStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) : Stmt → DM (Out
         DM.bind (lift (truthy v)) fun b => if b then .ok (.normal, s) else some (.error .assertionFailed)
       | _ => none
   | .pass _ => .ok (.normal, s)
+  | .forStmt _ t it body => DM.bind (P.iter fp s it) fun ls => P.loop fp s t ls 0 body
   | _ => none
 
 /-- `callFn (n + 1)`: bind the parameters, run the body at fuel `n`. -/
@@ -335,14 +448,17 @@ def fnStep (P : Sem) (fp : Footprint) (d : FunctionDef) (roots : List DV) :
 /-- The denotation at fuel `n`. -/
 def den (env : Env) (fps : Name → Footprint) : Nat → Sem
   | 0 => { expr := fun _ _ _ => none, call := fun _ _ _ => none, target := fun _ _ _ _ => none,
-           stmt := fun _ _ _ => none, fn := fun _ _ _ => none }
+           stmt := fun _ _ _ => none, fn := fun _ _ _ => none, iter := fun _ _ _ => none,
+           loop := fun _ _ _ _ _ _ => none }
   | n + 1 =>
     let P := den env fps n
     { expr := exprStep env fps n P
       call := callStep env fps n P
       target := targetStep env P
       stmt := stmtStep env P
-      fn := fnStep P }
+      fn := fnStep P
+      iter := iterStep env fps n P
+      loop := loopStep n P }
 
 /-! Each part one fuel up, without unfolding the others. -/
 
@@ -356,5 +472,9 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
     (den env fps (n + 1)).stmt = stmtStep env (den env fps n) := rfl
 @[simp] theorem den_fn (env : Env) (fps : Name → Footprint) (n : Nat) :
     (den env fps (n + 1)).fn = fnStep (den env fps n) := rfl
+@[simp] theorem den_iter (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).iter = iterStep env fps n (den env fps n) := rfl
+@[simp] theorem den_loop (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).loop = loopStep n (den env fps n) := rfl
 
 end SpecLean.Layer4
