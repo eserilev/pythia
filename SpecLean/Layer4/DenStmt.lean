@@ -35,15 +35,6 @@ theorem initLoc_tree {roots : List DV} :
     · exact this
 
 /-- A new local keeps the invariant. A tree in it is new. -/
-theorem CInv.setLoc {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
-    (hI : CInv fp h0 h vs s L) (x : Name) {r : DRes} {w : Value} (hr : ERel h vs r w)
-    (hlo : TLo h0.next h r w) : CInv fp h0 h vs { s with loc := setLoc s.loc x r } (L.set x w) := by
-  refine ⟨setLoc_inv hI.i x hr, hI.skel, hI.ro, hI.wf0, fun y r' w' hy hw => ?_⟩
-  simp only [SpecLean.Layer4.setLoc, Locals.set_apply] at hy hw
-  by_cases hyx : y = x
-  · subst hyx; simp at hy hw; subst hy; subst hw; exact hlo
-  · simp only [hyx, if_false] at hy hw; exact hI.tlo y r' w' hy hw
-
 theorem dWrite_csound {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : CInv fp h0 h vs s L) {k : Nat} {p : List Nat} {a : Nat}
     (hat : at? h vs k p = some (.ref a)) {i : Nat} {v' : Value} {res : Res (DOut × DSt)}
@@ -321,12 +312,19 @@ theorem callOK_of_exprOK {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : D
 /-- One fuel step of a statement-level expression: a call may write. -/
 theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
-    (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L n ((den env fps n).expr fp s))
-    (hF : FnOK env fps n) :
+    (hI : CInv fp h0 h vs s L)
+    (hEx : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → EvOK env h0.next h vs L n ((den env fps n).expr fp s))
+    (hF : FnOK env fps n)
+    (hIter : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ it r, (den env fps n).iter fp s it = some r →
+      IterRel h vs r (evalExpr env n L h it))
+    (hItems : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ifs elt ls i r a,
+      at? h vs ls.k ls.p = some (.ref a) → (den env fps n).items fp s t ifs elt ls i = some r →
+      ItemsOK h r (compItems env n L h t ifs [] elt none (ls.src a) i)) :
     ∀ e r, callStep env fps n (den env fps n) fp s e = some r →
       CallOK fp h0 vs s L r (evalExpr env (n + 1) L h e) := by
   intro e r hd
-  have hE1 := exprStep_sound env fps hlf ih hF hI
+  have ih : EvF env fp h0 vs s L n ((den env fps n).expr fp s) := fun h1 hI1 => hEx fp h0 h1 vs s L hI1
+  have hE1 := exprStep_sound env fps hlf hEx hF hIter hItems hI
   have fallback : (exprStep env fps n (den env fps n) fp s e).map (·.map (·, s.roots)) = some r →
       CallOK fp h0 vs s L r (evalExpr env (n + 1) L h e) := by
     intro hx
@@ -446,16 +444,6 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
           rw [bind_map, hb] at hd; simp at hd; exact ro r' hb hd.symm
   · exact fallback hd
 
-/-- The interpreter's loop source for a loop over the list object `a`. -/
-def LSrc.src (ls : LSrc) (a : Nat) : IterSrc := if ls.enum then .enum (.live a) else .seq (.live a)
-
-/-- The iterable of a loop agrees with the interpreter's value and source. -/
-def IterRel (h : Heap) (vs : List Value) : Res LSrc → Res (Value × Heap) → Prop
-  | .ok ls, .ok (iv, h') =>
-    Ext h h' ∧ ∃ a, at? h' vs ls.k ls.p = some (.ref a) ∧ iterSource h' iv = .ok (ls.src a)
-  | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
-  | _, _ => False
-
 /-- The parts at one fuel agree with the interpreter, in every state of the invariant. -/
 structure LevelOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop where
   expr : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → EvOK env h0.next h vs L n ((den env fps n).expr fp s)
@@ -472,6 +460,9 @@ structure LevelOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop where
   loop : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ls i body r a,
     at? h vs ls.k ls.p = some (.ref a) → (den env fps n).loop fp s t ls i body = some r →
     CStmtOK fp h0 vs r (execFor env n L h t (ls.src a) i body)
+  items : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ifs elt ls i r a,
+    at? h vs ls.k ls.p = some (.ref a) → (den env fps n).items fp s t ifs elt ls i = some r →
+    ItemsOK h r (compItems env n L h t ifs [] elt none (ls.src a) i)
 
 theorem blockOf_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : LevelOK env fps n)
     {fp : Footprint} {h0 : Heap} {vs : List Value} :
@@ -718,44 +709,6 @@ theorem fnStep_sound (env : Env) {fps : Name → Footprint} {n : Nat} (hL : Leve
         · simp [DM.ok] at hd2; subst hd2; exact ⟨hrr, hll, post⟩
   · cases hd
 
-theorem toSeq_live {h : Heap} {a : Nat} {kd : ListKind} {e : SszTy} {l : Option Nat}
-    {xs : List Value} (ho : h.objs a = some (.list kd e l xs)) (hb : isByteList kd e = false) :
-    toSeq h (.ref a) = .ok (.live a) := by
-  simp only [isByteList, decide_eq_false_iff_not] at hb
-  simp only [toSeq, ho]
-  split
-  · next heq => cases heq; exact absurd ⟨rfl, rfl⟩ hb
-  · rfl
-  · next hne => exact absurd rfl (hne kd e l xs)
-
-theorem seqItem_live {h : Heap} {a : Nat} {kd : ListKind} {e : SszTy} {l : Option Nat}
-    {xs : List Value} (ho : h.objs a = some (.list kd e l xs)) (hb : isByteList kd e = false)
-    (i : Nat) : seqItem h (.live a) i = .ok xs[i]? := by
-  simp only [isByteList, decide_eq_false_iff_not] at hb
-  simp only [seqItem, ho]
-  split
-  · next heq => cases heq; exact absurd ⟨rfl, rfl⟩ hb
-  · next heq => cases heq; rfl
-  · next hne => exact absurd rfl (hne kd e l xs)
-
-theorem listPlace_spec {s : DSt} {k : Nat} {p : List Nat} (h : listPlace s k p = true) :
-    ∃ kd e l ds, s.deref k p = some (.list kd e l ds) ∧ isByteList kd e = false := by
-  unfold listPlace at h
-  split at h
-  · next kd e l ds hd => exact ⟨kd, e, l, ds, hd, by simpa using h⟩
-  · cases h
-
-/-- The object of a list place, and its items. -/
-theorem listPlace_obj {h : Heap} {vs : List Value} {s : DSt} {L : Locals} (hr : RInv h vs s L)
-    {k : Nat} {p : List Nat} {a : Nat} (hat : at? h vs k p = some (.ref a))
-    {kd : ListKind} {e : SszTy} {l : Option Nat} {ds : List DV}
-    (hdr : s.deref k p = some (.list kd e l ds)) :
-    ∃ m xs, h.objs a = some (.list kd e l xs) ∧ xs.mapM (dec h m) = some ds := by
-  obtain ⟨nn, hn⟩ := deref_dec hr hat hdr
-  obtain ⟨a', m, xs, ha, -, ho, hm⟩ := dec_list hn
-  cases ha
-  exact ⟨m, xs, ho, hm⟩
-
 theorem iterStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
     (hL : LevelOK env fps n) {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt}
     {L : Locals} (hI : CInv fp h0 h vs s L) :
@@ -764,7 +717,7 @@ theorem iterStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
   intro it r hd
   have hEF : EvF env fp h0 vs s L n ((den env fps n).expr fp s) :=
     fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1
-  have hE1 := exprStep_sound env fps hlf hEF hL.fn hI
+  have hE1 := exprStep_sound env fps hlf hL.expr hL.fn hL.iter hL.items hI
   have place : ∀ (h' : Heap), CInv fp h0 h' vs s L → ∀ (rr : DRes) (w : Value) (enum : Bool),
       ERel h' vs rr w →
       (match rr with
@@ -834,28 +787,6 @@ theorem iterStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
           simp [iterSource, hseq, LSrc.src, hen']
       · rw [if_neg hc] at hd; cases hd
   · exact dflt it hd
-
-/-- Bind the loop target, as `assignTarget n` does. -/
-theorem bindLoop_sound {env : Env} {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt}
-    {L : Locals} (hI : CInv fp h0 h vs s L) {n : Nat} {enum : Bool} {t : Target} {i : Nat}
-    {xr : DRes} {x : Value} (hx : ERel h vs xr x) (hxlo : TLo h0.next h xr x) {s1 : DSt}
-    (hb : bindLoop n enum s t i xr = some s1) :
-    ∃ L1, assignTarget env n L h t (if enum then enumItem i x else x) = .ok (L1, h) ∧
-      CInv fp h0 h vs s1 L1 := by
-  unfold bindLoop at hb
-  split at hb
-  · next a m =>
-    simp at hb; subst hb
-    refine ⟨L.set a x, ?_, hI.setLoc a hx hxlo⟩
-    simp [assignTarget]
-  · next l a l' b m =>
-    simp at hb; subst hb
-    refine ⟨(L.set a (.int i)).set b x, ?_, ?_⟩
-    · simp [assignTarget, assignTargets, enumItem]
-    · have h1 : CInv fp h0 h vs { s with loc := setLoc s.loc a (.val (.int i)) } (L.set a (.int i)) :=
-        hI.setLoc a (r := .val (.int i)) (w := .int i) ⟨rfl, rfl⟩ trivial
-      exact h1.setLoc b hx hxlo
-  · cases hb
 
 theorem loopStep_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : LevelOK env fps n)
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
@@ -931,20 +862,22 @@ theorem level_zero (env : Env) (fps : Name → Footprint) : LevelOK env fps 0 :=
    fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
-   fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd⟩
+   fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
+   fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd⟩
 
 theorem level_succ (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
     (hL : LevelOK env fps n) : LevelOK env fps (n + 1) :=
   ⟨fun fp h0 h vs s L hI =>
-     exprStep_sound env fps hlf (fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1) hL.fn hI,
+     exprStep_sound env fps hlf hL.expr hL.fn hL.iter hL.items hI,
    fun fp h0 h vs s L hI =>
-     callStep_sound env fps hlf hI (fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1) hL.fn,
+     callStep_sound env fps hlf hI hL.expr hL.fn hL.iter hL.items,
    fun fp h0 h vs s L hI t r w res hr hlo hd =>
      targetStep_sound env fps hlf hI (fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1) t hr hlo hd,
    fun fp h0 h vs s L hI => stmtStep_sound env fps hlf hL hI,
    fnStep_sound env hL,
    fun fp h0 h vs s L hI => iterStep_sound env fps hlf hL hI,
-   fun fp h0 h vs s L hI t ls i body r a hat hd => loopStep_sound hL hI hat hd⟩
+   fun fp h0 h vs s L hI t ls i body r a hat hd => loopStep_sound hL hI hat hd,
+   fun fp h0 h vs s L hI t ifs elt ls i r a hat hd => itemsStep_sound hL.expr hL.items hI hat hd⟩
 
 theorem level_ok (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) :
     ∀ n, LevelOK env fps n

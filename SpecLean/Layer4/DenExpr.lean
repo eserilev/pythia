@@ -460,12 +460,325 @@ theorem getSlice_bytes (bn : Name) (h : Heap) (c : Name) (bs : List UInt8) (lo h
   simp only [getSlice]
   cases sliceRange bs.length lo hi <;> rfl
 
+theorem CInv.setLoc {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
+    (hI : CInv fp h0 h vs s L) (x : Name) {r : DRes} {w : Value} (hr : ERel h vs r w)
+    (hlo : TLo h0.next h r w) : CInv fp h0 h vs { s with loc := setLoc s.loc x r } (L.set x w) := by
+  refine ⟨setLoc_inv hI.i x hr, hI.skel, hI.ro, hI.wf0, fun y r' w' hy hw => ?_⟩
+  simp only [SpecLean.Layer4.setLoc, Locals.set_apply] at hy hw
+  by_cases hyx : y = x
+  · subst hyx; simp at hy hw; subst hy; subst hw; exact hlo
+  · simp only [hyx, if_false] at hy hw; exact hI.tlo y r' w' hy hw
+
+
+/-- The interpreter's loop source for a loop over the list object `a`. -/
+def LSrc.src (ls : LSrc) (a : Nat) : IterSrc := if ls.enum then .enum (.live a) else .seq (.live a)
+
+/-- The iterable of a loop agrees with the interpreter's value and source. -/
+def IterRel (h : Heap) (vs : List Value) : Res LSrc → Res (Value × Heap) → Prop
+  | .ok ls, .ok (iv, h') =>
+    Ext h h' ∧ ∃ a, at? h' vs ls.k ls.p = some (.ref a) ∧ iterSource h' iv = .ok (ls.src a)
+  | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
+  | _, _ => False
+
+
+theorem toSeq_live {h : Heap} {a : Nat} {kd : ListKind} {e : SszTy} {l : Option Nat}
+    {xs : List Value} (ho : h.objs a = some (.list kd e l xs)) (hb : isByteList kd e = false) :
+    toSeq h (.ref a) = .ok (.live a) := by
+  simp only [isByteList, decide_eq_false_iff_not] at hb
+  simp only [toSeq, ho]
+  split
+  · next heq => cases heq; exact absurd ⟨rfl, rfl⟩ hb
+  · rfl
+  · next hne => exact absurd rfl (hne kd e l xs)
+
+theorem seqItem_live {h : Heap} {a : Nat} {kd : ListKind} {e : SszTy} {l : Option Nat}
+    {xs : List Value} (ho : h.objs a = some (.list kd e l xs)) (hb : isByteList kd e = false)
+    (i : Nat) : seqItem h (.live a) i = .ok xs[i]? := by
+  simp only [isByteList, decide_eq_false_iff_not] at hb
+  simp only [seqItem, ho]
+  split
+  · next heq => cases heq; exact absurd ⟨rfl, rfl⟩ hb
+  · next heq => cases heq; rfl
+  · next hne => exact absurd rfl (hne kd e l xs)
+
+theorem listPlace_spec {s : DSt} {k : Nat} {p : List Nat} (h : listPlace s k p = true) :
+    ∃ kd e l ds, s.deref k p = some (.list kd e l ds) ∧ isByteList kd e = false := by
+  unfold listPlace at h
+  split at h
+  · next kd e l ds hd => exact ⟨kd, e, l, ds, hd, by simpa using h⟩
+  · cases h
+
+/-- The object of a list place, and its items. -/
+theorem listPlace_obj {h : Heap} {vs : List Value} {s : DSt} {L : Locals} (hr : RInv h vs s L)
+    {k : Nat} {p : List Nat} {a : Nat} (hat : at? h vs k p = some (.ref a))
+    {kd : ListKind} {e : SszTy} {l : Option Nat} {ds : List DV}
+    (hdr : s.deref k p = some (.list kd e l ds)) :
+    ∃ m xs, h.objs a = some (.list kd e l xs) ∧ xs.mapM (dec h m) = some ds := by
+  obtain ⟨nn, hn⟩ := deref_dec hr hat hdr
+  obtain ⟨a', m, xs, ha, -, ho, hm⟩ := dec_list hn
+  cases ha
+  exact ⟨m, xs, ho, hm⟩
+
+
+/-- Bind the loop target, as `assignTarget n` does. -/
+theorem bindLoop_sound {env : Env} {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt}
+    {L : Locals} (hI : CInv fp h0 h vs s L) {n : Nat} {enum : Bool} {t : Target} {i : Nat}
+    {xr : DRes} {x : Value} (hx : ERel h vs xr x) (hxlo : TLo h0.next h xr x) {s1 : DSt}
+    (hb : bindLoop n enum s t i xr = some s1) :
+    ∃ L1, assignTarget env n L h t (if enum then enumItem i x else x) = .ok (L1, h) ∧
+      CInv fp h0 h vs s1 L1 := by
+  unfold bindLoop at hb
+  split at hb
+  · next a m =>
+    simp at hb; subst hb
+    refine ⟨L.set a x, ?_, hI.setLoc a hx hxlo⟩
+    simp [assignTarget]
+  · next l a l' b m =>
+    simp at hb; subst hb
+    refine ⟨(L.set a (.int i)).set b x, ?_, ?_⟩
+    · simp [assignTarget, assignTargets, enumItem]
+    · have h1 : CInv fp h0 h vs { s with loc := setLoc s.loc a (.val (.int i)) } (L.set a (.int i)) :=
+        hI.setLoc a (r := .val (.int i)) (w := .int i) ⟨rfl, rfl⟩ trivial
+      exact h1.setLoc b hx hxlo
+  · cases hb
+
+
+/-! ## List comprehensions -/
+
+theorem dbind_ok {α β : Type} (a : α) (f : α → DM β) : DM.bind (some (.ok a)) f = f a := rfl
+
+def IfsOK (h : Heap) : Res Bool → Res (Bool × Heap) → Prop
+  | .ok b, .ok (b', h') => Ext h h' ∧ b' = b
+  | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
+  | _, _ => False
+
+theorem ifsOf_sound {env : Env} {fp : Footprint} {h0 : Heap} {vs : List Value} {s : DSt} {L : Locals}
+    {n : Nat} {ev : Expr → DM DRes} (hE : EvF env fp h0 vs s L n ev) :
+    ∀ (cs : List Expr) (h : Heap) (r : Res Bool), CInv fp h0 h vs s L →
+      ifsOf ev cs = some r → IfsOK h r (evalIfs env n L h cs)
+  | [], h, r, _, hd => by
+    simp [ifsOf, DM.ok] at hd; subst hd
+    rw [evalIfs]; exact ⟨Ext_refl h, rfl⟩
+  | c :: cs, h, r, hI, hd => by
+    simp only [ifsOf] at hd
+    rw [evalIfs]
+    rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rv, he, hd2⟩
+    · obtain ⟨hi, hne⟩ := gok_error (hE h hI c _ he)
+      simp [hi, hne, IfsOK]
+    · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (hE h hI c _ he)
+      simp only [hi, Except.bind_ok']
+      cases rv with
+      | place _ _ => simp at hd2
+      | tree _ => simp at hd2
+      | val v =>
+        obtain ⟨rfl, hv⟩ := hrel
+        simp only at hd2
+        rcases bind_case hd2 with ⟨err, ht, rfl⟩ | ⟨b, ht, hd3⟩
+        · obtain ⟨htr, hne⟩ := lift_some ht
+          simp [truthyH_flat h1 hv, ← htr, hne err htr.symm, IfsOK]
+        · obtain ⟨htr, -⟩ := lift_some ht
+          simp only [truthyH_flat h1 hv, ← htr, Except.bind_ok']
+          cases b with
+          | true =>
+            simp only [↓reduceIte] at hd3 ⊢
+            have := ifsOf_sound hE cs h1 r (hI.ext hx1) hd3
+            revert this
+            cases evalIfs env n L h1 cs with
+            | error e' => cases r <;> simp [IfsOK]
+            | ok q =>
+              obtain ⟨b', h2⟩ := q
+              cases r with
+              | error _ => simp [IfsOK]
+              | ok b => rintro ⟨hx2, rfl⟩; exact ⟨Ext_trans hx1 hx2, rfl⟩
+          | false =>
+            simp [DM.ok] at hd3; subst hd3
+            exact ⟨hx1, rfl⟩
+
+/-- The items of a list comprehension and the interpreter's: flat values. -/
+def ItemsOK (h : Heap) : Res (List DV) → Res (List Value × Bool × Heap) → Prop
+  | .ok ds, .ok (xs, st, h') =>
+    Ext h h' ∧ st = false ∧ ds = xs.map DV.leaf ∧ ∀ v ∈ xs, Flat v = true
+  | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
+  | _, _ => False
+
+/-- One fuel step of the items, from the expressions and the items one fuel below. -/
+theorem itemsStep_sound {env : Env} {fps : Name → Footprint} {n : Nat}
+    (hEx : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → EvOK env h0.next h vs L n ((den env fps n).expr fp s))
+    (hIt : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ifs elt ls i r a,
+      at? h vs ls.k ls.p = some (.ref a) → (den env fps n).items fp s t ifs elt ls i = some r →
+      ItemsOK h r (compItems env n L h t ifs [] elt none (ls.src a) i))
+    {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
+    (hI : CInv fp h0 h vs s L) {t : Target} {ifs : List Expr} {elt : Expr} {ls : LSrc} {i : Nat}
+    {r : Res (List DV)} {a : Nat} (hat : at? h vs ls.k ls.p = some (.ref a))
+    (hd : itemsStep n (den env fps n) fp s t ifs elt ls i = some r) :
+    ItemsOK h r (compItems env (n + 1) L h t ifs [] elt none (ls.src a) i) := by
+  unfold itemsStep at hd
+  cases hdr : s.deref ls.k ls.p with
+  | none => simp [hdr] at hd
+  | some dd =>
+  rw [hdr] at hd
+  cases dd with
+  | leaf _ => simp at hd
+  | cont _ _ => simp at hd
+  | list kd el ll ds =>
+  simp only at hd
+  cases hbyte : isByteList kd el with
+  | true => simp [hbyte] at hd
+  | false =>
+  simp only [hbyte, Bool.false_eq_true, ↓reduceIte] at hd
+  obtain ⟨m, xs, ho, hm⟩ := listPlace_obj hI.i.r hat hdr
+  have hlen := ((mapM_some_iff xs ds).mp hm).1
+  have hitem : iterItem h (ls.src a) i =
+      .ok (xs[i]?.map fun x => if ls.enum then enumItem i x else x) := by
+    cases hen : ls.enum <;> simp [LSrc.src, hen, iterItem, seqItem_live ho hbyte]
+  rw [compItems]
+  simp only [hitem, Except.bind_ok']
+  cases hc : ds[i]? with
+  | none =>
+    have : xs[i]? = none := by rw [List.getElem?_eq_none_iff] at hc ⊢; omega
+    simp [hc, DM.ok] at hd; subst hd
+    simp [this]; exact ⟨Ext_refl h, rfl, rfl, by simp⟩
+  | some c =>
+    obtain ⟨x, hx, hdx⟩ := mapM_get hm hc
+    have hrel := child_rel hat (by simp [okids, ho]) hx hdx
+    simp only [hc] at hd
+    cases hbl : bindLoop n ls.enum s t i (ofChild ls.k (ls.p ++ [i]) c) with
+    | none => simp [hbl] at hd
+    | some s1 =>
+    simp only [hbl] at hd
+    obtain ⟨L1, hasg, hI1⟩ := bindLoop_sound hI hrel (tlo_ofChild _ _ _ _) hbl
+    simp only [hx, Option.map_some]
+    rw [hasg]
+    simp only [Except.bind_ok']
+    have hE1 : EvF env fp h0 vs s1 L1 n ((den env fps n).expr fp s1) :=
+      fun h' hI' => hEx fp h0 h' vs s1 L1 hI'
+    rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨keep, he, hd2⟩
+    · have := ifsOf_sound hE1 ifs h _ hI1 he
+      revert this
+      cases evalIfs env n L1 h ifs with
+      | error e' => rintro ⟨rfl, hne⟩; exact ⟨rfl, hne⟩
+      | ok q => intro hx; cases hx
+    · have := ifsOf_sound hE1 ifs h _ hI1 he
+      revert this
+      cases evalIfs env n L1 h ifs with
+      | error e' => intro hx; cases hx
+      | ok q =>
+        obtain ⟨keep', h2⟩ := q
+        rintro ⟨hx2, hkk⟩
+        subst keep'
+        have hI2 := hI1.ext hx2
+        simp only [Except.bind_ok']
+        -- The items after this one.
+        have rest : ∀ (xs1 : List Value) (h3 : Heap), Ext h2 h3 → (∀ v ∈ xs1, Flat v = true) →
+            DM.bind ((den env fps n).items fp s1 t ifs elt ls (i + 1))
+              (fun vs2 => DM.ok (xs1.map DV.leaf ++ vs2)) = some r →
+            ItemsOK h r (do
+              let __discr ← compItems env n L1 h3 t ifs [] elt none (ls.src a) (i + 1)
+              pure (xs1 ++ __discr.fst, __discr.2.fst, __discr.2.snd)) := by
+          intro xs1 h3 hx3 hf1 hd3
+          have hI3 := hI2.ext hx3
+          have hat3 : at? h3 vs ls.k ls.p = some (.ref a) := by
+            have e13 : Ext h h3 := Ext_trans hx2 hx3
+            exact (at?_Skel (Skel_of_Ext e13) hI.below _ _ a).mpr hat
+          rcases bind_case hd3 with ⟨err, he4, rfl⟩ | ⟨vs2, he4, hd4⟩
+          · have := hIt fp h0 h3 vs s1 L1 hI3 t ifs elt ls (i + 1) _ a hat3 he4
+            revert this
+            cases compItems env n L1 h3 t ifs [] elt none (ls.src a) (i + 1) with
+            | error e' => rintro ⟨rfl, hne⟩; exact ⟨rfl, hne⟩
+            | ok q => intro hx; cases hx
+          · have := hIt fp h0 h3 vs s1 L1 hI3 t ifs elt ls (i + 1) _ a hat3 he4
+            revert this
+            cases compItems env n L1 h3 t ifs [] elt none (ls.src a) (i + 1) with
+            | error e' => intro hx; cases hx
+            | ok q =>
+              obtain ⟨xs2, st2, h4⟩ := q
+              rintro ⟨hx4, rfl, rfl, hf2⟩
+              simp [DM.ok] at hd4; subst hd4
+              refine ⟨Ext_trans hx2 (Ext_trans hx3 hx4), rfl, by simp, fun v hv => ?_⟩
+              rcases List.mem_append.mp hv with hv | hv
+              · exact hf1 v hv
+              · exact hf2 v hv
+        cases keep with
+        | false =>
+          simp only [Bool.false_eq_true, ↓reduceIte] at hd2 ⊢
+          simp only [DM.ok, dbind_ok, pure, Except.pure, Except.bind_ok', Bool.false_eq_true,
+            ↓reduceIte, List.nil_append] at hd2 ⊢
+          exact rest [] h2 (Ext_refl h2) (by simp) (by simpa [DM.ok] using hd2)
+        | true =>
+          simp only [↓reduceIte] at hd2 ⊢
+          rw [compLoop]
+          rcases bind_case hd2 with ⟨err, he3, rfl⟩ | ⟨vs1, he3, hd3⟩
+          · rcases bind_case he3 with ⟨err', he5, he6⟩ | ⟨re, he5, he6⟩
+            · cases he6
+              obtain ⟨hi3, hne⟩ := gok_error (hE1 h2 hI2 elt _ he5)
+              simp [hi3]; exact ⟨rfl, hne⟩
+            · cases re with
+              | place _ _ => simp at he6
+              | tree _ => simp at he6
+              | val v => by_cases hv : Flat v = true <;> simp [hv, DM.ok] at he6
+          · rcases bind_case he3 with ⟨err', he5, he6⟩ | ⟨re, he5, he6⟩
+            · cases he6
+            · obtain ⟨we, h3, hi3, hx3, hrel3⟩ := gok_ok (hE1 h2 hI2 elt _ he5)
+              simp only [hi3, Except.bind_ok']
+              cases re with
+              | place _ _ => simp at he6
+              | tree _ => simp at he6
+              | val v =>
+                obtain ⟨rfl, hv⟩ := hrel3
+                simp [hv, DM.ok] at he6; subst he6
+                simp only [Except.pure, pure, Except.bind_ok', Bool.false_eq_true, ↓reduceIte]
+                exact rest [we] h3 hx3 (by simp [hv]) (by simpa [DM.ok] using hd3)
+
+/-- A new Python list of flat values: a new tree, related to the new reference. -/
+theorem alloc_tree {lo : Nat} {h : Heap} {vs : List Value} (hb : BelowArgs h vs) (hlo : lo ≤ h.next)
+    {xs : List Value} (hf : ∀ v ∈ xs, Flat v = true) :
+    GOK lo h vs (.ok (.tree (.list .pyList .any none (xs.map DV.leaf)))) (.ok (allocPyList h xs)) := by
+  have he := Ext_alloc h (.list .pyList .any none xs)
+  have hobj : (h.alloc (.list .pyList .any none xs)).2.objs h.next = some (.list .pyList .any none xs) := by
+    simp [Heap.alloc]
+  have hpath : ∀ q b, follow (h.alloc (.list .pyList .any none xs)).2 (.ref h.next) q = some (.ref b) →
+      b = h.next := by
+    intro q b e
+    cases q with
+    | nil => simp [follow] at e; exact e.symm
+    | cons j q =>
+      rw [follow_ref_cons, hobj] at e
+      simp only [okids, Option.bind_some] at e
+      cases hx : xs[j]? with
+      | none => simp [hx] at e
+      | some x =>
+        simp only [hx, Option.bind_some] at e
+        have hfx : Flat x = true := hf x (List.mem_of_getElem? hx)
+        exact absurd e (fun e' => follow_nonref_ref (flat_nonref hfx) e')
+  have hal : allocPyList h xs = (.ref h.next, (h.alloc (.list .pyList .any none xs)).2) := rfl
+  rw [hal]
+  simp only [GOK]
+  refine ⟨he, fun q b e => (hpath q b e) ▸ hlo, ⟨2, ?_⟩, fun q b e k p ep => ?_⟩
+  · rw [dec_ref_succ, hobj]
+    have : xs.mapM (dec (h.alloc (.list .pyList .any none xs)).2 1) = some (xs.map DV.leaf) := by
+      rw [mapM_some_iff]
+      refine ⟨by simp, fun i x hx => ?_⟩
+      have hfx : Flat x = true := hf x (List.mem_of_getElem? hx)
+      simp [dec_flat hfx, hx]
+    simp [this]
+  · have hb' := hpath q b e
+    subst hb'
+    have hlt := at?_below hb ((at?_Skel (Skel_of_Ext he) hb k p h.next).mp ep)
+    omega
+
 /-- One fuel step of the expressions. -/
 theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
+    (hEx : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → EvOK env h0.next h vs L n ((den env fps n).expr fp s))
+    (hF : FnOK env fps n)
+    (hIter : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ it r, (den env fps n).iter fp s it = some r →
+      IterRel h vs r (evalExpr env n L h it))
+    (hItems : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ifs elt ls i r a,
+      at? h vs ls.k ls.p = some (.ref a) → (den env fps n).items fp s t ifs elt ls i = some r →
+      ItemsOK h r (compItems env n L h t ifs [] elt none (ls.src a) i))
     {fp : Footprint} {h0 : Heap} {vs : List Value} {s : DSt} {L : Locals}
-    (ih : EvF env fp h0 vs s L n ((den env fps n).expr fp s))
-    (hF : FnOK env fps n) {h : Heap} (hI : CInv fp h0 h vs s L) :
+    {h : Heap} (hI : CInv fp h0 h vs s L) :
     EvOK env h0.next h vs L (n + 1) (exprStep env fps n (den env fps n) fp s) := by
+  have ih : EvF env fp h0 vs s L n ((den env fps n).expr fp s) := fun h1 hI1 => hEx fp h0 h1 vs s L hI1
   have hr := hI.i.r
   intro e r hd
   cases e with
@@ -841,6 +1154,50 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
                       · simp [hx, DM.ok] at hd4; subst hd4; exact ⟨Ext_refl _, trivial, rfl, hx⟩
                       · simp [hx] at hd4
           | _ => simp at hd2
+  | comp l kind elt gens =>
+    cases kind with
+    | set => simp [exprStep] at hd
+    | gen => simp [exprStep] at hd
+    | list =>
+    rcases gens with _ | ⟨⟨t, it, ifs⟩, _ | ⟨g2, gs⟩⟩
+    · simp [exprStep] at hd
+    · simp only [exprStep] at hd
+      rw [evalExpr, compLoop]
+      rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ls, he, hd2⟩
+      · have := hIter fp h0 h vs s L hI it _ he
+        revert this
+        cases hev : evalExpr env n L h it with
+        | error e' =>
+          rintro ⟨rfl, hne⟩
+          simp; exact ⟨rfl, hne⟩
+        | ok q => intro hx; cases hx
+      · have := hIter fp h0 h vs s L hI it _ he
+        revert this
+        cases hev : evalExpr env n L h it with
+        | error e' => intro hx; cases hx
+        | ok q =>
+          obtain ⟨iv, h1⟩ := q
+          rintro ⟨hx1, a, hat, hsrc⟩
+          have hI1 := hI.ext hx1
+          simp only [Except.bind_ok', hsrc]
+          rcases bind_case hd2 with ⟨err, hi, rfl⟩ | ⟨ds, hi, hd3⟩
+          · have := hItems fp h0 h1 vs s L hI1 t ifs elt ls 0 _ a hat hi
+            revert this
+            cases compItems env n L h1 t ifs [] elt none (ls.src a) 0 with
+            | error e' => rintro ⟨rfl, hne⟩; simp; exact ⟨rfl, hne⟩
+            | ok q => intro hx; cases hx
+          · have := hItems fp h0 h1 vs s L hI1 t ifs elt ls 0 _ a hat hi
+            revert this
+            cases compItems env n L h1 t ifs [] elt none (ls.src a) 0 with
+            | error e' => intro hx; cases hx
+            | ok q =>
+              obtain ⟨xs, st, h2⟩ := q
+              rintro ⟨hx2, rfl, rfl, hf⟩
+              simp [DM.ok] at hd3; subst hd3
+              simp only [Except.bind_ok']
+              have hI2 := hI1.ext hx2
+              exact gok_ext (Ext_trans hx1 hx2) (alloc_tree hI2.below hI2.i.fresh.1 hf)
+    · simp [exprStep] at hd
   | _ => simp [exprStep] at hd
 
 end SpecLean.Layer4

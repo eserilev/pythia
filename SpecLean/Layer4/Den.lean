@@ -116,6 +116,8 @@ structure Sem where
   iter : Footprint → DSt → Expr → DM LSrc
   /-- `execFor`: a loop from item `i`, one fuel unit per item. -/
   loop : Footprint → DSt → Target → LSrc → Nat → List Stmt → DM (DOut × DSt)
+  /-- `compItems`: the items of a list comprehension from item `i`, one fuel unit per item. -/
+  items : Footprint → DSt → Target → List Expr → Expr → LSrc → Nat → DM (List DV)
 
 def blockOf (stmt : DSt → Stmt → DM (DOut × DSt)) : DSt → List Stmt → DM (DOut × DSt)
   | s, [] => .ok (.normal, s)
@@ -244,6 +246,46 @@ def callable (env : Env) (g : Name) : Bool :=
   | some (.builtin .min) | some (.builtin .max) | some (.builtin .len) => true
   | _ => false
 
+/-- Bind the loop target at fuel `n`, as `assignTarget n`. -/
+def bindLoop (n : Nat) (enum : Bool) (s : DSt) (t : Target) (i : Nat) (x : DRes) : Option DSt :=
+  match enum, t, n with
+  | false, .name _ a, _ + 1 => some { s with loc := setLoc s.loc a x }
+  | true, .tuple _ [.name _ a, .name _ b], _ + 2 =>
+    some { s with loc := setLoc (setLoc s.loc a (.val (.int i))) b x }
+  | _, _, _ => none
+
+/-- The conditions of a comprehension item, as `evalIfs`. -/
+def ifsOf (ev : Expr → DM DRes) : List Expr → DM Bool
+  | [] => .ok true
+  | c :: cs =>
+    DM.bind (ev c) fun r =>
+      match r with
+      | .val v => DM.bind (lift (truthy v)) fun b => if b then ifsOf ev cs else .ok false
+      | _ => none
+
+/-- `compItems (n + 1)` of a list comprehension with one generator over a list place: item
+`i`, its conditions and its flat element at fuel `n`, then the rest at fuel `n`. -/
+def itemsStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ifs : List Expr)
+    (elt : Expr) (ls : LSrc) (i : Nat) : DM (List DV) :=
+  match s.deref ls.k ls.p with
+  | some (.list kd e _ ds) =>
+    if isByteList kd e then none else
+    match ds[i]? with
+    | none => .ok []
+    | some c =>
+      match bindLoop n ls.enum s t i (ofChild ls.k (ls.p ++ [i]) c) with
+      | some s1 =>
+        DM.bind (ifsOf (P.expr fp s1) ifs) fun keep =>
+          DM.bind (if keep then
+              DM.bind (P.expr fp s1 elt) fun r =>
+                match r with
+                | .val v => if Flat v then .ok [DV.leaf v] else none
+                | _ => none
+            else .ok []) fun vs1 =>
+            DM.bind (P.items fp s1 t ifs elt ls (i + 1)) fun vs2 => .ok (vs1 ++ vs2)
+      | none => none
+  | _ => none
+
 /-- A call expression `g(args)` to a callable global that no local hides. The interpreter looks
 the name up before it evaluates the arguments. -/
 def callHead (env : Env) (s : DSt) : Expr → Option (Name × List Arg)
@@ -294,6 +336,9 @@ def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
       match rc with
       | .val v => DM.bind (lift (truthy v)) fun t => if t then P.expr fp s a else P.expr fp s b
       | _ => none
+  | .comp _ .list elt [.mk t it ifs] =>
+    DM.bind (P.iter fp s it) fun ls =>
+      DM.bind (P.items fp s t ifs elt ls 0) fun ds => .ok (.tree (.list .pyList .any none ds))
   | e@(.call _ _ _) =>
     match n, callHead env s e with
     | _ + 1, some (g, args) =>
@@ -367,14 +412,6 @@ def iterStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
       match r with
       | .place k p => if listPlace s k p then .ok ⟨k, p, false⟩ else none
       | _ => none
-
-/-- Bind the loop target at fuel `n`, as `assignTarget n`. -/
-def bindLoop (n : Nat) (enum : Bool) (s : DSt) (t : Target) (i : Nat) (x : DRes) : Option DSt :=
-  match enum, t, n with
-  | false, .name _ a, _ + 1 => some { s with loc := setLoc s.loc a x }
-  | true, .tuple _ [.name _ a, .name _ b], _ + 2 =>
-    some { s with loc := setLoc (setLoc s.loc a (.val (.int i))) b x }
-  | _, _, _ => none
 
 /-- `execFor (n + 1)`: item `i`, the body at fuel `n`, then the rest at fuel `n`. -/
 def loopStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ls : LSrc) (i : Nat)
@@ -466,6 +503,7 @@ def fnStep (P : Sem) (fp : Footprint) (d : FunctionDef) (roots : List DV) :
 def den (env : Env) (fps : Name → Footprint) : Nat → Sem
   | 0 => { expr := fun _ _ _ => none, call := fun _ _ _ => none, target := fun _ _ _ _ => none,
            stmt := fun _ _ _ => none, fn := fun _ _ _ => none, iter := fun _ _ _ => none,
+           items := fun _ _ _ _ _ _ _ => none,
            loop := fun _ _ _ _ _ _ => none }
   | n + 1 =>
     let P := den env fps n
@@ -475,7 +513,8 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
       stmt := stmtStep env P
       fn := fnStep P
       iter := iterStep env fps n P
-      loop := loopStep n P }
+      loop := loopStep n P
+      items := itemsStep n P }
 
 /-! Each part one fuel up, without unfolding the others. -/
 
@@ -493,5 +532,7 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
     (den env fps (n + 1)).iter = iterStep env fps n (den env fps n) := rfl
 @[simp] theorem den_loop (env : Env) (fps : Name → Footprint) (n : Nat) :
     (den env fps (n + 1)).loop = loopStep n (den env fps n) := rfl
+@[simp] theorem den_items (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).items = itemsStep n (den env fps n) := rfl
 
 end SpecLean.Layer4
