@@ -299,13 +299,13 @@ theorem emap_ite {ε α β : Type} (c : Prop) [Decidable c] (x y : Except ε α)
   · rw [if_pos h, if_pos h]
   · rw [if_neg h, if_neg h]
 
-theorem emap_ok {ε α β : Type} (a : α) (f : α → β) : f <$> (Except.ok a : Except ε α) = .ok (f a) := rfl
-theorem emap_err {ε α β : Type} (e : ε) (f : α → β) : f <$> (Except.error e : Except ε α) = .error e := rfl
-theorem merr_ok {ε ε' α : Type} (a : α) (f : ε → ε') : Except.mapError f (.ok a : Except ε α) = .ok a := rfl
+theorem emap_ok {ε α β : Type} (a : α) (f : α → β) : f <$> (Except.ok a : Except ε α) = .ok (f a) := Eq.trans rfl rfl
+theorem emap_err {ε α β : Type} (e : ε) (f : α → β) : f <$> (Except.error e : Except ε α) = .error e := Eq.trans rfl rfl
+theorem merr_ok {ε ε' α : Type} (a : α) (f : ε → ε') : Except.mapError f (.ok a : Except ε α) = .ok a := Eq.trans rfl rfl
 theorem merr_err {ε ε' α : Type} (e : ε) (f : ε → ε') :
-    Except.mapError f (.error e : Except ε α) = .error (f e) := rfl
-theorem epure {ε α : Type} (a : α) : (pure a : Except ε α) = .ok a := rfl
-theorem ethrow {ε α : Type} (e : ε) : (throw e : Except ε α) = .error e := rfl
+    Except.mapError f (.error e : Except ε α) = .error (f e) := Eq.trans rfl rfl
+theorem epure {ε α : Type} (a : α) : (pure a : Except ε α) = .ok a := Eq.trans rfl rfl
+theorem ethrow {ε α : Type} (e : ε) : (throw e : Except ε α) = .error e := Eq.trans rfl rfl
 theorem ebind_pure {ε α : Type} (x : Except ε α) : (x >>= fun a => pure a) = x := by cases x <;> rfl
 
 theorem some_ite {α : Type} (c : Prop) [Decidable c] (x y : α) :
@@ -342,10 +342,10 @@ def callK {β γ : Type} (y : Except Fail β) (g : β → Option (Except Fail γ
   | .ok b => g b
   | .error e => some (.error e)
 
-theorem callK_ok {β γ : Type} (b : β) (g : β → Option (Except Fail γ)) : callK (.ok b) g = g b := rfl
+theorem callK_ok {β γ : Type} (b : β) (g : β → Option (Except Fail γ)) : callK (.ok b) g = g b := Eq.trans rfl rfl
 
 theorem callK_err {β γ : Type} (e : Fail) (g : β → Option (Except Fail γ)) :
-    callK (.error e) g = some (.error e) := rfl
+    callK (.error e) g = some (.error e) := Eq.trans rfl rfl
 
 theorem callK_ite {β γ : Type} (c : Prop) [Decidable c] (x y : Except Fail β)
     (g : β → Option (Except Fail γ)) :
@@ -381,9 +381,20 @@ theorem rd_bind {β δ ε : Type} (f : δ → ε) (y : Except Fail β) (h : β �
     some (f <$> (y >>= h)) = callK y fun b => some (f <$> h b) := by
   cases y <;> rfl
 
-theorem ob_some {α β : Type} (a : α) (f : α → Option β) : (some a >>= f) = f a := rfl
-theorem ob_none {α β : Type} (f : α → Option β) : ((none : Option α) >>= f) = none := rfl
-theorem opure {α : Type} (a : α) : (pure a : Option α) = some a := rfl
+theorem ob_some {α β : Type} (a : α) (f : α → Option β) : (some a >>= f) = f a := Eq.trans rfl rfl
+theorem ob_none {α β : Type} (f : α → Option β) : ((none : Option α) >>= f) = none := Eq.trans rfl rfl
+theorem ob_ite {α β : Type} (c : Prop) [Decidable c] (x y : Option α) (f : α → Option β) :
+    ((if c then x else y) >>= f) = if c then x >>= f else y >>= f := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+theorem opure {α : Type} (a : α) : (pure a : Option α) = some a := Eq.trans rfl rfl
+
+theorem natCast_lt_zero (n : Nat) : ((n : Int) < 0) = False := by
+  apply propext; constructor
+  · intro h; omega
+  · intro h; exact h.elim
 
 theorem dmb_none {α β : Type} (f : α → DM β) : DM.bind none f = none := Eq.trans rfl rfl
 
@@ -421,16 +432,72 @@ theorem tv_eq (x : Value) :
   show (match Ssz.truthy x with | some r => r | none => pyTruthy x) = _
   cases Ssz.truthy x <;> rfl
 
+/-! The value rules on operands of known constructors. `simp` never unfolds a rule on an
+operand it does not know, which would give a `match` over every constructor. -/
+
+theorem bv_uu (op : BinOp) (t t' : UintTy) (a b : Nat) :
+    @binopVal (@LibModel.toLibValues Ssz.model) op (.uint t a) (.uint t' b) =
+      (resolveUint t t' >>= fun r => intArith op a b >>= wrapUint r) := Eq.trans rfl rfl
+theorem bv_ui (op : BinOp) (t : UintTy) (a : Nat) (b : Int) :
+    @binopVal (@LibModel.toLibValues Ssz.model) op (.uint t a) (.int b) =
+      (intArith op a b >>= wrapUint t) := Eq.trans rfl rfl
+theorem bv_iu (op : BinOp) (t : UintTy) (a : Int) (b : Nat) :
+    @binopVal (@LibModel.toLibValues Ssz.model) op (.int a) (.uint t b) =
+      (intArith op a b >>= wrapUint t) := Eq.trans rfl rfl
+theorem bv_ii (op : BinOp) (a b : Int) :
+    @binopVal (@LibModel.toLibValues Ssz.model) op (.int a) (.int b) = (.int <$> intArith op a b) := Eq.trans rfl rfl
+theorem cv_uu (op : CmpOp) (t t' : UintTy) (a b : Nat) :
+    @cmpVal (@LibModel.toLibValues Ssz.model) op (.uint t a) (.uint t' b) =
+      (resolveUint t t' >>= fun _ => pure (cmpInt op a b)) := Eq.trans rfl rfl
+theorem cv_ui (op : CmpOp) (t : UintTy) (a : Nat) (b : Int) :
+    @cmpVal (@LibModel.toLibValues Ssz.model) op (.uint t a) (.int b) = .ok (cmpInt op a b) := Eq.trans rfl rfl
+theorem cv_iu (op : CmpOp) (t : UintTy) (a : Int) (b : Nat) :
+    @cmpVal (@LibModel.toLibValues Ssz.model) op (.int a) (.uint t b) = .ok (cmpInt op a b) := Eq.trans rfl rfl
+theorem cv_ii (op : CmpOp) (a b : Int) :
+    @cmpVal (@LibModel.toLibValues Ssz.model) op (.int a) (.int b) = .ok (cmpInt op a b) := Eq.trans rfl rfl
+theorem cv_bytes (op : CmpOp) (c c' : Name) (a b : List UInt8) :
+    @cmpVal (@LibModel.toLibValues Ssz.model) op (.bytes c a) (.bytes c' b) = pyCmp op (.bytes c a) (.bytes c' b) := Eq.trans rfl rfl
+theorem cv_boolean (op : CmpOp) (a b : Bool) :
+    @cmpVal (@LibModel.toLibValues Ssz.model) op (.boolean a) (.boolean b) =
+      (match op with
+      | .eq => .ok (a == b)
+      | .notEq => .ok (a != b)
+      | _ => .error .unsupported) := Eq.trans rfl rfl
+theorem tv_bool (b : Bool) : @truthy (@LibModel.toLibValues Ssz.model) (.bool b) = .ok b := Eq.trans rfl rfl
+theorem tv_boolean (b : Bool) : @truthy (@LibModel.toLibValues Ssz.model) (.boolean b) = .ok b := Eq.trans rfl rfl
+theorem tv_uint (t : UintTy) (n : Nat) :
+    @truthy (@LibModel.toLibValues Ssz.model) (.uint t n) = .ok (n != 0) := Eq.trans rfl rfl
+theorem tv_int (n : Int) : @truthy (@LibModel.toLibValues Ssz.model) (.int n) = .ok (n != 0) := Eq.trans rfl rfl
+theorem tv_none : @truthy (@LibModel.toLibValues Ssz.model) .none = .ok false := Eq.trans rfl rfl
+theorem tv_bytes (c : Name) (b : List UInt8) :
+    @truthy (@LibModel.toLibValues Ssz.model) (.bytes c b) = .ok (!b.isEmpty) := Eq.trans rfl rfl
+theorem uv_neg (t : UintTy) (n : Nat) :
+    @unopVal (@LibModel.toLibValues Ssz.model) .neg (.uint t n) = .ok (.int (-(n : Int))) := Eq.trans rfl rfl
+theorem uv_inv (t : UintTy) (n : Nat) :
+    @unopVal (@LibModel.toLibValues Ssz.model) .invert (.uint t n) = .ok (.int (Int.not n)) := Eq.trans rfl rfl
+theorem uv_negi (n : Int) : @unopVal (@LibModel.toLibValues Ssz.model) .neg (.int n) = .ok (.int (-n)) := Eq.trans rfl rfl
+theorem iv_uint (t : UintTy) (n : Nat) : @toIndex (@LibModel.toLibValues Ssz.model) (.uint t n) = .ok n := Eq.trans rfl rfl
+theorem iv_int (n : Int) : @toIndex (@LibModel.toLibValues Ssz.model) (.int n) = .ok n := Eq.trans rfl rfl
+
+/-- A written flat value, into a uint field or element: the coercion of the field or of the
+list element. -/
+theorem dco_uint (env : Env) (b : Bool) (u : UintTy) (v : Value) (hv : ∀ a, v ≠ .ref a) :
+    @dCoerce Ssz.model env b (.uint u) v =
+      lift (if b then coerceField (.uint u) v else coerceElem (.uint u) v) := by
+  simp only [dCoerce, coerceWith_uint env b _ u v hv]
+  generalize (if b = true then coerceField (.uint u) v else coerceElem (.uint u) v) = r
+  cases r <;> rfl
+
 end model
 
 section env
 
 /-- The parts of `Scope.env` that the rules read. `Scope.env` itself stays folded, so the
 callee lemmas, which name it, still match. -/
-theorem env_globals (o : Oracle) : (Scope.env o).globals = Scope.globals := rfl
-theorem env_containers (o : Oracle) : (Scope.env o).containers = Scope.containers := rfl
-theorem env_config (o : Oracle) : (Scope.env o).config = Scope.config := rfl
-theorem env_bytesName (o : Oracle) : (Scope.env o).bytesName = 0 := rfl
+theorem env_globals (o : Oracle) : (Scope.env o).globals = Scope.globals := Eq.trans rfl rfl
+theorem env_containers (o : Oracle) : (Scope.env o).containers = Scope.containers := Eq.trans rfl rfl
+theorem env_config (o : Oracle) : (Scope.env o).config = Scope.config := Eq.trans rfl rfl
+theorem env_bytesName (o : Oracle) : (Scope.env o).bytesName = 0 := Eq.trans rfl rfl
 
 end env
 
@@ -438,6 +505,8 @@ end env
 the readable rules, and the pushes of `bind` and `map` into an `if`. `l4_simp` holds the rewrites of
 the classes and of the proved callees. -/
 syntax "l4_eval" ("[" Lean.Parser.Tactic.simpLemma,* "]")? : tactic
+/-- `l4_eval` that also rewrites with the hypotheses. -/
+syntax "l4_eval_star" : tactic
 
 macro_rules
   | `(tactic| l4_eval $[[$extra,*]]?) => do
@@ -459,16 +528,90 @@ macro_rules
       argsOf, dCallRO, dCallW, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
       Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,
       Validation.Steps.construct_uint_int, Validation.Steps.construct_uint_uint,
-      Validation.Steps.construct_uint_boolean, Except.map, bv_eq, cv_eq, tv_eq, uv_eq, Ssz.binop, Ssz.unop, pyUnop,
-      Ssz.compare, Ssz.truthy, pyBinop, pyCmp, pyTruthy, cmpF, cmpOf, cmpInt, boolOf, List.isEmpty_cons,
+      Validation.Steps.construct_uint_boolean, Except.map, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, cv_boolean, tv_bool,
+      tv_boolean, tv_uint, tv_int, tv_none, tv_bytes, uv_neg, uv_inv, uv_negi, iv_uint, iv_int,
+      pyCmp, cmpF, cmpOf, cmpInt, boolOf, List.isEmpty_cons,
       List.isEmpty_nil, dAttr, DSt.deref, subAt, DV.kids, ofChild, List.nil_append,
-      List.cons_append, dIndex, isByteList, iv_eq, Ssz.index, pyIndex, normIndex, List.getElem?_map,
-      List.length_map, Option.bind_some, ob_some, ob_none, opure, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
+      List.cons_append, dIndex, isByteList, normIndex, List.getElem?_map,
+      List.length_map, Option.bind_some, dBuiltin, dco_uint, implies_true, coerceField, coerceElem,
+      UintTy.subOf, dWriteD, dWrite, fpOk, rootIs, matchesB, leafAt, updAt, setAt, List.any_cons,
+      List.any_nil, Bool.or_false, Bool.or_true, Bool.false_or, Bool.true_or, beq_self_eq_true, Nat.reduceBEq, List.set_cons_zero, List.set_cons_succ,
+      Except.map, coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
+      false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.pyIndex, augStep,
+      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
+  | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
+      s_boolop, s_not, s_unop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
+      s_augAssign, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
+      s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
+      List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
+      dGlobal, env_globals, env_containers, env_config, env_bytesName,
+      Validation.Tactic.lookup_lit, Validation.Tactic.fieldIndex_lit, ↓reduceIte,
+      DM.ok, Flat, Nat.reduceEqDiff, dBinop, resolveUint,
+      intArith, wrapUint, UintTy.bits, eb_ite, eb_okp, eb_errp, lift_ite, lift_okp, lift_errp, dm_ite,
+      GenLemmas.dmb_okp, GenLemmas.dmb_errp, GenLemmas.dmb_okd, map_ite, Option.map_some, if_true,
+      if_false, and_self, and_true, true_and, ne_eq, reduceCtorEq, not_false_eq_true, some_ite,
+      uv_ofNat, Rd.uOp, Rd.uOf, Rd.erase, Rd.uv, emap_ite, emap_ok, emap_err,
+      merr_ok, merr_err, epure, ethrow, ebind_pure, SpecError.fail, callHead, callable, Option.isNone,
+      Bool.and_true, Bool.true_and, Bool.and_false, Bool.false_and, Bool.not_true, Bool.not_false,
+      argsOf, dCallRO, dCallW, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
+      Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,
+      Validation.Steps.construct_uint_int, Validation.Steps.construct_uint_uint,
+      Validation.Steps.construct_uint_boolean, Except.map, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, cv_boolean, tv_bool,
+      tv_boolean, tv_uint, tv_int, tv_none, tv_bytes, uv_neg, uv_inv, uv_negi, iv_uint, iv_int,
+      pyCmp, cmpF, cmpOf, cmpInt, boolOf, List.isEmpty_cons,
+      List.isEmpty_nil, dAttr, DSt.deref, subAt, DV.kids, ofChild, List.nil_append,
+      List.cons_append, dIndex, isByteList, normIndex, List.getElem?_map,
+      List.length_map, Option.bind_some, dBuiltin, dco_uint, implies_true, coerceField, coerceElem,
+      UintTy.subOf, dWriteD, dWrite, fpOk, rootIs, matchesB, leafAt, updAt, setAt, List.any_cons,
+      List.any_nil, Bool.or_false, Bool.or_true, Bool.false_or, Bool.true_or, beq_self_eq_true, Nat.reduceBEq, List.set_cons_zero, List.set_cons_succ,
+      Except.map, coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
+      false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.pyIndex, augStep,
+      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
 
-/-- The end of a generated proof: both sides are the same tree of `if`s up to instances. -/
-macro "l4_close" : tactic =>
-  `(tactic| first | with_reducible rfl |
-    ((repeat' (first | split | (refine callK_congr _ fun _ => ?_))) <;>
-      first | with_reducible rfl | (simp_all <;> omega) | simp_all))
+open Lean Meta Elab Tactic in
+/-- `by_cases` on the condition of the first `if` in the goal whose condition does not depend
+on a bound variable. -/
+elab "l4_bycases" : tactic => withMainContext do
+  let tgt ← instantiateMVars (← getMainTarget)
+  let some e := tgt.find? (fun e => (e.isAppOfArity ``ite 5 || e.isAppOfArity ``dite 5) &&
+      !(e.getArg! 1).hasLooseBVars && !(e.getArg! 1).hasMVar)
+    | throwError "l4_bycases: no condition"
+  let c ← Term.exprToSyntax (e.getArg! 1)
+  evalTactic (← `(tactic| by_cases $(mkIdent `hc) : $c))
+
+/-- The end of a generated proof: case split on the next condition (or the next `match`, or
+the next callee result), evaluate again with the new hypothesis, and close each case by `rfl`,
+`simp_all` or `omega`. -/
+syntax "l4_close" : tactic
+
+macro_rules
+  | `(tactic| l4_close) => `(tactic| first
+    | with_reducible rfl
+    | ((l4_bycases <;> (try l4_eval_star) <;> (try subst_vars) <;> (try l4_eval_star)) <;> l4_close)
+    | ((split <;> (try l4_eval_star) <;> (try subst_vars) <;> (try l4_eval_star)) <;> l4_close)
+    | ((refine callK_congr _ fun _ => ?_) <;> (try l4_eval_star) <;> l4_close)
+    | (simp_all [-den_expr, -den_stmt, -den_call, -den_fn, -den_target, -den_iter, -den_loop,
+        -den_items]; done)
+    | (simp_all [-den_expr, -den_stmt, -den_call, -den_fn, -den_target, -den_iter, -den_loop,
+        -den_items] <;> omega)
+    | omega)
+
+/-- `l4_close` that leaves the cases it cannot close: case split on the next condition (or the next `match`, or
+the next callee result), evaluate again with the new hypothesis, and close each case by `rfl`,
+`simp_all` or `omega`. -/
+syntax "l4_dbg" : tactic
+
+macro_rules
+  | `(tactic| l4_dbg) => `(tactic| first
+    | with_reducible rfl
+    | ((l4_bycases <;> (try l4_eval_star) <;> (try subst_vars) <;> (try l4_eval_star)) <;> l4_dbg)
+    | ((split <;> (try l4_eval_star) <;> (try subst_vars) <;> (try l4_eval_star)) <;> l4_dbg)
+    | ((refine callK_congr _ fun _ => ?_) <;> (try l4_eval_star) <;> l4_dbg)
+    | (simp_all [-den_expr, -den_stmt, -den_call, -den_fn, -den_target, -den_iter, -den_loop,
+        -den_items]; done)
+    | (simp_all [-den_expr, -den_stmt, -den_call, -den_fn, -den_target, -den_iter, -den_loop,
+        -den_items] <;> omega)
+    | omega
+    | skip)
 
 end SpecLean.Layer4.GenSteps
