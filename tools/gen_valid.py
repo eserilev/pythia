@@ -154,6 +154,14 @@ class Gen:
             return f"({x} : Bool)", f"(.boolean {x})", f"(⟨{x}⟩ : Boolean)", x
         if k == "bytes":
             return f"({x} : List UInt8)", f"(.bytes 0 {x})", x, x
+        if k == "set":
+            # A set argument: a set object of the heap whose elements decode in order.
+            inner = self.em.dec_of(t[1])
+            if inner is None:
+                raise Unsupported("argument type set")
+            lt = f"(List {self.em.lean_param(t[1])})"
+            return (f"(r{j} : Nat) ({x} : {lt}) (hy{j} : decSetV {inner} h (.ref r{j}) = some {x})",
+                    f"(.ref r{j})", x, f"r{j} {x} hy{j}")
         if k == "list":
             # A list argument is an object of the heap, as a container is.
             d = self.em.dec_of(t)
@@ -509,7 +517,7 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
                 jj = j
                 bounds.append(f"x{j}.{T.ident(it.attr)}.length")
             elif isinstance(it, ast.Name) and it.id in pnames and \
-                    sig.params[pnames.index(it.id)][1][0] == "list":
+                    sig.params[pnames.index(it.id)][1][0] in ("list", "set"):
                 bounds.append(f"x{pnames.index(it.id)}.length")
             else:
                 raise Unsupported("comprehension source")
@@ -767,7 +775,7 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             if t[0] == "container":
                 self.decs_of(t[1], decs)
                 hys.append(f"hy{j}")
-            elif t[0] == "list":
+            elif t[0] in ("list", "set"):
                 hys.append(f"hy{j}")
         inv = ""
         if hys and (callees or bounded):
@@ -813,6 +821,8 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             [f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"] if callees else [])
         if alloc:
             alts.append("(rd_listres; try rd_step)")
+        if any(isinstance(x, ast.Name) and x.id == "sum" for x in ast.walk(tree)):
+            alts.append("rd_sum")
         # A comprehension last: the calls and the splits before it come first.
         tail = ([f"rd_comp {kf} [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"]
                 if cbounds else [])

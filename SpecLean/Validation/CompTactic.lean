@@ -16,6 +16,73 @@ namespace SpecLean.Validation
 
 open SpecLean SpecLean.Encode
 
+section SumRule
+open SpecLean.Rd
+
+/-- The interpreter's sum of uints against the readable `sumU`: the same number, or errors of the
+same class. The interpreter starts at the `int` `0`, so an empty sum is that `int`. -/
+def SumRel {α : Type} [UintC α] (t : UintTy) : Res Value → SpecM α → Prop
+  | .ok v, .ok r => (v = .uint t (UintC.val r) ∨ v = .int 0 ∧ UintC.val r = 0) ∧
+      UintC.val r < 2 ^ UintC.bits α
+  | .error e, .error f => e ≠ .outOfFuel ∧ e.fail = f
+  | _, _ => False
+
+theorem resolveUint_self (t : UintTy) : resolveUint t t = .ok t := by
+  cases t <;> simp [resolveUint]
+
+/-- One more item, from a uint accumulator. -/
+theorem sum_uint_acc {α : Type} [UintC α] (t : UintTy) (ht : t.bits = UintC.bits α) :
+    ∀ (bs : List α) (acc : α), UintC.val acc < 2 ^ UintC.bits α →
+      SumRel t ((bs.map fun b => Value.uint t (UintC.val b)).foldlM (binopVal .add)
+          (.uint t (UintC.val acc)))
+        (bs.foldlM (fun a x => uOp .add (uv a) (uv x)) acc)
+  | [], acc, hacc => by simp [SumRel, hacc]
+  | b :: bs, acc, hacc => by
+    simp only [List.map_cons, List.foldlM_cons, Ssz.binopVal_uint, resolveUint_self,
+      Except.bind_ok', intArith, uOp, uv, erase, uOf, wrapUint, ht]
+    by_cases hr : 0 ≤ ((UintC.val acc : Int) + (UintC.val b : Int)) ∧
+        ((UintC.val acc : Int) + (UintC.val b : Int)) < 2 ^ UintC.bits α
+    · rw [if_pos hr]
+      simp only [Except.map, Except.mapError, Except.bind_ok', Except.pure_ok', bind, Except.bind,
+        pure, Except.pure, if_pos hr]
+      have h2 : UintC.val acc + UintC.val b < 2 ^ UintC.bits α := by
+        have := hr.2; exact_mod_cast this
+      have := sum_uint_acc t ht bs (UintC.ofNat ((UintC.val acc : Int) + UintC.val b).toNat)
+        (by rw [UintC.val_ofNat]; omega)
+      rw [UintC.val_ofNat] at this
+      exact this
+    · rw [if_neg hr]
+      simp [Except.mapError, bind, Except.bind, if_neg hr, SumRel, SpecError.fail]
+
+theorem binopVal_int_uint (op : BinOp) (t : UintTy) (a : Int) (b : Nat) :
+    binopVal op (.int a) (.uint t b) = (do wrapUint t (← intArith op a b)) := by
+  simp only [binopVal, LibValues.binop, Ssz.binop]
+
+/-- The interpreter's `sum` from the `int` `0`, against `sumU` from a readable `0`. -/
+theorem sum_uint {α : Type} [UintC α] (t : UintTy) (ht : t.bits = UintC.bits α) (start : α)
+    (hs : UintC.val start = 0) :
+    ∀ bs : List α, SumRel t ((bs.map fun b => Value.uint t (UintC.val b)).foldlM (binopVal .add)
+        (.int 0)) (sumU start bs)
+  | [] => by simp [SumRel, sumU, hs]; exact Nat.two_pow_pos _
+  | b :: bs => by
+    have h0 : ((0 : Nat) : Int) = 0 := rfl
+    simp only [sumU, List.map_cons, List.foldlM_cons, binopVal_int_uint, Except.bind_ok', intArith,
+      uOp, uv, erase, uOf, wrapUint, ht, hs, h0, Int.zero_add]
+    by_cases hr : 0 ≤ (UintC.val b : Int) ∧ (UintC.val b : Int) < 2 ^ UintC.bits α
+    · rw [if_pos hr]
+      simp only [Except.mapError, bind, Except.bind, pure, Except.pure, if_pos hr]
+      have h2 : UintC.val b < 2 ^ UintC.bits α := by have := hr.2; exact_mod_cast this
+      have := sum_uint_acc t ht bs (UintC.ofNat (UintC.val b : Int).toNat)
+        (by rw [UintC.val_ofNat]; omega)
+      rw [UintC.val_ofNat] at this
+      exact this
+    · rw [if_neg hr]
+      have h3 : ¬ ((UintC.val b : Int) < 2 ^ UintC.bits α) := fun h => hr ⟨by omega, h⟩
+      simp [Except.mapError, bind, Except.bind, h3, SumRel, SpecError.fail]
+
+
+end SumRule
+
 /-- A Python set of decoded items: the object is a set, and its elements decode in order. -/
 @[rd_dec] def decSetV {α : Type} (f : Rd.Dec α) : Rd.Dec (List α)
   | h, .ref a =>
@@ -367,5 +434,37 @@ elab "rd_listres" : tactic => withMainContext do
     evalTactic (← `(tactic| first | subst hlv | cases hlv))
     return
   throwError "rd_listres: none"
+
+end SpecLean.Validation.Tactic
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- `sum` of uints in the goal: the interpreter's fold from the `int` `0` and the readable `sumU`
+over the same items. `sum_uint` relates them; both results split. -/
+elab "rd_sum" : tactic => withMainContext do
+  let g ← getMainGoal
+  let t := (← instantiateMVars (← g.getType)).consumeMData
+  let some run := findClosed t (fun e => e.isAppOfArity ``List.foldlM 8 &&
+      (e.getArg! 7).isAppOf ``List.map && (e.getArg! 6).isAppOfArity ``SpecLean.Value.int 1)
+    | throwError "rd_sum: no sum"
+  let some rd := findClosed t (·.isAppOf ``SpecLean.Rd.sumU) | throwError "rd_sum: no readable sum"
+  let runS ← Term.exprToSyntax run
+  let rdS ← Term.exprToSyntax rd
+  let hs := mkIdent `hsum
+  evalTactic (← `(tactic| (
+    have $hs:ident := SpecLean.Validation.sum_uint _ (by rfl) _ (by rfl) _
+    first
+    | (change SpecLean.Validation.SumRel _ $runS $rdS at $hs:ident)
+    | fail "rd_sum: the sum does not match"
+    revert $hs:ident
+    generalize $runS = rsum
+    generalize $rdS = rdsum
+    intro $hs:ident
+    rcases rsum with _ | v <;> rcases rdsum with _ | r
+    all_goals simp only [SpecLean.Validation.SumRel] at $hs:ident
+    all_goals (try (obtain ⟨hv | ⟨hv, hz⟩, hrange⟩ := $hs:ident <;> subst hv))
+    all_goals (try rd_step))))
 
 end SpecLean.Validation.Tactic
