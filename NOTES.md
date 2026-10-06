@@ -812,6 +812,92 @@ small parallel spike tried layer 4 on a fragment. The spike went better than exp
 and loops followed within hours. The lesson: when one road slows down, a cheap parallel spike on
 the other road is worth more than another day on the first.
 
+### Layer 4 grows: loops, new objects, a generator (2026-10-06)
+
+- Loops went into layer 4 as one more case of the same fuel induction (`fb98416`). Two loops now
+  go end to end: `process_effective_balance_updates` (a live loop that writes through the loop
+  variable) and `apply_withdrawals`, whose loop body calls `decrease_balance`. That call is the
+  first real test of write-back through a call.
+- New objects (`2be057c` to `3b6eff3`). The core rule changed from "the heap does not grow" to
+  "old objects keep their shape, and new objects appear at free addresses". A new object is an
+  immutable tree that shares nothing with the arguments. So writes through the arguments can
+  never reach it, and no aliasing check is needed. `get_active_validator_indices`, which builds a
+  new list, goes end to end.
+- The generator (`tools/gen_l4.py`) is the decisive piece now. The general theorem covers whole
+  language features, but each function still needs a generated summary. One big `simp` per
+  function does not scale: unfolding the denotation all the way makes Lean's kernel recurse too
+  deeply. So the generator writes structured proofs: a rewrite per statement, `simp` with small
+  step lemmas per expression, and the callee's summary per call.
+- More kernel traps, all the same shape: Lean evaluating a big number in unary. A sum with a
+  literal under `decide`, a bit mask like `x &&& 1099511627776` closed by `simp`, and
+  `rw [if_pos …]` closing a goal by heavy unfolding. Each has a workaround.
+
+### Drawing the line: what we prove and what we trust (2026-10-06)
+
+The tactic's frontier showed which functions block the most others. Three of them were not spec
+logic at all: `hash_tree_root` (about 30 functions behind it), `set(list)` (31) and
+`uint_to_bytes` (24). That raised the question: do we need to prove these at all?
+
+We looked at Aeneas again. Aeneas proves nothing about Rust's standard library. `Vec`, `HashMap`
+and integer operations get hand-written Lean models in `Aeneas.Std`, and those models are trusted.
+Aeneas only translates your code. We took the same line:
+
+- Spec functions, the code written in the consensus specs, are proved. That is the point.
+- `hash_tree_root`, `sha256`, BLS and KZG are oracles on both sides: the interpreter and the
+  readable Lean call the same oracle. The only assumption is that `hash_tree_root` depends only on
+  the content of its argument. The EF runs still check the real roots.
+- Library and builtin operations (`set`, `sorted`, `sum`, `min`, `max`, `len`, `ssz_serialize`,
+  bytes slicing, the uint table, and a few more) are trusted primitives.
+- The fork upgrades are tested, not proved. They run once per fork, and they share objects between
+  `pre` and `post`, which is the hardest case for both proof strategies.
+
+One condition makes the primitives rule sound: one model per primitive, not two. If the
+interpreter had its own `set` and the readable Lean had its own `dedup`, we would trust two models
+and an unproved link between them. So each primitive is defined once, in Lean, on decoded values.
+The interpreter's builtin decodes, calls that model and encodes. Then the two sides agree by
+definition. Our trusted models also have more evidence behind them than Aeneas's: the fuzzer
+tests them against CPython and the real SSZ library.
+
+A primitive that already has a proof keeps it. `set(list)` was almost proved when the rule came
+in, so we kept the proof.
+
+The claim is now: every spec function of the state transition, except the upgrades, is proved
+equal to the interpreter. Hashing and signatures are oracles, and library operations are trusted
+primitives with one shared model.
+
+#### `hash_tree_root` in detail
+
+The gap. The tactic agent found it: the interpreter calls an abstract oracle,
+`sha.hashTreeRoot h v`. The readable Lean computes the root itself, with `Htr.root`, our Merkle
+code in Lean. Nothing linked the two, so about 30 functions could not be proved as stated:
+`compute_fork_data_root`, `compute_signing_root` and everything that calls them.
+
+The expensive route, built first by a second agent:
+
+- One assumption on the oracle, `OracleHtr`: the oracle equals `Htr.root`, the oracle's `sha256`
+  is the spec's, and every root is 32 bytes. The last one was needed because the readable `Root`
+  type checks the length and the interpreter does not.
+- A generic lemma, `root_bis`: two values with the same content, to a given depth, have the same
+  root, even in two different heaps.
+- A bridge per SSZ type: the root of a heap value equals the root of its readable encoding. Done
+  for `ForkData` and `SigningData`. `compute_fork_data_root` went end to end.
+- The cost: one lemma for each of the 73 types, a stability lemma for nested containers and lists
+  (not written), and a new "shape" condition on every argument: each container has the field
+  count of its class. Without that, extra fields would change the root, and the decoders do not
+  check the count.
+- One trap: unfolding `Htr.root` inside a proof made a single `simp` take 523 seconds. A lemma that
+  the root never runs out of fuel closed those cases without unfolding.
+
+The cheap route, which we chose: both sides call the same oracle. The readable Lean's
+`hash_tree_root` calls `sha.hashTreeRoot` on the value's encoding. The proof then needs only
+"same content, same root", which is `root_bis`. No per-type bridges, no shape condition, no Merkle
+reasoning. `Htr.root` stays as the executable implementation, so the EF runs still check real
+roots against the vectors.
+
+Why it is fine to trust the oracle: the Lighthouse epoch proofs already treat `hash_tree_root` as
+an oracle, and Aeneas never proves hash functions either. What we want to prove is the spec's
+logic, not SHA-256 or Merkle trees.
+
 ## Running list of lessons
 
 - Pure functions on plain integers are what make Rust provable. Leave the glue small and obvious.
@@ -832,3 +918,21 @@ the other road is worth more than another day on the first.
   The spike showed it is.
 - When one approach slows to a crawl, run a small, bounded spike on the alternative in parallel.
   Its result changes the plan faster than another day of pushing.
+- Decide what you trust before you decide what you prove. Proving library code is the most
+  expensive way to gain the least.
+- If you trust a model, trust one model. Two models with an unproved link are worse than either.
+
+### First layer 4 counts (2026-10-06 afternoon)
+
+- The layer 4 generator (`tools/gen_l4.py`) now runs over all 162 functions. The design that
+  worked: one rewrite lemma per syntax node of the denotation, so the kernel never unfolds it, and
+  the same three-line proof for every function.
+- Each function gets three theorems: the denotation equals the readable Lean, a rewrite lemma for
+  its callers, and the end-to-end theorem against the interpreter through the one general
+  soundness theorem.
+- Count: 14, then 23, then 28 "denotation = readable", then 37 end to end. The tactic is at 56.
+- The ceiling is the fragment, not the generator. Only about 51 functions use nothing outside it.
+  The rest use method calls such as `append` (41 functions), list or tuple literals (33), keyword
+  constructors (15), `+=` on a local name (14), `while`, `break` or `continue`. Each of those is a
+  new case in the general theorem.
+- Decision: grow the fragment next, ordered by how many functions each feature unlocks.
