@@ -48,6 +48,9 @@ LOOPS_HEADER = """import SpecLean.Validation.Gen.Calls
 import SpecLean.Validation.LoopTactic
 """
 
+# The names of the loop rule, for the loops tier only.
+LOOPS_OPEN = "\nopen SpecLean.Validation (LoopEnd IterK for_rule for_live_rule for_enum_rule)\n"
+
 LOOPS_NEXT_HEADER = """import SpecLean.Validation.Gen.Loops
 """
 
@@ -75,7 +78,6 @@ namespace SpecLean.Validation.Gen
 
 open SpecLean SpecLean.Rd SpecLean.Rd.Gen SpecLean.Encode SpecLean.Validation.Tactic
 open SpecLean.Validation.Steps
-open SpecLean.Validation (LoopEnd IterK for_rule for_live_rule for_enum_rule)
 
 variable (sha : Oracle) [Spec]
 
@@ -842,6 +844,8 @@ def main():
     if not lp.exists() or lp.read_text() != local:
         lp.write_text(local)
     global PRELUDE
+    if args.tier == "loops" or args.emit:
+        PRELUDE += LOOPS_OPEN
     decs_all = [f"dec_{names.cls(c)}" for c in b.order
                 if T.is_uint_cls(c) or T.is_bytesn_cls(c) or T.is_container_cls(c)]
     PRELUDE += "\nattribute [local rd_dec] " + " ".join(decs_all) + "\n"
@@ -862,7 +866,7 @@ def main():
         lemmas = [k for c in cs for k in fl if k == c or k.startswith(c + "_p")]
         text = g.theorem(n, em.sigs[n], fns[n], lemmas,
                          64 + max((fl.get(c, 64) for c in cs), default=0))
-        Path(args.out).write_text(CALLS_NEXT_HEADER + PRELUDE + text + FOOTER)
+        Path(args.out).write_text(LOOPS_HEADER + PRELUDE + text + FOOTER)
         return
     base = {"leaves": "SpecLean.Validation.Gen.Local", "calls": "SpecLean.Validation.Gen.Leaves",
             "loops": "SpecLean.Validation.Gen.Calls"}[args.tier]

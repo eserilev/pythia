@@ -36,9 +36,10 @@ theorem add_flag_run (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) (k : Nat
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_add_flag, add_flag, Scope.env, Scope.knownNames, enc_ParticipationFlags, encUint, encBytesN]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem add_flag_valid (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] (fun (r : ParticipationFlags) h' v => v = (enc_ParticipationFlags r h').1 ∧ UintC.val r < 2 ^ 8 ∧ h' = h)
@@ -58,9 +59,10 @@ theorem bytes_to_uint64_run (gfp : Footprint) (h : Heap) (x0 : List UInt8) (k : 
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_bytes_to_uint64, bytes_to_uint64, Scope.env, Scope.knownNames, ENDIANNESS, enc_Uint64, encUint, encBytesN]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem bytes_to_uint64_valid (gfp : Footprint) (h : Heap) (x0 : List UInt8) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.bytes 0 x0)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -80,9 +82,10 @@ theorem compute_activation_exit_epoch_run (gfp : Footprint) (h : Heap) (x0 : Nat
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_compute_activation_exit_epoch, compute_activation_exit_epoch, Scope.env, Scope.knownNames, MAX_SEED_LOOKAHEAD, enc_Epoch, encUint, encBytesN]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem compute_activation_exit_epoch_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -102,9 +105,10 @@ theorem compute_epoch_at_slot_run (gfp : Footprint) (h : Heap) (x0 : Nat) (k : N
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_compute_epoch_at_slot, compute_epoch_at_slot, Scope.env, Scope.knownNames, SLOTS_PER_EPOCH, enc_Epoch, encUint, encBytesN]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem compute_epoch_at_slot_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Slot» 64) x0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -124,9 +128,10 @@ theorem compute_start_slot_at_epoch_run (gfp : Footprint) (h : Heap) (x0 : Nat) 
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_compute_start_slot_at_epoch, compute_start_slot_at_epoch, Scope.env, Scope.knownNames, SLOTS_PER_EPOCH, enc_Slot, encUint, encBytesN]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem compute_start_slot_at_epoch_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«Epoch» 64) x0)] (fun (r : Slot) h' v => v = (enc_Slot r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -146,9 +151,10 @@ theorem convert_builder_index_to_validator_index_run (gfp : Footprint) (h : Heap
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_convert_builder_index_to_validator_index, convert_builder_index_to_validator_index, Scope.env, Scope.knownNames, BUILDER_INDEX_FLAG, enc_ValidatorIndex, encUint, encBytesN]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem convert_builder_index_to_validator_index_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«BuilderIndex» 64) x0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -168,9 +174,10 @@ theorem convert_validator_index_to_builder_index_run (gfp : Footprint) (h : Heap
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_convert_validator_index_to_builder_index, convert_validator_index_to_builder_index, Scope.env, Scope.knownNames, BUILDER_INDEX_FLAG, enc_BuilderIndex, encUint, encBytesN]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem convert_validator_index_to_builder_index_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] (fun (r : BuilderIndex) h' v => v = (enc_BuilderIndex r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -192,9 +199,10 @@ theorem get_beacon_proposer_index_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_beacon_proposer_index, get_beacon_proposer_index, Scope.env, Scope.knownNames, SLOTS_PER_EPOCH, enc_ValidatorIndex, encUint, encBytesN, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem get_beacon_proposer_index_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -216,9 +224,10 @@ theorem get_block_root_at_slot_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 :
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_block_root_at_slot, get_block_root_at_slot, Scope.env, Scope.knownNames, SLOTS_PER_HISTORICAL_ROOT, enc_Root, encUint, encBytesN, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem get_block_root_at_slot_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Slot» 64) x1)] (fun (r : Root) h' v => v = (enc_Root r h').1 ∧ (BytesC.data r).length = 32 ∧ h' = h)
@@ -240,9 +249,10 @@ theorem get_index_for_new_validator_run (gfp : Footprint) (h : Heap) (r0 : Nat) 
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_index_for_new_validator, get_index_for_new_validator, Scope.env, Scope.knownNames, enc_ValidatorIndex, encUint, encBytesN, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem get_index_for_new_validator_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0)] (fun (r : ValidatorIndex) h' v => v = (enc_ValidatorIndex r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -264,9 +274,10 @@ theorem get_randao_mix_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconS
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_randao_mix, get_randao_mix, Scope.env, Scope.knownNames, EPOCHS_PER_HISTORICAL_VECTOR, enc_Bytes32, encUint, encBytesN, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem get_randao_mix_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bytes32) h' v => v = (enc_Bytes32 r h').1 ∧ (BytesC.data r).length = 32 ∧ h' = h)
@@ -288,9 +299,10 @@ theorem has_eth1_withdrawal_credential_run (gfp : Footprint) (h : Heap) (r0 : Na
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_has_eth1_withdrawal_credential, has_eth1_withdrawal_credential, Scope.env, Scope.knownNames, ETH1_ADDRESS_WITHDRAWAL_PREFIX, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem has_eth1_withdrawal_credential_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -310,9 +322,10 @@ theorem has_flag_run (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) (k : Nat
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_has_flag, has_flag, Scope.env, Scope.knownNames]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem has_flag_valid (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ParticipationFlags» 8) x0), (.int x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -334,9 +347,10 @@ theorem increase_balance_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Beaco
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_increase_balance, increase_balance, Scope.env, Scope.knownNames, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem increase_balance_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (x2 : Nat) (hw : WTree h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] [⟨Scope.Id.«BeaconState», [.exact 12]⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)]) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [⟨Scope.Id.«BeaconState», [.exact 12]⟩] h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
@@ -358,9 +372,10 @@ theorem is_active_builder_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Beac
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_is_active_builder, is_active_builder, Scope.env, Scope.knownNames, FAR_FUTURE_EPOCH, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_active_builder_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -382,9 +397,10 @@ theorem is_active_validator_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Va
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_is_active_validator, is_active_validator, Scope.env, Scope.knownNames, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_active_validator_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -404,9 +420,10 @@ theorem is_builder_index_run (gfp : Footprint) (h : Heap) (x0 : Nat) (k : Nat) :
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_is_builder_index, is_builder_index, Scope.env, Scope.knownNames, BUILDER_INDEX_FLAG]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_builder_index_valid (gfp : Footprint) (h : Heap) (x0 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.uint (.nominal Scope.Id.«ValidatorIndex» 64) x0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -426,9 +443,10 @@ theorem is_builder_withdrawal_credential_run (gfp : Footprint) (h : Heap) (x0 : 
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_is_builder_withdrawal_credential, is_builder_withdrawal_credential, Scope.env, Scope.knownNames, BUILDER_WITHDRAWAL_PREFIX]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_builder_withdrawal_credential_valid (gfp : Footprint) (h : Heap) (x0 : List UInt8) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.bytes Scope.Id.«Bytes32» x0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -448,9 +466,10 @@ theorem is_compounding_withdrawal_credential_run (gfp : Footprint) (h : Heap) (x
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_is_compounding_withdrawal_credential, is_compounding_withdrawal_credential, Scope.env, Scope.knownNames, COMPOUNDING_WITHDRAWAL_PREFIX]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_compounding_withdrawal_credential_valid (gfp : Footprint) (h : Heap) (x0 : List UInt8) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.bytes Scope.Id.«Bytes32» x0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -472,9 +491,10 @@ theorem is_eligible_for_activation_run (gfp : Footprint) (h : Heap) (r0 : Nat) (
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_is_eligible_for_activation, is_eligible_for_activation, Scope.env, Scope.knownNames, FAR_FUTURE_EPOCH, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_eligible_for_activation_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (r1 : Nat) (x1 : Validator) (hy1 : dec_Validator h (.ref r1) = some x1) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0), (.ref r1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -496,9 +516,10 @@ theorem is_eligible_for_activation_queue_run (gfp : Footprint) (h : Heap) (r0 : 
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_is_eligible_for_activation_queue, is_eligible_for_activation_queue, Scope.env, Scope.knownNames, FAR_FUTURE_EPOCH, MIN_ACTIVATION_BALANCE, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_eligible_for_activation_queue_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -520,9 +541,10 @@ theorem is_eligible_for_partial_withdrawals_run (gfp : Footprint) (h : Heap) (r0
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_is_eligible_for_partial_withdrawals, is_eligible_for_partial_withdrawals, Scope.env, Scope.knownNames, FAR_FUTURE_EPOCH, MIN_ACTIVATION_BALANCE, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_eligible_for_partial_withdrawals_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Gwei» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -544,9 +566,10 @@ theorem is_slashable_validator_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 :
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_is_slashable_validator, is_slashable_validator, Scope.env, Scope.knownNames, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_slashable_validator_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -568,9 +591,10 @@ theorem process_deposit_request_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_process_deposit_request, process_deposit_request, Scope.env, Scope.knownNames, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem process_deposit_request_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (r1 : Nat) (x1 : DepositRequest) (hy1 : dec_DepositRequest h (.ref r1) = some x1) (hw : WTree h [(.ref r0), (.ref r1)] [⟨Scope.Id.«BeaconState», [.exact 34]⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.ref r1)]) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [⟨Scope.Id.«BeaconState», [.exact 34]⟩] h [(.ref r0), (.ref r1)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
@@ -592,9 +616,10 @@ theorem queue_excess_active_balance_run (gfp : Footprint) (h : Heap) (r0 : Nat) 
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_queue_excess_active_balance, queue_excess_active_balance, Scope.env, Scope.knownNames, G2_POINT_AT_INFINITY, GENESIS_SLOT, MIN_ACTIVATION_BALANCE, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem queue_excess_active_balance_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (hw : WTree h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1)] [⟨Scope.Id.«BeaconState», [.exact 12]⟩, ⟨Scope.Id.«BeaconState», [.exact 34]⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1)]) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [⟨Scope.Id.«BeaconState», [.exact 12]⟩, ⟨Scope.Id.«BeaconState», [.exact 34]⟩] h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
@@ -614,9 +639,10 @@ theorem saturating_sub_run (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) (k
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_saturating_sub, saturating_sub, Scope.env, Scope.knownNames, enc_Uint64, encUint, encBytesN]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem saturating_sub_valid (gfp : Footprint) (h : Heap) (x0 : Nat) (x1 : Int) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.uint (.width 64) x0), (.int x1)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -637,9 +663,10 @@ theorem saturating_sub_p0_run (gfp : Footprint) (h : Heap) (t0 : UintTy) (ht0 : 
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_saturating_sub, saturating_sub, Scope.env, Scope.knownNames]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem saturating_sub_p0_valid (gfp : Footprint) (h : Heap) (t0 : UintTy) (ht0 : t0.bits = 64) (x0 : Nat) (x1 : Int) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.uint t0 x0), (.int x1)] (fun (r : Uint64) h' v => v = .uint t0 (UintC.val r) ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -660,9 +687,10 @@ theorem saturating_sub_p0i_run (gfp : Footprint) (h : Heap) (t0 : UintTy) (ht0 :
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_saturating_sub, saturating_sub, Scope.env, Scope.knownNames]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem saturating_sub_p0i_valid (gfp : Footprint) (h : Heap) (t0 : UintTy) (ht0 : t0.bits = 64) (x0 : Nat) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.uint t0 x0), (.uint t0 x1)] (fun (r : Uint64) h' v => v = .uint t0 (UintC.val r) ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -684,9 +712,10 @@ theorem update_builder_pending_withdrawals_run (gfp : Footprint) (h : Heap) (r0 
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_update_builder_pending_withdrawals, update_builder_pending_withdrawals, Scope.env, Scope.knownNames, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem update_builder_pending_withdrawals_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (hw : WTree h [(.ref r0), (.uint (.width 64) x1)] [⟨Scope.Id.«BeaconState», []⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.width 64) x1)]) (hgfp42 : ∀ pat ∈ gfp, ∀ j j' rest, Matches pat.steps (42 :: j :: rest) → Matches pat.steps (42 :: j' :: rest)) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [⟨Scope.Id.«BeaconState», []⟩] h [(.ref r0), (.uint (.width 64) x1)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
@@ -708,9 +737,10 @@ theorem update_next_withdrawal_builder_index_run (gfp : Footprint) (h : Heap) (r
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_update_next_withdrawal_builder_index, update_next_withdrawal_builder_index, Scope.env, Scope.knownNames, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem update_next_withdrawal_builder_index_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (hw : WTree h [(.ref r0), (.uint (.width 64) x1)] [⟨Scope.Id.«BeaconState», []⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.width 64) x1)]) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [⟨Scope.Id.«BeaconState», []⟩] h [(.ref r0), (.uint (.width 64) x1)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
@@ -732,9 +762,10 @@ theorem update_pending_partial_withdrawals_run (gfp : Footprint) (h : Heap) (r0 
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_update_pending_partial_withdrawals, update_pending_partial_withdrawals, Scope.env, Scope.knownNames, *]
   rd_step
-  repeat' (rd_split <;> (try rd_step))
+  repeat' (first | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem update_pending_partial_withdrawals_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (hw : WTree h [(.ref r0), (.uint (.width 64) x1)] [⟨Scope.Id.«BeaconState», []⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.width 64) x1)]) (hgfp35 : ∀ pat ∈ gfp, ∀ j j' rest, Matches pat.steps (35 :: j :: rest) → Matches pat.steps (35 :: j' :: rest)) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [⟨Scope.Id.«BeaconState», []⟩] h [(.ref r0), (.uint (.width 64) x1)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)

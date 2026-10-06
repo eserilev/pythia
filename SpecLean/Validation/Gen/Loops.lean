@@ -12,7 +12,6 @@ namespace SpecLean.Validation.Gen
 
 open SpecLean SpecLean.Rd SpecLean.Rd.Gen SpecLean.Encode SpecLean.Validation.Tactic
 open SpecLean.Validation.Steps
-open SpecLean.Validation (LoopEnd IterK for_rule for_live_rule for_enum_rule)
 
 variable (sha : Oracle) [Spec]
 
@@ -23,6 +22,8 @@ set_option linter.unusedSimpArgs false
 
 -- `whnf` of a result would evaluate a range check on a literal in unary.
 attribute [local irreducible] ResultMatches
+
+open SpecLean.Validation (LoopEnd IterK for_rule for_live_rule for_enum_rule)
 
 attribute [local rd_dec] dec_Uint64 dec_Root dec_Slot dec_Version dec_Epoch dec_Fork dec_ValidatorIndex dec_BeaconBlockHeader dec_Hash32 dec_Eth1Data dec_BLSPubkey dec_Bytes32 dec_Gwei dec_Validator dec_ParticipationFlags dec_Checkpoint dec_SyncCommittee dec_WithdrawalIndex dec_HistoricalSummary dec_BLSSignature dec_PendingDeposit dec_PendingPartialWithdrawal dec_PendingConsolidation dec_Uint8 dec_ExecutionAddress dec_Builder dec_BuilderIndex dec_BuilderPendingWithdrawal dec_BuilderPendingPayment dec_KZGCommitment dec_ExecutionPayloadBid dec_Withdrawal dec_BeaconState dec_WithdrawalRequest dec_VoluntaryExit dec_SignedVoluntaryExit dec_Domain dec_SigningData dec_DomainType dec_ForkData dec_SyncAggregate dec_SignedBeaconBlockHeader dec_ProposerSlashing dec_PayloadAttestationData dec_PayloadAttestation dec_IndexedPayloadAttestation dec_CommitteeIndex dec_AttestationData dec_IndexedAttestation dec_AttesterSlashing dec_Attestation dec_DepositData dec_Deposit dec_BLSToExecutionChange dec_SignedBLSToExecutionChange dec_SignedExecutionPayloadBid dec_DepositRequest dec_ConsolidationRequest dec_BuilderDepositRequest dec_BuilderExitRequest dec_ExecutionRequests dec_BeaconBlockBody dec_BeaconBlock dec_DepositMessage dec_Uint32 dec_LogsBloom dec_Uint256 dec_fulu_ExecutionPayloadHeader dec_fulu_BeaconState dec_SignedBeaconBlock dec_Bytes1
 
