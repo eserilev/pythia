@@ -936,3 +936,19 @@ logic, not SHA-256 or Merkle trees.
   constructors (15), `+=` on a local name (14), `while`, `break` or `continue`. Each of those is a
   new case in the general theorem.
 - Decision: grow the fragment next, ordered by how many functions each feature unlocks.
+
+Status at 14:00:
+
+- Layer 4: 37 of 161 functions proved end to end (the upgrade is out of scope). Each has the full
+  theorem against the interpreter. Writers carry the `WTree` assumption on their footprint.
+- `+=` on a local name is now in the denotation, with its soundness proof.
+- The key measurement: how many functions stay inside the denotation, callees included. Today 54.
+  Each missing feature raises that ceiling by a known amount: tuples +17, keyword constructors +10,
+  methods such as `append` +7, set and generator comprehensions +2, `while` +1, `break` and
+  `continue` +1. With all of them, the ceiling covers essentially the whole target. So layer 4 has
+  no hard wall, only a list of features with known payoffs.
+- The gap between 37 and 54: loops that need a per-loop induction in the generator, list
+  arguments, the hash oracle, and byte-length invariants.
+- Plan: loop induction in the generator, then tuples, then keyword constructors.
+- Tactic: 56, with the `set(list)` commit waiting on its EF readable check. The `hash_tree_root`
+  oracle and the shared primitives are done on their branches and wait for merge.
