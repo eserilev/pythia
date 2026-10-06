@@ -144,6 +144,7 @@ theorem cmp_sound {env : Env} {h : Heap} {vs : List Value} {s : DSt} {L : Locals
     · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE e _ he (by omega))
       simp only [hi, Except.bind_ok']
       cases ry with
+      | tree _ => simp at hd2
       | place _ _ => simp at hd2
       | val y =>
         obtain ⟨rfl, hy⟩ := hrel
@@ -174,6 +175,7 @@ theorem bool_sound {env : Env} {h : Heap} {vs : List Value} {s : DSt} {L : Local
     · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE e _ he (by omega))
       simp only [hi, Except.bind_ok']
       cases rv with
+      | tree _ => simp at hd2
       | place _ _ => simp at hd2
       | val v =>
         obtain ⟨rfl, hv⟩ := hrel
@@ -260,6 +262,7 @@ theorem expr_sound (env : Env) {h : Heap} {vs : List Value} {s : DSt} {L : Local
       · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih o _ he (by omega))
         simp only [hi, Except.bind_ok']
         cases ro with
+        | tree _ => simp [dAttr] at hd2
         | val _ => simp [dAttr] at hd2
         | place k p =>
           obtain ⟨a, rfl, hat⟩ := hrel
@@ -304,9 +307,11 @@ theorem expr_sound (env : Env) {h : Heap} {vs : List Value} {s : DSt} {L : Local
         · obtain ⟨wi, hi2, hrel2⟩ := exprOK_ok (ih ie _ he2 (by omega))
           simp only [hi2, Except.bind_ok']
           cases ro with
+          | tree _ => simp [dIndex] at hd3
           | val _ => simp [dIndex] at hd3
           | place k p =>
           cases ri with
+          | tree _ => simp [dIndex] at hd3
           | place _ _ => simp [dIndex] at hd3
           | val iv =>
           obtain ⟨a, rfl, hat⟩ := hrel
@@ -365,9 +370,11 @@ theorem expr_sound (env : Env) {h : Heap} {vs : List Value} {s : DSt} {L : Local
         · obtain ⟨wb, hi2, hrel2⟩ := exprOK_ok (ih b _ he2 (by omega))
           simp only [hi2, Except.bind_ok']
           cases ra with
+          | tree _ => simp [dBinop] at hd3
           | place _ _ => simp [dBinop] at hd3
           | val x =>
           cases rb with
+          | tree _ => simp [dBinop] at hd3
           | place _ _ => simp [dBinop] at hd3
           | val y =>
           obtain ⟨rfl, hx⟩ := hrel
@@ -392,6 +399,7 @@ theorem expr_sound (env : Env) {h : Heap} {vs : List Value} {s : DSt} {L : Local
       · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih a _ he (by omega))
         simp only [hi, Except.bind_ok']
         cases ra with
+        | tree _ => simp at hd2
         | place _ _ => simp at hd2
         | val x =>
           obtain ⟨rfl, hx⟩ := hrel

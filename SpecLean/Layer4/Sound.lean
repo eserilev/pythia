@@ -98,6 +98,7 @@ theorem assign_sound (env : Env) (hcf : CoerceFlat env) {fp : Footprint} {h0 h :
   | attr l o f =>
     simp only [tDep] at hdep
     cases r with
+    | tree _ => simp [dAssign] at hd
     | place _ _ => simp [dAssign] at hd
     | val v =>
     obtain ⟨rfl, hv⟩ := hr
@@ -109,6 +110,7 @@ theorem assign_sound (env : Env) (hcf : CoerceFlat env) {fp : Footprint} {h0 h :
     · obtain ⟨wo, hi, hrel⟩ := exprOK_ok (hE o _ he (by omega))
       simp only [hi, exb_ok, Except.bind_ok']
       cases ro with
+      | tree _ => simp at hd2
       | val _ => simp at hd2
       | place k p =>
       obtain ⟨a, rfl, hat⟩ := hrel
@@ -142,6 +144,7 @@ theorem assign_sound (env : Env) (hcf : CoerceFlat env) {fp : Footprint} {h0 h :
   | index l o ie =>
     simp only [tDep] at hdep
     cases r with
+    | tree _ => simp [dAssign] at hd
     | place _ _ => simp [dAssign] at hd
     | val v =>
     obtain ⟨rfl, hv⟩ := hr
@@ -158,9 +161,11 @@ theorem assign_sound (env : Env) (hcf : CoerceFlat env) {fp : Footprint} {h0 h :
       · obtain ⟨wi, hi2, hrel2⟩ := exprOK_ok (hE ie _ he2 (by omega))
         simp only [hi2, exb_ok, Except.bind_ok']
         cases ro with
+        | tree _ => simp at hd3
         | val _ => simp at hd3
         | place k p =>
         cases ri with
+        | tree _ => simp at hd3
         | place _ _ => simp at hd3
         | val iv =>
         obtain ⟨a, rfl, hat⟩ := hrel
@@ -229,9 +234,11 @@ theorem aug_sound (env : Env) (hcf : CoerceFlat env) {fp : Footprint} {h0 h : He
     · obtain ⟨wi, hi2, hrel2⟩ := exprOK_ok (hE ie _ he2 (by omega))
       simp only [hi2, exb_ok, Except.bind_ok']
       cases ro with
+      | tree _ => simp at hd3
       | val _ => simp at hd3
       | place k p =>
       cases ri with
+      | tree _ => simp at hd3
       | place _ _ => simp at hd3
       | val iv =>
       obtain ⟨a, rfl, hat⟩ := hrel
@@ -286,6 +293,7 @@ theorem aug_sound (env : Env) (hcf : CoerceFlat env) {fp : Footprint} {h0 h : He
         · obtain ⟨we, hi3, hrel3⟩ := exprOK_ok (hE e _ he3 hdep2)
           simp only [hi3, exb_ok, Except.bind_ok']
           cases re with
+          | tree _ => simp at hd5
           | place _ _ => simp at hd5
           | val rv =>
           obtain ⟨rfl, -⟩ := hrel3
@@ -399,6 +407,7 @@ theorem stmt_sound (env : Env) (hcf : CoerceFlat env) (fp : Footprint) (h0 : Hea
       · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE c _ he (by omega))
         simp only [hi, exb_ok, Except.bind_ok']
         cases rv with
+        | tree _ => simp at hd2
         | place _ _ => simp at hd2
         | val v =>
         obtain ⟨rfl, hv⟩ := hrel
@@ -428,6 +437,7 @@ theorem stmt_sound (env : Env) (hcf : CoerceFlat env) (fp : Footprint) (h0 : Hea
         · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE e _ he (by omega))
           simp only [hi, exb_ok, Except.bind_ok']
           cases rv with
+          | tree _ => simp at hd2
           | place _ _ => simp at hd2
           | val v =>
           obtain ⟨rfl, -⟩ := hrel
@@ -443,6 +453,7 @@ theorem stmt_sound (env : Env) (hcf : CoerceFlat env) (fp : Footprint) (h0 : Hea
       · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE e _ he (by omega))
         simp only [hi, exb_ok, Except.bind_ok']
         cases rv with
+        | tree _ => simp at hd2
         | place _ _ => simp at hd2
         | val v =>
         obtain ⟨rfl, hv⟩ := hrel

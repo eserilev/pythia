@@ -82,18 +82,18 @@ theorem ibi_cmp (sha : Oracle) (fp : Footprint) (m vi : Nat) {s : DSt}
 
 theorem ibi_den (sha : Oracle) (fp : Footprint) (m vi : Nat) :
     (den (Scope.env sha) fpsEx (m + 6)).fn fp Scope.fn_is_builder_index [.leaf (.uint viTy vi)] =
-      some (.ok (.bool (vi &&& FLAG != 0), [.leaf (.uint viTy vi)])) := by
+      some (.ok (.val (.bool (vi &&& FLAG != 0)), [.leaf (.uint viTy vi)])) := by
   have hc := ibi_cmp sha fp m vi (s := ⟨[.leaf (.uint viTy vi)], setLoc (fun _ => none) 81 (.val (.uint viTy vi))⟩)
     (by simp [setLoc]) (by simp [setLoc])
   have hr : (den (Scope.env sha) fpsEx (m + 5)).stmt fp
       ⟨[.leaf (.uint viTy vi)], setLoc (fun _ => none) 81 (.val (.uint viTy vi))⟩
       (.ret 1048 (some (.compare 1048 (.binop 1048 .bitAnd (.name 1048 81) (.name 1048 197)) [(.notEq, (.int 1048 (0)))]))) =
-      some (.ok (.ret (.bool (vi &&& FLAG != 0)), ⟨[.leaf (.uint viTy vi)], setLoc (fun _ => none) 81 (.val (.uint viTy vi))⟩)) := by
+      some (.ok (.ret (.val (.bool (vi &&& FLAG != 0))), ⟨[.leaf (.uint viTy vi)], setLoc (fun _ => none) 81 (.val (.uint viTy vi))⟩)) := by
     rw [den_stmt]; simp only [stmtStep]; rw [hc]; rfl
   have hb : (den (Scope.env sha) fpsEx (m + 5)).block fp
       ⟨[.leaf (.uint viTy vi)], initLoc [.leaf (.uint viTy vi)] (fun _ => none)
         Scope.fn_is_builder_index.params.names.zipIdx⟩ Scope.fn_is_builder_index.body =
-      some (.ok (.ret (.bool (vi &&& FLAG != 0)), ⟨[.leaf (.uint viTy vi)], setLoc (fun _ => none) 81 (.val (.uint viTy vi))⟩)) :=
+      some (.ok (.ret (.val (.bool (vi &&& FLAG != 0))), ⟨[.leaf (.uint viTy vi)], setLoc (fun _ => none) 81 (.val (.uint viTy vi))⟩)) :=
     blockOf_ret hr
   rw [den_fn]
   simp only [fnStep]
@@ -168,19 +168,19 @@ theorem cvb_call (sha : Oracle) (fp : Footprint) (m vi : Nat) (hv : vi < 2 ^ 64)
 theorem cvb_den (sha : Oracle) (fp : Footprint) (m vi : Nat) (hv : vi < 2 ^ 64) :
     (den (Scope.env sha) fpsEx (m + 7)).fn fp Scope.fn_convert_validator_index_to_builder_index
         [.leaf (.uint viTy vi)] =
-      some (.ok (.uint biTy (vi ^^^ (vi &&& FLAG)), [.leaf (.uint viTy vi)])) := by
+      some (.ok (.val (.uint biTy (vi ^^^ (vi &&& FLAG))), [.leaf (.uint viTy vi)])) := by
   have hc := cvb_call sha fp m vi hv (s := ⟨[.leaf (.uint viTy vi)], setLoc (fun _ => none) 81 (.val (.uint viTy vi))⟩)
     (by simp [setLoc]) (by simp [setLoc]) (by simp [setLoc])
   have hr : (den (Scope.env sha) fpsEx (m + 6)).stmt fp
       ⟨[.leaf (.uint viTy vi)], setLoc (fun _ => none) 81 (.val (.uint viTy vi))⟩
       (.ret 1149 (some (.call 1149 (.name 1149 199) [(.pos (.binop 1149 .bitAnd (.name 1149 81) (.unop 1149 .invert (.name 1149 197))))]))) =
-      some (.ok (.ret (.uint biTy (vi ^^^ (vi &&& FLAG))), ⟨[.leaf (.uint viTy vi)], setLoc (fun _ => none) 81 (.val (.uint viTy vi))⟩)) := by
+      some (.ok (.ret (.val (.uint biTy (vi ^^^ (vi &&& FLAG)))), ⟨[.leaf (.uint viTy vi)], setLoc (fun _ => none) 81 (.val (.uint viTy vi))⟩)) := by
     rw [den_stmt]; simp only [stmtStep]; rw [hc]; rfl
   have hb : (den (Scope.env sha) fpsEx (m + 6)).block fp
       ⟨[.leaf (.uint viTy vi)], initLoc [.leaf (.uint viTy vi)] (fun _ => none)
         Scope.fn_convert_validator_index_to_builder_index.params.names.zipIdx⟩
         Scope.fn_convert_validator_index_to_builder_index.body =
-      some (.ok (.ret (.uint biTy (vi ^^^ (vi &&& FLAG))), ⟨[.leaf (.uint viTy vi)], setLoc (fun _ => none) 81 (.val (.uint viTy vi))⟩)) :=
+      some (.ok (.ret (.val (.uint biTy (vi ^^^ (vi &&& FLAG)))), ⟨[.leaf (.uint viTy vi)], setLoc (fun _ => none) 81 (.val (.uint viTy vi))⟩)) :=
     blockOf_ret hr
   rw [den_fn]
   simp only [fnStep]
@@ -300,7 +300,7 @@ theorem e_callfn {sha : Oracle} {fp : Footprint} {s : DSt} {n : Nat} {l l' : Lin
     (hloc : s.loc g = none)
     (ha : argsOf ((den (Scope.env sha) fpsEx (n + 1)).expr fp s) args = some (.ok rs))
     (hr : rs.mapM (argRoot s) = some rg)
-    (hf : (den (Scope.env sha) fpsEx (n + 1)).fn [] d rg = some (.ok (v, rg'))) (hflat : Flat v = true) :
+    (hf : (den (Scope.env sha) fpsEx (n + 1)).fn [] d rg = some (.ok (.val v, rg'))) (hflat : Flat v = true) :
     (den (Scope.env sha) fpsEx (n + 2)).expr fp s (.call l (.name l' g) args) = some (.ok (.val v)) := by
   have hh : callHead (Scope.env sha) s (.call l (.name l' g) args) = some (g, args) := by
     simp [callHead, hloc, callable, hl]
@@ -425,7 +425,7 @@ theorem t_bal (n : Nat) (hc : ACtx s ds kB lB bals kD lD bs kW lW ws) {bi : Nat}
   rw [hf]
   simp only [coerce_field_gw sha v hv, dm_bind_ok]
   have hroot : s.roots[0]? = some (awRoot ds kB lB bals kD lD bs) := by simp [hc.roots]
-  simp only [dWrite, hroot]
+  simp only [dWriteD, dWrite, hroot, Option.map, Except.map]
   have hwr := aw_write ds kB lB bals kD lD bs bi hb hc.l38 v
   have hleaf : leafAt (awRoot ds kB lB bals kD lD bs) [38, bi] 3 = true := by
     simp [leafAt, subAt, DV.kids, awRoot, List.getElem?_set, hc.l38, hw, bdv]
@@ -583,7 +583,7 @@ end body5
 /-- The tree state after one iteration, from the pure result. -/
 def awOut (ds : List DV) (kB : ListKind) (lB : Option Nat) (kD : ListKind) (lD : Option Nat)
     (kW : ListKind) (lW : Option Nat) (ws : List Withdrawal) (loc : Name → Option DRes)
-    (p : List Gwei × List Builder) : Outcome × DSt :=
+    (p : List Gwei × List Builder) : DOut × DSt :=
   (.normal, ⟨[awRoot ds kB lB p.1 kD lD p.2, wsRoot kW lW ws], loc⟩)
 
 section body6
@@ -734,7 +734,7 @@ theorem aw_loop (sha : Oracle) (M : Nat) {ds : List DV} {kB : ListKind} {lB : Op
       ALoc loc → (∀ g ∈ bals, g.val < 2 ^ 64) → (∀ b ∈ bs, b.balance.val < 2 ^ 64) →
       ∃ loc', (den (Scope.env sha) fpsEx (M + 18 + d)).loop awFp
           ⟨[awRoot ds kB lB bals kD lD bs, wsRoot kW lW ws], loc⟩ (.name 1939 85) ⟨1, [], false⟩ i awBody =
-        some ((fun p => (Outcome.normal, (⟨[awRoot ds kB lB p.1 kD lD p.2, wsRoot kW lW ws], loc'⟩ : DSt))) <$>
+        some ((fun p => (DOut.normal, (⟨[awRoot ds kB lB p.1 kD lD p.2, wsRoot kW lW ws], loc'⟩ : DSt))) <$>
           awLoop ws.length ws bals bs i) := by
   intro d
   induction d with
@@ -803,7 +803,7 @@ theorem aw_den (sha : Oracle) (M : Nat) {ds : List DV} {kB : ListKind} {lB : Opt
     (hwv : ∀ w ∈ ws, w.validator_index.val < 2 ^ 64) :
     (den (Scope.env sha) fpsEx (M + 20 + ws.length)).fn awFp Scope.fn_apply_withdrawals
         [.cont Scope.Id.«BeaconState» ds, wsRoot kW lW ws] =
-      some ((fun p => (Value.none, [awRoot ds kB lB p.1 kD lD p.2, wsRoot kW lW ws])) <$>
+      some ((fun p => (DRes.val (Value.none), [awRoot ds kB lB p.1 kD lD p.2, wsRoot kW lW ws])) <$>
         awLoop ws.length ws bals bs 0) := by
   have hl38 : 38 < ds.length := by
     rcases Nat.lt_or_ge 38 ds.length with h | h
@@ -829,7 +829,7 @@ theorem aw_den (sha : Oracle) (M : Nat) {ds : List DV} {kB : ListKind} {lB : Opt
     rfl
   have hst : (den (Scope.env sha) fpsEx (M + 19 + ws.length)).stmt awFp
       ⟨[awRoot ds kB lB bals kD lD bs, wsRoot kW lW ws], loc0⟩ (.forStmt 1939 (.name 1939 85) (.name 1939 41) awBody) =
-      some ((fun p => (Outcome.normal, (⟨[awRoot ds kB lB p.1 kD lD p.2, wsRoot kW lW ws], loc'⟩ : DSt))) <$>
+      some ((fun p => (DOut.normal, (⟨[awRoot ds kB lB p.1 kD lD p.2, wsRoot kW lW ws], loc'⟩ : DSt))) <$>
         awLoop ws.length ws bals bs 0) := by
     rw [show M + 19 + ws.length = (M + 18 + ws.length) + 1 by omega, den_stmt]
     simp only [stmtStep]
@@ -949,14 +949,14 @@ theorem apply_withdrawals_denote (sha : Oracle) (M : Nat) (ds : List DV) (kB : L
     (hbr : ∀ g ∈ st.balances, g.val < 2 ^ 64) (hbb : ∀ x ∈ st.builders, x.balance.val < 2 ^ 64) :
     ((den (Scope.env sha) fpsEx (M + 20 + ws.length)).fn awFp Scope.fn_apply_withdrawals
         [.cont Scope.Id.«BeaconState» ds, wsRoot kW lW ws]).map (Except.mapError SpecError.fail) =
-      some ((fun st' : BeaconState => (Value.none,
+      some ((fun st' : BeaconState => (DRes.val (Value.none),
         [awRoot ds kB lB st'.balances kD lD st'.builders, wsRoot kW lW ws])) <$> apply_withdrawals st ws) := by
   rw [aw_den sha M h12 h38 hbr hbb hwv, aw_read st ws hwv hbr hbb]
   cases awLoop ws.length ws st.balances st.builders 0 <;> rfl
 
 /-- SPEC 9.2 for `apply_withdrawals`: a loop over a parameter list, with a write-back call
 (`decrease_balance(state, ...)`) and a write through an index (`state.builders[i].balance`). -/
-theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (r0 n nw : Nat) (wv : Value)
+theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (r0 n nw : Nat) (wv : Value)
     (ds : List DV) (kB : ListKind) (lB : Option Nat) (kD : ListKind) (lD : Option Nat) (kW : ListKind)
     (lW : Option Nat) (st : BeaconState) (ws : List Withdrawal)
     (hd : dec h n (.ref r0) = some (.cont Scope.Id.«BeaconState» ds))
@@ -989,9 +989,9 @@ theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (r0 n n
       | _ + 2, hv, _ => simp at hv
     have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp awFp
       (f := Scope.Id.«apply_withdrawals»)
-      (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hdn
+      (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
     rw [hden] at hm
-    refine resultMatches_mono hf (Examples.resultMatches_map (fun st' h' v he => ⟨he.1, ?_⟩) hm)
+    refine resultMatches_mono hf (Examples.resultMatches_map (fun st' h' v he => ⟨he.1.1, ?_⟩) hm)
     obtain ⟨-, hr⟩ := he.2
     exact hr 0 (.ref r0) _ rfl rfl
 

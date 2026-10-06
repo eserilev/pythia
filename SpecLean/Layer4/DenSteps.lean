@@ -39,22 +39,22 @@ theorem truthy_lift {v : Value} {b : Bool} (h : truthy v = .ok b) :
 
 /-! ## Statements, one at a time -/
 
-theorem blockOf_ok {stmt : DSt → Stmt → DM (Outcome × DSt)} {s s1 : DSt} {st : Stmt}
+theorem blockOf_ok {stmt : DSt → Stmt → DM (DOut × DSt)} {s s1 : DSt} {st : Stmt}
     {ss : List Stmt} (h : stmt s st = some (.ok (.normal, s1))) :
     blockOf stmt s (st :: ss) = blockOf stmt s1 ss := by
   simp [blockOf, h, DM.bind]
 
-theorem blockOf_err {stmt : DSt → Stmt → DM (Outcome × DSt)} {s : DSt} {st : Stmt}
+theorem blockOf_err {stmt : DSt → Stmt → DM (DOut × DSt)} {s : DSt} {st : Stmt}
     {ss : List Stmt} {e : SpecError} (h : stmt s st = some (.error e)) :
     blockOf stmt s (st :: ss) = some (.error e) := by
   simp [blockOf, h, DM.bind]
 
-theorem blockOf_nil {stmt : DSt → Stmt → DM (Outcome × DSt)} {s : DSt} :
+theorem blockOf_nil {stmt : DSt → Stmt → DM (DOut × DSt)} {s : DSt} :
     blockOf stmt s [] = some (.ok (.normal, s)) := rfl
 
 /-- A last statement that ends normally or with an error is the block. -/
-theorem blockOf_one {stmt : DSt → Stmt → DM (Outcome × DSt)} {s : DSt} {st : Stmt}
-    {r : Res (Outcome × DSt)} (h : stmt s st = some r)
+theorem blockOf_one {stmt : DSt → Stmt → DM (DOut × DSt)} {s : DSt} {st : Stmt}
+    {r : Res (DOut × DSt)} (h : stmt s st = some r)
     (hr : ∀ o s', r = .ok (o, s') → o = .normal) : blockOf stmt s [st] = some r := by
   rcases r with e | ⟨o, s'⟩
   · simp [blockOf, h, DM.bind]
@@ -113,8 +113,8 @@ theorem dm_bind_ok {α β : Type} (a : α) (f : α → DM β) : DM.bind (some (.
 
 theorem dm_ok {α : Type} (a : α) : (DM.ok a : DM α) = some (.ok a) := rfl
 
-theorem blockOf_ret {stmt : DSt → Stmt → DM (Outcome × DSt)} {s s' : DSt} {st : Stmt}
-    {ss : List Stmt} {v : Value} (h : stmt s st = some (.ok (.ret v, s'))) :
+theorem blockOf_ret {stmt : DSt → Stmt → DM (DOut × DSt)} {s s' : DSt} {st : Stmt}
+    {ss : List Stmt} {v : DRes} (h : stmt s st = some (.ok (.ret v, s'))) :
     blockOf stmt s (st :: ss) = some (.ok (.ret v, s')) := by
   simp only [blockOf, h, DM.bind]; rfl
 

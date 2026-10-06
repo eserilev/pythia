@@ -5,8 +5,10 @@ import SpecLean.Layer4.Inv
 # Layer 4: runs that keep the shape of the heap
 
 The fragment writes only flat values over flat values. So a run changes objects, but every
-object keeps its shape (`SameSkel`), and no object is added (`Skel`). Then every heap path to a
-reference reads the same, from any value, so a caller's places stay valid across a call.
+old object keeps its shape (`SameSkel`). New objects come only at free addresses (`Skel`).
+Then every heap path to a reference reads the same, from a value that reaches only old objects
+(`Below`), so a caller's places stay valid across a call. `Ext` is the run that changes no old
+object: a read, or a call of a function that writes nothing.
 
 `dec_graft`: after a call, the caller's tree of an argument is its old tree with the callee's
 tree put in at the place of the call argument. It needs that every changed object that the
@@ -17,12 +19,34 @@ namespace SpecLean.Layer4
 
 open SpecLean SpecLean.Encode SpecLean.Validation.Where
 
-/-- Every object keeps its shape, and no object is added. -/
+/-- Every old object keeps its shape. New objects come at free addresses. -/
 def Skel (h h' : Heap) : Prop :=
-  h'.next = h.next ∧ ∀ a, h'.objs a = h.objs a ∨
+  h.next ≤ h'.next ∧ (HeapWF h → HeapWF h') ∧ ∀ a, a < h.next → h'.objs a = h.objs a ∨
     ∃ o o', h.objs a = some o ∧ h'.objs a = some o' ∧ SameSkel o o'
 
-theorem Skel_refl (h : Heap) : Skel h h := ⟨rfl, fun _ => .inl rfl⟩
+/-- No old object changes. New objects come at free addresses. -/
+def Ext (h h' : Heap) : Prop :=
+  h.next ≤ h'.next ∧ (HeapWF h → HeapWF h') ∧ ∀ a, a < h.next → h'.objs a = h.objs a
+
+/-- Every reference that `v` reaches is below `next`. -/
+abbrev Below (h : Heap) (v : Value) : Prop := ∀ q a, follow h v q = some (.ref a) → a < h.next
+
+theorem follow_nonref_ref {h : Heap} {v : Value} (hv : ∀ b, v ≠ .ref b) {q : List Nat} {b : Nat}
+    (e : follow h v q = some (.ref b)) : False := by
+  cases q with
+  | nil => simp [follow] at e; exact hv b e
+  | cons i q => rw [follow_nonref hv] at e; cases e
+
+theorem Skel_refl (h : Heap) : Skel h h := ⟨Nat.le_refl _, id, fun _ _ => .inl rfl⟩
+
+theorem Ext_refl (h : Heap) : Ext h h := ⟨Nat.le_refl _, id, fun _ _ => rfl⟩
+
+theorem Ext_trans {h1 h2 h3 : Heap} (a : Ext h1 h2) (b : Ext h2 h3) : Ext h1 h3 :=
+  ⟨Nat.le_trans a.1 b.1, fun w => b.2.1 (a.2.1 w),
+    fun x hx => (b.2.2 x (Nat.lt_of_lt_of_le hx a.1)).trans (a.2.2 x hx)⟩
+
+theorem Skel_of_Ext {h h' : Heap} (e : Ext h h') : Skel h h' :=
+  ⟨e.1, e.2.1, fun a ha => .inl (e.2.2 a ha)⟩
 
 theorem refEq_trans {x y z : Value} (a : RefEq x y) (b : RefEq y z) : RefEq x z :=
   fun c => (a c).trans (b c)
@@ -48,8 +72,9 @@ theorem sameSkel_trans {o o' o'' : HeapObj} (a : SameSkel o o') (b : SameSkel o'
   · exact ⟨a.1.trans b.1, a.2.1.trans b.2.1, skelList_trans a.2.1 a.2.2 b.2.1 b.2.2⟩
 
 theorem Skel_trans {h1 h2 h3 : Heap} (a : Skel h1 h2) (b : Skel h2 h3) : Skel h1 h3 := by
-  refine ⟨b.1.trans a.1, fun x => ?_⟩
-  rcases a.2 x with e1 | ⟨o, o', h1o, h2o, s1⟩ <;> rcases b.2 x with e2 | ⟨p, p', h2p, h3p, s2⟩
+  refine ⟨Nat.le_trans a.1 b.1, fun w => b.2.1 (a.2.1 w), fun x hx => ?_⟩
+  have hx2 : x < h2.next := Nat.lt_of_lt_of_le hx a.1
+  rcases a.2.2 x hx with e1 | ⟨o, o', h1o, h2o, s1⟩ <;> rcases b.2.2 x hx2 with e2 | ⟨p, p', h2p, h3p, s2⟩
   · exact .inl (e2.trans e1)
   · rw [e1] at h2p; exact .inr ⟨p, p', h2p, h3p, s2⟩
   · rw [← e2] at h2o; exact .inr ⟨o, o', h1o, h2o, s1⟩
@@ -57,29 +82,46 @@ theorem Skel_trans {h1 h2 h3 : Heap} (a : Skel h1 h2) (b : Skel h2 h3) : Skel h1
 
 theorem Skel_set {h : Heap} {a : Nat} {o o' : HeapObj} (ho : h.objs a = some o)
     (hs : SameSkel o o') : Skel h (h.set a o') := by
-  refine ⟨by simp, fun b => ?_⟩
-  by_cases hb : b = a
-  · subst hb; exact .inr ⟨o, o', ho, by simp, hs⟩
-  · exact .inl (by simp [hb])
+  refine ⟨by simp [Heap.set], fun hwf b hb => ?_, fun b _ => ?_⟩
+  · have hb' : h.next ≤ b := by simpa [Heap.set] using hb
+    by_cases hba : b = a
+    · subst hba; rw [hwf b hb'] at ho; cases ho
+    · simp [hba, hwf b hb']
+  · by_cases hb : b = a
+    · subst hb; exact .inr ⟨o, o', ho, by simp, hs⟩
+    · exact .inl (by simp [hb])
 
-/-- After a run that keeps the shape, every path to a reference reads the same. -/
+theorem Ext_alloc (h : Heap) (o : HeapObj) : Ext h (h.alloc o).2 := by
+  refine ⟨by simp [Heap.alloc], fun hwf b hb => ?_, fun b hb => ?_⟩
+  · simp only [Heap.alloc] at hb ⊢
+    have : b ≠ h.next := by omega
+    simp [this, hwf b (by omega)]
+  · simp [Heap.alloc, Nat.ne_of_lt hb]
+
+theorem below_child {h : Heap} {c : Nat} {xs : List Value} (hk : okids (h.objs c) = some xs)
+    {j : Nat} {x : Value} (hx : xs[j]? = some x) (hb : Below h (.ref c)) : Below h x :=
+  fun q a e => hb (j :: q) a (by rw [follow_ref_cons, hk]; simp [hx, e])
+
+/-- After a run that keeps the shape, every path to a reference from a value below `next`
+reads the same. -/
 theorem follow_Skel {h h' : Heap} (hs : Skel h h') :
-    ∀ q v w, RefEq v w → ∀ b, follow h' v q = some (.ref b) ↔ follow h w q = some (.ref b) := by
+    ∀ q v w, RefEq v w → Below h w → ∀ b, follow h' v q = some (.ref b) ↔ follow h w q = some (.ref b) := by
   intro q
   induction q with
-  | nil => intro v w hvw b; simp only [follow, Option.some.injEq]; exact hvw b
+  | nil => intro v w hvw _ b; simp only [follow, Option.some.injEq]; exact hvw b
   | cons j q ih =>
-    intro v w hvw b
+    intro v w hvw hbw b
     by_cases hv : ∃ c, v = .ref c
     · obtain ⟨c, rfl⟩ := hv
       have hw : w = .ref c := (hvw c).mp rfl
       subst hw
+      have hc : c < h.next := hbw [] c rfl
       simp only [follow]
-      have step : ∀ (xs ys : List Value), xs.length = ys.length →
+      have step : ∀ (xs ys : List Value), okids (h.objs c) = some xs → xs.length = ys.length →
           (∀ (i : Nat) x y, xs[i]? = some x → ys[i]? = some y → RefEq x y) →
           ((ys[j]?.bind fun x => follow h' x q) = some (.ref b) ↔
             (xs[j]?.bind fun x => follow h x q) = some (.ref b)) := by
-        intro xs ys hl hr
+        intro xs ys hk hl hr
         cases hy : ys[j]? with
         | none =>
           have : xs[j]? = none := by rw [List.getElem?_eq_none_iff] at hy ⊢; omega
@@ -91,58 +133,61 @@ theorem follow_Skel {h h' : Heap} (hs : Skel h h') :
             have := (List.getElem?_eq_some_iff.mp hy).1; omega
           | some x =>
             simp only [Option.bind_some]
-            exact ih y x (refEq_symm (hr j x y hx hy)) b
-      rcases hs.2 c with e | ⟨o, o', ho, ho', sk⟩
+            exact ih y x (refEq_symm (hr j x y hx hy)) (below_child hk hx hbw) b
+      rcases hs.2.2 c hc with e | ⟨o, o', ho, ho', sk⟩
       · rw [e]
-        cases h.objs c with
+        cases hoc : h.objs c with
         | none => simp
         | some o =>
           cases o with
-          | container ty fs => exact step fs fs rfl (fun i x y hx hy => by rw [hx] at hy; cases hy; exact RefEq.refl x)
-          | list k e l xs => exact step xs xs rfl (fun i x y hx hy => by rw [hx] at hy; cases hy; exact RefEq.refl x)
+          | container ty fs =>
+            exact step fs fs (by simp [okids, hoc]) rfl (fun i x y hx hy => by rw [hx] at hy; cases hy; exact RefEq.refl x)
+          | list k e l xs =>
+            exact step xs xs (by simp [okids, hoc]) rfl (fun i x y hx hy => by rw [hx] at hy; cases hy; exact RefEq.refl x)
           | _ => simp
       · rw [ho, ho']
         cases o <;> cases o' <;> simp only [SameSkel] at sk <;> try exact sk.elim
-        · exact step _ _ sk.2.2.2.1 sk.2.2.2.2
-        · exact step _ _ sk.2.1 sk.2.2
+        · exact step _ _ (by simp [okids, ho]) sk.2.2.2.1 sk.2.2.2.2
+        · exact step _ _ (by simp [okids, ho]) sk.2.1 sk.2.2
     · have hv' : ∀ c, v ≠ .ref c := fun c e => hv ⟨c, e⟩
       have hw' : ∀ c, w ≠ .ref c := fun c e => hv' c ((hvw c).mpr e)
       rw [follow_nonref hv', follow_nonref hw']
 
-theorem at?_Skel {h h' : Heap} (hs : Skel h h') (vs : List Value) (k : Nat) (q : List Nat)
-    (b : Nat) : at? h' vs k q = some (.ref b) ↔ at? h vs k q = some (.ref b) := by
-  unfold at?
-  cases vs[k]? with
-  | none => simp
-  | some v => simpa using follow_Skel hs q v v (RefEq.refl v) b
+/-- The arguments reach only objects below `next`. -/
+abbrev BelowArgs (h : Heap) (vs : List Value) : Prop := ∀ (k : Nat) (v : Value), vs[k]? = some v → Below h v
 
-theorem rootTy_Skel {h h' : Heap} (hs : Skel h h') (vs : List Value) (k : Nat) (ty : Name) :
-    RootTy h' vs k ty ↔ RootTy h vs k ty := by
+theorem at?_Skel {h h' : Heap} (hs : Skel h h') {vs : List Value} (hb : BelowArgs h vs)
+    (k : Nat) (q : List Nat) (b : Nat) : at? h' vs k q = some (.ref b) ↔ at? h vs k q = some (.ref b) := by
+  unfold at?
+  cases hv : vs[k]? with
+  | none => simp
+  | some v => simpa using follow_Skel hs q v v (RefEq.refl v) (hb k v hv) b
+
+theorem rootTy_Skel {h h' : Heap} (hs : Skel h h') {vs : List Value} (hb : BelowArgs h vs) (k : Nat)
+    (ty : Name) : RootTy h' vs k ty ↔ RootTy h vs k ty := by
   constructor
   · rintro ⟨c, fs, hc, hoc⟩
-    rcases hs.2 c with e | ⟨o, o', ho, ho', sk⟩
+    have hlt : c < h.next := hb k _ hc [] c rfl
+    rcases hs.2.2 c hlt with e | ⟨o, o', ho, ho', sk⟩
     · exact ⟨c, fs, hc, e ▸ hoc⟩
     · rw [ho'] at hoc; cases hoc
       cases o with
       | container ty' fs' => obtain ⟨rfl, -⟩ := sk; exact ⟨c, fs', hc, ho⟩
       | _ => exact absurd sk (by simp only [SameSkel]; exact id)
   · rintro ⟨c, fs, hc, hoc⟩
-    rcases hs.2 c with e | ⟨o, o', ho, ho', sk⟩
+    have hlt : c < h.next := hb k _ hc [] c rfl
+    rcases hs.2.2 c hlt with e | ⟨o, o', ho, ho', sk⟩
     · exact ⟨c, fs, hc, e.trans hoc⟩
     · rw [hoc] at ho; cases ho
       cases o' with
       | container ty' fs' => obtain ⟨rfl, -⟩ := sk; exact ⟨c, fs', hc, ho'⟩
       | _ => exact absurd sk (by simp only [SameSkel]; exact id)
 
-theorem Fresh_of_Skel {h h' : Heap} (hs : Skel h h') : Fresh h h' := by
-  refine ⟨hs.1 ▸ Nat.le_refl _, fun hwf a ha => ?_⟩
-  rw [hs.1] at ha
-  rcases hs.2 a with e | ⟨o, o', ho, -, -⟩
-  · rw [e]; exact hwf a ha
-  · rw [hwf a ha] at ho; cases ho
+theorem Fresh_of_Skel {h h' : Heap} (hs : Skel h h') : Fresh h h' := ⟨hs.1, hs.2.1⟩
 
-theorem Reach_of_Skel {h h' : Heap} (hs : Skel h h') (vs : List Value) : Reach h h' vs :=
-  fun k q b e => .inl ((at?_Skel hs vs k q b).mp e)
+theorem Reach_of_Skel {h h' : Heap} (hs : Skel h h') {vs : List Value} (hb : BelowArgs h vs) :
+    Reach h h' vs :=
+  fun k q b e => .inl ((at?_Skel hs hb k q b).mp e)
 
 /-! ## Decoding after a run that keeps the shape -/
 
@@ -185,6 +230,62 @@ theorem dec_mono' {h : Heap} {n n' : Nat} {v : Value} {d : DV} (hd : dec h n v =
     (hle : n ≤ n') : dec h n' v = some d := by
   obtain ⟨j, rfl⟩ := Nat.exists_eq_add_of_le hle
   exact dec_mono n j v d hd
+
+/-- A value that decodes reaches only objects of the heap, so below `next` in a well-formed
+heap. -/
+theorem dec_below {h : Heap} (hwf : HeapWF h) :
+    ∀ (n : Nat) (v : Value) (d : DV), dec h n v = some d → Below h v
+  | 0, v, d, hd => by
+    intro q a e
+    by_cases hr : ∃ b, v = .ref b
+    · obtain ⟨b, rfl⟩ := hr; simp [dec_zero_ref] at hd
+    · exact absurd e (fun e' => follow_nonref_ref (fun b e => hr ⟨b, e⟩) e')
+  | m + 1, v, d, hd => by
+    intro q a e
+    by_cases hr : ∃ b, v = .ref b
+    · obtain ⟨b, rfl⟩ := hr
+      rw [dec_ref_succ] at hd
+      have hex : h.objs b ≠ none := by intro hn; rw [hn] at hd; simp at hd
+      have hb : b < h.next := Nat.lt_of_not_le fun hle => hex (hwf b hle)
+      cases q with
+      | nil => simp [follow] at e; subst e; exact hb
+      | cons j q =>
+        rw [follow_ref_cons] at e
+        have kid : ∀ xs, okids (h.objs b) = some xs → ∀ ds, xs.mapM (dec h m) = some ds → a < h.next := by
+          intro xs hk ds hm
+          rw [hk] at e
+          simp only [Option.bind_some] at e
+          cases hx : xs[j]? with
+          | none => simp [hx] at e
+          | some x =>
+            simp only [hx, Option.bind_some] at e
+            obtain ⟨c, -, hc⟩ := mapM_get' hm hx
+            exact dec_below hwf m x c hc q a e
+        cases hob : h.objs b with
+        | none => exact absurd hob hex
+        | some o =>
+          rw [hob] at hd
+          cases o with
+          | container ty fs =>
+            cases hm : fs.mapM (dec h m) with
+            | none => simp [hm] at hd
+            | some ds => exact kid fs (by simp [okids, hob]) ds hm
+          | list k el l xs =>
+            cases hm : xs.mapM (dec h m) with
+            | none => simp [hm] at hd
+            | some ds => exact kid xs (by simp [okids, hob]) ds hm
+          | _ => simp at hd
+    · exact absurd e (fun e' => follow_nonref_ref (fun b e => hr ⟨b, e⟩) e')
+
+/-- Arguments that decode lie below `next`. -/
+theorem decArgs_below {h : Heap} (hwf : HeapWF h) {vs : List Value} {roots : List DV}
+    (hd : ∀ (k : Nat) (v : Value) (d : DV), vs[k]? = some v → roots[k]? = some d → ∃ n, dec h n v = some d)
+    (hl : roots.length = vs.length) : BelowArgs h vs := by
+  intro k v hv q a
+  revert q a
+  have hk : k < roots.length := by rw [hl]; exact (List.getElem?_eq_some_iff.mp hv).1
+  obtain ⟨n, hn⟩ := hd k v roots[k] hv (List.getElem?_eq_getElem hk)
+  exact dec_below hwf n v _ hn
 
 /-- A value that reaches no changed object decodes the same. -/
 theorem dec_unchanged {h h' : Heap} :

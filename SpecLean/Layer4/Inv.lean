@@ -23,6 +23,8 @@ open SpecLean SpecLean.Encode SpecLean.Validation.Where
 def ERel (h : Heap) (vs : List Value) : DRes → Value → Prop
   | .val v, w => w = v ∧ Flat v = true
   | .place k p, w => ∃ a, w = .ref a ∧ at? h vs k p = some (.ref a)
+  | .tree d, w => (∃ n, dec h n w = some d) ∧
+      ∀ q a, follow h w q = some (.ref a) → ∀ k p, at? h vs k p ≠ some (.ref a)
 
 def LRel (h : Heap) (vs : List Value) : Option DRes → Option Value → Prop
   | none, none => True
@@ -217,6 +219,12 @@ theorem write_inv {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L 
           simp only [LRel, ERel]
           rintro ⟨b, rfl, hb⟩
           exact ⟨b, rfl, (hset k2 p2 b).mpr hb⟩
+        | tree dt =>
+          simp only [LRel, ERel]
+          rintro ⟨⟨nt, hnt⟩, hdj⟩
+          refine ⟨⟨nt, (dec_away _ nt w (fun q e => hdj q a e k p hat)).trans hnt⟩,
+            fun q b e k2 p2 e2 => ?_⟩
+          exact hdj q b ((follow_skel ho skel q w w (RefEq.refl w) b).mp e) k2 p2 ((hset k2 p2 b).mp e2)
   · intro k' q b; rw [hset]; exact hI.refs k' q b
   · intro k' ty; rw [rootTy_skel ho skel]; exact hI.rty k' ty
   · refine Frame_trans hI.frame (Frame_set hatfp) fun a2 ⟨k2, pat, q, hp, hty, hmq, hq⟩ => ?_

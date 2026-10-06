@@ -65,6 +65,7 @@ def setAt : List Nat → DV → DV → DV
 def argRoot (s : DSt) : DRes → Option DV
   | .val v => some (.leaf v)
   | .place k p => s.deref k p
+  | .tree d => some d
 
 /-- The one place among the arguments: its position and the place. -/
 def onePlace : List DRes → Option (Nat × Nat × List Nat)
@@ -72,6 +73,7 @@ def onePlace : List DRes → Option (Nat × Nat × List Nat)
   | .val _ :: rs => (onePlace rs).map fun (i, kp) => (i + 1, kp)
   | .place k p :: rs => if rs.all (fun r => match r with | .val _ => true | _ => false)
       then some (0, k, p) else none
+  | .tree _ :: _ => none
 
 /-- An SSZ class whose constructor on flat values needs no heap. -/
 def ctorFlat : SszTy → Bool
@@ -91,21 +93,33 @@ structure LSrc where
   p : List Nat
   enum : Bool
 
+/-- How a statement ends. A `return` gives a flat value or the tree of a new object. -/
+inductive DOut where
+  | normal | brk | cont
+  | ret (r : DRes)
+
+/-- `dWrite`, which always ends normally. -/
+def dWriteD (fp : Footprint) (s : DSt) (k : Nat) (p : List Nat) (i : Nat) (v : Value) :
+    DM (DOut × DSt) :=
+  (dWrite fp s k p i v).map (Except.map fun x => (.normal, x.2))
+
 /-- The denotation at one fuel. `fp` is the footprint of the running function. -/
 structure Sem where
   expr : Footprint → DSt → Expr → DM DRes
   /-- An expression at statement level: a call may write. The new trees of the arguments. -/
   call : Footprint → DSt → Expr → DM (DRes × List DV)
-  target : Footprint → DSt → Target → DRes → DM (Outcome × DSt)
-  stmt : Footprint → DSt → Stmt → DM (Outcome × DSt)
+  target : Footprint → DSt → Target → DRes → DM (DOut × DSt)
+  stmt : Footprint → DSt → Stmt → DM (DOut × DSt)
   /-- The body of a spec function, on the decoded arguments. -/
-  fn : Footprint → FunctionDef → List DV → DM (Value × List DV)
+  fn : Footprint → FunctionDef → List DV → DM (DRes × List DV)
   /-- The iterable of a `for` loop: `evalExpr` then `iterSource`. -/
   iter : Footprint → DSt → Expr → DM LSrc
   /-- `execFor`: a loop from item `i`, one fuel unit per item. -/
-  loop : Footprint → DSt → Target → LSrc → Nat → List Stmt → DM (Outcome × DSt)
+  loop : Footprint → DSt → Target → LSrc → Nat → List Stmt → DM (DOut × DSt)
+  /-- `compItems`: the items of a list comprehension from item `i`, one fuel unit per item. -/
+  items : Footprint → DSt → Target → List Expr → Expr → LSrc → Nat → DM (List DV)
 
-def blockOf (stmt : DSt → Stmt → DM (Outcome × DSt)) : DSt → List Stmt → DM (Outcome × DSt)
+def blockOf (stmt : DSt → Stmt → DM (DOut × DSt)) : DSt → List Stmt → DM (DOut × DSt)
   | s, [] => .ok (.normal, s)
   | s, st :: ss =>
     DM.bind (stmt s st) fun (o, s1) =>
@@ -113,7 +127,7 @@ def blockOf (stmt : DSt → Stmt → DM (Outcome × DSt)) : DSt → List Stmt �
       | .normal => blockOf stmt s1 ss
       | _ => .ok (o, s1)
 
-def Sem.block (S : Sem) (fp : Footprint) : DSt → List Stmt → DM (Outcome × DSt) :=
+def Sem.block (S : Sem) (fp : Footprint) : DSt → List Stmt → DM (DOut × DSt) :=
   blockOf (S.stmt fp)
 
 variable [LibModel]
@@ -184,13 +198,17 @@ def dBuiltin (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
 
 /-- A call that writes nothing. `fn` is the callee body at the fuel of the call. -/
 def dCallRO (env : Env) (fps : Name → Footprint)
-    (fn : Footprint → FunctionDef → List DV → DM (Value × List DV)) (s : DSt) (g : Name)
+    (fn : Footprint → FunctionDef → List DV → DM (DRes × List DV)) (s : DSt) (g : Name)
     (rs : List DRes) : DM DRes :=
   match env.globals.lookup g with
   | some (.fn d) =>
     if (fps g).isEmpty then
       match rs.mapM (argRoot s) with
-      | some rg => DM.bind (fn [] d rg) fun (v, _) => if Flat v then .ok (.val v) else none
+      | some rg => DM.bind (fn [] d rg) fun (r, _) =>
+          match r with
+          | .val v => if Flat v then .ok (.val v) else none
+          | .tree t => .ok (.tree t)
+          | .place _ _ => none
       | none => none
     else none
   | some (.type t) => dCtor env t rs
@@ -199,7 +217,7 @@ def dCallRO (env : Env) (fps : Name → Footprint)
 
 /-- A call at statement level: it may write through its one place argument. -/
 def dCallW (env : Env) (fps : Name → Footprint)
-    (fn : Footprint → FunctionDef → List DV → DM (Value × List DV)) (fp : Footprint) (s : DSt)
+    (fn : Footprint → FunctionDef → List DV → DM (DRes × List DV)) (fp : Footprint) (s : DSt)
     (g : Name) (rs : List DRes) : DM (DRes × List DV) :=
   match env.globals.lookup g with
   | some (.fn d) =>
@@ -211,11 +229,11 @@ def dCallW (env : Env) (fps : Name → Footprint)
         match s.deref k p, s.roots[k]? with
         | some dk, some dr =>
           if !fp.isEmpty && coversAll fp s.roots k p dk (fps g) then
-            DM.bind (fn (fps g) d rg) fun (v, rg') =>
-              match rg'[i]? with
-              | some di =>
+            DM.bind (fn (fps g) d rg) fun (r, rg') =>
+              match r, rg'[i]? with
+              | .val v, some di =>
                 if Flat v then .ok (.val v, s.roots.set k (setAt p dr di)) else none
-              | none => none
+              | _, _ => none
           else none
         | _, _ => none
       | _, _ => none
@@ -227,6 +245,46 @@ def callable (env : Env) (g : Name) : Bool :=
   | some (.fn _) | some (.type _) => true
   | some (.builtin .min) | some (.builtin .max) | some (.builtin .len) => true
   | _ => false
+
+/-- Bind the loop target at fuel `n`, as `assignTarget n`. -/
+def bindLoop (n : Nat) (enum : Bool) (s : DSt) (t : Target) (i : Nat) (x : DRes) : Option DSt :=
+  match enum, t, n with
+  | false, .name _ a, _ + 1 => some { s with loc := setLoc s.loc a x }
+  | true, .tuple _ [.name _ a, .name _ b], _ + 2 =>
+    some { s with loc := setLoc (setLoc s.loc a (.val (.int i))) b x }
+  | _, _, _ => none
+
+/-- The conditions of a comprehension item, as `evalIfs`. -/
+def ifsOf (ev : Expr → DM DRes) : List Expr → DM Bool
+  | [] => .ok true
+  | c :: cs =>
+    DM.bind (ev c) fun r =>
+      match r with
+      | .val v => DM.bind (lift (truthy v)) fun b => if b then ifsOf ev cs else .ok false
+      | _ => none
+
+/-- `compItems (n + 1)` of a list comprehension with one generator over a list place: item
+`i`, its conditions and its flat element at fuel `n`, then the rest at fuel `n`. -/
+def itemsStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ifs : List Expr)
+    (elt : Expr) (ls : LSrc) (i : Nat) : DM (List DV) :=
+  match s.deref ls.k ls.p with
+  | some (.list kd e _ ds) =>
+    if isByteList kd e then none else
+    match ds[i]? with
+    | none => .ok []
+    | some c =>
+      match bindLoop n ls.enum s t i (ofChild ls.k (ls.p ++ [i]) c) with
+      | some s1 =>
+        DM.bind (ifsOf (P.expr fp s1) ifs) fun keep =>
+          DM.bind (if keep then
+              DM.bind (P.expr fp s1 elt) fun r =>
+                match r with
+                | .val v => if Flat v then .ok [DV.leaf v] else none
+                | _ => none
+            else .ok []) fun vs1 =>
+            DM.bind (P.items fp s1 t ifs elt ls (i + 1)) fun vs2 => .ok (vs1 ++ vs2)
+      | none => none
+  | _ => none
 
 /-- A call expression `g(args)` to a callable global that no local hides. The interpreter looks
 the name up before it evaluates the arguments. -/
@@ -278,6 +336,9 @@ def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
       match rc with
       | .val v => DM.bind (lift (truthy v)) fun t => if t then P.expr fp s a else P.expr fp s b
       | _ => none
+  | .comp _ .list elt [.mk t it ifs] =>
+    DM.bind (P.iter fp s it) fun ls =>
+      DM.bind (P.items fp s t ifs elt ls 0) fun ds => .ok (.tree (.list .pyList .any none ds))
   | e@(.call _ _ _) =>
     match n, callHead env s e with
     | _ + 1, some (g, args) =>
@@ -293,7 +354,7 @@ def callStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
   | _, _ => (exprStep env fps n P fp s e).map (·.map (·, s.roots))
 
 def targetStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) :
-    Target → DRes → DM (Outcome × DSt)
+    Target → DRes → DM (DOut × DSt)
   | .name _ x, r => .ok (.normal, { s with loc := setLoc s.loc x r })
   | .attr _ o f, .val v =>
     DM.bind (P.expr fp s o) fun ro =>
@@ -302,7 +363,7 @@ def targetStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) :
         match s.deref k p with
         | some (.cont ty _) =>
           match fieldIndex env ty f with
-          | some (i, t) => DM.bind (dCoerce env true t v) fun v' => dWrite fp s k p i v'
+          | some (i, t) => DM.bind (dCoerce env true t v) fun v' => dWriteD fp s k p i v'
           | none => none
         | _ => none
       | _ => none
@@ -316,7 +377,7 @@ def targetStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) :
           DM.bind (lift (toIndex iv)) fun j =>
           DM.bind (dCoerce env false e v) fun v' =>
             match normIndex ds.length j with
-            | some m => dWrite fp s k p m v'
+            | some m => dWriteD fp s k p m v'
             | none => some (.error .indexError)
         | _ => none
       | _, _ => none
@@ -352,17 +413,9 @@ def iterStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
       | .place k p => if listPlace s k p then .ok ⟨k, p, false⟩ else none
       | _ => none
 
-/-- Bind the loop target at fuel `n`, as `assignTarget n`. -/
-def bindLoop (n : Nat) (enum : Bool) (s : DSt) (t : Target) (i : Nat) (x : DRes) : Option DSt :=
-  match enum, t, n with
-  | false, .name _ a, _ + 1 => some { s with loc := setLoc s.loc a x }
-  | true, .tuple _ [.name _ a, .name _ b], _ + 2 =>
-    some { s with loc := setLoc (setLoc s.loc a (.val (.int i))) b x }
-  | _, _, _ => none
-
 /-- `execFor (n + 1)`: item `i`, the body at fuel `n`, then the rest at fuel `n`. -/
 def loopStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ls : LSrc) (i : Nat)
-    (body : List Stmt) : DM (Outcome × DSt) :=
+    (body : List Stmt) : DM (DOut × DSt) :=
   match s.deref ls.k ls.p with
   | some (.list kd e _ ds) =>
     if isByteList kd e then none else
@@ -381,7 +434,7 @@ def loopStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ls : L
 
 /-- `obj[i] op= e`, with the parts at the fuel below. -/
 def augStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) (o ie : Expr) (op : BinOp)
-    (e : Expr) : DM (Outcome × DSt) :=
+    (e : Expr) : DM (DOut × DSt) :=
   DM.bind (P.expr fp s o) fun ro => DM.bind (P.expr fp s ie) fun ri =>
     match ro, ri with
     | .place k p, .val iv =>
@@ -397,7 +450,7 @@ def augStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) (o ie : Expr) (op :
                 match re with
                 | .val r =>
                   DM.bind (lift (binopVal op cur r)) fun v =>
-                    if Flat v then DM.bind (dCoerce env false el v) fun v' => dWrite fp s k p m v'
+                    if Flat v then DM.bind (dCoerce env false el v) fun v' => dWriteD fp s k p m v'
                     else none
                 | _ => none
             | _ => none
@@ -405,7 +458,7 @@ def augStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) (o ie : Expr) (op :
       | _ => none
     | _, _ => none
 
-def stmtStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) : Stmt → DM (Outcome × DSt)
+def stmtStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) : Stmt → DM (DOut × DSt)
   | .assign _ [t] e =>
     DM.bind (P.call fp s e) fun (r, rs) => P.target fp { s with roots := rs } t r
   | .annAssign _ t e =>
@@ -421,9 +474,10 @@ def stmtStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) : Stmt → DM (Out
   | .ret _ (some e) =>
     DM.bind (P.expr fp s e) fun r =>
       match r with
-      | .val v => .ok (.ret v, s)
-      | _ => none
-  | .ret _ none => .ok (.ret .none, s)
+      | .val v => .ok (.ret (.val v), s)
+      | .tree d => .ok (.ret (.tree d), s)
+      | .place _ _ => none
+  | .ret _ none => .ok (.ret (.val .none), s)
   | .assert _ e =>
     DM.bind (P.expr fp s e) fun r =>
       match r with
@@ -436,19 +490,20 @@ def stmtStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) : Stmt → DM (Out
 
 /-- `callFn (n + 1)`: bind the parameters, run the body at fuel `n`. -/
 def fnStep (P : Sem) (fp : Footprint) (d : FunctionDef) (roots : List DV) :
-    DM (Value × List DV) :=
+    DM (DRes × List DV) :=
   if d.params.defaults = [] ∧ d.params.vararg = none ∧ d.params.names.length = roots.length then
     let s0 : DSt := { roots, loc := initLoc roots (fun _ => none) d.params.names.zipIdx }
     DM.bind (P.block fp s0 d.body) fun (o, s1) =>
       match o with
-      | .ret v => .ok (v, s1.roots)
-      | _ => .ok (.none, s1.roots)
+      | .ret r => .ok (r, s1.roots)
+      | _ => .ok (.val .none, s1.roots)
   else none
 
 /-- The denotation at fuel `n`. -/
 def den (env : Env) (fps : Name → Footprint) : Nat → Sem
   | 0 => { expr := fun _ _ _ => none, call := fun _ _ _ => none, target := fun _ _ _ _ => none,
            stmt := fun _ _ _ => none, fn := fun _ _ _ => none, iter := fun _ _ _ => none,
+           items := fun _ _ _ _ _ _ _ => none,
            loop := fun _ _ _ _ _ _ => none }
   | n + 1 =>
     let P := den env fps n
@@ -458,7 +513,8 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
       stmt := stmtStep env P
       fn := fnStep P
       iter := iterStep env fps n P
-      loop := loopStep n P }
+      loop := loopStep n P
+      items := itemsStep n P }
 
 /-! Each part one fuel up, without unfolding the others. -/
 
@@ -476,5 +532,7 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
     (den env fps (n + 1)).iter = iterStep env fps n (den env fps n) := rfl
 @[simp] theorem den_loop (env : Env) (fps : Name → Footprint) (n : Nat) :
     (den env fps (n + 1)).loop = loopStep n (den env fps n) := rfl
+@[simp] theorem den_items (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).items = itemsStep n (den env fps n) := rfl
 
 end SpecLean.Layer4
