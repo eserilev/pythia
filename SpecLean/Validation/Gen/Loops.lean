@@ -44,7 +44,7 @@ theorem get_active_validator_indices_run (gfp : Footprint) (h : Heap) (r0 : Nat)
   rd_split_keep x0
   all_goals (
   rw [interp, callName, callValue.eq_def]
-  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_active_validator_indices, get_active_validator_indices, Scope.env, Scope.knownNames, compLoop, iterSource, toSeq, *]
+  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_active_validator_indices, get_active_validator_indices, Scope.env, Scope.knownNames, compLoop, iterSource, toSeq, iterBase, *]
   rd_step
   repeat' (first | rd_call [is_active_validator_run] | (rd_split <;> (try rd_step)) | rd_comp 128 [is_active_validator_run])
   all_goals (first | rd_finish | rd_list_end | rd_comp_err | ((try rd_heap); rd_frame; done)))
@@ -79,7 +79,7 @@ theorem get_committee_indices_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : 
   rd_split_hyps
   all_goals (
   rw [interp, callName, callValue.eq_def]
-  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_committee_indices, get_committee_indices, Scope.env, Scope.knownNames, compLoop, iterSource, toSeq, *]
+  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_committee_indices, get_committee_indices, Scope.env, Scope.knownNames, compLoop, iterSource, toSeq, iterBase, *]
   rd_step
   repeat' (first | (rd_split <;> (try rd_step)) | rd_comp 64 [])
   all_goals (first | rd_finish | rd_list_end | rd_comp_err | ((try rd_heap); rd_frame; done)))
@@ -114,7 +114,7 @@ theorem get_eligible_validator_indices_run (gfp : Footprint) (h : Heap) (r0 : Na
   rd_split_keep x0
   all_goals (
   rw [interp, callName, callValue.eq_def]
-  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_eligible_validator_indices, get_eligible_validator_indices, Scope.env, Scope.knownNames, compLoop, iterSource, toSeq, *]
+  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_eligible_validator_indices, get_eligible_validator_indices, Scope.env, Scope.knownNames, compLoop, iterSource, toSeq, iterBase, *]
   rd_step
   repeat' (first | rd_call [get_previous_epoch_run, is_active_validator_run] | (rd_split <;> (try rd_step)) | rd_comp 256 [get_previous_epoch_run, is_active_validator_run])
   all_goals (first | rd_finish | rd_list_end | rd_comp_err | ((try rd_heap); rd_frame; done)))

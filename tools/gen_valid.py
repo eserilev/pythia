@@ -521,6 +521,10 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
                 bounds.append(f"x{pnames.index(it.id)}.length")
             else:
                 raise Unsupported("comprehension source")
+        if jj is None:
+            # Keep the container argument whole: its decode facts make each item slow.
+            conts = [j for j, (_, t) in enumerate(sig.params) if t[0] == "container"]
+            jj = conts[0] if len(conts) == 1 else None
         return bounds, jj
 
     def loops(self, name, sig, tree, callees=(), fuel=64):
@@ -848,7 +852,7 @@ theorem {name_run} (gfp : Footprint) (h : Heap) {binders}{hw} (k : Nat) :
         ({fname} {rargs}) := by
 {inv}{split}  all_goals (
   rw [interp, callName, callValue.eq_def]
-  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, {", ".join(defs + (["compLoop", "iterSource", "toSeq"] if cbounds else []))}{", *" if hys else ""}]
+  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, {", ".join(defs + (["compLoop", "iterSource", "toSeq", "iterBase"] if cbounds else []))}{", *" if hys else ""}]
   rd_step
   repeat' {step}
   all_goals (first | rd_finish | {"rd_list_end | rd_comp_err | " if cbounds else ""}((try rd_heap); rd_frame; done)))

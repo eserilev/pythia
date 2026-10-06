@@ -84,12 +84,31 @@ theorem sum_uint {α : Type} [UintC α] (t : UintTy) (ht : t.bits = UintC.bits �
 end SumRule
 
 /-- A Python set of decoded items: the object is a set, and its elements decode in order. -/
-@[rd_dec] def decSetV {α : Type} (f : Rd.Dec α) : Rd.Dec (List α)
+def decSetV {α : Type} (f : Rd.Dec α) : Rd.Dec (List α)
   | h, .ref a =>
     match h.objs a with
     | some (.set xs) => xs.mapM (f h)
     | _ => none
   | _, _ => none
+
+@[rd_dec] theorem decSetV_ref_eq_some {α : Type} (f : Rd.Dec α) (h : Heap) (a : Nat)
+    (ys : List α) : decSetV f h (.ref a) = some ys ↔
+      ∃ xs, h.objs a = some (.set xs) ∧ xs.mapM (f h) = some ys := by
+  show (match h.objs a with
+    | some (.set xs) => xs.mapM (f h)
+    | _ => none) = some ys ↔ _
+  constructor
+  · intro e
+    cases ho : h.objs a with
+    | none => rw [ho] at e; cases e
+    | some o =>
+      rw [ho] at e
+      cases o with
+      | set xs => exact ⟨xs, rfl, e⟩
+      | _ => cases e
+  · rintro ⟨xs, ho, hm⟩
+    rw [ho]
+    exact hm
 
 /-- An item of a snapshot whose values decode to the readable items. -/
 theorem snap_item {α : Type} {dec : Value → Option α} {xs : List Value} {ys : List α} {i : Nat}
@@ -99,6 +118,12 @@ theorem snap_item {α : Type} {dec : Value → Option α} {xs : List Value} {ys 
   have := hlen.2 i x hx
   rw [hy] at this
   exact this
+
+/-- An item of a snapshot that holds the encodings of the readable items. -/
+theorem snap_item_map {α : Type} {g : α → Value} {ys : List α} {i : Nat} {x : Value} {y : α}
+    (hy : ys[i]? = some y) (hx : (ys.map g)[i]? = some x) : x = g y := by
+  rw [List.getElem?_map, hy] at hx
+  exact (Option.some.inj hx).symm
 
 theorem snap_len {α : Type} {dec : Value → Option α} {xs : List Value} {ys : List α}
     (hm : xs.mapM dec = some ys) : xs.length = ys.length :=
@@ -281,6 +306,8 @@ macro "rd_comp_step" "[" ls:ident,* "]" : tactic => `(tactic| (
        Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hdec
      rd_split_hyps)
   | (have hxe := SpecLean.Validation.seq_item_map ‹_› (by intro hc; first | cases hc.1 | cases hc.2) hy hx
+     subst hxe)
+  | (have hxe := SpecLean.Validation.snap_item_map hy hx
      subst hxe)
   | (have hdec := SpecLean.Validation.snap_item ‹_› hy hx
      have hdecc := hdec
