@@ -1074,7 +1074,8 @@ elab "rd_call" "[" ls:ident,* "]" : tactic => withMainContext do
           -- A fact about literals, such as the width of a uint class, or the write condition of
           -- the callee from the caller's.
           let gs ← try evalTacticAt (← `(tactic| rd_callhyp)) m.mvarId!
-            catch _ =>
+            catch e0 =>
+              trace[debug] "rd_callhyp: {e0.toMessageData}"
               let s2 ← saveState
               let msg ← try
                   let r ← evalTacticAt (← `(tactic| rd_heap)) m.mvarId!

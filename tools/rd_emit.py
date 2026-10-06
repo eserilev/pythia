@@ -237,7 +237,7 @@ class Emitter:
                                ("MAX_BLOBS_PER_BLOCK", ("uint", b.spec.Uint64)))), None)
                 record = ("structure BlobScheduleEntry where\n  EPOCH : Epoch\n"
                           "  MAX_BLOBS_PER_BLOCK : Uint64\n"
-                          "  deriving DecidableEq, Repr, Inhabited, BEq\n\n")
+                          "  deriving DecidableEq, Repr, Inhabited\n\n")
                 b.config_types[name] = t
                 fields.append(f"  {name} : List BlobScheduleEntry")
                 vals = ", ".join(f"{{ EPOCH := ⟨{int(e['EPOCH'])}⟩, MAX_BLOBS_PER_BLOCK := "

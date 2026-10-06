@@ -18,7 +18,7 @@ open SpecLean SpecLean.Rd
 
 structure Uint64 where
   val : Nat
-  deriving DecidableEq, Repr, Inhabited, BEq, Hashable
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 instance : UintC Uint64 := ⟨64, Uint64.val, Uint64.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Uint64 := ⟨fun a b => decide (a.val < b.val)⟩
@@ -28,7 +28,7 @@ abbrev dec_Uint64 : Dec Uint64 := decUintT (.width 64)
 
 structure Root where
   data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited Root := ⟨⟨List.replicate 32 0⟩⟩
 instance : BytesC Root := ⟨32, Root.data, Root.mk, fun _ => rfl, fun _ => rfl⟩
@@ -39,7 +39,7 @@ abbrev dec_Root : Dec Root := decBytesT Scope.Id.«Root»
 
 structure Slot where
   val : Nat
-  deriving DecidableEq, Repr, Inhabited, BEq, Hashable
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 instance : UintC Slot := ⟨64, Slot.val, Slot.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Slot := ⟨fun a b => decide (a.val < b.val)⟩
@@ -49,7 +49,7 @@ abbrev dec_Slot : Dec Slot := decUintT (.nominal Scope.Id.«Slot» 64)
 
 structure Version where
   data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited Version := ⟨⟨List.replicate 4 0⟩⟩
 instance : BytesC Version := ⟨4, Version.data, Version.mk, fun _ => rfl, fun _ => rfl⟩
@@ -60,7 +60,7 @@ abbrev dec_Version : Dec Version := decBytesT Scope.Id.«Version»
 
 structure Epoch where
   val : Nat
-  deriving DecidableEq, Repr, Inhabited, BEq, Hashable
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 instance : UintC Epoch := ⟨64, Epoch.val, Epoch.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Epoch := ⟨fun a b => decide (a.val < b.val)⟩
@@ -72,7 +72,7 @@ structure Fork where
   previous_version : Version
   current_version : Version
   epoch : Epoch
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited Fork := ⟨{ previous_version := default, current_version := default, epoch := default }⟩
 
@@ -89,7 +89,7 @@ def dec_Fork : Dec Fork := fun h v => do
 
 structure ValidatorIndex where
   val : Nat
-  deriving DecidableEq, Repr, Inhabited, BEq, Hashable
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 instance : UintC ValidatorIndex := ⟨64, ValidatorIndex.val, ValidatorIndex.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd ValidatorIndex := ⟨fun a b => decide (a.val < b.val)⟩
@@ -103,7 +103,7 @@ structure BeaconBlockHeader where
   parent_root : Root
   state_root : Root
   body_root : Root
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited BeaconBlockHeader := ⟨{ slot := default, proposer_index := default, parent_root := default, state_root := default, body_root := default }⟩
 
@@ -122,7 +122,7 @@ def dec_BeaconBlockHeader : Dec BeaconBlockHeader := fun h v => do
 
 structure Hash32 where
   data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited Hash32 := ⟨⟨List.replicate 32 0⟩⟩
 instance : BytesC Hash32 := ⟨32, Hash32.data, Hash32.mk, fun _ => rfl, fun _ => rfl⟩
@@ -135,7 +135,7 @@ structure Eth1Data where
   deposit_root : Root
   deposit_count : Uint64
   block_hash : Hash32
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited Eth1Data := ⟨{ deposit_root := default, deposit_count := default, block_hash := default }⟩
 
@@ -152,7 +152,7 @@ def dec_Eth1Data : Dec Eth1Data := fun h v => do
 
 structure BLSPubkey where
   data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited BLSPubkey := ⟨⟨List.replicate 48 0⟩⟩
 instance : BytesC BLSPubkey := ⟨48, BLSPubkey.data, BLSPubkey.mk, fun _ => rfl, fun _ => rfl⟩
@@ -163,7 +163,7 @@ abbrev dec_BLSPubkey : Dec BLSPubkey := decBytesT Scope.Id.«BLSPubkey»
 
 structure Bytes32 where
   data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited Bytes32 := ⟨⟨List.replicate 32 0⟩⟩
 instance : BytesC Bytes32 := ⟨32, Bytes32.data, Bytes32.mk, fun _ => rfl, fun _ => rfl⟩
@@ -174,7 +174,7 @@ abbrev dec_Bytes32 : Dec Bytes32 := decBytesT Scope.Id.«Bytes32»
 
 structure Gwei where
   val : Nat
-  deriving DecidableEq, Repr, Inhabited, BEq, Hashable
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 instance : UintC Gwei := ⟨64, Gwei.val, Gwei.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Gwei := ⟨fun a b => decide (a.val < b.val)⟩
@@ -191,7 +191,7 @@ structure Validator where
   activation_epoch : Epoch
   exit_epoch : Epoch
   withdrawable_epoch : Epoch
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited Validator := ⟨{ pubkey := default, withdrawal_credentials := default, effective_balance := default, slashed := default, activation_eligibility_epoch := default, activation_epoch := default, exit_epoch := default, withdrawable_epoch := default }⟩
 
@@ -213,7 +213,7 @@ def dec_Validator : Dec Validator := fun h v => do
 
 structure ParticipationFlags where
   val : Nat
-  deriving DecidableEq, Repr, Inhabited, BEq, Hashable
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 instance : UintC ParticipationFlags := ⟨8, ParticipationFlags.val, ParticipationFlags.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd ParticipationFlags := ⟨fun a b => decide (a.val < b.val)⟩
@@ -224,7 +224,7 @@ abbrev dec_ParticipationFlags : Dec ParticipationFlags := decUintT (.nominal Sco
 structure Checkpoint where
   epoch : Epoch
   root : Root
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited Checkpoint := ⟨{ epoch := default, root := default }⟩
 
@@ -241,7 +241,7 @@ def dec_Checkpoint : Dec Checkpoint := fun h v => do
 structure SyncCommittee where
   pubkeys : (List BLSPubkey)
   aggregate_pubkey : BLSPubkey
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited SyncCommittee := ⟨{ pubkeys := (List.replicate 32 default), aggregate_pubkey := default }⟩
 
@@ -257,7 +257,7 @@ def dec_SyncCommittee : Dec SyncCommittee := fun h v => do
 
 structure WithdrawalIndex where
   val : Nat
-  deriving DecidableEq, Repr, Inhabited, BEq, Hashable
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 instance : UintC WithdrawalIndex := ⟨64, WithdrawalIndex.val, WithdrawalIndex.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd WithdrawalIndex := ⟨fun a b => decide (a.val < b.val)⟩
@@ -268,7 +268,7 @@ abbrev dec_WithdrawalIndex : Dec WithdrawalIndex := decUintT (.nominal Scope.Id.
 structure HistoricalSummary where
   block_summary_root : Root
   state_summary_root : Root
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited HistoricalSummary := ⟨{ block_summary_root := default, state_summary_root := default }⟩
 
@@ -284,7 +284,7 @@ def dec_HistoricalSummary : Dec HistoricalSummary := fun h v => do
 
 structure BLSSignature where
   data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited BLSSignature := ⟨⟨List.replicate 96 0⟩⟩
 instance : BytesC BLSSignature := ⟨96, BLSSignature.data, BLSSignature.mk, fun _ => rfl, fun _ => rfl⟩
@@ -299,7 +299,7 @@ structure PendingDeposit where
   amount : Gwei
   signature : BLSSignature
   slot : Slot
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited PendingDeposit := ⟨{ pubkey := default, withdrawal_credentials := default, amount := default, signature := default, slot := default }⟩
 
@@ -320,7 +320,7 @@ structure PendingPartialWithdrawal where
   validator_index : ValidatorIndex
   amount : Gwei
   withdrawable_epoch : Epoch
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited PendingPartialWithdrawal := ⟨{ validator_index := default, amount := default, withdrawable_epoch := default }⟩
 
@@ -338,7 +338,7 @@ def dec_PendingPartialWithdrawal : Dec PendingPartialWithdrawal := fun h v => do
 structure PendingConsolidation where
   source_index : ValidatorIndex
   target_index : ValidatorIndex
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited PendingConsolidation := ⟨{ source_index := default, target_index := default }⟩
 
@@ -354,7 +354,7 @@ def dec_PendingConsolidation : Dec PendingConsolidation := fun h v => do
 
 structure Uint8 where
   val : Nat
-  deriving DecidableEq, Repr, Inhabited, BEq, Hashable
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 instance : UintC Uint8 := ⟨8, Uint8.val, Uint8.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Uint8 := ⟨fun a b => decide (a.val < b.val)⟩
@@ -364,7 +364,7 @@ abbrev dec_Uint8 : Dec Uint8 := decUintT (.width 8)
 
 structure ExecutionAddress where
   data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited ExecutionAddress := ⟨⟨List.replicate 20 0⟩⟩
 instance : BytesC ExecutionAddress := ⟨20, ExecutionAddress.data, ExecutionAddress.mk, fun _ => rfl, fun _ => rfl⟩
@@ -380,7 +380,7 @@ structure Builder where
   balance : Gwei
   deposit_epoch : Epoch
   withdrawable_epoch : Epoch
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited Builder := ⟨{ pubkey := default, version := default, execution_address := default, balance := default, deposit_epoch := default, withdrawable_epoch := default }⟩
 
@@ -400,7 +400,7 @@ def dec_Builder : Dec Builder := fun h v => do
 
 structure BuilderIndex where
   val : Nat
-  deriving DecidableEq, Repr, Inhabited, BEq, Hashable
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 instance : UintC BuilderIndex := ⟨64, BuilderIndex.val, BuilderIndex.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd BuilderIndex := ⟨fun a b => decide (a.val < b.val)⟩
@@ -412,7 +412,7 @@ structure BuilderPendingWithdrawal where
   fee_recipient : ExecutionAddress
   amount : Gwei
   builder_index : BuilderIndex
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited BuilderPendingWithdrawal := ⟨{ fee_recipient := default, amount := default, builder_index := default }⟩
 
@@ -431,7 +431,7 @@ structure BuilderPendingPayment where
   weight : Gwei
   withdrawal : BuilderPendingWithdrawal
   proposer_index : ValidatorIndex
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited BuilderPendingPayment := ⟨{ weight := default, withdrawal := default, proposer_index := default }⟩
 
@@ -448,7 +448,7 @@ def dec_BuilderPendingPayment : Dec BuilderPendingPayment := fun h v => do
 
 structure KZGCommitment where
   data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited KZGCommitment := ⟨⟨List.replicate 48 0⟩⟩
 instance : BytesC KZGCommitment := ⟨48, KZGCommitment.data, KZGCommitment.mk, fun _ => rfl, fun _ => rfl⟩
@@ -470,7 +470,7 @@ structure ExecutionPayloadBid where
   execution_payment : Gwei
   blob_kzg_commitments : (List KZGCommitment)
   execution_requests_root : Root
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited ExecutionPayloadBid := ⟨{ parent_block_hash := default, parent_block_root := default, block_hash := default, prev_randao := default, fee_recipient := default, gas_limit := default, builder_index := default, slot := default, value := default, execution_payment := default, blob_kzg_commitments := [], execution_requests_root := default }⟩
 
@@ -499,7 +499,7 @@ structure Withdrawal where
   validator_index : ValidatorIndex
   address : ExecutionAddress
   amount : Gwei
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited Withdrawal := ⟨{ index := default, validator_index := default, address := default, amount := default }⟩
 
@@ -562,7 +562,7 @@ structure BeaconState where
   latest_execution_payload_bid : ExecutionPayloadBid
   payload_expected_withdrawals : (List Withdrawal)
   ptc_window : (List (List ValidatorIndex))
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited BeaconState := ⟨{ genesis_time := default, genesis_validators_root := default, slot := default, fork := default, latest_block_header := default, block_roots := (List.replicate 64 default), state_roots := (List.replicate 64 default), historical_roots := [], eth1_data := default, eth1_data_votes := [], eth1_deposit_index := default, validators := [], balances := [], randao_mixes := (List.replicate 64 default), slashings := (List.replicate 64 default), previous_epoch_participation := [], current_epoch_participation := [], justification_bits := (List.replicate 4 default), previous_justified_checkpoint := default, current_justified_checkpoint := default, finalized_checkpoint := default, inactivity_scores := [], current_sync_committee := default, next_sync_committee := default, latest_block_hash := default, next_withdrawal_index := default, next_withdrawal_validator_index := default, historical_summaries := [], deposit_requests_start_index := default, deposit_balance_to_consume := default, exit_balance_to_consume := default, earliest_exit_epoch := default, consolidation_balance_to_consume := default, earliest_consolidation_epoch := default, pending_deposits := [], pending_partial_withdrawals := [], pending_consolidations := [], proposer_lookahead := (List.replicate 16 default), builders := [], next_withdrawal_builder_index := default, execution_payload_availability := (List.replicate 64 default), builder_pending_payments := (List.replicate 16 default), builder_pending_withdrawals := [], latest_execution_payload_bid := default, payload_expected_withdrawals := [], ptc_window := (List.replicate 24 (List.replicate 16 default)) }⟩
 
@@ -626,14 +626,14 @@ structure ExpectedWithdrawals where
   processed_partial_withdrawals_count : Uint64
   processed_builders_sweep_count : Uint64
   processed_sweep_withdrawals_count : Uint64
-  deriving DecidableEq, Repr, Inhabited, BEq
+  deriving DecidableEq, Repr, Inhabited
 
 
 structure WithdrawalRequest where
   source_address : ExecutionAddress
   validator_pubkey : BLSPubkey
   amount : Gwei
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited WithdrawalRequest := ⟨{ source_address := default, validator_pubkey := default, amount := default }⟩
 
@@ -651,7 +651,7 @@ def dec_WithdrawalRequest : Dec WithdrawalRequest := fun h v => do
 structure VoluntaryExit where
   epoch : Epoch
   validator_index : ValidatorIndex
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited VoluntaryExit := ⟨{ epoch := default, validator_index := default }⟩
 
@@ -668,7 +668,7 @@ def dec_VoluntaryExit : Dec VoluntaryExit := fun h v => do
 structure SignedVoluntaryExit where
   message : VoluntaryExit
   signature : BLSSignature
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited SignedVoluntaryExit := ⟨{ message := default, signature := default }⟩
 
@@ -684,7 +684,7 @@ def dec_SignedVoluntaryExit : Dec SignedVoluntaryExit := fun h v => do
 
 structure DomainType where
   data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited DomainType := ⟨⟨List.replicate 4 0⟩⟩
 instance : BytesC DomainType := ⟨4, DomainType.data, DomainType.mk, fun _ => rfl, fun _ => rfl⟩
@@ -695,7 +695,7 @@ abbrev dec_DomainType : Dec DomainType := decBytesT Scope.Id.«DomainType»
 
 structure Domain where
   data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited Domain := ⟨⟨List.replicate 32 0⟩⟩
 instance : BytesC Domain := ⟨32, Domain.data, Domain.mk, fun _ => rfl, fun _ => rfl⟩
@@ -707,7 +707,7 @@ abbrev dec_Domain : Dec Domain := decBytesT Scope.Id.«Domain»
 structure ForkData where
   current_version : Version
   genesis_validators_root : Root
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited ForkData := ⟨{ current_version := default, genesis_validators_root := default }⟩
 
@@ -724,7 +724,7 @@ def dec_ForkData : Dec ForkData := fun h v => do
 structure SigningData where
   object_root : Root
   domain : Domain
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited SigningData := ⟨{ object_root := default, domain := default }⟩
 
@@ -741,7 +741,7 @@ def dec_SigningData : Dec SigningData := fun h v => do
 structure SyncAggregate where
   sync_committee_bits : (List Boolean)
   sync_committee_signature : BLSSignature
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited SyncAggregate := ⟨{ sync_committee_bits := (List.replicate 32 default), sync_committee_signature := default }⟩
 
@@ -758,7 +758,7 @@ def dec_SyncAggregate : Dec SyncAggregate := fun h v => do
 structure SignedBeaconBlockHeader where
   message : BeaconBlockHeader
   signature : BLSSignature
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited SignedBeaconBlockHeader := ⟨{ message := default, signature := default }⟩
 
@@ -775,7 +775,7 @@ def dec_SignedBeaconBlockHeader : Dec SignedBeaconBlockHeader := fun h v => do
 structure ProposerSlashing where
   signed_header_1 : SignedBeaconBlockHeader
   signed_header_2 : SignedBeaconBlockHeader
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited ProposerSlashing := ⟨{ signed_header_1 := default, signed_header_2 := default }⟩
 
@@ -794,7 +794,7 @@ structure PayloadAttestationData where
   slot : Slot
   payload_present : Boolean
   blob_data_available : Boolean
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited PayloadAttestationData := ⟨{ beacon_block_root := default, slot := default, payload_present := default, blob_data_available := default }⟩
 
@@ -814,7 +814,7 @@ structure PayloadAttestation where
   aggregation_bits : (List Boolean)
   data : PayloadAttestationData
   signature : BLSSignature
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited PayloadAttestation := ⟨{ aggregation_bits := (List.replicate 16 default), data := default, signature := default }⟩
 
@@ -833,7 +833,7 @@ structure IndexedPayloadAttestation where
   attesting_indices : (List ValidatorIndex)
   data : PayloadAttestationData
   signature : BLSSignature
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited IndexedPayloadAttestation := ⟨{ attesting_indices := [], data := default, signature := default }⟩
 
@@ -850,7 +850,7 @@ def dec_IndexedPayloadAttestation : Dec IndexedPayloadAttestation := fun h v => 
 
 structure CommitteeIndex where
   val : Nat
-  deriving DecidableEq, Repr, Inhabited, BEq, Hashable
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 instance : UintC CommitteeIndex := ⟨64, CommitteeIndex.val, CommitteeIndex.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd CommitteeIndex := ⟨fun a b => decide (a.val < b.val)⟩
@@ -864,7 +864,7 @@ structure AttestationData where
   beacon_block_root : Root
   source : Checkpoint
   target : Checkpoint
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited AttestationData := ⟨{ slot := default, index := default, beacon_block_root := default, source := default, target := default }⟩
 
@@ -885,7 +885,7 @@ structure IndexedAttestation where
   attesting_indices : (List ValidatorIndex)
   data : AttestationData
   signature : BLSSignature
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited IndexedAttestation := ⟨{ attesting_indices := [], data := default, signature := default }⟩
 
@@ -903,7 +903,7 @@ def dec_IndexedAttestation : Dec IndexedAttestation := fun h v => do
 structure AttesterSlashing where
   attestation_1 : IndexedAttestation
   attestation_2 : IndexedAttestation
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited AttesterSlashing := ⟨{ attestation_1 := default, attestation_2 := default }⟩
 
@@ -922,7 +922,7 @@ structure Attestation where
   data : AttestationData
   signature : BLSSignature
   committee_bits : (List Boolean)
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited Attestation := ⟨{ aggregation_bits := [], data := default, signature := default, committee_bits := (List.replicate 4 default) }⟩
 
@@ -943,7 +943,7 @@ structure DepositData where
   withdrawal_credentials : Bytes32
   amount : Gwei
   signature : BLSSignature
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited DepositData := ⟨{ pubkey := default, withdrawal_credentials := default, amount := default, signature := default }⟩
 
@@ -962,7 +962,7 @@ def dec_DepositData : Dec DepositData := fun h v => do
 structure Deposit where
   proof : (List Bytes32)
   data : DepositData
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited Deposit := ⟨{ proof := (List.replicate 33 default), data := default }⟩
 
@@ -980,7 +980,7 @@ structure BLSToExecutionChange where
   validator_index : ValidatorIndex
   from_bls_pubkey : BLSPubkey
   to_execution_address : ExecutionAddress
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited BLSToExecutionChange := ⟨{ validator_index := default, from_bls_pubkey := default, to_execution_address := default }⟩
 
@@ -998,7 +998,7 @@ def dec_BLSToExecutionChange : Dec BLSToExecutionChange := fun h v => do
 structure SignedBLSToExecutionChange where
   message : BLSToExecutionChange
   signature : BLSSignature
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited SignedBLSToExecutionChange := ⟨{ message := default, signature := default }⟩
 
@@ -1015,7 +1015,7 @@ def dec_SignedBLSToExecutionChange : Dec SignedBLSToExecutionChange := fun h v =
 structure SignedExecutionPayloadBid where
   message : ExecutionPayloadBid
   signature : BLSSignature
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited SignedExecutionPayloadBid := ⟨{ message := default, signature := default }⟩
 
@@ -1035,7 +1035,7 @@ structure DepositRequest where
   amount : Gwei
   signature : BLSSignature
   index : Uint64
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited DepositRequest := ⟨{ pubkey := default, withdrawal_credentials := default, amount := default, signature := default, index := default }⟩
 
@@ -1056,7 +1056,7 @@ structure ConsolidationRequest where
   source_address : ExecutionAddress
   source_pubkey : BLSPubkey
   target_pubkey : BLSPubkey
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited ConsolidationRequest := ⟨{ source_address := default, source_pubkey := default, target_pubkey := default }⟩
 
@@ -1076,7 +1076,7 @@ structure BuilderDepositRequest where
   withdrawal_credentials : Bytes32
   amount : Gwei
   signature : BLSSignature
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited BuilderDepositRequest := ⟨{ pubkey := default, withdrawal_credentials := default, amount := default, signature := default }⟩
 
@@ -1095,7 +1095,7 @@ def dec_BuilderDepositRequest : Dec BuilderDepositRequest := fun h v => do
 structure BuilderExitRequest where
   source_address : ExecutionAddress
   pubkey : BLSPubkey
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited BuilderExitRequest := ⟨{ source_address := default, pubkey := default }⟩
 
@@ -1115,7 +1115,7 @@ structure ExecutionRequests where
   consolidations : (List ConsolidationRequest)
   builder_deposits : (List BuilderDepositRequest)
   builder_exits : (List BuilderExitRequest)
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited ExecutionRequests := ⟨{ deposits := [], withdrawals := [], consolidations := [], builder_deposits := [], builder_exits := [] }⟩
 
@@ -1146,7 +1146,7 @@ structure BeaconBlockBody where
   signed_execution_payload_bid : SignedExecutionPayloadBid
   payload_attestations : (List PayloadAttestation)
   parent_execution_requests : ExecutionRequests
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited BeaconBlockBody := ⟨{ randao_reveal := default, eth1_data := default, graffiti := default, proposer_slashings := [], attester_slashings := [], attestations := [], deposits := [], voluntary_exits := [], sync_aggregate := default, bls_to_execution_changes := [], signed_execution_payload_bid := default, payload_attestations := [], parent_execution_requests := default }⟩
 
@@ -1177,7 +1177,7 @@ structure BeaconBlock where
   parent_root : Root
   state_root : Root
   body : BeaconBlockBody
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited BeaconBlock := ⟨{ slot := default, proposer_index := default, parent_root := default, state_root := default, body := default }⟩
 
@@ -1198,7 +1198,7 @@ structure DepositMessage where
   pubkey : BLSPubkey
   withdrawal_credentials : Bytes32
   amount : Gwei
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited DepositMessage := ⟨{ pubkey := default, withdrawal_credentials := default, amount := default }⟩
 
@@ -1216,12 +1216,12 @@ def dec_DepositMessage : Dec DepositMessage := fun h v => do
 structure BlobParameters where
   epoch : Epoch
   max_blobs_per_block : Uint64
-  deriving DecidableEq, Repr, Inhabited, BEq
+  deriving DecidableEq, Repr, Inhabited
 
 
 structure Uint32 where
   val : Nat
-  deriving DecidableEq, Repr, Inhabited, BEq, Hashable
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 instance : UintC Uint32 := ⟨32, Uint32.val, Uint32.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Uint32 := ⟨fun a b => decide (a.val < b.val)⟩
@@ -1231,7 +1231,7 @@ abbrev dec_Uint32 : Dec Uint32 := decUintT (.width 32)
 
 structure LogsBloom where
   data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited LogsBloom := ⟨⟨List.replicate 256 0⟩⟩
 instance : BytesC LogsBloom := ⟨256, LogsBloom.data, LogsBloom.mk, fun _ => rfl, fun _ => rfl⟩
@@ -1242,7 +1242,7 @@ abbrev dec_LogsBloom : Dec LogsBloom := decBytesT Scope.Id.«LogsBloom»
 
 structure Uint256 where
   val : Nat
-  deriving DecidableEq, Repr, Inhabited, BEq, Hashable
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 instance : UintC Uint256 := ⟨256, Uint256.val, Uint256.mk, fun _ => rfl, fun _ => rfl⟩
 instance : PyOrd Uint256 := ⟨fun a b => decide (a.val < b.val)⟩
@@ -1268,7 +1268,7 @@ structure fulu_ExecutionPayloadHeader where
   withdrawals_root : Root
   blob_gas_used : Uint64
   excess_blob_gas : Uint64
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited fulu_ExecutionPayloadHeader := ⟨{ parent_hash := default, fee_recipient := default, state_root := default, receipts_root := default, logs_bloom := default, prev_randao := default, block_number := default, gas_limit := default, gas_used := default, timestamp := default, extra_data := [], base_fee_per_gas := default, block_hash := default, transactions_root := default, withdrawals_root := default, blob_gas_used := default, excess_blob_gas := default }⟩
 
@@ -1336,7 +1336,7 @@ structure fulu_BeaconState where
   pending_partial_withdrawals : (List PendingPartialWithdrawal)
   pending_consolidations : (List PendingConsolidation)
   proposer_lookahead : (List ValidatorIndex)
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited fulu_BeaconState := ⟨{ genesis_time := default, genesis_validators_root := default, slot := default, fork := default, latest_block_header := default, block_roots := (List.replicate 64 default), state_roots := (List.replicate 64 default), historical_roots := [], eth1_data := default, eth1_data_votes := [], eth1_deposit_index := default, validators := [], balances := [], randao_mixes := (List.replicate 64 default), slashings := (List.replicate 64 default), previous_epoch_participation := [], current_epoch_participation := [], justification_bits := (List.replicate 4 default), previous_justified_checkpoint := default, current_justified_checkpoint := default, finalized_checkpoint := default, inactivity_scores := [], current_sync_committee := default, next_sync_committee := default, latest_execution_payload_header := default, next_withdrawal_index := default, next_withdrawal_validator_index := default, historical_summaries := [], deposit_requests_start_index := default, deposit_balance_to_consume := default, exit_balance_to_consume := default, earliest_exit_epoch := default, consolidation_balance_to_consume := default, earliest_consolidation_epoch := default, pending_deposits := [], pending_partial_withdrawals := [], pending_consolidations := [], proposer_lookahead := (List.replicate 16 default) }⟩
 
@@ -1389,7 +1389,7 @@ def dec_fulu_BeaconState : Dec fulu_BeaconState := fun h v => do
 structure SignedBeaconBlock where
   message : BeaconBlock
   signature : BLSSignature
-  deriving DecidableEq, Repr, BEq
+  deriving DecidableEq, Repr
 
 instance : Inhabited SignedBeaconBlock := ⟨{ message := default, signature := default }⟩
 
@@ -1405,7 +1405,7 @@ def dec_SignedBeaconBlock : Dec SignedBeaconBlock := fun h v => do
 
 structure Bytes1 where
   data : Bytes
-  deriving DecidableEq, Repr, BEq, Hashable
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited Bytes1 := ⟨⟨List.replicate 1 0⟩⟩
 instance : BytesC Bytes1 := ⟨1, Bytes1.data, Bytes1.mk, fun _ => rfl, fun _ => rfl⟩
@@ -1502,7 +1502,7 @@ def WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA : Uint64 := (⟨4096⟩ : Uint64)
 structure BlobScheduleEntry where
   EPOCH : Epoch
   MAX_BLOBS_PER_BLOCK : Uint64
-  deriving DecidableEq, Repr, Inhabited, BEq
+  deriving DecidableEq, Repr, Inhabited
 
 /-- The runtime configuration values that the scope reads. -/
 class Cfg where

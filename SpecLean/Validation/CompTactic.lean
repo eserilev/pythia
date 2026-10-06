@@ -2,6 +2,7 @@ import SpecLean.Validation.LoopTactic
 import SpecLean.Validation.Comp
 import SpecLean.Validation.CompSnap
 import SpecLean.DecodeLemmas
+import SpecLean.Validation.Keep
 
 /-!
 # The tactic step of the comprehension rule (SPEC 9.3)
@@ -129,6 +130,31 @@ theorem snap_len {α : Type} {dec : Value → Option α} {xs : List Value} {ys :
     (hm : xs.mapM dec = some ys) : xs.length = ys.length :=
   ((SpecLean.Encode.mapM_some_iff _ _).mp hm).1.symm
 
+/-- A bound on the length of a readable result: a comprehension keeps at most its items. -/
+def FMLen {ε β : Type} : Except ε (List β) → Nat → Prop
+  | .ok r, n => r.length ≤ n
+  | .error _, _ => True
+
+theorem filterMapM_loop_len {ε α β : Type} (f : α → Except ε (Option β)) :
+    ∀ (l : List α) (acc : List β), FMLen (List.filterMapM.loop f l acc) (l.length + acc.length)
+  | [], acc => by simp [List.filterMapM.loop, FMLen, pure, Except.pure]
+  | a :: l, acc => by
+    simp only [List.filterMapM.loop]
+    rcases hf : f a with e | o
+    · simp [bind, Except.bind, FMLen]
+    · rcases o with _ | b
+      · have := filterMapM_loop_len f l acc
+        simp only [bind, Except.bind]; revert this
+        generalize List.filterMapM.loop f l acc = r; rcases r <;> simp [FMLen] <;> omega
+      · have := filterMapM_loop_len f l (b :: acc)
+        simp only [bind, Except.bind]; revert this
+        generalize List.filterMapM.loop f l (b :: acc) = r; rcases r <;> simp [FMLen] <;> omega
+
+theorem filterMapM_len {ε α β : Type} (f : α → Except ε (Option β)) (l : List α) :
+    FMLen (l.filterMapM f) l.length := by
+  have := filterMapM_loop_len f l []
+  simpa [List.filterMapM] using this
+
 /-- The locals that are not targets keep their values. A definition: `simp` leaves it whole. -/
 def KeepLocals (L' L : Locals) (T : List Name) : Prop := ∀ x, x ∉ T → L' x = L x
 
@@ -236,6 +262,86 @@ theorem seq_item_map {α : Type} {g : α → Value} {h : Heap} {a : Nat} {k : Li
   simp only [iterItem, seqItem_live_eq ho hnb, List.getElem?_map, hy, Option.map_some,
     Except.ok.injEq, Option.some.injEq] at hx
   exact hx.symm
+
+/-! ## Sets of lists -/
+
+section SetRule
+open SpecLean.Rd
+
+theorem keyMatch_uint (h : Heap) (t : UintTy) (x y : Nat) :
+    keyMatch h (.uint t x) (.uint t y) = .ok (decide (x = y)) := by
+  simp [keyMatch, numOf, deepEq, depthBound, cmpInt]
+  split <;> simp_all [resolveUint_self] <;> omega
+
+theorem findKey_map {α : Type} [DecidableEq α] (h : Heap) (E : α → Value)
+    (hE : ∀ a b, keyMatch h (E a) (E b) = .ok (decide (a = b))) (x : α) :
+    ∀ acc : List α, ∃ o, findKey h (E x) (acc.map E) = .ok o ∧ o.isSome = acc.contains x
+  | [] => ⟨none, by simp [findKey]⟩
+  | y :: ys => by
+    obtain ⟨o, ho, hs⟩ := findKey_map h E hE x ys
+    by_cases hxy : x = y
+    · subst hxy; exact ⟨some 0, by simp [findKey, hE, bind, Except.bind, pure, Except.pure]⟩
+    · refine ⟨o.map (· + 1), ?_, ?_⟩
+      · simp [findKey, hE, hxy, bind, Except.bind, ho, pure, Except.pure]
+      · simp [hs, hxy]
+
+theorem dedupe_map_acc {α : Type} [DecidableEq α] (h : Heap) (E : α → Value)
+    (hE : ∀ a b, keyMatch h (E a) (E b) = .ok (decide (a = b))) :
+    ∀ (xs acc : List α), dedupe h (acc.map E) (xs.map E) =
+      .ok ((xs.foldl (fun acc x => if acc.contains x then acc else acc ++ [x]) acc).map E)
+  | [], acc => by simp [dedupe]
+  | x :: xs, acc => by
+    obtain ⟨o, ho, hs⟩ := findKey_map h E hE x acc
+    simp only [List.map_cons, dedupe, bind, Except.bind, ho, List.foldl_cons]
+    by_cases hc : acc.contains x
+    · simp only [hs, hc, if_true]; exact dedupe_map_acc h E hE xs acc
+    · simp only [hs, hc]
+      have := dedupe_map_acc h E hE xs (acc ++ [x])
+      simpa using this
+
+/-- `set(xs)` of a list of encoded values: the readable `dedup`, when the key rule of the
+interpreter is equality of the readable values. -/
+theorem dedupe_map {α : Type} [DecidableEq α] (h : Heap) (E : α → Value)
+    (hE : ∀ a b, keyMatch h (E a) (E b) = .ok (decide (a = b))) (xs : List α) :
+    dedupe h [] (xs.map E) = .ok ((Rd.dedup xs).map E) := by
+  have := dedupe_map_acc h E hE xs []
+  simpa [Rd.dedup] using this
+
+theorem dedup_length_le {α : Type} [BEq α] (xs : List α) : (Rd.dedup xs).length ≤ xs.length := by
+  suffices ∀ acc : List α, (xs.foldl (fun acc x => if acc.contains x then acc else acc ++ [x]) acc).length ≤ acc.length + xs.length by
+    simpa [Rd.dedup] using this []
+  induction xs with
+  | nil => simp
+  | cons x xs ih => intro acc; simp only [List.foldl_cons]; split
+                    · have := ih acc; simp; omega
+                    · have := ih (acc ++ [x]); simp at this ⊢; omega
+
+theorem mem_foldl_dedup {α : Type} [BEq α] {x : α} : ∀ (xs acc : List α),
+    x ∈ xs.foldl (fun acc x => if acc.contains x then acc else acc ++ [x]) acc →
+      x ∈ acc ∨ x ∈ xs
+  | [], _, h => .inl h
+  | y :: ys, acc, h => by
+    simp only [List.foldl_cons] at h
+    split at h
+    · rcases mem_foldl_dedup ys acc h with h | h
+      · exact .inl h
+      · exact .inr (List.mem_cons_of_mem _ h)
+    · rcases mem_foldl_dedup ys _ h with h | h
+      · rcases List.mem_append.1 h with h | h
+        · exact .inl h
+        · simp at h; subst h; exact .inr (List.mem_cons_self ..)
+      · exact .inr (List.mem_cons_of_mem _ h)
+
+theorem mem_of_mem_dedup {α : Type} [BEq α] {x : α} {xs : List α} (hx : x ∈ Rd.dedup xs) :
+    x ∈ xs :=
+  (mem_foldl_dedup xs [] hx).resolve_left (by simp)
+
+/-- An item of a set of uints decodes to the readable item. -/
+theorem decUintT_val {α : Type} [UintC α] (t : UintTy) (h : Heap) (y : α)
+    (hr : UintC.val y < 2 ^ UintC.bits α) : decUintT t h (.uint t (UintC.val y)) = some y := by
+  simp [decUintT, hr, UintC.ofNat_val]
+
+end SetRule
 
 end SpecLean.Validation
 
@@ -410,9 +516,12 @@ elab "rd_comp" kf:num "[" ls:ident,* "]" : tactic => withMainContext do
       (by rd_comp_step [$ls,*]) (fun _ _ _ _ e _ => e) ($fuelS - $kf - 1) 0 $LS $hS
       ⟨rfl, SpecLean.Validation.KeepLocals.refl _ _⟩ (SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›) (by first | omega | (simp <;> omega))))
   evalTactic haveTac
+  let hl := mkIdent `hcomplen
   evalTactic (← `(tactic| (
     rw [show $fuelS - $kf - 1 + $kf + 1 = $fuelS by omega, List.drop_zero] at $hc:ident
-    revert $hc:ident)))
+    have $hl:ident := SpecLean.Validation.filterMapM_len $fS $ysS
+    revert $hc:ident
+    revert $hl:ident)))
   -- Generalize the two sides by the terms themselves: a term that goes back through syntax may
   -- not match the goal (`generalize` finds terms up to instances only).
   let g ← getMainGoal
@@ -422,9 +531,11 @@ elab "rd_comp" kf:num "[" ls:ident,* "]" : tactic => withMainContext do
   let rdI := mkIdent `rdcomp
   let _ := fvs
   evalTactic (← `(tactic| (
-    intro $hc:ident
+    intro $hl:ident $hc:ident
     rcases $rcI:ident with _ | ⟨vals, ⟨⟩ | ⟨⟩, hcomp'⟩ <;> rcases $rdI:ident with _ | bs
-    all_goals simp only [SpecLean.Validation.CompOut] at $hc:ident)))
+    all_goals simp only [SpecLean.Validation.CompOut] at $hc:ident
+    all_goals simp only [SpecLean.Validation.FMLen, List.length_map, List.length_zipIdx,
+      List.length_range] at $hl:ident)))
   -- The kept results: the values are the encodings of the readable items.
   let gs ← getGoals
   let mut out := []
@@ -454,9 +565,12 @@ macro "rd_list_end" : tactic => `(tactic| (
     simp only [SpecLean.Validation.Steps.listRes_ref, SpecLean.Validation.Where.alloc_fst]
     exact ⟨Nat.le_refl _, SpecLean.Validation.Where.objs_alloc_self⟩
   focus
-    intro x hx
-    have := ‹∀ b ∈ _, _› x hx
-    simpa [SpecLean.Rd.UintC.val, SpecLean.Rd.UintC.bits] using this
+    try refine ⟨?_, ?_⟩
+    all_goals first
+      | (intro x hx
+         have := ‹∀ b ∈ _, _› x hx
+         simpa [SpecLean.Rd.UintC.val, SpecLean.Rd.UintC.bits] using this)
+      | exact ‹List.length _ ≤ _›
   focus rd_writes
   focus rd_writes
   focus rd_writes))
@@ -531,3 +645,77 @@ elab "rd_sum" : tactic => withMainContext do
 
 end SpecLean.Validation.Tactic
 
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- `set(xs)` of a list in the heap: the readable `dedup` of its items. -/
+elab "rd_set" : tactic => withMainContext do
+  let t := (← instantiateMVars (← getMainTarget)).consumeMData
+  let some ib := findClosed t (fun e => e.isAppOfArity ``SpecLean.iterBase 2 &&
+      (e.getArg! 1).isAppOfArity ``SpecLean.Value.ref 1)
+    | throwError "rd_set: no set"
+  unless (findClosed t (·.isAppOf ``SpecLean.dedupe)).isSome do throwError "rd_set: no set"
+  let hp := ib.getArg! 0
+  let a := (ib.getArg! 1).getArg! 0
+  -- The list at the reference: its items are the encodings of a readable list.
+  let mut found := none
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let some (_, l, r) := ty.eq? | continue
+    unless l.isAppOfArity ``SpecLean.Heap.objs 2 && (← isDefEq (l.getArg! 0) hp) &&
+      (← isDefEq (l.getArg! 1) a) do continue
+    unless r.isAppOfArity ``Option.some 2 do continue
+    let o := r.getArg! 1
+    unless o.isAppOfArity ``SpecLean.HeapObj.list 4 do continue
+    let xs := o.getArg! 3
+    unless xs.isAppOfArity ``List.map 4 do continue
+    found := some (d.toExpr, xs.getArg! 2, xs.getArg! 3)
+  let some (hobj, E, ys) := found | throwError "rd_set: no list"
+  let (hS, pS, aS, ES, yS) := (← Term.exprToSyntax hobj, ← Term.exprToSyntax hp,
+    ← Term.exprToSyntax a, ← Term.exprToSyntax E, ← Term.exprToSyntax ys)
+  evalTactic (← `(tactic| (
+    rw [show SpecLean.iterBase $pS (.ref $aS) = .ok (List.map $ES $yS) by
+      simp only [SpecLean.iterBase, $hS:term]]
+    simp only [Except.bind_ok']
+    rw [SpecLean.Validation.dedupe_map $pS $ES (fun x y => by
+      simp only [SpecLean.Validation.keyMatch_uint]; cases x; cases y; simp) $yS]
+    simp only [Except.bind_ok'])))
+
+/-- The subterms of `e` that meet `p`. -/
+partial def findAllApps (p : Lean.Expr → Bool) (e : Lean.Expr) (acc : Array Lean.Expr := #[]) :
+    Array Lean.Expr :=
+  let acc := if p e then acc.push e else acc
+  match e with
+  | .app f a => findAllApps p a (findAllApps p f acc)
+  | .lam _ d b _ | .forallE _ d b _ => findAllApps p b (findAllApps p d acc)
+  | .letE _ t v b _ => findAllApps p b (findAllApps p v (findAllApps p t acc))
+  | .mdata _ b | .proj _ _ b => findAllApps p b acc
+  | _ => acc
+
+/-- The length facts of each `dedup` in the goal, for `omega`. -/
+elab "rd_dedup_len" : tactic => withMainContext do
+  let t := (← instantiateMVars (← getMainTarget)).consumeMData
+  let mut seen : Array Lean.Expr := #[]
+  for e in findAllApps (·.isAppOfArity ``SpecLean.Rd.dedup 3) t do
+    if seen.contains e then continue
+    seen := seen.push e
+    let pf := mkAppN (.const ``SpecLean.Validation.dedup_length_le []) e.getAppArgs
+    let g ← getMainGoal
+    let (_, g) ← (← g.assert `hdlen (← inferType pf) pf).intro1P
+    replaceMainGoal [g]
+
+end SpecLean.Validation.Tactic
+
+macro_rules | `(tactic| rd_callhyp) => `(tactic| (rd_dedup_len; omega))
+
+/-- The set of a `set(...)` call: its items decode to the readable `dedup`. -/
+macro_rules | `(tactic| rd_callhyp) => `(tactic| (
+  rd_heap
+  refine ⟨_, rfl, SpecLean.Validation.Decode.mapM_map_of _ (fun x hx => ?_)⟩
+  have hx' := SpecLean.Validation.mem_of_mem_dedup hx
+  have := ‹∀ x ∈ _, _› x hx'
+  exact SpecLean.Validation.decUintT_val _ _ x
+    (by simpa [SpecLean.Rd.UintC.val, SpecLean.Rd.UintC.bits] using this)))

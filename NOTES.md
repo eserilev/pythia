@@ -921,3 +921,34 @@ logic, not SHA-256 or Merkle trees.
 - Decide what you trust before you decide what you prove. Proving library code is the most
   expensive way to gain the least.
 - If you trust a model, trust one model. Two models with an unproved link are worse than either.
+
+### First layer 4 counts (2026-10-06 afternoon)
+
+- The layer 4 generator (`tools/gen_l4.py`) now runs over all 162 functions. The design that
+  worked: one rewrite lemma per syntax node of the denotation, so the kernel never unfolds it, and
+  the same three-line proof for every function.
+- Each function gets three theorems: the denotation equals the readable Lean, a rewrite lemma for
+  its callers, and the end-to-end theorem against the interpreter through the one general
+  soundness theorem.
+- Count: 14, then 23, then 28 "denotation = readable", then 37 end to end. The tactic is at 56.
+- The ceiling is the fragment, not the generator. Only about 51 functions use nothing outside it.
+  The rest use method calls such as `append` (41 functions), list or tuple literals (33), keyword
+  constructors (15), `+=` on a local name (14), `while`, `break` or `continue`. Each of those is a
+  new case in the general theorem.
+- Decision: grow the fragment next, ordered by how many functions each feature unlocks.
+
+Status at 14:00:
+
+- Layer 4: 37 of 161 functions proved end to end (the upgrade is out of scope). Each has the full
+  theorem against the interpreter. Writers carry the `WTree` assumption on their footprint.
+- `+=` on a local name is now in the denotation, with its soundness proof.
+- The key measurement: how many functions stay inside the denotation, callees included. Today 54.
+  Each missing feature raises that ceiling by a known amount: tuples +17, keyword constructors +10,
+  methods such as `append` +7, set and generator comprehensions +2, `while` +1, `break` and
+  `continue` +1. With all of them, the ceiling covers essentially the whole target. So layer 4 has
+  no hard wall, only a list of features with known payoffs.
+- The gap between 37 and 54: loops that need a per-loop induction in the generator, list
+  arguments, the hash oracle, and byte-length invariants.
+- Plan: loop induction in the generator, then tuples, then keyword constructors.
+- Tactic: 56, with the `set(list)` commit waiting on its EF readable check. The `hash_tree_root`
+  oracle and the shared primitives are done on their branches and wait for merge.
