@@ -175,3 +175,18 @@ attribute [rd_simp] scalarV
   cases a <;> cases b <;> simp_all [scalarV, deepEq]
 
 end SpecLean.Validation.Steps
+
+namespace SpecLean.Validation.Steps
+
+open SpecLean
+
+/-- The result of a function that returns a new Python list: a reference to a fresh object that
+holds `xs`. -/
+def ListRes (h h' : Heap) (v : Value) (xs : List Value) : Prop :=
+  ∃ a, v = .ref a ∧ h.next ≤ a ∧ h'.objs a = some (.list .pyList .any none xs)
+
+@[rd_simp] theorem listRes_ref (h h' : Heap) (a : Nat) (xs : List Value) :
+    ListRes h h' (.ref a) xs ↔ h.next ≤ a ∧ h'.objs a = some (.list .pyList .any none xs) := by
+  simp [ListRes]
+
+end SpecLean.Validation.Steps

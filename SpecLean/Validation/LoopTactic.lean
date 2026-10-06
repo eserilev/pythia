@@ -122,6 +122,17 @@ partial def writes (g : MVarId) : TacticM Unit := g.withContext do
     let gs ← evalTacticAt tac g
     unless gs.isEmpty do throwError "rd_writes: refl"
     return
+  -- An allocation: `(h1.alloc o).2`.
+  if h'.isAppOfArity ``Prod.snd 3 && (h'.getArg! 2).isAppOfArity ``SpecLean.Heap.alloc 2 then
+    let h1 := (h'.getArg! 2).getArg! 0
+    let h1s ← Term.exprToSyntax h1
+    let tac ← match kind with
+      | 0 => `(tactic| refine SpecLean.Validation.Where.frame_alloc (h1 := $h1s) ?_ ‹_› ?_)
+      | 1 => `(tactic| refine SpecLean.Validation.Where.fresh_alloc (h1 := $h1s) ?_)
+      | _ => `(tactic| rd_reach)
+    let gs ← evalTacticAt tac g
+    for g' in gs do writes g'
+    return
   unless h'.isAppOfArity ``SpecLean.Heap.set 3 do throwError "rd_writes: not a write"
   let h1 := h'.getArg! 0
   let a := h'.getArg! 1
@@ -129,12 +140,23 @@ partial def writes (g : MVarId) : TacticM Unit := g.withContext do
   let hos ← match ← findObj h1 a with
     | some ho => Term.exprToSyntax ho
     | none => `((by rd_objs))
-  let tac ← match kind with
-    | 0 => `(tactic| refine SpecLean.Validation.Where.frame_set (h1 := $h1s) ?_ (by rd_atfp))
-    | 1 => `(tactic| refine SpecLean.Validation.Where.fresh_set (h1 := $h1s) ?_ $hos)
-    | _ => `(tactic| refine SpecLean.Validation.Where.reach_set (h1 := $h1s) ?_ ?_ $hos (by rd_skel_safe))
-  let gs ← evalTacticAt tac g
-  for g' in gs do writes g'
+  let fresh ← `(tactic| refine SpecLean.Validation.Where.frame_set_fresh (h1 := $h1s) ?_ ‹_›
+      (by simp only [SpecLean.Validation.Where.alloc_fst, SpecLean.Validation.Where.alloc_next,
+        SpecLean.Validation.Where.set_next]; omega))
+  let tacs ← match kind with
+    | 0 => pure [← `(tactic| refine SpecLean.Validation.Where.frame_set (h1 := $h1s) ?_ (by rd_atfp)),
+        fresh]
+    | 1 => pure [← `(tactic| refine SpecLean.Validation.Where.fresh_set (h1 := $h1s) ?_ $hos)]
+    | _ => pure [← `(tactic| refine SpecLean.Validation.Where.reach_set (h1 := $h1s) ?_ ?_ $hos (by rd_skel_safe)),
+        ← `(tactic| rd_reach)]
+  for tac in tacs do
+    let s ← saveState
+    try
+      let gs ← evalTacticAt tac g
+      for g' in gs do writes g'
+      return
+    catch _ => restoreState s
+  throwError "rd_writes: no rule for the write"
 
 elab "rd_writes" : tactic => do writes (← getMainGoal)
 
