@@ -1,5 +1,6 @@
 import SpecLean.Validation.LoopTactic
 import SpecLean.Validation.Comp
+import SpecLean.Validation.CompSnap
 import SpecLean.DecodeLemmas
 
 /-!
@@ -14,6 +15,27 @@ item is proved in the context of the caller, by the steps of the tactic.
 namespace SpecLean.Validation
 
 open SpecLean SpecLean.Encode
+
+/-- A Python set of decoded items: the object is a set, and its elements decode in order. -/
+@[rd_dec] def decSetV {α : Type} (f : Rd.Dec α) : Rd.Dec (List α)
+  | h, .ref a =>
+    match h.objs a with
+    | some (.set xs) => xs.mapM (f h)
+    | _ => none
+  | _, _ => none
+
+/-- An item of a snapshot whose values decode to the readable items. -/
+theorem snap_item {α : Type} {dec : Value → Option α} {xs : List Value} {ys : List α} {i : Nat}
+    {x : Value} {y : α} (hm : xs.mapM dec = some ys) (hy : ys[i]? = some y)
+    (hx : xs[i]? = some x) : dec x = some y := by
+  have hlen := (SpecLean.Encode.mapM_some_iff _ _).mp hm
+  have := hlen.2 i x hx
+  rw [hy] at this
+  exact this
+
+theorem snap_len {α : Type} {dec : Value → Option α} {xs : List Value} {ys : List α}
+    (hm : xs.mapM dec = some ys) : xs.length = ys.length :=
+  ((SpecLean.Encode.mapM_some_iff _ _).mp hm).1.symm
 
 /-- The locals that are not targets keep their values. A definition: `simp` leaves it whole. -/
 def KeepLocals (L' L : Locals) (T : List Name) : Prop := ∀ x, x ∉ T → L' x = L x
@@ -193,6 +215,11 @@ macro "rd_comp_step" "[" ls:ident,* "]" : tactic => `(tactic| (
      rd_split_hyps)
   | (have hxe := SpecLean.Validation.seq_item_map ‹_› (by intro hc; first | cases hc.1 | cases hc.2) hy hx
      subst hxe)
+  | (have hdec := SpecLean.Validation.snap_item ‹_› hy hx
+     have hdecc := hdec
+     simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def,
+       Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hdec
+     rd_split_hyps)
   | skip
   unfold SpecLean.Validation.compItem
   unfold SpecLean.Validation.KeepLocals at hL
@@ -243,11 +270,22 @@ elab "rd_comp" kf:num "[" ls:ident,* "]" : tactic => withMainContext do
   let src := a[9]!
   let some live := (if src.isAppOfArity ``SpecLean.IterSrc.enum 1 || src.isAppOfArity ``SpecLean.IterSrc.seq 1
       then some (src.getArg! 0) else none) | throwError "rd_comp: source {src}"
-  unless live.isAppOfArity ``SpecLean.Seq.live 1 do throwError "rd_comp: not a live list"
+  let snap := live.isAppOfArity ``SpecLean.Seq.snap 1 && src.isAppOf ``SpecLean.IterSrc.seq
+  unless live.isAppOfArity ``SpecLean.Seq.live 1 || snap do throwError "rd_comp: source {src}"
   let aS ← s (live.getArg! 0)
   let itemS ← if src.isAppOf ``SpecLean.IterSrc.enum then `(SpecLean.enumItem i x) else `(x)
   let hc := mkIdent `hcomp
   let gfpI := mkIdent `gfp
+  if snap then
+    evalTactic (← `(tactic| (
+      have $hc:ident := SpecLean.Validation.comp_snap_sim $envS $tS $ifsS $eltS $aS $kf $ysS
+        (by first | exact SpecLean.Validation.snap_len ‹_› | (simp <;> omega)) $fS $ES
+        (gfp := $gfpI) (fpf := []) (vs := $vsS) (by simp) ‹_›
+        (fun _ L' h' => h' = $hS ∧ SpecLean.Validation.KeepLocals L' $LS $TS)
+        (by rd_comp_step [$ls,*]) (fun _ _ _ _ e _ => e) ($fuelS - $kf - 1) 0 $LS $hS
+        ⟨rfl, SpecLean.Validation.KeepLocals.refl _ _⟩
+        (SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›) (by first | omega | (simp <;> omega)))))
+  else
   evalTactic (← `(tactic| (
     have $hc:ident := SpecLean.Validation.comp_sim $envS $tS $ifsS $eltS $srcS $kf $ysS $fS $ES
       (gfp := $gfpI) (fpf := []) (vs := $vsS) (by simp) ‹_›
@@ -261,7 +299,8 @@ elab "rd_comp" kf:num "[" ls:ident,* "]" : tactic => withMainContext do
         rw [hq.1]
         simp [iterItem, SpecLean.Validation.seqItem_live_none (a := $aS) ⟨_, _, _, _, ‹_›, by first | omega | (simp <;> omega)⟩ hi])
       (by rd_comp_step [$ls,*]) (fun _ _ _ _ e _ => e) ($fuelS - $kf - 1) 0 $LS $hS
-      ⟨rfl, SpecLean.Validation.KeepLocals.refl _ _⟩ (SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›) (by first | omega | (simp <;> omega))
+      ⟨rfl, SpecLean.Validation.KeepLocals.refl _ _⟩ (SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›) (by first | omega | (simp <;> omega)))))
+  evalTactic (← `(tactic| (
     rw [show $fuelS - $kf - 1 + $kf + 1 = $fuelS by omega, List.drop_zero] at $hc:ident
     revert $hc:ident
     generalize $(← s ci) = rcomp
