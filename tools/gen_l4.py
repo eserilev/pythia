@@ -239,7 +239,7 @@ class Unsupported(Exception):
 # ---------------------------------------------------------------------------
 # Encodings of arguments and results
 
-def param(m, i, pn, pt, sub=None):
+def param(m, i, pn, pt, sub=None, isub=False):
     """(binder, root DV, readable argument) of parameter `pn : pt`. `sub` is the class of the
     value that a caller passes to a width class parameter."""
     v = "a_" + pn
@@ -250,6 +250,8 @@ def param(m, i, pn, pt, sub=None):
         return "(%s : Nat)" % v, "(.leaf (.uint %s %s))" % (ty, v), "⟨%s⟩" % v
     if pt == "Bool":
         return "(%s : Bool)" % v, "(.leaf (.bool %s))" % v, v
+    if pt == "Int" and isub and sub:
+        return "(%s : Nat)" % v, "(.leaf (.uint %s %s))" % (m.uint_ty(sub), v), "(%s : Int)" % v
     if pt == "Int":
         return "(%s : Int)" % v, "(.leaf (.int %s))" % v, v
     if pt in m.bytes:
@@ -307,8 +309,10 @@ OPEN = """
 open SpecLean SpecLean.Encode SpecLean.Layer4 SpecLean.Rd SpecLean.Rd.Gen SpecLean.Layer4.GenSteps
 
 attribute [local instance high] LibModel.toLibValues
+attribute [local instance] Cfg.default
 
 set_option linter.unusedSimpArgs false
+set_option linter.unusedSectionVars false
 """
 
 
@@ -329,6 +333,10 @@ def classes_file(m):
     for c in sorted(m.bytes):
         out.append("@[l4_simp] theorem bd_%s (y : %s) : BytesC.data y = y.data :=\n  Eq.trans rfl rfl" % (c, c))
         out.append("@[l4_simp] theorem bl_%s : BytesC.len %s = %d :=\n  Eq.trans rfl rfl" % (c, c, m.bytes[c]))
+    cfg = m.rd[m.rd.index("def Cfg.default : Cfg where"):]
+    cfg = cfg[:cfg.index("\n\n")]
+    for f, v in re.findall(r"^  (\w+) := (.+)$", cfg, re.M):
+        out.append("@[l4_simp] theorem cfg_%s : @Cfg.%s Cfg.default = %s := Eq.trans rfl rfl" % (f, f, v))
     out.append("")
     for n in m.rep_order:
         out.append("/-- The children of the decoded tree of a `%s`. -/" % n)
@@ -412,7 +420,7 @@ def variants(m, name):
     return [c for c in sorted(m.uint) if m.uint[c] == w and (m.uint_ty(c) or "").startswith("(.nominal")]
 
 
-def candidate(m, name, proved, sub=None):
+def candidate(m, name, proved, sub=None, isub=False):
     """The theorems of `name` (its `_den` and `_call`) and its fuel, or Unsupported. `proved` maps
     each proved function to its fuel."""
     if name not in m.sigs:
@@ -428,7 +436,7 @@ def candidate(m, name, proved, sub=None):
             raise Unsupported("callee " + c)
     bs, roots, rds, xs = [], [], [], []
     for i, (pn, pt) in enumerate(params):
-        b, r, a = param(m, i, pn, pt, sub)
+        b, r, a = param(m, i, pn, pt, sub, isub)
         bs.append(b)
         roots.append(r)
         rds.append(a)
@@ -445,7 +453,7 @@ def candidate(m, name, proved, sub=None):
     else:
         enc = result(m, rt, sub)
         rs_out = None
-    tag = "_" + sub if sub else ""
+    tag = ("_" + sub if sub else "") + ("_i" if isub else "")
     D = depth(f["body"]) + 4 + max([proved[c] + 2 for c in m.callees(name)] + [0])
     rs = "[%s]" % ", ".join(roots)
     rs_out = rs_out or rs
@@ -588,10 +596,11 @@ def main():
                 fails[n] = "unsupported: " + str(e)
                 continue
             for c in variants(m, n):
-                try:
-                    cands[n + "@" + c] = candidate(m, n, proved, c)
-                except Unsupported:
-                    pass
+                for isub in ([False, True] if any(t == "Int" for _, t in m.sigs[n][0]) else [False]):
+                    try:
+                        cands[n + "@" + c + ("i" if isub else "")] = candidate(m, n, proved, c, isub)
+                    except Unsupported:
+                        pass
         print("round %d: %d candidates" % (rnd, len(cands)), flush=True)
         with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
             futs = {ex.submit(check, pre + t + "\nend SpecLean.Layer4.Gen\n", n): n for n, (t, _) in cands.items()}

@@ -13,8 +13,10 @@ namespace SpecLean.Layer4.Gen
 open SpecLean SpecLean.Encode SpecLean.Layer4 SpecLean.Rd SpecLean.Rd.Gen SpecLean.Layer4.GenSteps
 
 attribute [local instance high] LibModel.toLibValues
+attribute [local instance] Cfg.default
 
 set_option linter.unusedSimpArgs false
+set_option linter.unusedSectionVars false
 
 /-- Every path of length at most 6 under a root of class `ty`. -/
 def fpAll (ty : Name) : Footprint :=
@@ -200,6 +202,23 @@ def fpsGen : Name → Footprint
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_Version : BytesC.len Version = 4 :=
   Eq.trans rfl rfl
+@[l4_simp] theorem cfg_BLOB_SCHEDULE : @Cfg.BLOB_SCHEDULE Cfg.default = [] := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_CAPELLA_FORK_VERSION : @Cfg.CAPELLA_FORK_VERSION Cfg.default = (⟨[3, 0, 0, 1]⟩ : Version) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_CHURN_LIMIT_QUOTIENT_GLOAS : @Cfg.CHURN_LIMIT_QUOTIENT_GLOAS Cfg.default = (⟨16⟩ : Uint64) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_CONSOLIDATION_CHURN_LIMIT_QUOTIENT : @Cfg.CONSOLIDATION_CHURN_LIMIT_QUOTIENT Cfg.default = (⟨32⟩ : Uint64) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_EJECTION_BALANCE : @Cfg.EJECTION_BALANCE Cfg.default = (⟨16000000000⟩ : Gwei) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_ELECTRA_FORK_EPOCH : @Cfg.ELECTRA_FORK_EPOCH Cfg.default = (⟨18446744073709551615⟩ : Epoch) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_GENESIS_FORK_VERSION : @Cfg.GENESIS_FORK_VERSION Cfg.default = (⟨[0, 0, 0, 1]⟩ : Version) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_GLOAS_FORK_EPOCH : @Cfg.GLOAS_FORK_EPOCH Cfg.default = (⟨18446744073709551615⟩ : Epoch) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_GLOAS_FORK_VERSION : @Cfg.GLOAS_FORK_VERSION Cfg.default = (⟨[7, 0, 0, 1]⟩ : Version) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_INACTIVITY_SCORE_BIAS : @Cfg.INACTIVITY_SCORE_BIAS Cfg.default = (⟨4⟩ : Uint64) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_INACTIVITY_SCORE_RECOVERY_RATE : @Cfg.INACTIVITY_SCORE_RECOVERY_RATE Cfg.default = (⟨16⟩ : Uint64) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_MAX_BLOBS_PER_BLOCK_ELECTRA : @Cfg.MAX_BLOBS_PER_BLOCK_ELECTRA Cfg.default = (⟨9⟩ : Uint64) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS : @Cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS Cfg.default = (⟨128000000000⟩ : Gwei) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_MIN_BUILDER_WITHDRAWABILITY_DELAY : @Cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY Cfg.default = (⟨2⟩ : Epoch) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA : @Cfg.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA Cfg.default = (⟨64000000000⟩ : Gwei) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_MIN_VALIDATOR_WITHDRAWABILITY_DELAY : @Cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY Cfg.default = (⟨256⟩ : Epoch) := Eq.trans rfl rfl
+@[l4_simp] theorem cfg_SHARD_COMMITTEE_PERIOD : @Cfg.SHARD_COMMITTEE_PERIOD Cfg.default = (⟨64⟩ : Epoch) := Eq.trans rfl rfl
 
 /-- The children of the decoded tree of a `Builder`. -/
 def kids_Builder (x : Builder) : List DV :=

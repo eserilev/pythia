@@ -18,6 +18,8 @@ variable [LibModel]
 
 attribute [local instance high] LibModel.toLibValues
 
+set_option maxRecDepth 4096
+
 variable (env : Env) (fps : Name → Footprint) (n : Nat) (fp : Footprint) (s : DSt)
 
 section expr
@@ -115,11 +117,16 @@ theorem s_callStep (e : Expr) :
       | some (g, args) =>
         DM.bind (argsOf ((den env fps (n + 1)).expr fp s) args) fun rs =>
           dCallW env fps (den env fps (n + 1)).fn fp s g rs
-      | none => ((den env fps (n + 2)).expr fp s e).map (·.map (·, s.roots)) := by
+      | none => DM.bind ((den env fps (n + 2)).expr fp s e) fun r => .ok (r, s.roots) := by
   rw [den_call]; show (match n + 1, callHead env s e with
     | _ + 1, some (g, args) => _
     | _, _ => _) = _
-  cases callHead env s e <;> rfl
+  cases callHead env s e with
+  | some _ => rfl
+  | none =>
+    show Option.map _ (exprStep env fps (n + 1) (den env fps (n + 1)) fp s e) = _
+    rw [← den_expr]
+    rcases (den env fps (n + 2)).expr fp s e with _ | ⟨_ | _⟩ <;> rfl
 
 end call
 
@@ -396,6 +403,16 @@ theorem natCast_lt_zero (n : Nat) : ((n : Int) < 0) = False := by
   · intro h; omega
   · intro h; exact h.elim
 
+theorem exm_ok {ε α β : Type} (a : α) (f : α → β) : Except.map f (.ok a : Except ε α) = .ok (f a) :=
+  Eq.trans rfl rfl
+theorem exm_err {ε α β : Type} (e : ε) (f : α → β) : Except.map f (.error e : Except ε α) = .error e :=
+  Eq.trans rfl rfl
+
+/-- A call inside an expression at statement level: the pairing with the trees moves inside. -/
+theorem omap_bind {α β γ : Type} (g : β → γ) (x : DM α) (k : α → DM β) :
+    Option.map (Except.map g) (DM.bind x k) = DM.bind x fun a => Option.map (Except.map g) (k a) := by
+  rcases x with _ | ⟨e | a⟩ <;> rfl
+
 theorem dmb_none {α β : Type} (f : α → DM β) : DM.bind none f = none := Eq.trans rfl rfl
 
 end push
@@ -488,6 +505,31 @@ theorem dco_uint (env : Env) (b : Bool) (u : UintTy) (v : Value) (hv : ∀ a, v 
   generalize (if b = true then coerceField (.uint u) v else coerceElem (.uint u) v) = r
   cases r <;> rfl
 
+theorem coerceH_flat (env : Env) (b : Bool) (d : Nat) (h : Heap) (t : SszTy) (v : Value)
+    (ht : ∀ ty, t ≠ .container ty) (hl : ∀ k e l, t ≠ .list k e l) (ha : t ≠ .any)
+    (hv : ∀ a, v ≠ .ref a) (hv' : ∀ xs, v ≠ .tuple xs) :
+    Ssz.coerceH env b (d + 1) h t v =
+      (fun x => (x, h)) <$> (if b then coerceField t v else coerceElem t v) := by
+  rw [Ssz.coerceH.eq_def]
+  cases t <;> first
+    | exact absurd rfl (ht _) | exact absurd rfl (hl _ _ _) | exact absurd rfl ha
+    | (cases v <;> first | exact absurd rfl (hv _) | exact absurd rfl (hv' _) |
+        (cases b <;> simp <;> rfl))
+
+/-- A written flat value into a flat field or element. -/
+theorem dco_flat (env : Env) (b : Bool) (t : SszTy) (v : Value)
+    (ht : ∀ ty, t ≠ .container ty) (hl : ∀ k e l, t ≠ .list k e l) (ha : t ≠ .any)
+    (hv : ∀ a, v ≠ .ref a) (hv' : ∀ xs, v ≠ .tuple xs) :
+    @dCoerce Ssz.model env b t v = lift (if b then coerceField t v else coerceElem t v) := by
+  have hc : @coerceWith Ssz.model env b Heap.empty t v =
+      (fun x => (x, Heap.empty)) <$> (if b then coerceField t v else coerceElem t v) := by
+    cases t <;> first | exact absurd rfl ha | exact absurd rfl (ht _) | exact absurd rfl (hl _ _ _) |
+      simp only [coerceWith, LibModel.coerce, Ssz.coerce, depthBound,
+        coerceH_flat env b 63 Heap.empty _ v ht hl ha hv hv']
+  simp only [dCoerce, hc]
+  generalize (if b = true then coerceField t v else coerceElem t v) = r
+  cases r <;> rfl
+
 end model
 
 section env
@@ -528,16 +570,16 @@ macro_rules
       argsOf, dCallRO, dCallW, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
       Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,
       Validation.Steps.construct_uint_int, Validation.Steps.construct_uint_uint,
-      Validation.Steps.construct_uint_boolean, Except.map, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, cv_boolean, tv_bool,
+      Validation.Steps.construct_uint_boolean, exm_ok, exm_err, omap_bind, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, cv_boolean, tv_bool,
       tv_boolean, tv_uint, tv_int, tv_none, tv_bytes, uv_neg, uv_inv, uv_negi, iv_uint, iv_int,
       pyCmp, cmpF, cmpOf, cmpInt, boolOf, List.isEmpty_cons,
       List.isEmpty_nil, dAttr, DSt.deref, subAt, DV.kids, ofChild, List.nil_append,
-      List.cons_append, dIndex, isByteList, normIndex, List.getElem?_map,
-      List.length_map, Option.bind_some, dBuiltin, dco_uint, implies_true, coerceField, coerceElem,
+      List.cons_append, dIndex, isByteList, normIndex, List.getElem?_map, List.getElem_map,
+      List.length_map, Option.bind_some, dBuiltin, dco_flat, implies_true, coerceField, coerceElem,
       UintTy.subOf, dWriteD, dWrite, fpOk, rootIs, matchesB, leafAt, updAt, setAt, List.any_cons,
       List.any_nil, Bool.or_false, Bool.or_true, Bool.false_or, Bool.true_or, beq_self_eq_true, Nat.reduceBEq, List.set_cons_zero, List.set_cons_succ,
-      Except.map, coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
-      false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.pyIndex, augStep,
+      coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
+      false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
@@ -556,16 +598,16 @@ macro_rules
       argsOf, dCallRO, dCallW, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
       Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,
       Validation.Steps.construct_uint_int, Validation.Steps.construct_uint_uint,
-      Validation.Steps.construct_uint_boolean, Except.map, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, cv_boolean, tv_bool,
+      Validation.Steps.construct_uint_boolean, exm_ok, exm_err, omap_bind, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, cv_boolean, tv_bool,
       tv_boolean, tv_uint, tv_int, tv_none, tv_bytes, uv_neg, uv_inv, uv_negi, iv_uint, iv_int,
       pyCmp, cmpF, cmpOf, cmpInt, boolOf, List.isEmpty_cons,
       List.isEmpty_nil, dAttr, DSt.deref, subAt, DV.kids, ofChild, List.nil_append,
-      List.cons_append, dIndex, isByteList, normIndex, List.getElem?_map,
-      List.length_map, Option.bind_some, dBuiltin, dco_uint, implies_true, coerceField, coerceElem,
+      List.cons_append, dIndex, isByteList, normIndex, List.getElem?_map, List.getElem_map,
+      List.length_map, Option.bind_some, dBuiltin, dco_flat, implies_true, coerceField, coerceElem,
       UintTy.subOf, dWriteD, dWrite, fpOk, rootIs, matchesB, leafAt, updAt, setAt, List.any_cons,
       List.any_nil, Bool.or_false, Bool.or_true, Bool.false_or, Bool.true_or, beq_self_eq_true, Nat.reduceBEq, List.set_cons_zero, List.set_cons_succ,
-      Except.map, coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
-      false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.pyIndex, augStep,
+      coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
+      false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
 
 open Lean Meta Elab Tactic in
