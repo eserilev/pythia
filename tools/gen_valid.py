@@ -139,6 +139,14 @@ class Gen:
             return f"({x} : Bool)", f"(.boolean {x})", f"(⟨{x}⟩ : Boolean)", x
         if k == "bytes":
             return f"({x} : List UInt8)", f"(.bytes 0 {x})", x, x
+        if k == "list":
+            # A list argument is an object of the heap, as a container is.
+            d = self.em.dec_of(t)
+            if d is None:
+                raise Unsupported("argument type list")
+            lt = self.em.lean_param(t)
+            return (f"(r{j} : Nat) ({x} : {lt}) (hy{j} : {d} h (.ref r{j}) = some {x})",
+                    f"(.ref r{j})", x, f"r{j} {x} hy{j}")
         raise Unsupported(f"argument type {k}")
 
     def expect(self, t, rv="r"):
@@ -251,6 +259,8 @@ class Gen:
             if t[0] == "container":
                 self.decs_of(t[1], decs)
                 hys.append(f"hy{j}")
+            elif t[0] == "list":
+                hys.append(f"hy{j}")
         inv = ""
         if hys and callees:
             # The callees need the decode facts of the arguments: keep a copy of each.
@@ -333,6 +343,8 @@ def main():
     ap.add_argument("--only", default=None)
     ap.add_argument("--jobs", type=int, default=2)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--emit", default=None, help="write the candidate of one function to --out "
+                    "and stop (for work on the tactic)")
     args = ap.parse_args()
     commit, spec_object, sources, spec, fns, sources_text, _ = S.load_scope(
         args.rev, "gloas", args.preset, translate.scope_roots())
@@ -394,6 +406,11 @@ def main():
     encs_all = [f"enc_{names.cls(c)}" for c in b.order if T.is_uint_cls(c) or T.is_bytesn_cls(c)]
     PRELUDE += ("\nattribute [local rd_simp] encUint encBytesN encBoolean " + " ".join(encs_all) +
                 "\n")
+    if args.emit:
+        n = args.emit
+        text = g.theorem(n, em.sigs[n], fns[n], [], 64)
+        Path(args.out).write_text(CALLS_NEXT_HEADER + PRELUDE + text + FOOTER)
+        return
     base = ("SpecLean.Validation.Gen.Local" if args.tier == "leaves" else
             "SpecLean.Validation.Gen.Leaves")
     r = subprocess.run(["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p",

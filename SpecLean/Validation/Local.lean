@@ -99,6 +99,39 @@ theorem mapM_same_of {α : Type} {f : Dec α} [LocalDec f] {h h' : Heap} {xs : L
     xs.mapM (f h') = some ys := by
   rw [mapM_same hall, hm]
 
+/-- A write to the object of one item of a decoded list: the other items read the same, and the
+written item decodes again. The other items reach no object at the written address. -/
+theorem mapM_set_item {α : Type} {f : Dec α} [LocalDec f] {h : Heap} {a : Nat} {o : HeapObj} :
+    ∀ {xs : List Value} {ys : List α} {j : Nat}, xs.mapM (f h) = some ys →
+      xs[j]? = some (.ref a) →
+      (∀ k x, xs[k]? = some x → k ≠ j → ∀ q c, follow h x q = some (.ref c) → c ≠ a) →
+      xs.mapM (f (h.set a o)) = (f (h.set a o) (.ref a)).map (ys.set j ·)
+  | [], ys, j, _, hj, _ => by simp at hj
+  | x :: xs, ys, j, hm, hj, hother => by
+    simp only [List.mapM_cons, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at hm
+    obtain ⟨y, hy, ys', hys', rfl⟩ := hm
+    have same : ∀ (x' : Value), (∀ q c, follow h x' q = some (.ref c) → c ≠ a) →
+        Same h (h.set a o) x' := fun x' hx q c e => by
+      rw [Heap.set_objs, if_neg (hx q c e)]
+    cases j with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hj
+      subst hj
+      have hrest : xs.mapM (f (h.set a o)) = some ys' := by
+        rw [mapM_same (fun k x' hk => same x' (hother (k + 1) x' (by simpa using hk) (by omega))),
+          hys']
+      simp only [List.mapM_cons, Option.bind_eq_bind, hrest, Option.pure_def]
+      cases f (h.set a o) (.ref a) <;> simp
+    | succ j =>
+      simp only [List.getElem?_cons_succ] at hj
+      have hx : f (h.set a o) x = some y := by
+        rw [LocalDec.local_same (f := f) h (h.set a o) x (same x (hother 0 x rfl (by omega))), hy]
+      have ih := mapM_set_item (o := o) hys' hj (fun k x' hk hkj => hother (k + 1) x'
+        (by simpa using hk) (by omega))
+      simp only [List.mapM_cons, Option.bind_eq_bind, hx, Option.bind_some, ih, Option.pure_def]
+      cases f (h.set a o) (.ref a) <;> simp
+
 end SpecLean.Validation.Local
 
 open SpecLean.Validation.Local SpecLean.Validation.Decode in

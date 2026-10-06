@@ -496,12 +496,13 @@ def proveNe (g : MVarId) : TacticM Bool := g.withContext do
           (k := $(Syntax.mkNumLit (toString kx))) (pat := $(← Term.exprToSyntax pat))
           (by simp) (by first | (apply SpecLean.Validation.Where.rootTy_of rfl; assumption) | simp_all)
           (by simp [SpecLean.Encode.Matches]) $(← Term.exprToSyntax px)
-          $(← Term.exprToSyntax py) (by simp))
+          $(← Term.exprToSyntax py)
+          (by first | (simp; done) | (simp; omega) | (rintro ⟨-, hq⟩; simp at hq; omega) | (rintro ⟨-, hq⟩; simp at hq; exact absurd hq.1 ‹_›)))
         let pf ← Term.withoutErrToSorry do
           let pf ← Term.elabTermEnsuringType stx (← inferType g')
           Term.synthesizeSyntheticMVarsNoPostponing
           instantiateMVars pf
-        if pf.hasExprMVar || pf.hasSorry then throwError "no proof"
+        if pf.hasExprMVar || pf.hasSorry then throwError m!"no proof: {pf}"
         let pf ← if flip then pure pf else mkAppM ``Ne.symm #[pf]
         g.assign pf
         let _ := (x, y, ky, qy, qx)
@@ -555,6 +556,7 @@ macro "rd_disch" : tactic => `(tactic| first
   | (simp only [SpecLean.Validation.Where.set_next, SpecLean.Validation.Where.alloc_next,
       SpecLean.Validation.Where.alloc_fst]; rd_ne; done)
   | (intro j x hj q c hf; rd_same; done)
+  | (intro k x hk hkj q c hf; rd_ne; done)
   | assumption
   | decide
   | omega
@@ -608,6 +610,7 @@ elab "rd_heap" : tactic => withMainContext do
     SpecLean.Validation.Where.objs_set_ne, SpecLean.Validation.Where.objs_set_self, rd_dec,
     SpecLean.Rd.containerFieldsT, SpecLean.Rd.decUintT, SpecLean.Rd.decBytesT,
     SpecLean.Rd.decBooleanV, SpecLean.Rd.decListT, SpecLean.Validation.Local.mapM_same_of,
+    SpecLean.Validation.Local.mapM_set_item,
     SpecLean.Validation.Decode.mapM_map_of, SpecLean.Validation.Decode.mapM_set_map,
     List.mapM_append, List.mapM_cons, List.mapM_nil, rd_dec,
     List.getElem?_set_ne, List.getElem?_set_self', Option.map_eq_map, Option.map_some,
@@ -1086,3 +1089,88 @@ elab "rd_range" : tactic => withMainContext do
 end SpecLean.Validation.Tactic
 
 macro_rules | `(tactic| rd_finish) => `(tactic| (rd_range; omega))
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- An item `xs[i]` of a list that a fact decodes: add the decode of the item, split into facts. -/
+elab "rd_items" : tactic => withMainContext do
+  let g ← getMainGoal
+  let t ← instantiateMVars (← g.getType)
+  let some x := findClosed t (fun e => e.isAppOfArity ``GetElem.getElem 8 &&
+      (e.getArg! 0).isAppOf ``List) | throwError "rd_items: none"
+  do
+    let xs := x.getArg! 5
+    let i := x.getArg! 6
+    let p := x.getArg! 7
+    -- Only once: a fact that mentions the item means it is decoded already.
+    for d in ← getLCtx do
+      if d.isImplementationDetail then continue
+      let ty ← instantiateMVars d.type
+      if (ty.find? fun e => e.isAppOfArity ``GetElem.getElem 8 && e.getArg! 5 == xs &&
+          e.getArg! 6 == i).isSome then
+        throwError "rd_items: decoded already"
+    for d in ← getLCtx do
+      if d.isImplementationDetail then continue
+      let ty ← instantiateMVars d.type
+      let_expr Eq _ lhs _ := ty | continue
+      unless lhs.isAppOf ``List.mapM && lhs.appArg! == xs do continue
+      let pf ← mkAppM ``SpecLean.Validation.Decode.mapM_getElem_some #[d.toExpr, i, p]
+      let pfs ← Term.exprToSyntax pf
+      let gs ← evalTacticAt (← `(tactic| (
+        obtain ⟨_, _, hitem⟩ := $pfs:term
+        simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp,
+          Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left',
+          exists_eq_right] at hitem
+        rd_split_hyps))) g
+      replaceMainGoal gs
+      return
+  throwError "rd_items: none"
+
+end SpecLean.Validation.Tactic
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- Replace a fact `x = S.mk a₁ … aₙ` about the variable `x` by the facts `x.fᵢ = aᵢ`, so that
+`x` stays a variable: the proofs of loops keep the readable state small. -/
+def projFacts (g : MVarId) (x : FVarId) : MetaM MVarId := g.withContext do
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let_expr Eq T lhs0 rhs0 := ty | continue
+    let (lhs, rhs, hx) ← if lhs0 == mkFVar x then pure (lhs0, rhs0, d.toExpr)
+      else if rhs0 == mkFVar x then pure (rhs0, lhs0, ← mkEqSymm d.toExpr)
+      else continue
+    let some sn := T.getAppFn.constName? | continue
+    unless isStructure (← getEnv) sn do continue
+    let fields := getStructureFields (← getEnv) sn
+    let some ctor := (getStructureCtor (← getEnv) sn).name |> some | continue
+    unless rhs.isAppOf ctor do continue
+    let args := rhs.getAppArgs
+    let nparams := args.size - fields.size
+    let mut g := g
+    for j in [0:fields.size] do
+      let some proj := getProjFnForField? (← getEnv) sn fields[j]! | continue
+      let lhsj ← mkAppM proj #[lhs]
+      let fn ← withLocalDeclD `s T fun s => do mkLambdaFVars #[s] (← mkAppM proj #[s])
+      let pf ← mkCongrArg fn hx
+      let tyj ← mkEq lhsj args[nparams + j]!
+      let (_, g') ← (← g.assert `hproj tyj pf).intro1P
+      g := g'
+    return ← g.clear d.fvarId
+  return g
+
+/-- `rd_split_hyps`, but the variable `x` keeps its name: its facts are per field. -/
+elab "rd_split_keep" x:ident : tactic => withMainContext do
+  let xn := (← getLocalDeclFromUserName x.getId).userName
+  let g ← splitHyps (← getMainGoal)
+  let xv ← g.withContext do return (← getLocalDeclFromUserName xn).fvarId
+  let g ← projFacts g xv
+  replaceMainGoal [g]
+  evalTactic (← `(tactic| try subst_vars))
+  replaceMainGoal [← addLengths (← getMainGoal)]
+
+end SpecLean.Validation.Tactic

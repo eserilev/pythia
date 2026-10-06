@@ -260,3 +260,17 @@ theorem ite_lt_of {α : Type} {n m : Nat} {a b : α} (h : n < m) : (if n < m the
   if_pos h
 
 end SpecLean.Validation.Decode
+
+namespace SpecLean.Validation.Decode
+
+/-- An item of a decoded list, at an index below the length: it decodes to the item of the
+decoded list. -/
+theorem mapM_getElem_some {α β : Type} {f : α → Option β} {xs : List α} {ys : List β}
+    (hm : xs.mapM f = some ys) (i : Nat) (hi : i < xs.length) :
+    ∃ y, ys[i]? = some y ∧ f xs[i] = some y := by
+  rcases mapM_getElem? hm i with ⟨h1, -⟩ | ⟨v, y, h1, h2, h3⟩
+  · rw [List.getElem?_eq_none_iff] at h1; omega
+  · rw [List.getElem?_eq_getElem hi, Option.some.injEq] at h1
+    exact ⟨y, h2, h1 ▸ h3⟩
+
+end SpecLean.Validation.Decode
