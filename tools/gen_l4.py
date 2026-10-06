@@ -305,7 +305,7 @@ def depth(t):
 # ---------------------------------------------------------------------------
 # Generated Lean
 
-HEADER = """import SpecLean.Layer4.GenWrap
+HEADER = """import SpecLean.Layer4.GenBridge
 import SpecLean.Validation.Tactic
 """
 
@@ -377,13 +377,67 @@ def classes_file(m):
             k = seen[inner] = len(seen)
             out.append("@[l4_simp] theorem lset_%d (xs : %s) (i : Nat) %s :\n    (xs.map fun z => (%s : DV)).set i %s =\n      (xs.set i %s).map fun z => (%s : DV) := by\n  rw [List.map_set]"
                        % (k, paren(rt2), b, inner, pat, rv, inner))
+    out.append("/-! The decoded tree of a readable value, from its decoder. -/\n")
+    for n in m.rep_order:
+        if ("def dec_%s : Dec %s := fun h v => do" % (n, n)) not in m.rd:
+            continue
+        try:
+            out.append("set_option maxHeartbeats 1000000 in\n" + bridge_theorem(m, n))
+            m.bridged.add(n)
+        except Unsupported:
+            pass
     out.append("\nend SpecLean.Layer4.Gen\n")
     return "\n".join(out)
+
+
+def bridge_field(m, ssz, rt, hy):
+    """A proof that the field or element decodes to its tree, from `hy : dec_T h w = some y`."""
+    ssz, rt = strip_parens(ssz), strip_parens(rt)
+    if re.fullmatch(r"\.uint (.*)", ssz) and rt in m.uint:
+        return "(GenBridge.uintT_dec %s)" % hy
+    if ssz == ".boolean" and rt == "Boolean":
+        return "(GenBridge.boolean_dec %s)" % hy
+    if re.fullmatch(r"\.bytes (\d+) \d+", ssz) and rt in m.bytes:
+        return "(GenBridge.bytesT_dec %s)" % hy
+    if re.fullmatch(r"\.container (\d+)", ssz) and rt in m.reps:
+        return "(bridge_%s hc %s)" % (rt, hy)
+    mm = re.fullmatch(r"\.list (\.\w+) (\(.*\)|\.\w+) (none|\(some \d+\))", ssz)
+    mr = re.fullmatch(r"List (.*)", rt)
+    if mm and mr:
+        d = hy.count("'") + 1
+        he = "he" + "'" * d
+        return "(GenBridge.listT_dec %s (fun _ _ %s => %s))" % (hy, he, bridge_field(m, mm.group(2), mr.group(1), he))
+    raise Unsupported("bridge field")
+
+
+def bridge_theorem(m, n):
+    fs = m.containers[n]
+    K = len(fs)
+    pat = ", ".join("y%d, ⟨w%d, hw%d, hy%d⟩" % (i, i, i, i) for i in range(K))
+    cases = []
+    for i, (fn, ssz, rt) in enumerate(fs):
+        cases.append("  | %d, hw, hd =>\n    rw [hw%d] at hw; cases hw\n    simp only [kids_%s_%d, Option.some.injEq] at hd; subst hd\n"
+                     "    exact %s" % (i, i, n, i, bridge_field(m, ssz, rt, "hy%d" % i)))
+    return ("theorem bridge_%s {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : %s}\n"
+            "    (hd : dec_%s h v = some x) : GenBridge.DecTo h v (.cont %d (kids_%s x)) := by\n"
+            "  simp only [dec_%s, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,\n"
+            "    Option.some.injEq] at hd\n"
+            "  obtain ⟨fs, hfs, %s, rfl⟩ := hd\n"
+            "  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs\n"
+            "  have hl : fs.length = %d := by\n"
+            "    have := hc a %d fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |\n"
+            "      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this\n"
+            "  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_\n"
+            "  match i, hw, hd with\n%s\n"
+            "  | _ + %d, _, hd =>\n"
+            "    rw [List.getElem?_eq_none (by simp only [kids_%s_len]; omega)] at hd; cases hd\n"
+            % (n, n, n, m.cid[n], n, n, pat, K, m.cid[n], "\n".join(cases), K, n))
 
 
 def build_reps(m):
     """The containers whose fields all have a DV form, in dependency order."""
     m.reps, m.rep_order = {}, []
+    m.bridged = set()
     todo = dict(m.containers)
     while True:
         done = False
@@ -995,7 +1049,26 @@ def wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS=""):
             "  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])\n"
             "    hwf %s %s hden %s)\n"
             % (name, " ".join(bs), " ".join(hyps), hw, LENS, D, fp, VS, E, name, VS, name, " ".join(rds),
-               name, " ".join(xs), hdec, hwt, hE))
+               name, " ".join(xs), hdec, hwt, hE)) + bridged_wrapper(m, name, params, bs, rds, xs, vs, hw, LENS, D, fp,
+                                                                    VS, E, f)
+
+
+def bridged_wrapper(m, name, params, bs, rds, xs, vs, hw, LENS, D, fp, VS, E, f):
+    """`<f>_l4r`: `<f>_l4` with each container argument given by its readable decoder."""
+    conts = [(pn, pt) for (pn, pt), v in zip(params, vs) if v.startswith("(.ref ")]
+    if not conts or any(pt not in m.bridged for _, pt in conts):
+        return ""
+    hyps = " ".join("(r_%s : Nat) (hy_%s : dec_%s h (.ref r_%s) = some a_%s)" % (pn, pn, pt, pn, pn)
+                    for pn, pt in conts)
+    args = " ".join("r_%s (bridge_%s hc hy_%s)" % (pn, pt, pn) for pn, pt in conts)
+    return ("\ntheorem %s_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)\n"
+            "    (hc : GenBridge.ContWF h) %s %s%s :\n"
+            "    ∀ fuel, %s%d ≤ fuel →\n"
+            "      ResultMatches gfp %s h %s %s\n"
+            "        (interp (Scope.env sha) fuel Scope.Id.«%s» %s h) (%s %s) :=\n"
+            "  %s_l4 sha gfp h hwf %s %s%s\n"
+            % (name, " ".join(bs), hyps, hw, LENS, D, fp, VS, E, name, VS, name, " ".join(rds),
+               name, " ".join(xs), args, " hw" if hw else ""))
 
 
 def check(text, tag, full=False):

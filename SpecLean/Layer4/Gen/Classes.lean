@@ -1,4 +1,4 @@
-import SpecLean.Layer4.GenWrap
+import SpecLean.Layer4.GenBridge
 import SpecLean.Validation.Tactic
 
 /-!
@@ -1905,5 +1905,1502 @@ def kids_SignedBeaconBlock (x : SignedBeaconBlock) : List DV :=
     (xs.map fun z => ((.cont 780 (kids_PayloadAttestation z)) : DV)).set i (.cont 780 (kids_PayloadAttestation y)) =
       (xs.set i y).map fun z => ((.cont 780 (kids_PayloadAttestation z)) : DV) := by
   rw [List.map_set]
+/-! The decoded tree of a readable value, from its decoder. -/
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_Builder {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Builder}
+    (hd : dec_Builder h v = some x) : GenBridge.DecTo h v (.cont 14 (kids_Builder x)) := by
+  simp only [dec_Builder, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, y5, ⟨w5, hw5, hy5⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 6 := by
+    have := hc a 14 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_Builder_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_Builder_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_Builder_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_Builder_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy3)
+  | 4, hw, hd =>
+    rw [hw4] at hw; cases hw
+    simp only [kids_Builder_4, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy4)
+  | 5, hw, hd =>
+    rw [hw5] at hw; cases hw
+    simp only [kids_Builder_5, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy5)
+  | _ + 6, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Builder_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_BuilderPendingWithdrawal {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BuilderPendingWithdrawal}
+    (hd : dec_BuilderPendingWithdrawal h v = some x) : GenBridge.DecTo h v (.cont 67 (kids_BuilderPendingWithdrawal x)) := by
+  simp only [dec_BuilderPendingWithdrawal, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 3 := by
+    have := hc a 67 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_BuilderPendingWithdrawal_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_BuilderPendingWithdrawal_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_BuilderPendingWithdrawal_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy2)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BuilderPendingWithdrawal_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_ForkData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : ForkData}
+    (hd : dec_ForkData h v = some x) : GenBridge.DecTo h v (.cont 158 (kids_ForkData x)) := by
+  simp only [dec_ForkData, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 158 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_ForkData_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_ForkData_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_ForkData_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_SigningData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SigningData}
+    (hd : dec_SigningData h v = some x) : GenBridge.DecTo h v (.cont 194 (kids_SigningData x)) := by
+  simp only [dec_SigningData, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 194 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_SigningData_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_SigningData_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SigningData_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_Withdrawal {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Withdrawal}
+    (hd : dec_Withdrawal h v = some x) : GenBridge.DecTo h v (.cont 297 (kids_Withdrawal x)) := by
+  simp only [dec_Withdrawal, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 4 := by
+    have := hc a 297 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_Withdrawal_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_Withdrawal_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_Withdrawal_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_Withdrawal_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy3)
+  | _ + 4, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Withdrawal_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_Checkpoint {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Checkpoint}
+    (hd : dec_Checkpoint h v = some x) : GenBridge.DecTo h v (.cont 741 (kids_Checkpoint x)) := by
+  simp only [dec_Checkpoint, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 741 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_Checkpoint_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_Checkpoint_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Checkpoint_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_PayloadAttestationData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : PayloadAttestationData}
+    (hd : dec_PayloadAttestationData h v = some x) : GenBridge.DecTo h v (.cont 753 (kids_PayloadAttestationData x)) := by
+  simp only [dec_PayloadAttestationData, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 4 := by
+    have := hc a 753 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_PayloadAttestationData_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_PayloadAttestationData_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_PayloadAttestationData_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.boolean_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_PayloadAttestationData_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.boolean_dec hy3)
+  | _ + 4, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_PayloadAttestationData_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_SyncCommittee {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SyncCommittee}
+    (hd : dec_SyncCommittee h v = some x) : GenBridge.DecTo h v (.cont 366 (kids_SyncCommittee x)) := by
+  simp only [dec_SyncCommittee, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 366 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_SyncCommittee_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy0 (fun _ _ he' => (GenBridge.bytesT_dec he')))
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_SyncCommittee_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SyncCommittee_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_Validator {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Validator}
+    (hd : dec_Validator h v = some x) : GenBridge.DecTo h v (.cont 396 (kids_Validator x)) := by
+  simp only [dec_Validator, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, y5, ⟨w5, hw5, hy5⟩, y6, ⟨w6, hw6, hy6⟩, y7, ⟨w7, hw7, hy7⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 8 := by
+    have := hc a 396 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_Validator_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_Validator_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_Validator_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_Validator_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.boolean_dec hy3)
+  | 4, hw, hd =>
+    rw [hw4] at hw; cases hw
+    simp only [kids_Validator_4, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy4)
+  | 5, hw, hd =>
+    rw [hw5] at hw; cases hw
+    simp only [kids_Validator_5, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy5)
+  | 6, hw, hd =>
+    rw [hw6] at hw; cases hw
+    simp only [kids_Validator_6, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy6)
+  | 7, hw, hd =>
+    rw [hw7] at hw; cases hw
+    simp only [kids_Validator_7, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy7)
+  | _ + 8, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Validator_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_DepositMessage {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : DepositMessage}
+    (hd : dec_DepositMessage h v = some x) : GenBridge.DecTo h v (.cont 444 (kids_DepositMessage x)) := by
+  simp only [dec_DepositMessage, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 3 := by
+    have := hc a 444 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_DepositMessage_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_DepositMessage_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_DepositMessage_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy2)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_DepositMessage_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_PendingDeposit {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : PendingDeposit}
+    (hd : dec_PendingDeposit h v = some x) : GenBridge.DecTo h v (.cont 525 (kids_PendingDeposit x)) := by
+  simp only [dec_PendingDeposit, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 5 := by
+    have := hc a 525 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_PendingDeposit_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_PendingDeposit_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_PendingDeposit_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_PendingDeposit_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy3)
+  | 4, hw, hd =>
+    rw [hw4] at hw; cases hw
+    simp only [kids_PendingDeposit_4, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy4)
+  | _ + 5, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_PendingDeposit_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_BeaconBlockHeader {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BeaconBlockHeader}
+    (hd : dec_BeaconBlockHeader h v = some x) : GenBridge.DecTo h v (.cont 497 (kids_BeaconBlockHeader x)) := by
+  simp only [dec_BeaconBlockHeader, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 5 := by
+    have := hc a 497 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_BeaconBlockHeader_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_BeaconBlockHeader_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_BeaconBlockHeader_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_BeaconBlockHeader_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy3)
+  | 4, hw, hd =>
+    rw [hw4] at hw; cases hw
+    simp only [kids_BeaconBlockHeader_4, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy4)
+  | _ + 5, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BeaconBlockHeader_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_BuilderPendingPayment {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BuilderPendingPayment}
+    (hd : dec_BuilderPendingPayment h v = some x) : GenBridge.DecTo h v (.cont 509 (kids_BuilderPendingPayment x)) := by
+  simp only [dec_BuilderPendingPayment, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 3 := by
+    have := hc a 509 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_BuilderPendingPayment_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_BuilderPendingPayment_1, Option.some.injEq] at hd; subst hd
+    exact (bridge_BuilderPendingWithdrawal hc hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_BuilderPendingPayment_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy2)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BuilderPendingPayment_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_PendingConsolidation {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : PendingConsolidation}
+    (hd : dec_PendingConsolidation h v = some x) : GenBridge.DecTo h v (.cont 523 (kids_PendingConsolidation x)) := by
+  simp only [dec_PendingConsolidation, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 523 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_PendingConsolidation_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_PendingConsolidation_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_PendingConsolidation_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_Eth1Data {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Eth1Data}
+    (hd : dec_Eth1Data h v = some x) : GenBridge.DecTo h v (.cont 759 (kids_Eth1Data x)) := by
+  simp only [dec_Eth1Data, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 3 := by
+    have := hc a 759 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_Eth1Data_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_Eth1Data_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_Eth1Data_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Eth1Data_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_HistoricalSummary {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : HistoricalSummary}
+    (hd : dec_HistoricalSummary h v = some x) : GenBridge.DecTo h v (.cont 570 (kids_HistoricalSummary x)) := by
+  simp only [dec_HistoricalSummary, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 570 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_HistoricalSummary_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_HistoricalSummary_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_HistoricalSummary_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_DepositRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : DepositRequest}
+    (hd : dec_DepositRequest h v = some x) : GenBridge.DecTo h v (.cont 760 (kids_DepositRequest x)) := by
+  simp only [dec_DepositRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 5 := by
+    have := hc a 760 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_DepositRequest_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_DepositRequest_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_DepositRequest_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_DepositRequest_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy3)
+  | 4, hw, hd =>
+    rw [hw4] at hw; cases hw
+    simp only [kids_DepositRequest_4, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy4)
+  | _ + 5, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_DepositRequest_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_WithdrawalRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : WithdrawalRequest}
+    (hd : dec_WithdrawalRequest h v = some x) : GenBridge.DecTo h v (.cont 761 (kids_WithdrawalRequest x)) := by
+  simp only [dec_WithdrawalRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 3 := by
+    have := hc a 761 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_WithdrawalRequest_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_WithdrawalRequest_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_WithdrawalRequest_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy2)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_WithdrawalRequest_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_ConsolidationRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : ConsolidationRequest}
+    (hd : dec_ConsolidationRequest h v = some x) : GenBridge.DecTo h v (.cont 762 (kids_ConsolidationRequest x)) := by
+  simp only [dec_ConsolidationRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 3 := by
+    have := hc a 762 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_ConsolidationRequest_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_ConsolidationRequest_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_ConsolidationRequest_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_ConsolidationRequest_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_BuilderDepositRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BuilderDepositRequest}
+    (hd : dec_BuilderDepositRequest h v = some x) : GenBridge.DecTo h v (.cont 763 (kids_BuilderDepositRequest x)) := by
+  simp only [dec_BuilderDepositRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 4 := by
+    have := hc a 763 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_BuilderDepositRequest_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_BuilderDepositRequest_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_BuilderDepositRequest_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_BuilderDepositRequest_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy3)
+  | _ + 4, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BuilderDepositRequest_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_BuilderExitRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BuilderExitRequest}
+    (hd : dec_BuilderExitRequest h v = some x) : GenBridge.DecTo h v (.cont 764 (kids_BuilderExitRequest x)) := by
+  simp only [dec_BuilderExitRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 764 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_BuilderExitRequest_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_BuilderExitRequest_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BuilderExitRequest_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_PendingPartialWithdrawal {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : PendingPartialWithdrawal}
+    (hd : dec_PendingPartialWithdrawal h v = some x) : GenBridge.DecTo h v (.cont 681 (kids_PendingPartialWithdrawal x)) := by
+  simp only [dec_PendingPartialWithdrawal, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 3 := by
+    have := hc a 681 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_PendingPartialWithdrawal_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_PendingPartialWithdrawal_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_PendingPartialWithdrawal_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy2)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_PendingPartialWithdrawal_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_Fork {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Fork}
+    (hd : dec_Fork h v = some x) : GenBridge.DecTo h v (.cont 713 (kids_Fork x)) := by
+  simp only [dec_Fork, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 3 := by
+    have := hc a 713 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_Fork_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_Fork_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_Fork_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy2)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Fork_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_ExecutionPayloadBid {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : ExecutionPayloadBid}
+    (hd : dec_ExecutionPayloadBid h v = some x) : GenBridge.DecTo h v (.cont 732 (kids_ExecutionPayloadBid x)) := by
+  simp only [dec_ExecutionPayloadBid, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, y5, ⟨w5, hw5, hy5⟩, y6, ⟨w6, hw6, hy6⟩, y7, ⟨w7, hw7, hy7⟩, y8, ⟨w8, hw8, hy8⟩, y9, ⟨w9, hw9, hy9⟩, y10, ⟨w10, hw10, hy10⟩, y11, ⟨w11, hw11, hy11⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 12 := by
+    have := hc a 732 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_ExecutionPayloadBid_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_ExecutionPayloadBid_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_ExecutionPayloadBid_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_ExecutionPayloadBid_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy3)
+  | 4, hw, hd =>
+    rw [hw4] at hw; cases hw
+    simp only [kids_ExecutionPayloadBid_4, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy4)
+  | 5, hw, hd =>
+    rw [hw5] at hw; cases hw
+    simp only [kids_ExecutionPayloadBid_5, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy5)
+  | 6, hw, hd =>
+    rw [hw6] at hw; cases hw
+    simp only [kids_ExecutionPayloadBid_6, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy6)
+  | 7, hw, hd =>
+    rw [hw7] at hw; cases hw
+    simp only [kids_ExecutionPayloadBid_7, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy7)
+  | 8, hw, hd =>
+    rw [hw8] at hw; cases hw
+    simp only [kids_ExecutionPayloadBid_8, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy8)
+  | 9, hw, hd =>
+    rw [hw9] at hw; cases hw
+    simp only [kids_ExecutionPayloadBid_9, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy9)
+  | 10, hw, hd =>
+    rw [hw10] at hw; cases hw
+    simp only [kids_ExecutionPayloadBid_10, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy10 (fun _ _ he' => (GenBridge.bytesT_dec he')))
+  | 11, hw, hd =>
+    rw [hw11] at hw; cases hw
+    simp only [kids_ExecutionPayloadBid_11, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy11)
+  | _ + 12, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_ExecutionPayloadBid_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_SignedBeaconBlockHeader {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SignedBeaconBlockHeader}
+    (hd : dec_SignedBeaconBlockHeader h v = some x) : GenBridge.DecTo h v (.cont 767 (kids_SignedBeaconBlockHeader x)) := by
+  simp only [dec_SignedBeaconBlockHeader, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 767 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_SignedBeaconBlockHeader_0, Option.some.injEq] at hd; subst hd
+    exact (bridge_BeaconBlockHeader hc hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_SignedBeaconBlockHeader_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SignedBeaconBlockHeader_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_DepositData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : DepositData}
+    (hd : dec_DepositData h v = some x) : GenBridge.DecTo h v (.cont 772 (kids_DepositData x)) := by
+  simp only [dec_DepositData, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 4 := by
+    have := hc a 772 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_DepositData_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_DepositData_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_DepositData_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_DepositData_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy3)
+  | _ + 4, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_DepositData_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_VoluntaryExit {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : VoluntaryExit}
+    (hd : dec_VoluntaryExit h v = some x) : GenBridge.DecTo h v (.cont 774 (kids_VoluntaryExit x)) := by
+  simp only [dec_VoluntaryExit, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 774 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_VoluntaryExit_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_VoluntaryExit_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_VoluntaryExit_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_SyncAggregate {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SyncAggregate}
+    (hd : dec_SyncAggregate h v = some x) : GenBridge.DecTo h v (.cont 776 (kids_SyncAggregate x)) := by
+  simp only [dec_SyncAggregate, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 776 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_SyncAggregate_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy0 (fun _ _ he' => (GenBridge.boolean_dec he')))
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_SyncAggregate_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SyncAggregate_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_BLSToExecutionChange {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BLSToExecutionChange}
+    (hd : dec_BLSToExecutionChange h v = some x) : GenBridge.DecTo h v (.cont 777 (kids_BLSToExecutionChange x)) := by
+  simp only [dec_BLSToExecutionChange, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 3 := by
+    have := hc a 777 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_BLSToExecutionChange_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_BLSToExecutionChange_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_BLSToExecutionChange_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BLSToExecutionChange_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_SignedExecutionPayloadBid {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SignedExecutionPayloadBid}
+    (hd : dec_SignedExecutionPayloadBid h v = some x) : GenBridge.DecTo h v (.cont 779 (kids_SignedExecutionPayloadBid x)) := by
+  simp only [dec_SignedExecutionPayloadBid, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 779 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_SignedExecutionPayloadBid_0, Option.some.injEq] at hd; subst hd
+    exact (bridge_ExecutionPayloadBid hc hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_SignedExecutionPayloadBid_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SignedExecutionPayloadBid_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_PayloadAttestation {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : PayloadAttestation}
+    (hd : dec_PayloadAttestation h v = some x) : GenBridge.DecTo h v (.cont 780 (kids_PayloadAttestation x)) := by
+  simp only [dec_PayloadAttestation, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 3 := by
+    have := hc a 780 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_PayloadAttestation_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy0 (fun _ _ he' => (GenBridge.boolean_dec he')))
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_PayloadAttestation_1, Option.some.injEq] at hd; subst hd
+    exact (bridge_PayloadAttestationData hc hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_PayloadAttestation_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_PayloadAttestation_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_AttestationData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : AttestationData}
+    (hd : dec_AttestationData h v = some x) : GenBridge.DecTo h v (.cont 750 (kids_AttestationData x)) := by
+  simp only [dec_AttestationData, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 5 := by
+    have := hc a 750 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_AttestationData_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_AttestationData_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_AttestationData_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_AttestationData_3, Option.some.injEq] at hd; subst hd
+    exact (bridge_Checkpoint hc hy3)
+  | 4, hw, hd =>
+    rw [hw4] at hw; cases hw
+    simp only [kids_AttestationData_4, Option.some.injEq] at hd; subst hd
+    exact (bridge_Checkpoint hc hy4)
+  | _ + 5, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_AttestationData_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_IndexedPayloadAttestation {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : IndexedPayloadAttestation}
+    (hd : dec_IndexedPayloadAttestation h v = some x) : GenBridge.DecTo h v (.cont 357 (kids_IndexedPayloadAttestation x)) := by
+  simp only [dec_IndexedPayloadAttestation, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 3 := by
+    have := hc a 357 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_IndexedPayloadAttestation_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy0 (fun _ _ he' => (GenBridge.uintT_dec he')))
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_IndexedPayloadAttestation_1, Option.some.injEq] at hd; subst hd
+    exact (bridge_PayloadAttestationData hc hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_IndexedPayloadAttestation_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_IndexedPayloadAttestation_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_ExecutionRequests {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : ExecutionRequests}
+    (hd : dec_ExecutionRequests h v = some x) : GenBridge.DecTo h v (.cont 597 (kids_ExecutionRequests x)) := by
+  simp only [dec_ExecutionRequests, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 5 := by
+    have := hc a 597 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_ExecutionRequests_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy0 (fun _ _ he' => (bridge_DepositRequest hc he')))
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_ExecutionRequests_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy1 (fun _ _ he' => (bridge_WithdrawalRequest hc he')))
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_ExecutionRequests_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy2 (fun _ _ he' => (bridge_ConsolidationRequest hc he')))
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_ExecutionRequests_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy3 (fun _ _ he' => (bridge_BuilderDepositRequest hc he')))
+  | 4, hw, hd =>
+    rw [hw4] at hw; cases hw
+    simp only [kids_ExecutionRequests_4, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy4 (fun _ _ he' => (bridge_BuilderExitRequest hc he')))
+  | _ + 5, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_ExecutionRequests_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_BeaconState {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BeaconState}
+    (hd : dec_BeaconState h v = some x) : GenBridge.DecTo h v (.cont 733 (kids_BeaconState x)) := by
+  simp only [dec_BeaconState, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, y5, ⟨w5, hw5, hy5⟩, y6, ⟨w6, hw6, hy6⟩, y7, ⟨w7, hw7, hy7⟩, y8, ⟨w8, hw8, hy8⟩, y9, ⟨w9, hw9, hy9⟩, y10, ⟨w10, hw10, hy10⟩, y11, ⟨w11, hw11, hy11⟩, y12, ⟨w12, hw12, hy12⟩, y13, ⟨w13, hw13, hy13⟩, y14, ⟨w14, hw14, hy14⟩, y15, ⟨w15, hw15, hy15⟩, y16, ⟨w16, hw16, hy16⟩, y17, ⟨w17, hw17, hy17⟩, y18, ⟨w18, hw18, hy18⟩, y19, ⟨w19, hw19, hy19⟩, y20, ⟨w20, hw20, hy20⟩, y21, ⟨w21, hw21, hy21⟩, y22, ⟨w22, hw22, hy22⟩, y23, ⟨w23, hw23, hy23⟩, y24, ⟨w24, hw24, hy24⟩, y25, ⟨w25, hw25, hy25⟩, y26, ⟨w26, hw26, hy26⟩, y27, ⟨w27, hw27, hy27⟩, y28, ⟨w28, hw28, hy28⟩, y29, ⟨w29, hw29, hy29⟩, y30, ⟨w30, hw30, hy30⟩, y31, ⟨w31, hw31, hy31⟩, y32, ⟨w32, hw32, hy32⟩, y33, ⟨w33, hw33, hy33⟩, y34, ⟨w34, hw34, hy34⟩, y35, ⟨w35, hw35, hy35⟩, y36, ⟨w36, hw36, hy36⟩, y37, ⟨w37, hw37, hy37⟩, y38, ⟨w38, hw38, hy38⟩, y39, ⟨w39, hw39, hy39⟩, y40, ⟨w40, hw40, hy40⟩, y41, ⟨w41, hw41, hy41⟩, y42, ⟨w42, hw42, hy42⟩, y43, ⟨w43, hw43, hy43⟩, y44, ⟨w44, hw44, hy44⟩, y45, ⟨w45, hw45, hy45⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 46 := by
+    have := hc a 733 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_BeaconState_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_BeaconState_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_BeaconState_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_BeaconState_3, Option.some.injEq] at hd; subst hd
+    exact (bridge_Fork hc hy3)
+  | 4, hw, hd =>
+    rw [hw4] at hw; cases hw
+    simp only [kids_BeaconState_4, Option.some.injEq] at hd; subst hd
+    exact (bridge_BeaconBlockHeader hc hy4)
+  | 5, hw, hd =>
+    rw [hw5] at hw; cases hw
+    simp only [kids_BeaconState_5, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy5 (fun _ _ he' => (GenBridge.bytesT_dec he')))
+  | 6, hw, hd =>
+    rw [hw6] at hw; cases hw
+    simp only [kids_BeaconState_6, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy6 (fun _ _ he' => (GenBridge.bytesT_dec he')))
+  | 7, hw, hd =>
+    rw [hw7] at hw; cases hw
+    simp only [kids_BeaconState_7, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy7 (fun _ _ he' => (GenBridge.bytesT_dec he')))
+  | 8, hw, hd =>
+    rw [hw8] at hw; cases hw
+    simp only [kids_BeaconState_8, Option.some.injEq] at hd; subst hd
+    exact (bridge_Eth1Data hc hy8)
+  | 9, hw, hd =>
+    rw [hw9] at hw; cases hw
+    simp only [kids_BeaconState_9, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy9 (fun _ _ he' => (bridge_Eth1Data hc he')))
+  | 10, hw, hd =>
+    rw [hw10] at hw; cases hw
+    simp only [kids_BeaconState_10, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy10)
+  | 11, hw, hd =>
+    rw [hw11] at hw; cases hw
+    simp only [kids_BeaconState_11, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy11 (fun _ _ he' => (bridge_Validator hc he')))
+  | 12, hw, hd =>
+    rw [hw12] at hw; cases hw
+    simp only [kids_BeaconState_12, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy12 (fun _ _ he' => (GenBridge.uintT_dec he')))
+  | 13, hw, hd =>
+    rw [hw13] at hw; cases hw
+    simp only [kids_BeaconState_13, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy13 (fun _ _ he' => (GenBridge.bytesT_dec he')))
+  | 14, hw, hd =>
+    rw [hw14] at hw; cases hw
+    simp only [kids_BeaconState_14, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy14 (fun _ _ he' => (GenBridge.uintT_dec he')))
+  | 15, hw, hd =>
+    rw [hw15] at hw; cases hw
+    simp only [kids_BeaconState_15, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy15 (fun _ _ he' => (GenBridge.uintT_dec he')))
+  | 16, hw, hd =>
+    rw [hw16] at hw; cases hw
+    simp only [kids_BeaconState_16, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy16 (fun _ _ he' => (GenBridge.uintT_dec he')))
+  | 17, hw, hd =>
+    rw [hw17] at hw; cases hw
+    simp only [kids_BeaconState_17, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy17 (fun _ _ he' => (GenBridge.boolean_dec he')))
+  | 18, hw, hd =>
+    rw [hw18] at hw; cases hw
+    simp only [kids_BeaconState_18, Option.some.injEq] at hd; subst hd
+    exact (bridge_Checkpoint hc hy18)
+  | 19, hw, hd =>
+    rw [hw19] at hw; cases hw
+    simp only [kids_BeaconState_19, Option.some.injEq] at hd; subst hd
+    exact (bridge_Checkpoint hc hy19)
+  | 20, hw, hd =>
+    rw [hw20] at hw; cases hw
+    simp only [kids_BeaconState_20, Option.some.injEq] at hd; subst hd
+    exact (bridge_Checkpoint hc hy20)
+  | 21, hw, hd =>
+    rw [hw21] at hw; cases hw
+    simp only [kids_BeaconState_21, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy21 (fun _ _ he' => (GenBridge.uintT_dec he')))
+  | 22, hw, hd =>
+    rw [hw22] at hw; cases hw
+    simp only [kids_BeaconState_22, Option.some.injEq] at hd; subst hd
+    exact (bridge_SyncCommittee hc hy22)
+  | 23, hw, hd =>
+    rw [hw23] at hw; cases hw
+    simp only [kids_BeaconState_23, Option.some.injEq] at hd; subst hd
+    exact (bridge_SyncCommittee hc hy23)
+  | 24, hw, hd =>
+    rw [hw24] at hw; cases hw
+    simp only [kids_BeaconState_24, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy24)
+  | 25, hw, hd =>
+    rw [hw25] at hw; cases hw
+    simp only [kids_BeaconState_25, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy25)
+  | 26, hw, hd =>
+    rw [hw26] at hw; cases hw
+    simp only [kids_BeaconState_26, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy26)
+  | 27, hw, hd =>
+    rw [hw27] at hw; cases hw
+    simp only [kids_BeaconState_27, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy27 (fun _ _ he' => (bridge_HistoricalSummary hc he')))
+  | 28, hw, hd =>
+    rw [hw28] at hw; cases hw
+    simp only [kids_BeaconState_28, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy28)
+  | 29, hw, hd =>
+    rw [hw29] at hw; cases hw
+    simp only [kids_BeaconState_29, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy29)
+  | 30, hw, hd =>
+    rw [hw30] at hw; cases hw
+    simp only [kids_BeaconState_30, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy30)
+  | 31, hw, hd =>
+    rw [hw31] at hw; cases hw
+    simp only [kids_BeaconState_31, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy31)
+  | 32, hw, hd =>
+    rw [hw32] at hw; cases hw
+    simp only [kids_BeaconState_32, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy32)
+  | 33, hw, hd =>
+    rw [hw33] at hw; cases hw
+    simp only [kids_BeaconState_33, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy33)
+  | 34, hw, hd =>
+    rw [hw34] at hw; cases hw
+    simp only [kids_BeaconState_34, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy34 (fun _ _ he' => (bridge_PendingDeposit hc he')))
+  | 35, hw, hd =>
+    rw [hw35] at hw; cases hw
+    simp only [kids_BeaconState_35, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy35 (fun _ _ he' => (bridge_PendingPartialWithdrawal hc he')))
+  | 36, hw, hd =>
+    rw [hw36] at hw; cases hw
+    simp only [kids_BeaconState_36, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy36 (fun _ _ he' => (bridge_PendingConsolidation hc he')))
+  | 37, hw, hd =>
+    rw [hw37] at hw; cases hw
+    simp only [kids_BeaconState_37, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy37 (fun _ _ he' => (GenBridge.uintT_dec he')))
+  | 38, hw, hd =>
+    rw [hw38] at hw; cases hw
+    simp only [kids_BeaconState_38, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy38 (fun _ _ he' => (bridge_Builder hc he')))
+  | 39, hw, hd =>
+    rw [hw39] at hw; cases hw
+    simp only [kids_BeaconState_39, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy39)
+  | 40, hw, hd =>
+    rw [hw40] at hw; cases hw
+    simp only [kids_BeaconState_40, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy40 (fun _ _ he' => (GenBridge.boolean_dec he')))
+  | 41, hw, hd =>
+    rw [hw41] at hw; cases hw
+    simp only [kids_BeaconState_41, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy41 (fun _ _ he' => (bridge_BuilderPendingPayment hc he')))
+  | 42, hw, hd =>
+    rw [hw42] at hw; cases hw
+    simp only [kids_BeaconState_42, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy42 (fun _ _ he' => (bridge_BuilderPendingWithdrawal hc he')))
+  | 43, hw, hd =>
+    rw [hw43] at hw; cases hw
+    simp only [kids_BeaconState_43, Option.some.injEq] at hd; subst hd
+    exact (bridge_ExecutionPayloadBid hc hy43)
+  | 44, hw, hd =>
+    rw [hw44] at hw; cases hw
+    simp only [kids_BeaconState_44, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy44 (fun _ _ he' => (bridge_Withdrawal hc he')))
+  | 45, hw, hd =>
+    rw [hw45] at hw; cases hw
+    simp only [kids_BeaconState_45, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy45 (fun _ _ he' => (GenBridge.listT_dec he' (fun _ _ he'' => (GenBridge.uintT_dec he'')))))
+  | _ + 46, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BeaconState_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_ProposerSlashing {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : ProposerSlashing}
+    (hd : dec_ProposerSlashing h v = some x) : GenBridge.DecTo h v (.cont 768 (kids_ProposerSlashing x)) := by
+  simp only [dec_ProposerSlashing, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 768 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_ProposerSlashing_0, Option.some.injEq] at hd; subst hd
+    exact (bridge_SignedBeaconBlockHeader hc hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_ProposerSlashing_1, Option.some.injEq] at hd; subst hd
+    exact (bridge_SignedBeaconBlockHeader hc hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_ProposerSlashing_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_Attestation {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Attestation}
+    (hd : dec_Attestation h v = some x) : GenBridge.DecTo h v (.cont 770 (kids_Attestation x)) := by
+  simp only [dec_Attestation, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 4 := by
+    have := hc a 770 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_Attestation_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy0 (fun _ _ he' => (GenBridge.boolean_dec he')))
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_Attestation_1, Option.some.injEq] at hd; subst hd
+    exact (bridge_AttestationData hc hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_Attestation_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_Attestation_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy3 (fun _ _ he' => (GenBridge.boolean_dec he')))
+  | _ + 4, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Attestation_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_Deposit {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Deposit}
+    (hd : dec_Deposit h v = some x) : GenBridge.DecTo h v (.cont 773 (kids_Deposit x)) := by
+  simp only [dec_Deposit, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 773 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_Deposit_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy0 (fun _ _ he' => (GenBridge.bytesT_dec he')))
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_Deposit_1, Option.some.injEq] at hd; subst hd
+    exact (bridge_DepositData hc hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Deposit_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_SignedVoluntaryExit {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SignedVoluntaryExit}
+    (hd : dec_SignedVoluntaryExit h v = some x) : GenBridge.DecTo h v (.cont 775 (kids_SignedVoluntaryExit x)) := by
+  simp only [dec_SignedVoluntaryExit, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 775 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_SignedVoluntaryExit_0, Option.some.injEq] at hd; subst hd
+    exact (bridge_VoluntaryExit hc hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_SignedVoluntaryExit_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SignedVoluntaryExit_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_SignedBLSToExecutionChange {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SignedBLSToExecutionChange}
+    (hd : dec_SignedBLSToExecutionChange h v = some x) : GenBridge.DecTo h v (.cont 778 (kids_SignedBLSToExecutionChange x)) := by
+  simp only [dec_SignedBLSToExecutionChange, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 778 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_SignedBLSToExecutionChange_0, Option.some.injEq] at hd; subst hd
+    exact (bridge_BLSToExecutionChange hc hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_SignedBLSToExecutionChange_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SignedBLSToExecutionChange_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_IndexedAttestation {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : IndexedAttestation}
+    (hd : dec_IndexedAttestation h v = some x) : GenBridge.DecTo h v (.cont 350 (kids_IndexedAttestation x)) := by
+  simp only [dec_IndexedAttestation, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 3 := by
+    have := hc a 350 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_IndexedAttestation_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy0 (fun _ _ he' => (GenBridge.uintT_dec he')))
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_IndexedAttestation_1, Option.some.injEq] at hd; subst hd
+    exact (bridge_AttestationData hc hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_IndexedAttestation_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_IndexedAttestation_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_AttesterSlashing {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : AttesterSlashing}
+    (hd : dec_AttesterSlashing h v = some x) : GenBridge.DecTo h v (.cont 769 (kids_AttesterSlashing x)) := by
+  simp only [dec_AttesterSlashing, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 769 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_AttesterSlashing_0, Option.some.injEq] at hd; subst hd
+    exact (bridge_IndexedAttestation hc hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_AttesterSlashing_1, Option.some.injEq] at hd; subst hd
+    exact (bridge_IndexedAttestation hc hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_AttesterSlashing_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_BeaconBlockBody {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BeaconBlockBody}
+    (hd : dec_BeaconBlockBody h v = some x) : GenBridge.DecTo h v (.cont 781 (kids_BeaconBlockBody x)) := by
+  simp only [dec_BeaconBlockBody, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, y5, ⟨w5, hw5, hy5⟩, y6, ⟨w6, hw6, hy6⟩, y7, ⟨w7, hw7, hy7⟩, y8, ⟨w8, hw8, hy8⟩, y9, ⟨w9, hw9, hy9⟩, y10, ⟨w10, hw10, hy10⟩, y11, ⟨w11, hw11, hy11⟩, y12, ⟨w12, hw12, hy12⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 13 := by
+    have := hc a 781 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_BeaconBlockBody_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_BeaconBlockBody_1, Option.some.injEq] at hd; subst hd
+    exact (bridge_Eth1Data hc hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_BeaconBlockBody_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_BeaconBlockBody_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy3 (fun _ _ he' => (bridge_ProposerSlashing hc he')))
+  | 4, hw, hd =>
+    rw [hw4] at hw; cases hw
+    simp only [kids_BeaconBlockBody_4, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy4 (fun _ _ he' => (bridge_AttesterSlashing hc he')))
+  | 5, hw, hd =>
+    rw [hw5] at hw; cases hw
+    simp only [kids_BeaconBlockBody_5, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy5 (fun _ _ he' => (bridge_Attestation hc he')))
+  | 6, hw, hd =>
+    rw [hw6] at hw; cases hw
+    simp only [kids_BeaconBlockBody_6, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy6 (fun _ _ he' => (bridge_Deposit hc he')))
+  | 7, hw, hd =>
+    rw [hw7] at hw; cases hw
+    simp only [kids_BeaconBlockBody_7, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy7 (fun _ _ he' => (bridge_SignedVoluntaryExit hc he')))
+  | 8, hw, hd =>
+    rw [hw8] at hw; cases hw
+    simp only [kids_BeaconBlockBody_8, Option.some.injEq] at hd; subst hd
+    exact (bridge_SyncAggregate hc hy8)
+  | 9, hw, hd =>
+    rw [hw9] at hw; cases hw
+    simp only [kids_BeaconBlockBody_9, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy9 (fun _ _ he' => (bridge_SignedBLSToExecutionChange hc he')))
+  | 10, hw, hd =>
+    rw [hw10] at hw; cases hw
+    simp only [kids_BeaconBlockBody_10, Option.some.injEq] at hd; subst hd
+    exact (bridge_SignedExecutionPayloadBid hc hy10)
+  | 11, hw, hd =>
+    rw [hw11] at hw; cases hw
+    simp only [kids_BeaconBlockBody_11, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.listT_dec hy11 (fun _ _ he' => (bridge_PayloadAttestation hc he')))
+  | 12, hw, hd =>
+    rw [hw12] at hw; cases hw
+    simp only [kids_BeaconBlockBody_12, Option.some.injEq] at hd; subst hd
+    exact (bridge_ExecutionRequests hc hy12)
+  | _ + 13, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BeaconBlockBody_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_BeaconBlock {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BeaconBlock}
+    (hd : dec_BeaconBlock h v = some x) : GenBridge.DecTo h v (.cont 782 (kids_BeaconBlock x)) := by
+  simp only [dec_BeaconBlock, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 5 := by
+    have := hc a 782 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_BeaconBlock_0, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_BeaconBlock_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.uintT_dec hy1)
+  | 2, hw, hd =>
+    rw [hw2] at hw; cases hw
+    simp only [kids_BeaconBlock_2, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy2)
+  | 3, hw, hd =>
+    rw [hw3] at hw; cases hw
+    simp only [kids_BeaconBlock_3, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy3)
+  | 4, hw, hd =>
+    rw [hw4] at hw; cases hw
+    simp only [kids_BeaconBlock_4, Option.some.injEq] at hd; subst hd
+    exact (bridge_BeaconBlockBody hc hy4)
+  | _ + 5, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BeaconBlock_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem bridge_SignedBeaconBlock {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SignedBeaconBlock}
+    (hd : dec_SignedBeaconBlock h v = some x) : GenBridge.DecTo h v (.cont 783 (kids_SignedBeaconBlock x)) := by
+  simp only [dec_SignedBeaconBlock, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  obtain ⟨a, rfl, ho⟩ := GenBridge.fieldsT_some hfs
+  have hl : fs.length = 2 := by
+    have := hc a 783 fs _ ho (by first | (simp only [Validation.Tactic.lookup_lit]; done) |
+      (simp only [Validation.Tactic.lookup_lit]; rfl)); simpa using this
+  refine GenBridge.cont_of_fields ho (by rw [hl]; rfl) fun i w d hw hd => ?_
+  match i, hw, hd with
+  | 0, hw, hd =>
+    rw [hw0] at hw; cases hw
+    simp only [kids_SignedBeaconBlock_0, Option.some.injEq] at hd; subst hd
+    exact (bridge_BeaconBlock hc hy0)
+  | 1, hw, hd =>
+    rw [hw1] at hw; cases hw
+    simp only [kids_SignedBeaconBlock_1, Option.some.injEq] at hd; subst hd
+    exact (GenBridge.bytesT_dec hy1)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SignedBeaconBlock_len]; omega)] at hd; cases hd
+
 
 end SpecLean.Layer4.Gen
