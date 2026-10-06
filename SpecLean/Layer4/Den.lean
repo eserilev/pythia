@@ -344,4 +344,17 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
       stmt := stmtStep env P
       fn := fnStep P }
 
+/-! Each part one fuel up, without unfolding the others. -/
+
+@[simp] theorem den_expr (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).expr = exprStep env fps n (den env fps n) := rfl
+@[simp] theorem den_call (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).call = callStep env fps n (den env fps n) := rfl
+@[simp] theorem den_target (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).target = targetStep env (den env fps n) := rfl
+@[simp] theorem den_stmt (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).stmt = stmtStep env (den env fps n) := rfl
+@[simp] theorem den_fn (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).fn = fnStep (den env fps n) := rfl
+
 end SpecLean.Layer4
