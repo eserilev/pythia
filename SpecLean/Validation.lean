@@ -14,3 +14,5 @@ import SpecLean.Validation.ActiveIndices
 import SpecLean.Validation.DecodeExtra
 import SpecLean.Validation.Alloc
 import SpecLean.Validation.CompSnap
+import SpecLean.Validation.HtrBridge
+import SpecLean.Validation.HtrForkData
