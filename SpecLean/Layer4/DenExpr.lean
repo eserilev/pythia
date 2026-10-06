@@ -421,6 +421,17 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
                   have hlen := ((mapM_some_iff xs ds).mp hm).1
                   simp [applyBuiltin, hlf.builtin h2 .len _ [] (by simp), ho, hlen]
                   exact ⟨Ext_refl _, trivial, rfl, rfl⟩
+            | [.tree d], [w], ⟨⟨⟨nn, hn⟩, _⟩, _⟩, hd2 =>
+              cases d with
+              | leaf _ => simp at hd2
+              | cont _ _ => simp at hd2
+              | list kd el ll ds =>
+                simp [DM.ok] at hd2; subst hd2
+                obtain ⟨a', mm, xs, ha, -, ho, hm⟩ := dec_list hn
+                subst ha
+                have hlen := ((mapM_some_iff xs ds).mp hm).1
+                simp [applyBuiltin, hlf.builtin h2 .len _ [] (by simp), ho, hlen]
+                exact ⟨Ext_refl _, trivial, rfl, rfl⟩
             | [.val _], _, _, hd2 => simp at hd2
             | [], _, _, hd2 => simp at hd2
             | _ :: _ :: _, _, _, hd2 => simp at hd2

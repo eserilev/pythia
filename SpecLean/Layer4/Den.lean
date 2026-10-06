@@ -193,6 +193,7 @@ def dBuiltin (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
       match s.deref k p with
       | some (.list _ _ _ ds) => .ok (.val (.int ds.length))
       | _ => none
+    | [.tree (.list _ _ _ ds)] => .ok (.val (.int ds.length))
     | _ => none
   | _ => none
 
