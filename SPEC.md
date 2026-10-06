@@ -154,7 +154,8 @@ scope above. The proofs cover less:
     readable Lean agree on a primitive by definition. Only the model itself is trusted.
   - The fuzzer and the value-rule probes test each primitive against CPython and `eth-ssz-specs`.
   - The primitives: `set`, `sorted`, `sum`, `min`, `max`, `len`, `any`, `all`, `ssz_serialize`,
-    `ssz_deserialize`, `int.from_bytes`, `bit_length`, bytes slicing and concatenation, and the
+    `ssz_deserialize`, `uint_to_bytes` (a one-line spec wrapper around `ssz_serialize`),
+    `int.from_bytes`, `bit_length`, bytes slicing and concatenation, and the
     uint arithmetic and coercion table of section 6.2. Anything not on this list is spec code.
   - A primitive that already has a proof keeps it. A proof only lowers the trust.
 

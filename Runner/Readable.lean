@@ -25,6 +25,7 @@ def rdSpec (B : Build) (c : Case) : Rd.Spec where
   blsAggregatePKs := fun pks => (c.aggregates.lookup pks).getD stubPubkey
   blsG1Add := fun a _ => a
   blsG1Neg := fun a => a
+  hashTreeRoot := fun h v => Htr.root (hasher B) h 64 v
 
 def failTag : Fail → String
   | .invalid => "invalid"

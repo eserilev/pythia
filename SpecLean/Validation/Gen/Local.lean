@@ -15,8 +15,12 @@ namespace SpecLean.Validation.Gen
 
 open SpecLean SpecLean.Rd SpecLean.Rd.Gen SpecLean.Validation.Local SpecLean.Validation.Decode
 
+instance : LocalDec dec_Fork := by rd_local dec_Fork
+instance : LocalDec dec_BeaconBlockHeader := by rd_local dec_BeaconBlockHeader
 instance : LocalDec dec_Eth1Data := by rd_local dec_Eth1Data
 instance : LocalDec dec_Validator := by rd_local dec_Validator
+instance : LocalDec dec_Checkpoint := by rd_local dec_Checkpoint
+instance : LocalDec dec_SyncCommittee := by rd_local dec_SyncCommittee
 instance : LocalDec dec_HistoricalSummary := by rd_local dec_HistoricalSummary
 instance : LocalDec dec_PendingDeposit := by rd_local dec_PendingDeposit
 instance : LocalDec dec_PendingPartialWithdrawal := by rd_local dec_PendingPartialWithdrawal
@@ -24,27 +28,39 @@ instance : LocalDec dec_PendingConsolidation := by rd_local dec_PendingConsolida
 instance : LocalDec dec_Builder := by rd_local dec_Builder
 instance : LocalDec dec_BuilderPendingWithdrawal := by rd_local dec_BuilderPendingWithdrawal
 instance : LocalDec dec_BuilderPendingPayment := by rd_local dec_BuilderPendingPayment
+instance : LocalDec dec_ExecutionPayloadBid := by rd_local dec_ExecutionPayloadBid
 instance : LocalDec dec_Withdrawal := by rd_local dec_Withdrawal
-instance : LocalDec dec_DepositRequest := by rd_local dec_DepositRequest
+instance : LocalDec dec_BeaconState := by rd_local dec_BeaconState
 instance : LocalDec dec_WithdrawalRequest := by rd_local dec_WithdrawalRequest
-instance : LocalDec dec_ConsolidationRequest := by rd_local dec_ConsolidationRequest
-instance : LocalDec dec_BuilderDepositRequest := by rd_local dec_BuilderDepositRequest
-instance : LocalDec dec_BuilderExitRequest := by rd_local dec_BuilderExitRequest
-instance : LocalDec dec_BeaconBlockHeader := by rd_local dec_BeaconBlockHeader
+instance : LocalDec dec_VoluntaryExit := by rd_local dec_VoluntaryExit
+instance : LocalDec dec_SignedVoluntaryExit := by rd_local dec_SignedVoluntaryExit
+instance : LocalDec dec_SigningData := by rd_local dec_SigningData
+instance : LocalDec dec_ForkData := by rd_local dec_ForkData
+instance : LocalDec dec_SyncAggregate := by rd_local dec_SyncAggregate
 instance : LocalDec dec_SignedBeaconBlockHeader := by rd_local dec_SignedBeaconBlockHeader
 instance : LocalDec dec_ProposerSlashing := by rd_local dec_ProposerSlashing
-instance : LocalDec dec_Checkpoint := by rd_local dec_Checkpoint
+instance : LocalDec dec_PayloadAttestationData := by rd_local dec_PayloadAttestationData
+instance : LocalDec dec_PayloadAttestation := by rd_local dec_PayloadAttestation
+instance : LocalDec dec_IndexedPayloadAttestation := by rd_local dec_IndexedPayloadAttestation
 instance : LocalDec dec_AttestationData := by rd_local dec_AttestationData
 instance : LocalDec dec_IndexedAttestation := by rd_local dec_IndexedAttestation
 instance : LocalDec dec_AttesterSlashing := by rd_local dec_AttesterSlashing
 instance : LocalDec dec_Attestation := by rd_local dec_Attestation
 instance : LocalDec dec_DepositData := by rd_local dec_DepositData
 instance : LocalDec dec_Deposit := by rd_local dec_Deposit
-instance : LocalDec dec_VoluntaryExit := by rd_local dec_VoluntaryExit
-instance : LocalDec dec_SignedVoluntaryExit := by rd_local dec_SignedVoluntaryExit
 instance : LocalDec dec_BLSToExecutionChange := by rd_local dec_BLSToExecutionChange
 instance : LocalDec dec_SignedBLSToExecutionChange := by rd_local dec_SignedBLSToExecutionChange
-instance : LocalDec dec_PayloadAttestationData := by rd_local dec_PayloadAttestationData
-instance : LocalDec dec_PayloadAttestation := by rd_local dec_PayloadAttestation
+instance : LocalDec dec_SignedExecutionPayloadBid := by rd_local dec_SignedExecutionPayloadBid
+instance : LocalDec dec_DepositRequest := by rd_local dec_DepositRequest
+instance : LocalDec dec_ConsolidationRequest := by rd_local dec_ConsolidationRequest
+instance : LocalDec dec_BuilderDepositRequest := by rd_local dec_BuilderDepositRequest
+instance : LocalDec dec_BuilderExitRequest := by rd_local dec_BuilderExitRequest
+instance : LocalDec dec_ExecutionRequests := by rd_local dec_ExecutionRequests
+instance : LocalDec dec_BeaconBlockBody := by rd_local dec_BeaconBlockBody
+instance : LocalDec dec_BeaconBlock := by rd_local dec_BeaconBlock
+instance : LocalDec dec_DepositMessage := by rd_local dec_DepositMessage
+instance : LocalDec dec_fulu_ExecutionPayloadHeader := by rd_local dec_fulu_ExecutionPayloadHeader
+instance : LocalDec dec_fulu_BeaconState := by rd_local dec_fulu_BeaconState
+instance : LocalDec dec_SignedBeaconBlock := by rd_local dec_SignedBeaconBlock
 
 end SpecLean.Validation.Gen

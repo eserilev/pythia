@@ -2,6 +2,8 @@ import SpecLean.Ast
 import SpecLean.Value
 import SpecLean.Heap
 import SpecLean.Interp
+import SpecLean.Prim
+import SpecLean.PrimRel
 import SpecLean.Gen.Ast
 import SpecLean.Gen.Scope
 import SpecLean.Gen.Readable

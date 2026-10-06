@@ -141,19 +141,27 @@ theorem mapM_slice_same {α : Type} {f : Dec α} [LocalDec f] {h h' : Heap} {xs 
   SpecLean.Validation.Decode.mapM_take m
     (SpecLean.Validation.Decode.mapM_drop n (mapM_same_of hm hall))
 
+theorem containerFieldsT_same {ty : Name} {h h' : Heap} {v : Value} (hp : Same h h' v) :
+    containerFieldsT ty h' v = containerFieldsT ty h v := by
+  cases v with
+  | ref a => exact containerFieldsT_local hp
+  | _ => rfl
+
+theorem bind_congr_some {α β : Type} {o : Option α} {f g : α → Option β}
+    (hfg : ∀ a, o = some a → f a = g a) : o.bind f = o.bind g := by
+  cases o with
+  | none => rfl
+  | some a => exact hfg a rfl
+
 end SpecLean.Validation.Local
 
 open SpecLean.Validation.Local SpecLean.Validation.Decode in
-/-- The `LocalDec` instance of a container decoder: its object, then each field. -/
+/-- The `LocalDec` instance of a container decoder: its object, then each field. The proof
+rewrites under the binds one field at a time, so a large container stays cheap. -/
 macro "rd_local" d:ident : tactic => `(tactic| (
   refine ⟨fun h h' v hp => ?_⟩
-  cases v with
-  | ref a =>
-    simp only [$d:ident, Option.bind_eq_bind, containerFieldsT_local hp]
-    cases hf : SpecLean.Rd.containerFieldsT _ h (.ref a) with
-    | none => rfl
-    | some fs =>
-      obtain ⟨r, hr, ho⟩ := containerFieldsT_eq.1 hf
-      cases hr
-      simp only [Option.bind_some, field_local hp ho]
-  | _ => simp [$d:ident, SpecLean.Rd.containerFieldsT]))
+  simp only [$d:ident, Option.bind_eq_bind, containerFieldsT_same hp]
+  refine bind_congr_some fun fs hf => ?_
+  obtain ⟨r, hr, ho⟩ := containerFieldsT_eq.1 hf
+  subst hr
+  simp only [field_local hp ho]))
