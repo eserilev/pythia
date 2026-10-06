@@ -482,14 +482,56 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
             raise Unsupported("bounded callee: no call")
         for call in calls:
             for j, field in terms:
-                if j >= len(call.args) or not isinstance(call.args[j], ast.Name) or \
-                        call.args[j].id not in pnames:
+                if j >= len(call.args):
                     raise Unsupported("bounded callee: argument")
-                p = pnames.index(call.args[j].id)
-                term = f"x{p}.{field}.length" if field else f"x{p}.length"
+                term = self.len_bound(name, call.args[j], field)
                 if term not in out:
                     out.append(term)
         return out
+
+    def len_bound(self, name, arg, field=None):
+        """A bound on the length of argument `arg` of a call in `name` (of its `field`), in the
+        arguments of `name`: an argument itself, `set(...)` of a bound, or the result of a
+        function that returns its comprehension."""
+        pnames = [pn for pn, _ in self.em.sigs[name].params]
+        if isinstance(arg, ast.Name) and arg.id in pnames:
+            p = pnames.index(arg.id)
+            return f"x{p}.{field}.length" if field else f"x{p}.length"
+        if field:
+            raise Unsupported("bounded callee: argument")
+        if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name) and \
+                arg.func.id == "set" and len(arg.args) == 1:
+            return self.len_bound(name, arg.args[0])
+        if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name) and \
+                arg.func.id in self.b.fns and arg.func.id in self.em.sigs:
+            g = arg.func.id
+            bound = self.result_len(g)
+            if bound is None:
+                raise Unsupported("bounded callee: argument")
+
+            def sub(m):
+                k = int(m[1])
+                if k >= len(arg.args) or not isinstance(arg.args[k], ast.Name) or \
+                        arg.args[k].id not in pnames:
+                    raise Unsupported("bounded callee: argument")
+                return f"x{pnames.index(arg.args[k].id)}"
+            return re.sub(r"\bx(\d+)", sub, bound)
+        raise Unsupported("bounded callee: argument")
+
+    def result_len(self, g):
+        """The length bound of the result of `g`, in its own arguments, when its theorem states
+        one (a function that returns its comprehension)."""
+        sig = self.em.sigs[g]
+        tree = self.b.fns[g]
+        last = tree.body[-1] if tree.body else None
+        if sig.ret[0] != "list" or sig.mutated or not isinstance(last, ast.Return) or \
+                not isinstance(last.value, ast.ListComp):
+            return None
+        try:
+            cb, _ = self.comps(g, sig)
+        except Unsupported:
+            return None
+        return cb[0] if len(cb) == 1 else None
 
     def comps(self, name, sig):
         """The comprehensions of a function with no loop (SPEC 9.3): each has one generator over a
@@ -760,6 +802,12 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         cbounds, kf = [], fuel
         if has_comp and not has_loop and poly is None:
             cbounds, cjj = self.comps(name, sig)
+            # A function that returns its comprehension: the length bound of the result, for the
+            # fuel of a caller that passes it on.
+            last = tree.body[-1] if tree.body else None
+            if ret[0] == "list" and len(cbounds) == 1 and not sig.mutated and \
+                    isinstance(last, ast.Return) and isinstance(last.value, ast.ListComp):
+                exp = re.sub(r"∧ (∀ .*)$", r"∧ (\1)", exp) + f" ∧ r.length ≤ {cbounds[0]}"
             ltext, lnames, lens, jj = "", [], [], cjj
             # Each item of a comprehension costs one unit of fuel.
             fuel = f"{' + '.join(cbounds)} + {fuel + 64}"
@@ -767,14 +815,14 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             ltext, lnames, lens, jj = (self.loops(name, sig, tree, callees, fuel) if poly is None
                                        else ("", [], [], None))
         bounded = bool(lnames or cbounds)
-        if extra:
-            # A callee whose fuel depends on its input: its bound, in the caller's arguments.
-            fuel = f"{' + '.join(extra)} + {fuel}"
-            bounded = True
         if lnames:
             # Each iteration of a loop costs one unit of fuel.
             # The literal stays last: the interpreter's equations match `n + 1`.
             fuel = f"{' + '.join(lens)} + {fuel + 64}"
+        if extra:
+            # A callee whose fuel depends on its input: its bound, in the caller's arguments.
+            fuel = f"{' + '.join(extra)} + {fuel}"
+            bounded = True
         binders = " ".join(a[0] for a in args)
         decs, hys = [], []
         for j, (_, t) in enumerate(sig.params):
@@ -827,6 +875,9 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             [f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"] if callees else [])
         if alloc:
             alts.append("(rd_listres; try rd_step)")
+        if any(isinstance(x, ast.Call) and isinstance(x.func, ast.Name) and x.func.id == "set" and
+               x.args for x in ast.walk(tree)):
+            alts.append("(rd_set; try rd_step)")
         sums = any(isinstance(x, ast.Name) and x.id == "sum" for x in ast.walk(tree))
         # A comprehension before the splits: a split of later code would copy its proof.
         comp = ([f"rd_comp {kf} [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"]
@@ -986,12 +1037,9 @@ def main():
             if li:
                 add_item(li[1])
         items.append(c)
+    # Every container: a decode of an argument survives a callee and a new object (rd_keep).
     for c in b.order:
-        if T.is_container_cls(c):
-            for _, ft in c._FIELD_TYPES:
-                li = T.list_info(ft)
-                if li and T.is_container_cls(li[1]):
-                    add_item(li[1])
+        add_item(c)
     local = LOCAL_HEADER + "".join(
         f"instance : LocalDec dec_{names.cls(c)} := by rd_local dec_{names.cls(c)}\n"
         for c in items) + "\nend SpecLean.Validation.Gen\n"
@@ -1012,15 +1060,28 @@ def main():
     if args.emit:
         n = args.emit
         # The callees with a theorem, and their fuel, as the tiers see them.
-        fl = {}
+        fl, bf, wfn, hq = {}, {}, {}, {}
         for f in ["Leaves", "Calls", "Loops"]:
             gp = gen_dir / f"{f}.lean"
             if gp.exists():
-                fl.update(run_fuels(gp.read_text()))
+                txt = gp.read_text()
+                fl.update(run_fuels(txt))
+                bf.update(bound_fuels(txt))
+                for m in re.finditer(r"^theorem (\w+)_run \(gfp(.*?):= by", txt, re.M | re.S):
+                    wfn[m[1]] = "(hwf : HeapWF h)" in m[2]
+                    hq[m[1]] = "h' = h)" in m[2] or "(hw : WTree" in m[2]
         cs = cls[n]["calls"]
         lemmas = [k for c in cs for k in fl if k == c or k.startswith(c + "_p")]
+        extra = []
+        for c in cs:
+            if c in bf:
+                lemmas.append(c + "_runF")
+                extra += g.map_bound(n, c, bf[c][1])
         text = g.theorem(n, em.sigs[n], fns[n], lemmas,
-                         64 + max((fl.get(c, 64) for c in cs), default=0))
+                         64 + max((bf[c][0] if c in bf else fl.get(c, 64) for c in cs),
+                                  default=0),
+                         extra=extra, wf=any(wfn.get(c) for c in cs),
+                         alloc=any(not hq.get(c, True) for c in cs))
         Path(args.out).write_text(LOOPS_HEADER + PRELUDE + text + FOOTER)
         return
     base = {"leaves": "SpecLean.Validation.Gen.Local", "calls": "SpecLean.Validation.Gen.Leaves",
