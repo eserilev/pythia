@@ -557,8 +557,9 @@ macro "rd_disch" : tactic => `(tactic| first
       SpecLean.Validation.Where.alloc_fst]; rd_ne; done)
   | (intro j x hj q c hf; rd_same; done)
   | (intro k x hk hkj q c hf; rd_ne; done)
-  | assumption
-  | decide
+  -- Reducible only: a full unification against each fact can unfold the decoders of a large
+  -- heap past the recursion limit, and that error escapes `first`.
+  | with_reducible assumption
   | omega
   | (intro y hy; rd_itemdec))
 

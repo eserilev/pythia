@@ -291,6 +291,7 @@ class Gen:
                 f"(rd_split <;> (try rd_step)))" if callees else "(rd_split <;> (try rd_step))")
         return f"""
 set_option maxHeartbeats 4000000 in
+set_option maxRecDepth 8192 in
 theorem {name_run} (gfp : Footprint) (h : Heap) {binders}{hw} (k : Nat) :
       ResultMatches gfp {fp} h {vs} (fun (r : {rt}) h' v => {exp})
         (interp (Scope.env sha) (k + {fuel}) Scope.Id.«{name}» {vs} h)
