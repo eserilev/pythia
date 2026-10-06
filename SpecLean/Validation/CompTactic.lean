@@ -80,6 +80,49 @@ theorem enum_item {α : Type} {dec : Value → Option α} {h : Heap} {a : Nat} {
   rw [List.getElem?_eq_getElem hi] at this
   exact this
 
+/-- An item of `enumerate` over a list whose object holds the encodings of the readable items. -/
+theorem enum_item_map {α : Type} {g : α → Value} {h : Heap} {a : Nat} {k : ListKind}
+    {e : SszTy} {l : Option Nat} {xs : List α} {i : Nat} {x : Value} {y : Int × α}
+    (ho : h.objs a = some (.list k e l (xs.map g)))
+    (hnb : ¬(k = .list ∧ e = .uint (.width 8)))
+    (hy : (List.map (fun p => ((p.snd : Int), p.fst)) xs.zipIdx)[i]? = some y)
+    (hx : iterItem h (.enum (.live a)) i = .ok (some x)) :
+    ∃ v, x = enumItem i (g v) ∧ y = ((i : Int), v) ∧ xs[i]? = some v := by
+  have hi : i < xs.length := by
+    have := congrArg Option.isSome hy
+    simp [List.getElem?_map, List.getElem?_zipIdx] at this
+    exact this
+  have hy' : y = ((i : Int), xs[i]) := by
+    simp [List.getElem?_map, List.getElem?_zipIdx, List.getElem?_eq_getElem hi] at hy
+    exact hy.symm
+  have hx' : x = enumItem i (g xs[i]) := by
+    simp [iterItem, seqItem_live_eq ho hnb, List.getElem?_map, List.getElem?_eq_getElem hi] at hx
+    exact hx.symm
+  exact ⟨xs[i], hx', hy', List.getElem?_eq_getElem hi⟩
+
+/-- An item of a list whose object holds references that decode to the readable items. -/
+theorem seq_item {α : Type} {dec : Value → Option α} {h : Heap} {a : Nat} {k : ListKind}
+    {e : SszTy} {l : Option Nat} {vrefs : List Value} {xs : List α} {i : Nat} {x : Value} {y : α}
+    (ho : h.objs a = some (.list k e l vrefs))
+    (hnb : ¬(k = .list ∧ e = .uint (.width 8))) (hm : vrefs.mapM dec = some xs)
+    (hy : xs[i]? = some y) (hx : iterItem h (.seq (.live a)) i = .ok (some x)) :
+    dec x = some y := by
+  have hlen := (SpecLean.Encode.mapM_some_iff _ _).mp hm
+  simp only [iterItem, seqItem_live_eq ho hnb, Except.ok.injEq] at hx
+  have := hlen.2 i x hx
+  rw [hy] at this
+  exact this
+
+/-- An item of a list whose object holds the encodings of the readable items. -/
+theorem seq_item_map {α : Type} {g : α → Value} {h : Heap} {a : Nat} {k : ListKind}
+    {e : SszTy} {l : Option Nat} {xs : List α} {i : Nat} {x : Value} {y : α}
+    (ho : h.objs a = some (.list k e l (xs.map g)))
+    (hnb : ¬(k = .list ∧ e = .uint (.width 8))) (hy : xs[i]? = some y)
+    (hx : iterItem h (.seq (.live a)) i = .ok (some x)) : x = g y := by
+  simp only [iterItem, seqItem_live_eq ho hnb, List.getElem?_map, hy, Option.map_some,
+    Except.ok.injEq, Option.some.injEq] at hx
+  exact hx.symm
+
 end SpecLean.Validation
 
 namespace SpecLean.Validation.Tactic
@@ -135,11 +178,21 @@ macro "rd_comp_step" "[" ls:ident,* "]" : tactic => `(tactic| (
   subst hh
   have hL := hK
   first
-  | (obtain ⟨r, v, rfl, rfl, hdec, hxs⟩ := SpecLean.Validation.enum_item ‹_› (by intro hc; first | cases hc.1 | cases hc.2) ‹_› hy hx
+  | (obtain ⟨r, v, hxe, hye, hdec, hxs⟩ := SpecLean.Validation.enum_item ‹_› (by intro hc; first | cases hc.1 | cases hc.2) ‹_› hy hx
+     subst hxe hye
      have hdecc := hdec
      simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def,
        Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hdec
      rd_split_hyps)
+  | (obtain ⟨v, hxe, hye, hxs⟩ := SpecLean.Validation.enum_item_map ‹_› (by intro hc; first | cases hc.1 | cases hc.2) hy hx
+     subst hxe hye)
+  | (have hdec := SpecLean.Validation.seq_item ‹_› (by intro hc; first | cases hc.1 | cases hc.2) ‹_› hy hx
+     have hdecc := hdec
+     simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def,
+       Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hdec
+     rd_split_hyps)
+  | (have hxe := SpecLean.Validation.seq_item_map ‹_› (by intro hc; first | cases hc.1 | cases hc.2) hy hx
+     subst hxe)
   | skip
   unfold SpecLean.Validation.compItem
   unfold SpecLean.Validation.KeepLocals at hL

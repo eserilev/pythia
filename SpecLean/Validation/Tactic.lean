@@ -160,6 +160,8 @@ def isValueHead (a : Lean.Expr) : Bool :=
     f.isConstOf ``Option.none || f.isConstOf ``Pure.pure || a.isFVar || isDecoder f ||
     -- The continuation of a loop step (`for_rule`): the rest of the loop, never split.
     (f.isFVar && a.getAppNumArgs > 0) ||
+    -- A comprehension waits for `rd_comp`, which needs both sides.
+    f.isConstOf ``SpecLean.compItems || f.isConstOf ``List.filterMapM || f.isConstOf ``List.mapM ||
     -- A call waits for `rd_call`, which needs the readable call too; the next iteration of a
     -- loop waits for the induction hypothesis.
     f.isConstOf `SpecLean.Validation.Tactic.callStop || f.isConstOf ``SpecLean.execFor || f.isConstOf ``SpecLean.execWhile ||

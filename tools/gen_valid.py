@@ -50,7 +50,10 @@ import SpecLean.Validation.CompTactic
 """
 
 # The names of the loop rule, for the loops tier only.
-LOOPS_OPEN = "\nopen SpecLean.Validation (LoopEnd IterK for_rule for_live_rule for_enum_rule)\n"
+LOOPS_OPEN = ("\nopen SpecLean.Validation (LoopEnd IterK for_rule for_live_rule for_enum_rule)\n"
+              "\n-- As `ResultMatches`: `whnf` of an item would evaluate a range check in unary.\n"
+              "attribute [local irreducible] SpecLean.Validation.ItemRel "
+              "SpecLean.Validation.CompOut\n")
 
 LOOPS_NEXT_HEADER = """import SpecLean.Validation.Gen.Loops
 """
@@ -807,11 +810,13 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
                  (" hwf haw" if wfb else "") +
                  "".join(f" hgfp{f}" for f in sl))
         alts = ([f"rd_loop [{', '.join(lnames)}]"] if lnames else []) + (
-            [f"rd_comp {kf} [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"] if cbounds else []) + (
             [f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"] if callees else [])
         if alloc:
             alts.append("(rd_listres; try rd_step)")
-        step = "(first | " + " | ".join(alts + ["(rd_split <;> (try rd_step))"]) + ")"
+        # A comprehension last: the calls and the splits before it come first.
+        tail = ([f"rd_comp {kf} [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"]
+                if cbounds else [])
+        step = "(first | " + " | ".join(alts + ["(rd_split <;> (try rd_step))"] + tail) + ")"
         runF = ""
         if bounded:
             # The fuel as a variable with its bound: a caller's fuel unifies with it.
