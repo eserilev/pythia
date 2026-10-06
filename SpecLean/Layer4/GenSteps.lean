@@ -270,6 +270,16 @@ theorem s_iter_name (l : Line) (x : Name) :
         | .place k p => if listPlace s k p then .ok ⟨k, p, false⟩ else none
         | _ => none := by rw [den_iter, den_expr]; rfl
 
+/-- A loop or a comprehension over `enumerate` of a list at a place. -/
+theorem s_iter_enum (l l' : Line) (g : Name) (e : Expr) :
+    (den env fps (n + 2)).iter fp s (.call l (.name l' g) [.pos e]) =
+      if (s.loc g).isNone && isEnumerate env g then
+        DM.bind ((den env fps (n + 1)).expr fp s e) fun r =>
+          match r with
+          | .place k p => if listPlace s k p then .ok ⟨k, p, true⟩ else none
+          | _ => none
+      else none := by rw [den_iter]; rfl
+
 theorem s_loop (t : Target) (ls : LSrc) (i : Nat) (body : List Stmt) :
     (den env fps (n + 1)).loop fp s t ls i body = loopStep n (den env fps n) fp s t ls i body := by
   rw [den_loop]
@@ -390,6 +400,13 @@ theorem callK_ite {β γ : Type} (c : Prop) [Decidable c] (x y : Except Fail β)
   by_cases h : c
   · rw [if_pos h, if_pos h]
   · rw [if_neg h, if_neg h]
+
+theorem callK_bind {β δ γ : Type} (y : Except Fail β) (h : β → Except Fail δ)
+    (g : δ → Option (Except Fail γ)) : callK (y >>= h) g = callK y fun b => callK (h b) g := by
+  cases y <;> rfl
+
+theorem callK_pure {β γ : Type} (b : β) (g : β → Option (Except Fail γ)) :
+    callK (pure b) g = g b := Eq.trans rfl rfl
 
 theorem callK_congr {β γ : Type} (y : Except Fail β) {g g' : β → Option (Except Fail γ)}
     (h : ∀ b, g b = g' b) : callK y g = callK y g' := by
@@ -599,7 +616,7 @@ macro_rules
     `(tactic| simp only [l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
-      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
+      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, s_iter_enum, isEnumerate, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
       dGlobal, env_globals, env_containers, env_config, env_bytesName,
@@ -624,11 +641,11 @@ macro_rules
       List.any_nil, Bool.or_false, Bool.or_true, Bool.false_or, Bool.true_or, beq_self_eq_true, Nat.reduceBEq, List.set_cons_zero, List.set_cons_succ,
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
-      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
+      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
-      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
+      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, s_iter_enum, isEnumerate, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
       dGlobal, env_globals, env_containers, env_config, env_bytesName,
@@ -653,7 +670,7 @@ macro_rules
       List.any_nil, Bool.or_false, Bool.or_true, Bool.false_or, Bool.true_or, beq_self_eq_true, Nat.reduceBEq, List.set_cons_zero, List.set_cons_succ,
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
-      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
+      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
 
 /-- The side conditions of a loop lemma: fuel, and the locals of the parameters. -/
 macro "l4_disch" : tactic => `(tactic| first

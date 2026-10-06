@@ -281,6 +281,9 @@ def result(m, rt, sub=None):
         return "DRes.val (.bytes %d x.data)" % m.bytes_id(rt)
     if rt == "Bytes":
         return "DRes.val (.bytes 0 x)"
+    mm = re.fullmatch(r"\(?List (\w+)\)?", rt)
+    if mm and mm.group(1) in m.uint:
+        return "DRes.tree (.list .pyList .any none (x.map fun y => DV.leaf (.uint %s y.val)))" % m.uint_ty(mm.group(1))
     raise Unsupported("result type " + rt)
 
 
@@ -579,7 +582,7 @@ def loop_theorems(m, name, params, bs, roots, rds, xs, lps):
             "    rw [show n' + %d = (n' + %d) + 1 from rfl, s_loop, %s]\n"
             "    have hi : i < %s := by omega\n"
             "    simp only [loopStep, dif_pos hi, if_pos hi]\n"
-            "    l4_eval [bindLoop, Sem.block, List.getElem?_eq_getElem hi, hi, %s, %s_swap]\n"
+            "    l4_eval [bindLoop, Sem.block, fpsGen, fpAll, List.getElem?_eq_getElem hi, hi, %s, %s_swap]\n"
             "    all_goals (try simp (disch := l4_disch) only [ih])\n"
             "    all_goals (try l4_eval)\n"
             "    all_goals (by_cases hlast : i + 1 < %s <;>\n"
@@ -601,6 +604,187 @@ def loop_theorems(m, name, params, bs, roots, rds, xs, lps):
                rs, car, st, ls, lp["body"], loop1, rs, fin, nm, " ".join(xs), " ".join(hnames)))
     return "\n".join(x for x in out if x)
 
+
+def split_args(t):
+    """The space-separated arguments of a parenthesized application `(.f a b c)`."""
+    t = t.strip()[1:-1]
+    out, depth, cur = [], 0, ""
+    for ch in t:
+        if ch in "([":
+            depth += 1
+        if ch in ")]":
+            depth -= 1
+        if ch == " " and depth == 0:
+            if cur:
+                out.append(cur)
+            cur = ""
+            continue
+        cur += ch
+    if cur:
+        out.append(cur)
+    return out
+
+
+def paren_at(t, i):
+    """The parenthesized term that starts at `t[i] == '('`."""
+    depth = 0
+    for j in range(i, len(t)):
+        depth += {"(": 1, ")": -1}.get(t[j], 0)
+        if depth == 0:
+            return t[i:j + 1]
+    raise ValueError
+
+
+def comps(m, name, params, roots, rds):
+    """The list comprehension of `name` (at most one), as a dict, or Unsupported."""
+    bt = body_text(m, name)
+    if bt.count("(.comp ") == 0:
+        return []
+    if bt.count("(.comp ") > 1:
+        raise Unsupported("two comprehensions")
+    c = paren_at(bt, bt.index("(.comp "))
+    a = split_args(c)
+    if len(a) != 5 or a[2] != ".list":
+        raise Unsupported("comprehension kind")
+    elt = a[3]
+    gens = a[4].strip()[1:-1].strip()
+    g = split_args(gens)
+    if g[0] != ".mk":
+        raise Unsupported("comprehension generator")
+    tgt, it, ifs = g[1], g[2], g[3]
+    pnames = [p for p, _ in params]
+    pids = m.fns[name]["params"]
+    mm = re.fullmatch(r"\(\.call \d+ \(\.name \d+ (\d+)\) \[\(\.pos \(\.attr \d+ \(\.name \d+ (\d+)\) (\d+)\)\)\]\)", it)
+    enum = True
+    if not mm:
+        raise Unsupported("comprehension iterable")
+    if m.ids.get(int(mm.group(1))) != "enumerate":
+        raise Unsupported("comprehension over a call")
+    pv, fid = int(mm.group(2)), int(mm.group(3))
+    if pv not in pids:
+        raise Unsupported("comprehension over a local")
+    pk = pids.index(pv)
+    pt = params[pk][1]
+    fn = m.ids[fid]
+    fi = [i for i, (n2, _, _) in enumerate(m.containers.get(pt, [])) if n2 == fn]
+    if not fi:
+        raise Unsupported("comprehension field")
+    rd = m.bodies[name]
+    j = rd.find(".filterMapM fun")
+    if j < 0:
+        raise Unsupported("readable comprehension")
+    # X: the parenthesized list before `.filterMapM`; F: the function after it.
+    depth, i = 0, j - 1
+    while True:
+        depth += {")": 1, "(": -1}.get(rd[i], 0)
+        if depth == 0:
+            break
+        i -= 1
+    X = rd[i:j]
+    k = j + len(".filterMapM ")
+    depth, e = 0, k
+    while e < len(rd):
+        if rd[e] == "(":
+            depth += 1
+        elif rd[e] == ")":
+            if depth == 0:
+                break
+            depth -= 1
+        e += 1
+    F = rd[k:e].strip()
+    sub = {pn: rds[pnames.index(pn)] for pn in pnames}
+    rep = lambda t: re.sub(r"\b(%s)\b" % "|".join(map(re.escape, pnames)),
+                           lambda mm2: "(%s)" % sub[mm2.group(1)], t)
+    rt = m.sigs[name][1]
+    mr = re.fullmatch(r"\(?List (\w+)\)?", rt)
+    if not mr or mr.group(1) not in m.uint:
+        raise Unsupported("comprehension result " + rt)
+    enc = "(DV.leaf (.uint %s y.val))" % m.uint_ty(mr.group(1))
+    return [dict(tgt=tgt, ifs=ifs, elt=elt, k=pk, fi=fi[0], X=rep(X), F=rep(F), enc=enc, et=mr.group(1),
+                 len="%s.%s.length" % (rds[pk], fn), depth=depth_text(c))]
+
+
+def depth_text(t):
+    d, best = 0, 0
+    for ch in t:
+        if ch == "(":
+            d += 1
+            best = max(best, d)
+        elif ch == ")":
+            d -= 1
+    return best
+
+
+def comp_theorems(m, name, params, bs, roots, rds, xs, cps):
+    out = []
+    pids = m.fns[name]["params"]
+    rs = "[%s]" % ", ".join(roots)
+    hyps, hnames = [], []
+    for (pn, pt), pid, r in zip(params, pids, roots):
+        v = "(.val %s)" % r[len("(.leaf "):-1] if r.startswith("(.leaf ") else "(.place %d [])" % pids.index(pid)
+        hyps.append("B %d = some %s" % (pid, v))
+        hnames.append("hB%d" % pid)
+    for cp in cps:
+        gl = sorted({int(g) for g in re.findall(r"\(\.name \d+ (\d+)\)", cp["ifs"] + cp["elt"])
+                     if int(g) not in pids and m.glob_kind(int(g))[0] != "other"})
+        hyps2 = hyps + ["B %d = none" % g for g in gl]
+        hnames2 = hnames + ["hG%d" % g for g in gl]
+        hyps, hnames = hyps2, hnames2
+        nm = "%s_items" % name
+        C = cp["depth"] + 6
+        LEN = cp["len"]
+        ls = "⟨%d, [%d], true⟩" % (cp["k"], cp["fi"])
+        X = cp["X"]
+        lhs = ("Option.map (Except.mapError SpecError.fail)\n"
+               "        (DM.bind ((den (Scope.env sha) fpsGen n).items [] (DSt.mk %s B) %s %s\n          %s %s i) K)"
+               % (rs, cp["tgt"], cp["ifs"], cp["elt"], ls))
+        rhs = ("callK ((%s).drop i |>.filterMapM %s)\n"
+               "        fun ys => Option.map (Except.mapError SpecError.fail) (K (ys.map fun y => %s))"
+               % (X, cp["F"], cp["enc"]))
+        out.append(
+            "theorem %s (sha : Oracle) %s :\n"
+            "    ∀ (k i n : Nat) (B : Name → Option DRes), %s - i = k → k + %d ≤ n → %s →\n"
+            "      ∀ {γ : Type} (K : List DV → DM γ),\n"
+            "      %s =\n      %s := by\n"
+            "  intro k\n"
+            "  induction k with\n"
+            "  | zero =>\n"
+            "    intro i n B hk hn %s γ K\n"
+            "    obtain ⟨n', rfl⟩ : ∃ n', n = n' + 1 := ⟨n - 1, by omega⟩\n"
+            "    have hi : ¬ i < %s := by omega\n"
+            "    rw [s_items]\n"
+            "    simp only [itemsStep]\n"
+            "    l4_eval\n"
+            "    simp (disch := (simp only [List.length_map, List.length_zipIdx]; omega)) only\n"
+            "      [List.getElem?_eq_none, List.drop_eq_nil_of_le, Option.map_none, List.filterMapM_nil]\n"
+            "    all_goals (try l4_eval [List.map_nil])\n"
+            "    all_goals l4_close\n"
+            "  | succ k ih =>\n"
+            "    intro i n B hk hn %s γ K\n"
+            "    obtain ⟨n', rfl⟩ : ∃ n', n = n' + %d := ⟨n - %d, by omega⟩\n"
+            "    rw [show n' + %d = (n' + %d) + 1 from rfl, s_items]\n"
+            "    have hi : i < %s := by omega\n"
+            "    rw [List.drop_eq_getElem_cons (by simp only [List.length_map, List.length_zipIdx]; omega)]\n"
+            "    simp only [itemsStep]\n"
+            "    l4_eval [bindLoop, ifsOf, fpsGen, fpAll, List.getElem?_eq_getElem hi, hi, %s, List.getElem_map,\n"
+            "      List.getElem_zipIdx, List.filterMapM_cons, List.map_cons, List.cons_append, List.nil_append]\n"
+            "    all_goals (repeat (first | (simp (disch := l4_disch) only [ih]) |\n"
+            "      ((l4_bycases <;> (try l4_eval_star)))))\n"
+            "    all_goals (try l4_eval [List.map_cons, List.cons_append, List.nil_append])\n"
+            "    all_goals l4_close\n"
+            % (nm, " ".join(bs), LEN, C, " → ".join(hyps), lhs, rhs, " ".join(hnames), LEN,
+               " ".join(hnames), C, C, C, C - 1, LEN, ", ".join(hnames)))
+        out.append(
+            "@[l4_simp] theorem %s_call (sha : Oracle) %s (i n : Nat) (B : Name → Option DRes)\n"
+            "    (hn : %s - i + %d ≤ n) %s {γ : Type} (K : List DV → DM γ) :\n"
+            "    %s =\n    %s :=\n"
+            "  %s sha %s _ i n B rfl hn %s K\n"
+            % (nm, " ".join(bs), LEN, C, " ".join("(%s : %s)" % (h, y) for h, y in zip(hnames, hyps)),
+               lhs, rhs, nm, " ".join(xs), " ".join(hnames)))
+    return "\n".join(out)
+
+
+CLOSE = "l4_dbg" if os.environ.get("L4_DBG") else "l4_close"
 
 LENS_OF = {}   # function -> [(parameter position, field)]: the list lengths its fuel grows with
 
@@ -660,27 +844,29 @@ def candidate(m, name, proved, sub=None, isub=False):
         enc = result(m, rt, sub)
         rs_out = None
     lps = loops(m, name, params, roots, rds) if not sub else []
+    cps = comps(m, name, params, roots, rds) if not sub else []
     if sub and any(ctor(st)[0] == "forStmt" for st in f["body"][1]):
         raise Unsupported("variant with a loop")
     tag = ("_" + sub if sub else "") + ("_i" if isub else "")
     D = depth(f["body"]) + 4 + max([proved[c] + 2 for c in m.callees(name)] + [0])
-    items = [(lp["k"], lp["len"].split(".")[-2]) for lp in lps]
+    items = [(lp["k"], lp["len"].split(".")[-2]) for lp in lps + cps]
     for it in callee_lens(m, name, params):
         if it not in items:
             items.append(it)
     LENS = "".join("%s.%s.length + " % (rds[k], fld) for k, fld in items)
     fcalls = ["%s_fcall" % c for c in m.callees(name) if LENS_OF.get(c)]
-    if lps:
+    if lps or cps:
         D += 6
     rs = "[%s]" % ", ".join(roots)
     rs_out = rs_out or rs
     fp = "(fpsGen %d)" % f["id"] if w else "[]"
     unf = ["Scope.fn_" + name, name, "fpsGen", "fpAll"] + m.consts_of(name)
     loopstep = ""
-    if lps or fcalls:
+    if lps or fcalls or cps:
         loopstep = ("  all_goals (repeat (first | (simp (disch := l4_disch) only [%s]) |\n"
                     "    ((l4_bycases <;> (try l4_eval_star)))))\n  all_goals (try l4_eval)\n"
-                    % ", ".join(["%s_loop%d_call" % (name, j + 1) for j in range(len(lps))] + fcalls))
+                    % ", ".join(["%s_loop%d_call" % (name, j + 1) for j in range(len(lps))] + fcalls +
+                                ["%s_items_call" % name for _ in cps]))
     thm = ("theorem %s_den%s (sha : Oracle) (m : Nat) %s :\n"
            "    ((den (Scope.env sha) fpsGen (%sm + %d)).fn %s Scope.fn_%s %s).map (Except.mapError SpecError.fail) =\n"
            "      some ((fun x : %s => (%s, %s)) <$> %s %s) := by\n"
@@ -709,10 +895,11 @@ def candidate(m, name, proved, sub=None, isub=False):
                     LENS, D, LENS, D, name, tag, " ".join(xs)))
     if not sub:
         LENS_OF[name] = items
-    out = (loop_theorems(m, name, params, bs, roots, rds, xs, lps) + "\n" if lps else "") + thm + "\n" + call
+    out = ((loop_theorems(m, name, params, bs, roots, rds, xs, lps) + "\n" if lps else "") +
+           (comp_theorems(m, name, params, bs, roots, rds, xs, cps) + "\n" if cps else "") + thm + "\n" + call)
     if not sub:
         out += "\n" + wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS)
-    return out, D
+    return out.replace("all_goals l4_close", "all_goals " + CLOSE), D
 
 
 def wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS=""):
@@ -739,6 +926,10 @@ def wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS=""):
         E = ("(fun (x : %s) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_%s) = some (.cont %d (kids_%s x)))"
              % (w, pn, m.cid[w], w))
         hE = "(fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 %d rfl rfl⟩)" % k
+    elif enc.startswith("DRes.tree "):
+        T = enc[len("DRes.tree "):]
+        E = "(fun (x : %s) h' v => ∃ n, dec h' n v = some %s)" % (m.sigs[name][1], T)
+        hE = "(fun x h' v hx => hx.1.1)"
     else:
         V = enc[len("DRes.val "):]
         E = "(fun (x : %s) _ v => v = %s)" % (m.sigs[name][1], V)
