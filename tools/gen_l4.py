@@ -635,6 +635,10 @@ def paren_at(t, i):
     raise ValueError
 
 
+def f_body_items(m, name):
+    return top_items(body_text(m, name))
+
+
 def comps(m, name, params, roots, rds):
     """The list comprehension of `name` (at most one), as a dict, or Unsupported."""
     bt = body_text(m, name)
@@ -699,8 +703,31 @@ def comps(m, name, params, roots, rds):
     mr = re.fullmatch(r"\(?List (\w+)\)?", rt)
     if not mr or mr.group(1) not in m.uint:
         raise Unsupported("comprehension result " + rt)
+    # Locals that the comprehension reads: each assigned once before it, from a call.
+    tnames = {int(t) for t in re.findall(r"\(\.name \d+ (\d+)\)", tgt)}
+    used = {int(g) for g in re.findall(r"\(\.name \d+ (\d+)\)", ifs + elt)}
+    locs = []
+    for st in f_body_items(m, name):
+        mm2 = re.match(r"\(\.assign \d+ \[\(\.name \d+ (\d+)\)\]", st)
+        if mm2 and int(mm2.group(1)) in used and int(mm2.group(1)) not in tnames:
+            lid = int(mm2.group(1))
+            ln = m.ids[lid]
+            mm3 = re.search(r"let %s := \(← (\w+) " % re.escape(ln), rd)
+            if not mm3 or mm3.group(1) not in m.sigs or m.sigs[mm3.group(1)][1] not in m.uint:
+                raise Unsupported("comprehension reads local " + ln)
+            lt = m.sigs[mm3.group(1)][1]
+            locs.append((lid, ln, lt))
+    for g in used:
+        if g in pids or g in tnames or g in [l[0] for l in locs]:
+            continue
+        if m.glob_kind(g)[0] == "other":
+            raise Unsupported("comprehension reads an unknown name")
+    F = rep(F)
+    lsub = {ln: "(⟨lv_%s⟩ : %s)" % (ln, lt) for _, ln, lt in locs}
+    if lsub:
+        F = re.sub(r"\b(%s)\b" % "|".join(map(re.escape, lsub)), lambda mm4: lsub[mm4.group(1)], F)
     enc = "(DV.leaf (.uint %s y.val))" % m.uint_ty(mr.group(1))
-    return [dict(tgt=tgt, ifs=ifs, elt=elt, k=pk, fi=fi[0], X=rep(X), F=rep(F), enc=enc, et=mr.group(1),
+    return [dict(tgt=tgt, ifs=ifs, elt=elt, k=pk, fi=fi[0], X=rep(X), F=F, enc=enc, et=mr.group(1), locs=locs,
                  len="%s.%s.length" % (rds[pk], fn), depth=depth_text(c))]
 
 
@@ -731,18 +758,35 @@ def comp_theorems(m, name, params, bs, roots, rds, xs, cps):
         hnames2 = hnames + ["hG%d" % g for g in gl]
         hyps, hnames = hyps2, hnames2
         nm = "%s_items" % name
+        loc = "B"
+        lbs = ""
+        lxs = ""
+        for lid, ln, lt in cp["locs"]:
+            loc = "(setLoc %s %d (.val (.uint %s lv_%s)))" % (loc, lid, m.uint_ty(lt), ln)
+            lbs += " (lv_%s : Nat)" % ln
+            lxs += " lv_%s" % ln
         C = cp["depth"] + 6
         LEN = cp["len"]
         ls = "⟨%d, [%d], true⟩" % (cp["k"], cp["fi"])
+        swaps = []
+        tids = [int(t) for t in re.findall(r"\(\.name \d+ (\d+)\)", cp["tgt"])]
+        for lid, ln, lt in cp["locs"]:
+            for t in tids:
+                sw = "%s_swap_%d_%d" % (nm, lid, t)
+                swaps.append(sw)
+                out.append(
+                    "theorem %s (L : Name → Option DRes) (a b : DRes) :\n"
+                    "    setLoc (setLoc L %d a) %d b = setLoc (setLoc L %d b) %d a := by\n"
+                    "  funext y; simp only [setLoc]; split <;> split <;> simp_all\n" % (sw, lid, t, t, lid))
         X = cp["X"]
         lhs = ("Option.map (Except.mapError SpecError.fail)\n"
-               "        (DM.bind ((den (Scope.env sha) fpsGen n).items [] (DSt.mk %s B) %s %s\n          %s %s i) K)"
-               % (rs, cp["tgt"], cp["ifs"], cp["elt"], ls))
+               "        (DM.bind ((den (Scope.env sha) fpsGen n).items [] (DSt.mk %s %s) %s %s\n          %s %s i) K)"
+               % (rs, loc, cp["tgt"], cp["ifs"], cp["elt"], ls))
         rhs = ("callK ((%s).drop i |>.filterMapM %s)\n"
                "        fun ys => Option.map (Except.mapError SpecError.fail) (K (ys.map fun y => %s))"
                % (X, cp["F"], cp["enc"]))
         out.append(
-            "theorem %s (sha : Oracle) %s :\n"
+            "theorem %s (sha : Oracle) %s%s :\n"
             "    ∀ (k i n : Nat) (B : Name → Option DRes), %s - i = k → k + %d ≤ n → %s →\n"
             "      ∀ {γ : Type} (K : List DV → DM γ),\n"
             "      %s =\n      %s := by\n"
@@ -766,21 +810,23 @@ def comp_theorems(m, name, params, bs, roots, rds, xs, cps):
             "    have hi : i < %s := by omega\n"
             "    rw [List.drop_eq_getElem_cons (by simp only [List.length_map, List.length_zipIdx]; omega)]\n"
             "    simp only [itemsStep]\n"
-            "    l4_eval [bindLoop, ifsOf, fpsGen, fpAll, List.getElem?_eq_getElem hi, hi, %s, List.getElem_map,\n"
+            "    l4_eval [bindLoop, ifsOf, fpsGen, fpAll, List.getElem?_eq_getElem hi, hi, %s%s, List.getElem_map,\n"
             "      List.getElem_zipIdx, List.filterMapM_cons, List.map_cons, List.cons_append, List.nil_append]\n"
             "    all_goals (repeat (first | (simp (disch := l4_disch) only [ih]) |\n"
-            "      ((l4_bycases <;> (try l4_eval_star)))))\n"
+            "      ((l4_bycases <;> (try l4_eval_star))) |\n"
+            "      ((refine callK_congr _ fun _ => ?_) <;> (try l4_eval_star)) |\n"
+            "      ((split <;> (try l4_eval_star) <;> (try subst_vars) <;> (try l4_eval_star)))))\n"
             "    all_goals (try l4_eval [List.map_cons, List.cons_append, List.nil_append])\n"
             "    all_goals l4_close\n"
-            % (nm, " ".join(bs), LEN, C, " → ".join(hyps), lhs, rhs, " ".join(hnames), LEN,
-               " ".join(hnames), C, C, C, C - 1, LEN, ", ".join(hnames)))
+            % (nm, " ".join(bs), lbs, LEN, C, " → ".join(hyps), lhs, rhs, " ".join(hnames), LEN,
+               " ".join(hnames), C, C, C, C - 1, LEN, ", ".join(hnames), "".join(", " + w for w in swaps)))
         out.append(
-            "@[l4_simp] theorem %s_call (sha : Oracle) %s (i n : Nat) (B : Name → Option DRes)\n"
+            "@[l4_simp] theorem %s_call (sha : Oracle) %s%s (i n : Nat) (B : Name → Option DRes)\n"
             "    (hn : %s - i + %d ≤ n) %s {γ : Type} (K : List DV → DM γ) :\n"
             "    %s =\n    %s :=\n"
-            "  %s sha %s _ i n B rfl hn %s K\n"
-            % (nm, " ".join(bs), LEN, C, " ".join("(%s : %s)" % (h, y) for h, y in zip(hnames, hyps)),
-               lhs, rhs, nm, " ".join(xs), " ".join(hnames)))
+            "  %s sha %s%s _ i n B rfl hn %s K\n"
+            % (nm, " ".join(bs), lbs, LEN, C, " ".join("(%s : %s)" % (h, y) for h, y in zip(hnames, hyps)),
+               lhs, rhs, nm, " ".join(xs), lxs, " ".join(hnames)))
     return "\n".join(out)
 
 
@@ -899,6 +945,8 @@ def candidate(m, name, proved, sub=None, isub=False):
            (comp_theorems(m, name, params, bs, roots, rds, xs, cps) + "\n" if cps else "") + thm + "\n" + call)
     if not sub:
         out += "\n" + wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS)
+    out = re.sub(r"^(@\[l4_simp\] )?theorem ", lambda mm: "set_option maxHeartbeats 1000000 in\n" + mm.group(0), out,
+                 flags=re.M)
     return out.replace("all_goals l4_close", "all_goals " + CLOSE), D
 
 
