@@ -135,6 +135,21 @@ Scope of version 1: the state transition (`state_transition`, `process_slots`, `
 Fork choice and gossip validation come later. They need dicts, `.copy()` and `raise` with the
 gossip exceptions.
 
+Proof scope of version 1 (decided 2026-10-06). The interpreter and the translator cover the whole
+scope above. The proofs cover less:
+
+- `hash_tree_root`, `sha256`, BLS and KZG are oracles on both sides. The interpreter and the
+  readable Lean call the same oracle. The only assumption is that `hash_tree_root` depends only
+  on the decoded value. `Htr.root` is the executable implementation for the EF runs, so the
+  vectors still check real roots. This is how Aeneas and the Lighthouse epoch proofs treat
+  hashing too.
+- The fork upgrades (`upgrade_to_*`) are tested (EF vectors and fuzzing) but not proved. They run
+  once, at a fork boundary, and they share objects between `pre` and `post`, which neither proof
+  strategy handles well.
+
+The claim is: every function of the state transition, except the upgrades, is proved equal to
+the interpreter, with hashing and signatures as oracles.
+
 ## 5. Pipeline
 
 ```
