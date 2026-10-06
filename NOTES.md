@@ -693,6 +693,125 @@ An honest check after a full day and night of agents:
   for the rest.
 - The goal stays all 162, through general rules.
 
+### Two ways to prove a translator: the tactic and layer 4
+
+By the morning of 2026-10-06 we had two proof strategies running side by side. They prove the
+same fact: the generated readable Lean does what the Python spec does. They differ in where the
+work happens.
+
+#### The question both answer
+
+The interpreter defines what the spec means. It models Python exactly: a heap of objects, refs,
+shared objects, live loops. The readable Lean is what people will write proofs against. It uses
+plain values: a `BeaconState` is a Lean structure, not a heap address. A proof has to connect the
+two. For each spec function, it must show that running the Python code on the heap gives the same
+result as running the readable Lean on the decoded values. And it must show that this holds only
+because the code never writes to a shared object (`WTree`), and that the function leaves alone
+everything it does not own (`Frame`, `Fresh`, `NoNewPaths`).
+
+#### Strategy 1: the per-function tactic (translation validation)
+
+How it works:
+
+- The Python translator writes the readable Lean. A second script writes one theorem per
+  function: "this function's readable Lean matches the interpreter".
+- A custom Lean tactic proves each theorem. It steps through both programs at once, statement by
+  statement: one step of the interpreter on the heap, one step of the readable Lean on values.
+  At each step it shows that the values still match and that the heap facts still hold.
+- A call uses the callee's own theorem as a black box. A loop uses a loop lemma (`for_sim`) plus a
+  proof of one pass of the loop body.
+
+Example. For `decrease_balance`, the tactic runs the interpreter's
+`state.balances[index] = saturating_sub(state.balances[index], delta)` through a heap read, a call
+and a heap write. It runs the readable `lset … (saturating_sub …)` beside it. After each step it
+checks the decoded balance list, the frame and the path counts.
+
+Pros:
+
+- The translator can be anything. It is a Python script, and nobody has to prove it correct. If
+  it makes a mistake, the proof for that function fails and points at the line.
+- It handles everything the interpreter can do, including writes of whole objects and the
+  sharing in the upgrades. The heap is right there in every proof.
+- It is the standard method ("translation validation"), used by verified compilers for passes
+  that are hard to prove in general.
+
+Cons:
+
+- Every function needs its own proof, and every proof does heap reasoning. A new spec shape is a
+  new way for the tactic to get stuck.
+- Progress came one function at a time for long stretches. After a day and a night: 55 of 162.
+- The proofs are big and slow to check. The leaf file alone takes 79 s. Tactic bugs can loop until
+  the machine runs out of memory, which happened once.
+- Each step that can fail splits into "ok" and "error" on both sides. Without care, ten such steps
+  give about a million cases.
+
+#### Strategy 2: layer 4 (a verified translator)
+
+How it works:
+
+- The translation is written in Lean, as a function `den` from the syntax tree to Lean semantics.
+- One theorem, `denote_sound_calls`, proves once that `den` matches the interpreter, for every
+  program, under the sharing rule. The proof is one induction on fuel.
+- Per function, only two small facts remain: a summary of what `den` gives for it, and a `simp`
+  proof that this equals the generated readable Lean. Neither touches the heap.
+- Inside `den`, a local name holds a value or a "place": an argument plus a path, such as
+  `state.balances[index]`. A write through a place updates the decoded tree at that path. A call
+  that writes passes a place, and the callee's result is written back there, the same idea as
+  Aeneas's backward functions.
+
+Example. For `get_previous_epoch`, layer 4 needs no heap proof at all. `den` gives
+`saturating_sub(get_current_epoch(state), 1)` on decoded values, using the summary of
+`get_current_epoch`. `simp` shows that equals the readable function. The general theorem does the
+rest.
+
+Pros:
+
+- The hard part is proved once. The fragment theorem took about 2,400 lines. Adding calls took
+  2,700 more. Loops went in as one more case of the same induction.
+- Per function, the work is small and has no heap reasoning: about 30 to 60 lines and 1.3 s.
+- It is robust to new code. A new function made of known constructs needs no new proof idea.
+- It is the same idea as Aeneas, with one upgrade: Aeneas proves its translation sound on paper,
+  and this proof is in Lean, checked by machine.
+- Progress came in whole language features per commit: calls in one go, then loops.
+
+Cons:
+
+- The translator must be written in Lean and proved. Every construct needs a case in the theorem.
+- The path model has a hard limit. Code that stores whole objects into the state or shares them
+  (`state.x = obj`, building `post = BeaconState(...)` from `pre` in the upgrades) does not fit.
+  A model that handles it turns back into a heap, which is just the interpreter again. The
+  layer 4 agent estimates 120 to 140 of the 162 functions are in reach.
+- It needs its own generator for the per-function summaries before it scales past a handful.
+- Lean's `simp` falls into the same traps as the tactic: unfolding a value rule down to a check
+  against `2^64` in unary, which blows up the kernel. Each operation needs a small step lemma.
+
+#### Side by side
+
+| | Per-function tactic | Layer 4 |
+|---|---|---|
+| What is proved | each generated function, separately | the translator, once |
+| Where the heap reasoning lives | in every function's proof | in the one general theorem |
+| Who writes the readable Lean | a Python script, untrusted | a Lean function, proved |
+| Per-function work | a generated heap proof, often stuck on new shapes | a summary and a `simp` equality |
+| Build cost | about 2.7 s per function, 79 s for the leaf file | about 1.3 s per function, 14 s for all of layer 4 |
+| Covers shared objects and whole-object writes | yes | no (path model) |
+| How progress came | function by function, with general rules in bursts | language feature by language feature |
+| Closest prior art | translation validation in verified compilers | Aeneas, with the soundness proof in Lean |
+
+#### The decision: a hybrid
+
+Neither alone covers everything well. Layer 4 is cheaper and more robust for the bulk of the spec.
+The tactic covers the sharing-heavy remainder that the path model cannot express: the upgrades and
+the functions that store whole objects. So both stay: layer 4 for most functions, the tactic for
+the rest. Every lemma built for one also serves the other: the decoders, the frame and path rules,
+the loop and comprehension lemmas.
+
+How we got here, in short. We started with the tactic because translation validation is the safe
+choice: it needs no trust in the translator. When the tactic slowed to one function at a time, a
+small parallel spike tried layer 4 on a fragment. The spike went better than expected, and calls
+and loops followed within hours. The lesson: when one road slows down, a cheap parallel spike on
+the other road is worth more than another day on the first.
+
 ## Running list of lessons
 
 - Pure functions on plain integers are what make Rust provable. Leave the glue small and obvious.
@@ -711,3 +830,5 @@ An honest check after a full day and night of agents:
   can look like a pass.
 - Proving the translator once beats proving every output, if the soundness proof is affordable.
   The spike showed it is.
+- When one approach slows to a crawl, run a small, bounded spike on the alternative in parallel.
+  Its result changes the plan faster than another day of pushing.
