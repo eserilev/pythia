@@ -605,3 +605,35 @@ Status at 23:00: the tactic proves 49 of 162 functions alone: 29 leaves, 17 call
 
 Honest read: the machinery is in place, but the count is rising slowly. The next rule, loops that
 write the heap, is the test. It covers the functions that the Lighthouse proofs need most.
+
+### Overnight (2026-10-06)
+
+- Mainnet with the sharing check on: 593 of 605 pass, 12 long multi-epoch cases time out at 40
+  minutes, 0 wrong results and 0 sharing hits. The run took about 3 hours on 8 runners.
+- The tactic proves 50 of 162. The new one is the important one: `process_effective_balance_updates`
+  is the first heap-writing epoch loop proved with no hand help. The loop rule sits on the generic
+  `for_sim` lemma that a second agent built in parallel. Most other loop functions now wait on
+  helpers that return lists.
+- The second agent also built the general rules for comprehensions (`comp_sim`), snapshot
+  sources like `range(n)`, and new objects (`alloc_contract`: one lemma gives the whole contract
+  for a new list).
+- Two more memory traps in proofs: Lean computing a heap store at default transparency, and
+  `omega` on `max x 0` facts. Both fixed. The memory caps caught them before the machine did.
+
+### The layer 4 spike
+
+We tried the other road in parallel: prove the translator correct once, as Aeneas does, instead
+of proving each generated function.
+
+- The result, for a fragment (expressions, writes, `if`, `return`, `assert`, no loops or calls):
+  one theorem, `denote_sound`, proves the Lean translation matches the heap interpreter for every
+  program in the fragment, under the sharing rule. No `sorry`, standard axioms only.
+- Size: about 2,400 lines. It builds in 7.5 s. Two real spec functions go through it, and for
+  `is_active_validator` the translation equals the generated readable Lean by `simp`.
+- A twist: inside the translator, a local holds a "place", a path from an argument. That is the
+  path model we rejected in draft 4 as the meaning of Python. As a translation target it is fine,
+  because the theorem proves it matches the real heap whenever the sharing rule holds.
+- Same traps as the tactic: `simp` unfolding value rules into a `2^64` range check, and runs that
+  "passed" because the memory cap had killed them silently. Always check exit codes.
+
+The spike's verdict: full layer 4 is realistic, and more robust than proving each function.
