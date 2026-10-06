@@ -38,7 +38,11 @@ attribute [rd_simp] callFn execBlock execStmt evalExpr evalList evalArgs evalOpt
   lookupName bindArgs bindArgs.go callValue anyAll frame_eq callName interp
 
 /-! The readable helpers. -/
-attribute [rd_simp] Rd.uCast Rd.uOp Rd.uOf Rd.iOp Rd.bd Rd.assert Rd.assertBug
+attribute [rd_simp] Rd.uCast Rd.uOp Rd.uOf Rd.iOp Rd.bd Rd.assert Rd.assertBug Rd.pyMin Rd.pyMax
+  Rd.PyOrd.lt
+
+-- `min` and `max` of the interpreter.
+attribute [rd_simp] pickBest
 
 end SpecLean.Validation.Steps
 
@@ -52,6 +56,36 @@ open SpecLean SpecLean.Encode
 @[rd_simp] theorem nnp_self (h : Heap) (vs : List Value) (fp : Footprint) :
     NoNewPaths h h vs fp :=
   NoNewPaths_refl h vs fp
+
+/-! `Int.toNat` of a value that is never negative: `max x 0 = x`. Each `max` left in a fact is a
+case split for `omega`, and many of them make `omega` run out of memory. -/
+@[rd_simp] theorem max_natCast (a : Nat) : max (a : Int) 0 = a := Int.max_eq_left (Int.natCast_nonneg a)
+@[rd_simp] theorem max_natCast_add_lit (a n : Nat) :
+    max ((a : Int) + (no_index (OfNat.ofNat n) : Int)) 0 = (a : Int) + (OfNat.ofNat n : Int) :=
+  Int.max_eq_left (by have : (0 : Int) ≤ (OfNat.ofNat n : Int) := Int.natCast_nonneg n; omega)
+@[rd_simp] theorem max_natCast_add (a b : Nat) : max ((a : Int) + (b : Int)) 0 = (a : Int) + b :=
+  Int.max_eq_left (by omega)
+@[rd_simp] theorem max_natCast_emod_lit (a n : Nat) :
+    max ((a : Int) % (no_index (OfNat.ofNat n) : Int)) 0 = (a : Int) % (OfNat.ofNat n : Int) :=
+  Int.max_eq_left (by
+    show (0 : Int) ≤ (a : Int) % (n : Int)
+    rw [← Int.natCast_emod]; exact Int.natCast_nonneg _)
+@[rd_simp] theorem max_natCast_sub_emod_lit (a n : Nat) :
+    max ((a : Int) - (a : Int) % (no_index (OfNat.ofNat n) : Int)) 0 =
+      (a : Int) - (a : Int) % (OfNat.ofNat n : Int) :=
+  Int.max_eq_left (by
+    show (0 : Int) ≤ (a : Int) - (a : Int) % (n : Int)
+    rw [← Int.natCast_emod]; have := Nat.mod_le a n; omega)
+
+theorem toNat_natCast_emod_lit (a n : Nat) :
+    ((a : Int) % (no_index (OfNat.ofNat n) : Int)).toNat = a % (OfNat.ofNat n : Nat) := by
+  show ((a : Int) % (n : Int)).toNat = a % n
+  rw [← Int.natCast_emod]; exact Int.toNat_natCast _
+theorem toNat_natCast_sub_emod_lit (a n : Nat) :
+    ((a : Int) - (a : Int) % (no_index (OfNat.ofNat n) : Int)).toNat =
+      a - a % (OfNat.ofNat n : Nat) := by
+  show ((a : Int) - (a : Int) % (n : Int)).toNat = a - a % n
+  rw [← Int.natCast_emod]; have := Nat.mod_le a n; omega
 
 /-! Integer arithmetic that cannot fail: the proofs compute it, they do not split on it. -/
 @[rd_simp] theorem intArith_add (a b : Int) : intArith .add a b = .ok (a + b) := rfl
