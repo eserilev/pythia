@@ -865,9 +865,38 @@ The claim is now: every spec function of the state transition, except the upgrad
 equal to the interpreter. Hashing and signatures are oracles, and library operations are trusted
 primitives with one shared model.
 
-Side note: before the switch, a second agent had already built the expensive route for
-`hash_tree_root`: proving that the oracle equals our Lean Merkle code, type by type. It worked for
-two types, and its key lemma ("same content, same root") is exactly what the cheap route needs.
+#### `hash_tree_root` in detail
+
+The gap. The tactic agent found it: the interpreter calls an abstract oracle,
+`sha.hashTreeRoot h v`. The readable Lean computes the root itself, with `Htr.root`, our Merkle
+code in Lean. Nothing linked the two, so about 30 functions could not be proved as stated:
+`compute_fork_data_root`, `compute_signing_root` and everything that calls them.
+
+The expensive route, built first by a second agent:
+
+- One assumption on the oracle, `OracleHtr`: the oracle equals `Htr.root`, the oracle's `sha256`
+  is the spec's, and every root is 32 bytes. The last one was needed because the readable `Root`
+  type checks the length and the interpreter does not.
+- A generic lemma, `root_bis`: two values with the same content, to a given depth, have the same
+  root, even in two different heaps.
+- A bridge per SSZ type: the root of a heap value equals the root of its readable encoding. Done
+  for `ForkData` and `SigningData`. `compute_fork_data_root` went end to end.
+- The cost: one lemma for each of the 73 types, a stability lemma for nested containers and lists
+  (not written), and a new "shape" condition on every argument: each container has the field
+  count of its class. Without that, extra fields would change the root, and the decoders do not
+  check the count.
+- One trap: unfolding `Htr.root` inside a proof made a single `simp` take 523 seconds. A lemma that
+  the root never runs out of fuel closed those cases without unfolding.
+
+The cheap route, which we chose: both sides call the same oracle. The readable Lean's
+`hash_tree_root` calls `sha.hashTreeRoot` on the value's encoding. The proof then needs only
+"same content, same root", which is `root_bis`. No per-type bridges, no shape condition, no Merkle
+reasoning. `Htr.root` stays as the executable implementation, so the EF runs still check real
+roots against the vectors.
+
+Why it is fine to trust the oracle: the Lighthouse epoch proofs already treat `hash_tree_root` as
+an oracle, and Aeneas never proves hash functions either. What we want to prove is the spec's
+logic, not SHA-256 or Merkle trees.
 
 ## Running list of lessons
 
