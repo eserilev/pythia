@@ -41,7 +41,9 @@ theorem constructFlat_ssz (env : Env) : ConstructFlat env := by
   cases t <;> simp [ctorFlat] at hc <;> simp only [LibModel.construct, Ssz.construct] <;>
     split <;> first | rfl | exact bind_pair h _ | contradiction | (simp_all; done) | (exfalso; simp_all)
 
-theorem libFlat_ssz (env : Env) : LibFlat env := ⟨Examples.coerceFlat_ssz env, constructFlat_ssz env⟩
+theorem libFlat_ssz (env : Env) : LibFlat env :=
+  ⟨Examples.coerceFlat_ssz env, constructFlat_ssz env, fun h b args kws hb => by
+    rcases hb with rfl | rfl | rfl | rfl <;> simp [LibModel.builtin, Ssz.builtin]⟩
 
 -- The value rules as the denotation and the interpreter see them.
 attribute [local instance high] LibModel.toLibValues

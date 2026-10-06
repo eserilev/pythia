@@ -398,6 +398,16 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
           rw [bind_map, hb] at hd; simp at hd; exact ro r' hb hd.symm
   · exact fallback hd
 
+/-- The interpreter's loop source for a loop over the list object `a`. -/
+def LSrc.src (ls : LSrc) (a : Nat) : IterSrc := if ls.enum then .enum (.live a) else .seq (.live a)
+
+/-- The iterable of a loop agrees with the interpreter's value and source. -/
+def IterRel (h : Heap) (vs : List Value) : Res LSrc → Res (Value × Heap) → Prop
+  | .ok ls, .ok (iv, h') =>
+    h' = h ∧ ∃ a, at? h vs ls.k ls.p = some (.ref a) ∧ iterSource h iv = .ok (ls.src a)
+  | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
+  | _, _ => False
+
 /-- The parts at one fuel agree with the interpreter, in every state of the invariant. -/
 structure LevelOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop where
   expr : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → EvOK env h vs L n ((den env fps n).expr fp s)
@@ -409,6 +419,11 @@ structure LevelOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop where
   stmt : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ st res, (den env fps n).stmt fp s st = some res →
     CStmtOK fp h0 vs res (execStmt env n L h st)
   fn : FnOK env fps n
+  iter : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ it r, (den env fps n).iter fp s it = some r →
+    IterRel h vs r (evalExpr env n L h it)
+  loop : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ls i body r a,
+    at? h vs ls.k ls.p = some (.ref a) → (den env fps n).loop fp s t ls i body = some r →
+    CStmtOK fp h0 vs r (execFor env n L h t (ls.src a) i body)
 
 theorem blockOf_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : LevelOK env fps n)
     {fp : Footprint} {h0 : Heap} {vs : List Value} :
@@ -579,6 +594,25 @@ theorem stmtStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
   | pass l =>
     simp [stmtStep, DM.ok] at hd; subst hd
     rw [execStmt]; exact ⟨rfl, hI⟩
+  | forStmt l t it body =>
+    simp only [stmtStep] at hd
+    rw [execStmt]
+    rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ls, he, hd2⟩
+    · have := hL.iter fp h0 h vs s L hI it _ he
+      revert this
+      cases evalExpr env n L h it with
+      | error e' => rintro ⟨rfl, hne⟩; exact cstmtOK_err hne
+      | ok q => intro hx; cases hx
+    · have := hL.iter fp h0 h vs s L hI it _ he
+      revert this
+      cases evalExpr env n L h it with
+      | error e' => intro hx; cases hx
+      | ok q =>
+        obtain ⟨iv, h1⟩ := q
+        rintro ⟨hh, a, hat, hsrc⟩
+        subst h1
+        simp only [Except.bind_ok', hsrc]
+        exact hL.loop fp h0 h vs s L hI t ls 0 body r a hat hd2
   | _ => simp [stmtStep] at hd
 
 /-- `callFn (n + 1)` runs the body at fuel `n`. -/
@@ -625,12 +659,216 @@ theorem fnStep_sound (env : Env) {fps : Name → Footprint} {n : Nat} (hL : Leve
         | _ => simp [DM.ok] at hd2; subst hd2; exact ⟨rfl, post⟩
   · cases hd
 
+theorem toSeq_live {h : Heap} {a : Nat} {kd : ListKind} {e : SszTy} {l : Option Nat}
+    {xs : List Value} (ho : h.objs a = some (.list kd e l xs)) (hb : isByteList kd e = false) :
+    toSeq h (.ref a) = .ok (.live a) := by
+  simp only [isByteList, decide_eq_false_iff_not] at hb
+  simp only [toSeq, ho]
+  split
+  · next heq => cases heq; exact absurd ⟨rfl, rfl⟩ hb
+  · rfl
+  · next hne => exact absurd rfl (hne kd e l xs)
+
+theorem seqItem_live {h : Heap} {a : Nat} {kd : ListKind} {e : SszTy} {l : Option Nat}
+    {xs : List Value} (ho : h.objs a = some (.list kd e l xs)) (hb : isByteList kd e = false)
+    (i : Nat) : seqItem h (.live a) i = .ok xs[i]? := by
+  simp only [isByteList, decide_eq_false_iff_not] at hb
+  simp only [seqItem, ho]
+  split
+  · next heq => cases heq; exact absurd ⟨rfl, rfl⟩ hb
+  · next heq => cases heq; rfl
+  · next hne => exact absurd rfl (hne kd e l xs)
+
+theorem listPlace_spec {s : DSt} {k : Nat} {p : List Nat} (h : listPlace s k p = true) :
+    ∃ kd e l ds, s.deref k p = some (.list kd e l ds) ∧ isByteList kd e = false := by
+  unfold listPlace at h
+  split at h
+  · next kd e l ds hd => exact ⟨kd, e, l, ds, hd, by simpa using h⟩
+  · cases h
+
+/-- The object of a list place, and its items. -/
+theorem listPlace_obj {h : Heap} {vs : List Value} {s : DSt} {L : Locals} (hr : RInv h vs s L)
+    {k : Nat} {p : List Nat} {a : Nat} (hat : at? h vs k p = some (.ref a))
+    {kd : ListKind} {e : SszTy} {l : Option Nat} {ds : List DV}
+    (hdr : s.deref k p = some (.list kd e l ds)) :
+    ∃ m xs, h.objs a = some (.list kd e l xs) ∧ xs.mapM (dec h m) = some ds := by
+  obtain ⟨nn, hn⟩ := deref_dec hr hat hdr
+  obtain ⟨a', m, xs, ha, -, ho, hm⟩ := dec_list hn
+  cases ha
+  exact ⟨m, xs, ho, hm⟩
+
+theorem iterStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
+    (hL : LevelOK env fps n) {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt}
+    {L : Locals} (hI : CInv fp h0 h vs s L) :
+    ∀ it r, iterStep env fps n (den env fps n) fp s it = some r →
+      IterRel h vs r (evalExpr env (n + 1) L h it) := by
+  intro it r hd
+  have hE1 := exprStep_sound env fps hlf hI (hL.expr fp h0 h vs s L hI) hL.fn
+  have place : ∀ (rr : DRes) (w : Value) (enum : Bool), ERel h vs rr w →
+      (match rr with
+        | .place k p => if listPlace s k p then DM.ok (⟨k, p, enum⟩ : LSrc) else none
+        | _ => none) = some r →
+      ∃ ls a, r = .ok ls ∧ ls.enum = enum ∧ w = .ref a ∧ at? h vs ls.k ls.p = some (.ref a) ∧
+        toSeq h (.ref a) = .ok (.live a) := by
+    intro rr w enum hrel hm
+    cases rr with
+    | val _ => simp at hm
+    | place k p =>
+      obtain ⟨a, rfl, hat⟩ := hrel
+      by_cases hlp : listPlace s k p = true
+      · simp [hlp, DM.ok] at hm; subst hm
+        obtain ⟨kd, e, l, ds, hdr, hb⟩ := listPlace_spec hlp
+        obtain ⟨m, xs, ho, -⟩ := listPlace_obj hI.i.r hat hdr
+        exact ⟨_, a, rfl, rfl, rfl, hat, toSeq_live ho hb⟩
+      · simp [hlp] at hm
+  have dflt : ∀ e, DM.bind (exprStep env fps n (den env fps n) fp s e) (fun r =>
+        match r with
+        | .place k p => if listPlace s k p then DM.ok (⟨k, p, false⟩ : LSrc) else none
+        | _ => none) = some r → IterRel h vs r (evalExpr env (n + 1) L h e) := by
+    intro e hd
+    rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rr, he, hd2⟩
+    · obtain ⟨hi, hne⟩ := exprOK_error (hE1 e _ he)
+      rw [hi]; exact ⟨rfl, hne⟩
+    · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE1 e _ he)
+      rw [hi]
+      obtain ⟨ls, a, rfl, hen, rfl, hat, hseq⟩ := place rr w false hrel hd2
+      refine ⟨rfl, a, hat, ?_⟩
+      simp [iterSource, hseq, LSrc.src, hen]
+  unfold iterStep at hd
+  split at hd
+  · next _ l l' g e =>
+    cases n with
+    | zero => simp at hd
+    | succ m =>
+      simp only at hd
+      by_cases hc : ((s.loc g).isNone && isEnumerate env g) = true
+      · rw [if_pos hc] at hd
+        simp only [Bool.and_eq_true, Option.isNone_iff_eq_none] at hc
+        obtain ⟨hloc, hen⟩ := hc
+        have hg : env.globals.lookup g = some (.builtin .enumerate) := by
+          unfold isEnumerate at hen; split at hen <;> simp_all
+        have hLg : L g = none := by
+          have := hI.i.r.loc g; rw [hloc] at this
+          revert this; cases L g <;> simp [LRel]
+        have hname : evalExpr env (m + 1) L h (.name l' g) = .ok (.glob g, h) := by
+          rw [evalExpr]; simp [lookupName, hLg, hg]
+        have hany : anyAll env (.glob g) = none := by simp [anyAll, hg]
+        rw [evalExpr]
+        simp only [hname, Except.bind_ok', hany]
+        rw [evalArgs]
+        simp only
+        rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rr, he, hd2⟩
+        · obtain ⟨hi, hne⟩ := exprOK_error (hL.expr fp h0 h vs s L hI e _ he)
+          simp [hi]; exact ⟨rfl, hne⟩
+        · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hL.expr fp h0 h vs s L hI e _ he)
+          obtain ⟨ls, a, rfl, hen', rfl, hat, hseq⟩ := place rr w true hrel hd2
+          simp only [hi, Except.bind_ok']
+          rw [evalArgs]
+          simp only [Except.bind_ok', Except.pure_ok']
+          rw [callValue_builtin _ _ _ hg (by decide) (by decide)]
+          simp only [applyBuiltin, hlf.builtin h .enumerate _ [] (by simp)]
+          refine ⟨rfl, a, hat, ?_⟩
+          simp [iterSource, hseq, LSrc.src, hen']
+      · rw [if_neg hc] at hd; cases hd
+  · exact dflt it hd
+
+/-- Bind the loop target, as `assignTarget n` does. -/
+theorem bindLoop_sound {env : Env} {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt}
+    {L : Locals} (hI : CInv fp h0 h vs s L) {n : Nat} {enum : Bool} {t : Target} {i : Nat}
+    {xr : DRes} {x : Value} (hx : ERel h vs xr x) {s1 : DSt}
+    (hb : bindLoop n enum s t i xr = some s1) :
+    ∃ L1, assignTarget env n L h t (if enum then enumItem i x else x) = .ok (L1, h) ∧
+      CInv fp h0 h vs s1 L1 := by
+  unfold bindLoop at hb
+  split at hb
+  · next a m =>
+    simp at hb; subst hb
+    refine ⟨L.set a x, ?_, ⟨setLoc_inv hI.i a hx, hI.skel, hI.ro⟩⟩
+    simp [assignTarget]
+  · next l a l' b m =>
+    simp at hb; subst hb
+    refine ⟨(L.set a (.int i)).set b x, ?_, ?_⟩
+    · simp [assignTarget, assignTargets, enumItem]
+    · have h1 : CInv fp h0 h vs { s with loc := setLoc s.loc a (.val (.int i)) } (L.set a (.int i)) :=
+        ⟨setLoc_inv hI.i a (r := .val (.int i)) (w := .int i) ⟨rfl, rfl⟩, hI.skel, hI.ro⟩
+      exact ⟨setLoc_inv h1.i b hx, hI.skel, hI.ro⟩
+  · cases hb
+
+theorem loopStep_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : LevelOK env fps n)
+    {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
+    (hI : CInv fp h0 h vs s L) {t : Target} {ls : LSrc} {i : Nat} {body : List Stmt}
+    {r : Res (Outcome × DSt)} {a : Nat} (hat : at? h vs ls.k ls.p = some (.ref a))
+    (hd : loopStep n (den env fps n) fp s t ls i body = some r) :
+    CStmtOK fp h0 vs r (execFor env (n + 1) L h t (ls.src a) i body) := by
+  unfold loopStep at hd
+  cases hdr : s.deref ls.k ls.p with
+  | none => simp [hdr] at hd
+  | some dd =>
+  rw [hdr] at hd
+  cases dd with
+  | leaf _ => simp at hd
+  | cont _ _ => simp at hd
+  | list kd el ll ds =>
+  simp only at hd
+  cases hbyte : isByteList kd el with
+  | true => simp [hbyte] at hd
+  | false =>
+  simp only [hbyte, Bool.false_eq_true, ↓reduceIte] at hd
+  obtain ⟨m, xs, ho, hm⟩ := listPlace_obj hI.i.r hat hdr
+  have hlen := ((mapM_some_iff xs ds).mp hm).1
+  have hitem : iterItem h (ls.src a) i =
+      .ok (xs[i]?.map fun x => if ls.enum then enumItem i x else x) := by
+    cases hen : ls.enum <;> simp [LSrc.src, hen, iterItem, seqItem_live ho hbyte]
+  rw [execFor]
+  simp only [hitem, Except.bind_ok']
+  cases hc : ds[i]? with
+  | none =>
+    have : xs[i]? = none := by rw [List.getElem?_eq_none_iff] at hc ⊢; omega
+    simp [hc, DM.ok] at hd; subst hd
+    simp [this]; exact ⟨rfl, hI⟩
+  | some c =>
+    obtain ⟨x, hx, hdx⟩ := mapM_get hm hc
+    have hrel := child_rel hat (by simp [okids, ho]) hx hdx
+    simp only [hc] at hd
+    cases hbl : bindLoop n ls.enum s t i (ofChild ls.k (ls.p ++ [i]) c) with
+    | none => simp [hbl] at hd
+    | some s1 =>
+    simp only [hbl] at hd
+    obtain ⟨L1, hasg, hI1⟩ := bindLoop_sound hI hrel hbl
+    simp only [hx, Option.map_some]
+    rw [hasg]
+    simp only [Except.bind_ok']
+    have hB := blockOf_sound hL (fp := fp) (h0 := h0) (vs := vs) body s1 L1 h
+    rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨⟨o, s2⟩, he, hd2⟩
+    · have := hB _ hI1 he
+      revert this
+      cases execBlock env n L1 h body with
+      | error e' => rintro ⟨rfl, hne⟩; exact cstmtOK_err hne
+      | ok q => intro hx; cases hx
+    · have := hB _ hI1 he
+      revert this
+      cases execBlock env n L1 h body with
+      | error e' => intro hx; cases hx
+      | ok q =>
+        obtain ⟨o', L2, h2⟩ := q
+        rintro ⟨rfl, hI2⟩
+        simp only [Except.bind_ok']
+        have hat2 : at? h2 vs ls.k ls.p = some (.ref a) :=
+          (hI2.i.refs _ _ a).mpr ((hI.i.refs _ _ a).mp hat)
+        cases o' with
+        | brk => simp [DM.ok] at hd2; subst hd2; exact ⟨rfl, hI2⟩
+        | ret v => simp [DM.ok] at hd2; subst hd2; exact ⟨rfl, hI2⟩
+        | normal => exact hL.loop fp h0 h2 vs s2 L2 hI2 t ls (i + 1) body r a hat2 hd2
+        | cont => exact hL.loop fp h0 h2 vs s2 L2 hI2 t ls (i + 1) body r a hat2 hd2
+
 theorem level_zero (env : Env) (fps : Name → Footprint) : LevelOK env fps 0 :=
   ⟨fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
-   fun _ _ _ _ _ _ _ _ hd => by simp [den] at hd⟩
+   fun _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
+   fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
+   fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd⟩
 
 theorem level_succ (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
     (hL : LevelOK env fps n) : LevelOK env fps (n + 1) :=
@@ -639,7 +877,9 @@ theorem level_succ (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n
    fun fp h0 h vs s L hI t r w res hr hd =>
      targetStep_sound env fps hlf hI (hL.expr fp h0 h vs s L hI) t hr hd,
    fun fp h0 h vs s L hI => stmtStep_sound env fps hlf hL hI,
-   fnStep_sound env hL⟩
+   fnStep_sound env hL,
+   fun fp h0 h vs s L hI => iterStep_sound env fps hlf hL hI,
+   fun fp h0 h vs s L hI t ls i body r a hat hd => loopStep_sound hL hI hat hd⟩
 
 theorem level_ok (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) :
     ∀ n, LevelOK env fps n

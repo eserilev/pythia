@@ -1,4 +1,5 @@
 import SpecLean.Layer4.CallRule
+import SpecLean.Layer4.Steps
 
 /-!
 # Layer 4: expressions with calls agree with the interpreter
@@ -25,6 +26,9 @@ def ConstructFlat (env : Env) : Prop :=
 structure LibFlat (env : Env) : Prop where
   coerce : CoerceFlat env
   ctor : ConstructFlat env
+  /-- The library leaves `len`, `min`, `max` and `enumerate` to the core. -/
+  builtin : ∀ h b args kws, (b = .len ∨ b = .min ∨ b = .max ∨ b = .enumerate) →
+    LibModel.builtin env h b args kws = none
 
 /-- The expressions at fuel `n` agree with the interpreter. -/
 def EvOK (env : Env) (h : Heap) (vs : List Value) (L : Locals) (n : Nat)
@@ -181,6 +185,20 @@ theorem callable_lookup {env : Env} {L : Locals} {g : Name} (hc : callable env g
   rw [hL]
   split at hc <;> simp_all
 
+theorem callValue_builtin {env : Env} (n : Nat) {g : Name} {b : Builtin} (vs : List Value)
+    (h : Heap) (hg : env.globals.lookup g = some (.builtin b)) (hf : b ≠ .filter)
+    (hs : b ≠ .sorted) : callValue env n (.glob g) vs [] h = applyBuiltin env h b vs [] := by
+  rw [callValue.eq_def]; simp only [hg]
+  try (cases b <;> first | rfl | simp_all)
+
+theorem pickBest_heap {env : Env} (hlf : LibFlat env) (h : Heap) (isMin : Bool) (x y : Value)
+    (ys : List Value) :
+    applyBuiltin env h (if isMin then .min else .max) (x :: y :: ys) [] =
+      (do pure (← pickBest (!isMin) x (y :: ys), h)) := by
+  cases isMin
+  · simp [applyBuiltin, hlf.builtin h .max _ [] (by simp)]
+  · simp [applyBuiltin, hlf.builtin h .min _ [] (by simp)]
+
 /-- A call that writes nothing, in an expression. -/
 theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) {m : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
@@ -274,7 +292,99 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
                   · simp [hv, DM.ok] at hd3; subst hd3; exact ⟨rfl, rfl, hv⟩
                   · simp [hv] at hd3
           · cases hd2
+        | builtin b =>
+          simp only at hd2
+          have hnf : b ≠ .filter := by rintro rfl; simp [dBuiltin] at hd2
+          have hns : b ≠ .sorted := by rintro rfl; simp [dBuiltin] at hd2
+          rw [callValue_builtin _ _ _ hg hnf hns]
+          have minmax : ∀ (isMin : Bool), dBuiltin s (if isMin then .min else .max) rs = some r →
+              ExprOK h vs r (applyBuiltin env h (if isMin then .min else .max) ws []) := by
+            intro isMin hd3
+            have hb : dBuiltin s (if isMin then .min else .max) rs = (match allVals rs with
+                | some (x :: y :: ys) => DM.bind (lift (pickBest (!isMin) x (y :: ys))) fun w =>
+                    if Flat w then DM.ok (DRes.val w) else none
+                | _ => none) := by
+              cases isMin <;> rfl
+            rw [hb] at hd3
+            cases hav : allVals rs with
+            | none => simp [hav] at hd3
+            | some vals =>
+              rw [hav] at hd3
+              obtain ⟨hwv, hfl⟩ := allVals_spec hrel hav
+              subst hwv
+              match ws, hd3 with
+              | x :: y :: ys, hd3 =>
+                rw [pickBest_heap hlf]
+                rcases bind_case hd3 with ⟨err, hl, rfl⟩ | ⟨w, hl, hd4⟩
+                · obtain ⟨hr, hne⟩ := lift_some hl
+                  rw [← hr]; exact ⟨rfl, hne err hr.symm⟩
+                · obtain ⟨hr, -⟩ := lift_some hl
+                  rw [← hr]
+                  by_cases hv : Flat w = true
+                  · simp [hv, DM.ok] at hd4; subst hd4; exact ⟨rfl, rfl, hv⟩
+                  · simp [hv] at hd4
+              | [], hd3 => simp at hd3
+              | [_], hd3 => simp at hd3
+          cases b
+          case min => exact minmax true hd2
+          case max => exact minmax false hd2
+          case len =>
+            simp only [dBuiltin] at hd2
+            match rs, ws, hrel, hd2 with
+            | [.place k p], [w], ⟨⟨a, hw, hat⟩, _⟩, hd2 =>
+              subst hw
+              simp only at hd2
+              cases hdr : s.deref k p with
+              | none => simp [hdr] at hd2
+              | some dd =>
+                rw [hdr] at hd2
+                cases dd with
+                | leaf _ => simp at hd2
+                | cont _ _ => simp at hd2
+                | list kd el ll ds =>
+                  simp [DM.ok] at hd2; subst hd2
+                  obtain ⟨nn, hn⟩ := deref_dec hI.i.r hat hdr
+                  obtain ⟨a', mm, xs, ha, -, ho, hm⟩ := dec_list hn
+                  cases ha
+                  have hlen := ((mapM_some_iff xs ds).mp hm).1
+                  simp [applyBuiltin, hlf.builtin h .len _ [] (by simp), ho, hlen]
+                  exact ⟨rfl, rfl, rfl⟩
+            | [.val _], _, _, hd2 => simp at hd2
+            | [], _, _, hd2 => simp at hd2
+            | _ :: _ :: _, _, _, hd2 => simp at hd2
+          all_goals simp [dBuiltin] at hd2
         | _ => simp at hd2
+
+def OptOK (h : Heap) : Res (Option Value) → Res (Option Value × Heap) → Prop
+  | .ok ov, .ok (ov', h') => h' = h ∧ ov' = ov ∧ ∀ v, ov = some v → Flat v = true
+  | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
+  | _, _ => False
+
+theorem optOf_sound {env : Env} {h : Heap} {vs : List Value} {L : Locals} {n : Nat}
+    {ev : Expr → DM DRes} (hE : EvOK env h vs L n ev) :
+    ∀ (o : Option Expr) (r : Res (Option Value)), optOf ev o = some r → OptOK h r (evalOpt env n L h o)
+  | none, r, hd => by
+    simp [optOf, DM.ok] at hd; subst hd
+    rw [evalOpt]; exact ⟨rfl, rfl, by simp⟩
+  | some e, r, hd => by
+    simp only [optOf] at hd
+    rw [evalOpt]
+    rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rv, he, hd2⟩
+    · obtain ⟨hi, hne⟩ := exprOK_error (hE e _ he)
+      simp [hi, hne, OptOK]
+    · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE e _ he)
+      simp only [hi, Except.bind_ok']
+      cases rv with
+      | place _ _ => simp at hd2
+      | val v =>
+        obtain ⟨rfl, hv⟩ := hrel
+        simp [DM.ok] at hd2; subst hd2
+        exact ⟨rfl, rfl, by simp [hv]⟩
+
+theorem getSlice_bytes (bn : Name) (h : Heap) (c : Name) (bs : List UInt8) (lo hi : Option Value) :
+    getSlice bn h (.bytes c bs) lo hi = (fun x => (x.1, h)) <$> getSlice bn Heap.empty (.bytes c bs) lo hi := by
+  simp only [getSlice]
+  cases sliceRange bs.length lo hi <;> rfl
 
 /-- One fuel step of the expressions. -/
 theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
@@ -477,6 +587,135 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
         cases he
         simp only [hch] at hd
         exact roCall_sound hlf hI ih hF hloc hc hd
+  | unop l op a =>
+    cases op with
+    | not =>
+      simp only [exprStep] at hd
+      rw [evalExpr]
+      rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ra, he, hd2⟩
+      · obtain ⟨hi, hne⟩ := exprOK_error (ih a _ he)
+        simp [hi, error_ok hne]
+      · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih a _ he)
+        simp only [hi, Except.bind_ok']
+        cases ra with
+        | place _ _ => simp at hd2
+        | val v =>
+          obtain ⟨rfl, hv⟩ := hrel
+          simp only at hd2
+          rcases bind_case hd2 with ⟨err, ht, rfl⟩ | ⟨b, ht, hd3⟩
+          · obtain ⟨htr, hne⟩ := lift_some ht
+            simp [truthyH_flat h hv, ← htr, error_ok (hne err htr.symm)]
+          · obtain ⟨htr, -⟩ := lift_some ht
+            simp [DM.ok] at hd3; subst hd3
+            simp [truthyH_flat h hv, ← htr]
+            exact ⟨rfl, rfl, rfl⟩
+    | neg =>
+      simp (disch := decide) only [exprStep] at hd
+      rw [evalExpr]
+      rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ra, he, hd2⟩
+      · obtain ⟨hi, hne⟩ := exprOK_error (ih a _ he)
+        simp [hi, error_ok hne]
+      · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih a _ he)
+        simp only [hi, Except.bind_ok']
+        cases ra with
+        | place _ _ => simp at hd2
+        | val v =>
+          obtain ⟨rfl, hv⟩ := hrel
+          simp only at hd2
+          rcases bind_case hd2 with ⟨err, ht, rfl⟩ | ⟨x, ht, hd3⟩
+          · obtain ⟨htr, hne⟩ := lift_some ht
+            simp [← htr, error_ok (hne err htr.symm)]
+          · obtain ⟨htr, -⟩ := lift_some ht
+            simp only [← htr, Except.bind_ok']
+            by_cases hx : Flat x = true
+            · simp [hx, DM.ok] at hd3; subst hd3; exact ⟨rfl, rfl, hx⟩
+            · simp [hx] at hd3
+      all_goals (intro hx; cases hx)
+    | invert =>
+      simp (disch := decide) only [exprStep] at hd
+      rw [evalExpr]
+      rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ra, he, hd2⟩
+      · obtain ⟨hi, hne⟩ := exprOK_error (ih a _ he)
+        simp [hi, error_ok hne]
+      · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih a _ he)
+        simp only [hi, Except.bind_ok']
+        cases ra with
+        | place _ _ => simp at hd2
+        | val v =>
+          obtain ⟨rfl, hv⟩ := hrel
+          simp only at hd2
+          rcases bind_case hd2 with ⟨err, ht, rfl⟩ | ⟨x, ht, hd3⟩
+          · obtain ⟨htr, hne⟩ := lift_some ht
+            simp [← htr, error_ok (hne err htr.symm)]
+          · obtain ⟨htr, -⟩ := lift_some ht
+            simp only [← htr, Except.bind_ok']
+            by_cases hx : Flat x = true
+            · simp [hx, DM.ok] at hd3; subst hd3; exact ⟨rfl, rfl, hx⟩
+            · simp [hx] at hd3
+      all_goals (intro hx; cases hx)
+  | slice l o lo up st =>
+    cases st with
+    | some _ => simp [exprStep] at hd
+    | none =>
+      simp only [exprStep] at hd
+      rw [evalExpr]
+      rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ro, he, hd2⟩
+      · obtain ⟨hi, hne⟩ := exprOK_error (ih o _ he)
+        simp [hi, error_ok hne]
+      · obtain ⟨w, hi, hrel⟩ := exprOK_ok (ih o _ he)
+        simp only [hi, Except.bind_ok']
+        cases ro with
+        | place _ _ => simp at hd2
+        | val v =>
+          obtain ⟨rfl, hv⟩ := hrel
+          cases w with
+          | bytes c bs =>
+            simp only at hd2
+            rcases bind_case hd2 with ⟨err, h1, rfl⟩ | ⟨lov, h1, hd3⟩
+            · have := optOf_sound ih lo _ h1
+              revert this
+              cases evalOpt env n L h lo with
+              | error e' => rintro ⟨rfl, hne⟩; simp [error_ok hne]
+              | ok q => intro hx; cases hx
+            · have := optOf_sound ih lo _ h1
+              revert this
+              cases evalOpt env n L h lo with
+              | error e' => intro hx; cases hx
+              | ok q =>
+                obtain ⟨lov', h2⟩ := q
+                rintro ⟨hh, rfl, -⟩
+                subst h2
+                simp only [Except.bind_ok']
+                rcases bind_case hd3 with ⟨err, h3, rfl⟩ | ⟨hiv, h3, hd4⟩
+                · have := optOf_sound ih up _ h3
+                  revert this
+                  cases evalOpt env n L h up with
+                  | error e' => rintro ⟨rfl, hne⟩; simp [error_ok hne]
+                  | ok q => intro hx; cases hx
+                · have := optOf_sound ih up _ h3
+                  revert this
+                  cases evalOpt env n L h up with
+                  | error e' => intro hx; cases hx
+                  | ok q =>
+                    obtain ⟨hiv', h4⟩ := q
+                    rintro ⟨hh, rfl, -⟩
+                    subst h4
+                    simp only [Except.bind_ok']
+                    rw [getSlice_bytes]
+                    cases hk : getSlice env.bytesName Heap.empty (.bytes c bs) lov' hiv' with
+                    | error e' =>
+                      rw [hk] at hd4
+                      by_cases ho : e' = .outOfFuel
+                      · subst ho; simp [lift, DM.bind] at hd4
+                      · rw [lift_err e' ho] at hd4
+                        simp [DM.bind] at hd4; subst hd4; exact ⟨rfl, ho⟩
+                    | ok q =>
+                      rw [hk, lift_ok] at hd4
+                      simp only [DM.bind] at hd4
+                      by_cases hx : Flat q.1 = true
+                      · simp [hx, DM.ok] at hd4; subst hd4; exact ⟨rfl, rfl, hx⟩
+                      · simp [hx] at hd4
+          | _ => simp at hd2
   | _ => simp [exprStep] at hd
 
 end SpecLean.Layer4
