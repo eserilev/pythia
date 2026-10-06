@@ -46,6 +46,7 @@ CALLS_NEXT_HEADER = """import SpecLean.Validation.Gen.Calls
 # The loops tier: the first round uses the calls, a later round also the loops proved so far.
 LOOPS_HEADER = """import SpecLean.Validation.Gen.Calls
 import SpecLean.Validation.LoopTactic
+import SpecLean.Validation.CompTactic
 """
 
 # The names of the loop rule, for the loops tier only.
@@ -458,6 +459,38 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
             names.append(f"{name}_loop{k}")
         return text, names, bounds, jj
 
+    def comps(self, name, sig):
+        """The comprehensions of a function with no loop (SPEC 9.3): each has one generator over a
+        list field of the container argument (or `enumerate` of it) or over a list argument.
+        Returns the fuel bound of each and the container argument."""
+        tree = self.b.fns[name]
+        pnames = [pn for pn, _ in sig.params]
+        bounds, jj = [], None
+        for x in ast.walk(tree):
+            if not isinstance(x, (ast.ListComp, ast.GeneratorExp, ast.SetComp)):
+                continue
+            if len(x.generators) != 1:
+                raise Unsupported("comprehension: generators")
+            it = x.generators[0].iter
+            if isinstance(it, ast.Call) and isinstance(it.func, ast.Name) and \
+                    it.func.id == "enumerate" and len(it.args) == 1:
+                it = it.args[0]
+            if isinstance(it, ast.Attribute) and isinstance(it.value, ast.Name) and \
+                    it.value.id in pnames:
+                j = pnames.index(it.value.id)
+                if sig.params[j][1][0] != "container":
+                    raise Unsupported("comprehension source")
+                if jj is not None and jj != j:
+                    raise Unsupported("comprehension: two containers")
+                jj = j
+                bounds.append(f"x{j}.{T.ident(it.attr)}.length")
+            elif isinstance(it, ast.Name) and it.id in pnames and \
+                    sig.params[pnames.index(it.id)][1][0] == "list":
+                bounds.append(f"x{pnames.index(it.id)}.length")
+            else:
+                raise Unsupported("comprehension source")
+        return bounds, jj
+
     def loops(self, name, sig, tree, callees=(), fuel=64):
         """The theorem of each loop of a function (SPEC 9.3). The loop is at the top level of the
         body and keeps the heap. A `for` loop runs over a list field of the container argument.
@@ -682,8 +715,18 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
                 parts.append(f"dec_{c} h' (.ref r{j}) = some {rv}")
             exp = " ∧ ".join(parts)
         fp = self.footprint(name, sig) if sig.mutated else "[]"
-        ltext, lnames, lens, jj = (self.loops(name, sig, tree, callees, fuel) if poly is None else
-                                   ("", [], [], None))
+        has_comp = any(isinstance(x, ast.comprehension) for x in ast.walk(tree))
+        has_loop = any(isinstance(x, (ast.For, ast.While)) for x in ast.walk(tree))
+        cbounds, kf = [], fuel
+        if has_comp and not has_loop and poly is None:
+            cbounds, cjj = self.comps(name, sig)
+            ltext, lnames, lens, jj = "", [], [], cjj
+            # Each item of a comprehension costs one unit of fuel.
+            fuel = f"{' + '.join(cbounds)} + {fuel + 64}"
+        else:
+            ltext, lnames, lens, jj = (self.loops(name, sig, tree, callees, fuel) if poly is None
+                                       else ("", [], [], None))
+        bounded = bool(lnames or cbounds)
         if lnames:
             # Each iteration of a loop costs one unit of fuel.
             # The literal stays last: the interpreter's equations match `n + 1`.
@@ -697,14 +740,14 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             elif t[0] == "list":
                 hys.append(f"hy{j}")
         inv = ""
-        if hys and (callees or lnames):
+        if hys and (callees or bounded):
             # The callees need the decode facts of the arguments: keep a copy of each.
             inv += "".join(f"  have {y}c := {y}\n" for y in hys)
         if hys:
             inv += (f"  simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, "
                    f"rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', "
                    f"exists_eq_right] at {' '.join(hys)}\n  " +
-                    (f"rd_split_keep x{jj}\n" if lnames and jj is not None else "rd_split_hyps\n"))
+                    (f"rd_split_keep x{jj}\n" if bounded and jj is not None else "rd_split_hyps\n"))
         vs = "[" + ", ".join(a[1] for a in args) + "]"
         rargs = " ".join(a[2] for a in args)
         hw = (f" (hw : WTree h {vs} {fp}) (hwf : HeapWF h) (haw : ArgsWF h {vs})"
@@ -712,6 +755,9 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         if sig.mutated and lnames:
             # The loop rule chains the contract of the steps: the footprint is part of `gfp`.
             hw += f" (hsub : ∀ p ∈ {fp}, p ∈ gfp)"
+        if cbounds and not sig.mutated:
+            # The comprehension rule starts from `CContract.refl`.
+            hw += f" (hwf : HeapWF h) (haw : ArgsWF h {vs})"
         sl = sorted(self.slices(name))
         hw += "".join(f" (hgfp{f} : ∀ pat ∈ gfp, ∀ j j' rest, Matches pat.steps ({f} :: j :: rest) → "
                       f"Matches pat.steps ({f} :: j' :: rest))" for f in sl)
@@ -730,8 +776,10 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             name_run, name_valid = f"{name}_run", f"{name}_valid"
         names = (" ".join(a[3] for a in args) + (" hw hwf haw" if sig.mutated else "") +
                  (" hsub" if sig.mutated and lnames else "") +
+                 (" hwf haw" if cbounds and not sig.mutated else "") +
                  "".join(f" hgfp{f}" for f in sl))
         alts = ([f"rd_loop [{', '.join(lnames)}]"] if lnames else []) + (
+            [f"rd_comp {kf} [{', '.join(c + '_run' for c in callees)}]"] if cbounds else []) + (
             [f"rd_call [{', '.join(c + '_run' for c in callees)}]"] if callees else [])
         step = "(first | " + " | ".join(alts + ["(rd_split <;> (try rd_step))"]) + ")"
         return ltext + f"""
@@ -743,10 +791,10 @@ theorem {name_run} (gfp : Footprint) (h : Heap) {binders}{hw} (k : Nat) :
         ({fname} {rargs}) := by
 {inv}{split}  all_goals (
   rw [interp, callName, callValue.eq_def]
-  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, {", ".join(defs)}{", *" if hys else ""}]
+  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, {", ".join(defs + (["compLoop", "iterSource", "toSeq"] if cbounds else []))}{", *" if hys else ""}]
   rd_step
   repeat' {step}
-  all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
+  all_goals (first | rd_finish | {"rd_list_end | rd_comp_err | " if cbounds else ""}((try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
 theorem {name_valid} (gfp : Footprint) (h : Heap) {binders}{hw} :
@@ -755,8 +803,8 @@ theorem {name_valid} (gfp : Footprint) (h : Heap) {binders}{hw} :
         (interp (Scope.env sha) fuel Scope.Id.«{name}» {vs} h)
         ({fname} {rargs}) :=
   ⟨{fuel}, fun fuel hf => by
-    {"obtain ⟨k, hk⟩ := Nat.exists_eq_add_of_le' hf" if lnames else "obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le' hf"}{f"""
-    rw [show fuel = k + {fuel} by omega]""" if lnames else ""}
+    {"obtain ⟨k, hk⟩ := Nat.exists_eq_add_of_le' hf" if bounded else "obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le' hf"}{f"""
+    rw [show fuel = k + {fuel} by omega]""" if bounded else ""}
     exact {name_run} sha gfp h {names} k⟩
 """
 
