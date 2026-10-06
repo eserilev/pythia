@@ -981,7 +981,11 @@ elab "rd_call" "[" ls:ident,* "]" : tactic => withMainContext do
           m.mvarId!.assign (← synthInstance ty)
           continue
         if (← inferType ty).isProp then
-          unless ← fillFromContext m do throwError m!"rd_call: no fact for {ty}"
+          if ← fillFromContext m then continue
+          -- A fact about literals, such as the width of a uint class.
+          let gs ← try evalTacticAt (← `(tactic| first | rfl | decide)) m.mvarId!
+            catch _ => throwError m!"rd_call: no fact for {ty}"
+          unless gs.isEmpty do throwError m!"rd_call: no fact for {ty}"
       let pf ← instantiateMVars (mkAppN c ms)
       if pf.hasMVar then throwError "rd_call: open arguments"
       -- The fact about the call as the goal writes it: `callStop`, not `interp`.

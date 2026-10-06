@@ -188,19 +188,35 @@ class Gen:
                 pats.append(p)
         return "[" + ", ".join(pats) + "]"
 
-    def theorem(self, name, sig, tree, callees=(), fuel=64):
+    def theorem(self, name, sig, tree, callees=(), fuel=64, poly=None):
         """The `_run` theorem at fuel `k + fuel` and the `_valid` theorem of SPEC 9.2. A call to
-        a callee in `callees` uses the callee's `_run` theorem (`rd_call`)."""
+        a callee in `callees` uses the callee's `_run` theorem (`rd_call`).
+
+        `poly = j`: the uint argument `j` has any class of its width, and the result has that
+        class. Python keeps the class of an argument through arithmetic, so a caller can pass a
+        `Gwei` to a `Uint64` parameter and get a `Gwei` back (`saturating_sub`)."""
         if any(t[0] in ("tvar", "utvar") for _, t in sig.params):
             raise Unsupported("generic")
         if any(sig.params[j][1][0] != "container" for j in sig.mutated):
             raise Unsupported("mutates a list argument")
         args = [self.arg(j, t) for j, (_, t) in enumerate(sig.params)]
+        if poly is not None:
+            t = sig.params[poly][1]
+            if t[0] != "uint" or sig.ret[0] != "uint" or sig.mutated:
+                raise Unsupported("poly")
+            w = re.findall(r"\d+", translate.uint_ty_term(self.n, t[1]))[-1]
+            x = f"x{poly}"
+            args[poly] = (f"(t{poly} : UintTy) (ht{poly} : t{poly}.bits = {w}) ({x} : Nat)",
+                          f"(.uint t{poly} {x})", args[poly][2], f"t{poly} ht{poly} {x}")
         ret = sig.ret
         outs = rd_fn.out_types(sig)
         rt = ("Unit" if not outs else self.em.lean_param(outs[0]) if len(outs) == 1 else
               "(" + " × ".join(self.em.lean_param(t) for t in outs) + ")")
-        if not sig.mutated:
+        if poly is not None:
+            exp = f"v = .uint t{poly} (UintC.val r) ∧ h' = h"
+            encs = []
+            name_run, name_valid = f"{name}_p{poly}_run", f"{name}_p{poly}_valid"
+        elif not sig.mutated:
             e, encs = self.expect(ret)
             exp = f"{e} ∧ h' = h"
         else:
@@ -239,29 +255,35 @@ class Gen:
         defs = ([f"Scope.fn_{name}", T.ident(name), "Scope.env", "Scope.knownNames"] + consts + [f"Cfg.{c}" for c in cfg] +
                 (["Cfg.default"] if cfg else []) + encs)
         fname = T.ident(name)
+        # A class-polymorphic argument: one proof for each of the two kinds of class.
+        split = (f"  rcases t{poly} with _ | ⟨_, _⟩ <;> simp only [UintTy.bits] at ht{poly} <;> "
+                 f"subst ht{poly}\n" if poly is not None else "")
+        if poly is None:
+            name_run, name_valid = f"{name}_run", f"{name}_valid"
         names = " ".join(a[3] for a in args) + (" hw hwf haw" if sig.mutated else "")
         step = (f"(first | rd_call [{', '.join(c + '_run' for c in callees)}] | "
                 f"(rd_split <;> (try rd_step)))" if callees else "(rd_split <;> (try rd_step))")
         return f"""
 set_option maxHeartbeats 4000000 in
-theorem {name}_run (gfp : Footprint) (h : Heap) {binders}{hw} (k : Nat) :
+theorem {name_run} (gfp : Footprint) (h : Heap) {binders}{hw} (k : Nat) :
       ResultMatches gfp {fp} h {vs} (fun (r : {rt}) h' v => {exp})
         (interp (Scope.env sha) (k + {fuel}) Scope.Id.«{name}» {vs} h)
         ({fname} {rargs}) := by
-{inv}  rw [interp, callName, callValue.eq_def]
+{inv}{split}  all_goals (
+  rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, {", ".join(defs)}{", *" if hys else ""}]
   rd_step
   repeat' {step}
-  all_goals (first | rd_finish | ((try rd_heap); rd_frame; done))
+  all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
-theorem {name}_valid (gfp : Footprint) (h : Heap) {binders}{hw} :
+theorem {name_valid} (gfp : Footprint) (h : Heap) {binders}{hw} :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp {fp} h {vs} (fun (r : {rt}) h' v => {exp})
         (interp (Scope.env sha) fuel Scope.Id.«{name}» {vs} h)
         ({fname} {rargs}) :=
   ⟨{fuel}, fun fuel hf => by
     obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le' hf
-    exact {name}_run sha gfp h {names} k⟩
+    exact {name_run} sha gfp h {names} k⟩
 """
 
 
@@ -382,10 +404,20 @@ def main():
             if args.tier == "calls" and not all(c in fuel for c in callees):
                 continue
             f = 64 + max((fuel[c] for c in callees), default=0)
+            # The theorems of each callee: the plain one and its class-polymorphic variants.
+            lemmas = [k for c in callees for k in fuel if k == c or k.startswith(c + "_p")]
             try:
-                cands[n] = (g.theorem(n, em.sigs[n], fns[n], callees, f), f)
+                cands[n] = (g.theorem(n, em.sigs[n], fns[n], lemmas, f), f)
             except (Unsupported, S.Unsupported, ValueError) as e:
                 skipped[n] = f"no statement: {e}"
+                continue
+            sig = em.sigs[n]
+            for j, (_, t) in enumerate(sig.params):
+                if t[0] == "uint" and sig.ret[0] == "uint" and not sig.mutated:
+                    try:
+                        cands[f"{n}_p{j}"] = (g.theorem(n, sig, fns[n], lemmas, f, poly=j), f)
+                    except (Unsupported, S.Unsupported, ValueError):
+                        pass
         todo = [n for n in todo if n not in cands and n not in skipped]
         if not cands:
             break
@@ -393,9 +425,9 @@ def main():
             results = list(ex.map(lambda kv: check(kv[0], kv[1][0], work, header),
                                   cands.items()))
         new = sorted(n for n, ok, _, _ in results if ok)
-        failed.update({n: e for n, ok, _, e in results if not ok})
+        failed.update({n: e for n, ok, _, e in results if not ok and n in tier})
         secs.update({n: round(t, 1) for n, _, t, _ in results})
-        proved += new
+        proved += [n for n in new if n in tier]
         body += "".join(cands[n][0] for n in new)
         for n in new:
             fuel[n] = cands[n][1]
@@ -413,6 +445,7 @@ def main():
     for n in todo:
         skipped.setdefault(n, "a callee has no theorem")
     print(f"tier {args.tier}: {len(proved)}/{len(tier)} proved, wrote {out}")
+    print(f"  class-polymorphic variants: {sorted(k for k in fuel if k not in tier and '_p' in k)}")
     for n in sorted(skipped):
         print(f"  SKIP {n}: {skipped[n]}")
     for n in sorted(failed):
