@@ -1,4 +1,5 @@
 import SpecLean.Lib
+import SpecLean.Prim
 
 /-!
 # Heap access, coercion, builtins and methods
@@ -431,30 +432,35 @@ def setAttr (env : Env) (h : Heap) : Value → Name → Value → Res Heap
 
 /-! ## Builtins that do not call spec code -/
 
-/-- Stable sort of `(key, item)` pairs by key. -/
-def stableSort (rev : Bool) (ps : List (Value × Value)) : Res (List Value) := do
-  let mut acc : List (Value × Value) := []
-  for (k, x) in ps do
-    acc ← insertLast rev k x acc
-  pure (acc.map (·.2))
-where
-  /-- Insert after every item that is not after it, so equal items keep their order. -/
-  insertLast (rev : Bool) (k x : Value) : List (Value × Value) → Res (List (Value × Value))
-    | [] => .ok [(k, x)]
-    | (k', x') :: rest => do
-      let after ← if rev then cmpVal .lt k' k else cmpVal .lt k k'
-      if after then pure ((k, x) :: (k', x') :: rest)
-      else pure ((k', x') :: (← insertLast rev k x rest))
+/-- Stable sort of `(key, item)` pairs by key: the primitive with Python's `<`. -/
+def stableSort (rev : Bool) (ps : List (Value × Value)) : Res (List Value) :=
+  Prim.sortBy (cmpVal .lt) rev ps
 
-/-- `min` and `max` keep the first of equal items. -/
+/-- `min` and `max` keep the first of equal items. This is `Prim.pick` with Python's order
+(`pickBest_eq_prim`), written out because the proofs unfold it. -/
 def pickBest (isMax : Bool) : Value → List Value → Res Value
   | best, [] => .ok best
   | best, x :: xs => do
     let better ← if isMax then cmpVal .gt x best else cmpVal .lt x best
     pickBest isMax (if better then x else best) xs
 
-def leBytes (n width : Nat) : List UInt8 :=
-  (List.range width).map fun i => UInt8.ofNat (n / 256 ^ i % 256)
+theorem pickBest_eq_prim (isMax : Bool) : ∀ (best : Value) (xs : List Value),
+    pickBest isMax best xs =
+      Prim.pick (fun x b => if isMax then cmpVal .gt x b else cmpVal .lt x b) best xs
+  | _, [] => rfl
+  | best, x :: xs => by
+    have ih := fun b => pickBest_eq_prim isMax b xs
+    cases isMax
+    · simp only [pickBest, Prim.pick, Bool.false_eq_true, ↓reduceIte]
+      cases cmpVal .lt x best with
+      | error => rfl
+      | ok b => exact ih _
+    · simp only [pickBest, Prim.pick, ↓reduceIte]
+      cases cmpVal .gt x best with
+      | error => rfl
+      | ok b => exact ih _
+
+def leBytes (n width : Nat) : List UInt8 := Prim.serializeUint n width
 
 def kwArg (kws : List (Name × Value)) (k : Name) : Option Value := kws.lookup k
 
@@ -500,6 +506,8 @@ def seqAugAdd (h : Heap) (op : BinOp) (x y : Value) : Option (Res (Value × Heap
     | _ => none
   | _, _ => none
 
+/-- `set(xs)` from `acc`. This is `Prim.dedupBy` with Python's `in` for sets
+(`PrimRel.dedupe_eq_prim`), written out because the proofs unfold it. -/
 def dedupe (h : Heap) : List Value → List Value → Res (List Value)
   | acc, [] => .ok acc
   | acc, x :: xs => do
@@ -515,13 +523,13 @@ def applyBuiltin (env : Env) (h : Heap) (b : Builtin) (args : List Value)
     match v with
     | .ref a =>
       match h.objs a with
-      | some (.list _ _ _ xs) => .ok (.int xs.length, h)
-      | some (.set xs) => .ok (.int xs.length, h)
-      | some (.dict es) => .ok (.int es.length, h)
+      | some (.list _ _ _ xs) => .ok (.int (Prim.len xs), h)
+      | some (.set xs) => .ok (.int (Prim.len xs), h)
+      | some (.dict es) => .ok (.int (Prim.len es), h)
       | _ => .error .typeError
-    | .bytes _ bs => .ok (.int bs.length, h)
-    | .tuple xs => .ok (.int xs.length, h)
-    | .frozenDict kvs => .ok (.int kvs.length, h)
+    | .bytes _ bs => .ok (.int (Prim.len bs), h)
+    | .tuple xs => .ok (.int (Prim.len xs), h)
+    | .frozenDict kvs => .ok (.int (Prim.len kvs), h)
     | _ => .error .typeError
   | .range, rargs => do
     let ns ← rargs.mapM toIndex
@@ -560,13 +568,14 @@ def applyBuiltin (env : Env) (h : Heap) (b : Builtin) (args : List Value)
   | .sum, v :: rest => do
     let xs ← iterElems h v
     let start := rest.headD (.int 0)
+    -- `Prim.sum (binopVal .add) start xs`, written out: the tactic matches `List.foldlM`.
     pure (← xs.foldlM (binopVal .add) start, h)
   | .any, [v] => do
     let xs ← iterElems h v
-    pure (.bool (← xs.anyM (truthyH h)), h)
+    pure (.bool (← Prim.any (truthyH h) xs), h)
   | .all, [v] => do
     let xs ← iterElems h v
-    pure (.bool (← xs.allM (truthyH h)), h)
+    pure (.bool (← Prim.all (truthyH h) xs), h)
   | .list, [] => .ok (allocPyList h [])
   | .list, [v] => do pure (allocPyList h (← iterElems h v))
   | .tuple, [v] => do pure (.tuple (← iterElems h v), h)
@@ -644,9 +653,8 @@ def countOf (h : Heap) (x : Value) : List Value → Res Nat
 /-- `int.from_bytes(data, endianness)`. -/
 def fromBytes (env : Env) : List Value → Res Value
   | [.bytes _ bs, .str e] =>
-    let le : Nat := bs.foldr (fun b acc => b.toNat + 256 * acc) 0
-    let be : Nat := bs.foldl (fun acc b => 256 * acc + b.toNat) 0
-    if e = env.nm.little then .ok (.int le) else .ok (.int be)
+    if e = env.nm.little then .ok (.int (Prim.fromBytesLE bs))
+    else .ok (.int (Prim.fromBytesBE bs))
   | _ => .error .typeError
 
 def applyMethod (env : Env) (h : Heap) (self : Value) (m : Name) (args : List Value) :
@@ -753,7 +761,7 @@ def applyMethod (env : Env) (h : Heap) (self : Value) (m : Name) (args : List Va
     | _ => .error .unsupported
   | .int n =>
     -- `x.bit_length()`: `getAttr` binds it to the number as an `int`.
-    if m = env.nm.bitLength ∧ args.isEmpty then .ok (.int (Nat.log2 n.natAbs + if n = 0 then 0 else 1), h)
+    if m = env.nm.bitLength ∧ args.isEmpty then .ok (.int (Prim.bitLength n), h)
     else .error .unsupported
   | .glob g =>
     match env.globals.lookup g with

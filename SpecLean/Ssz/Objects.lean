@@ -282,7 +282,7 @@ def builtin (env : Env) (h : Heap) (b : Builtin) (args : List Value) (_kws : Lis
     Option (Res (Value × Heap)) :=
   match b, args with
   | .sszSerialize, [.uint t n] => some (.ok (.bytes env.bytesName (leBytes n (t.bits / 8)), h))
-  | .sszSerialize, [.boolean b] => some (.ok (.bytes env.bytesName [if b then 1 else 0], h))
+  | .sszSerialize, [.boolean b] => some (.ok (.bytes env.bytesName (Prim.serializeBool b), h))
   -- A Python `int`, `bool` or `bytes` has no `encode_bytes` (probed).
   | .sszSerialize, [.int _] | .sszSerialize, [.bool _] | .sszSerialize, [.bytes _ _] =>
     some (.error (.other "AttributeError"))

@@ -94,7 +94,7 @@ def lappend (xs : List α) (x : α) (limit : Option Nat) : SpecM (List α) :=
 def sliceBound' (len : Nat) (i : Int) : Nat :=
   if i < 0 then (i + len).toNat else min i.toNat len
 
-/-- `xs[lo:hi]`, step 1. -/
+/-- `xs[lo:hi]`, step 1. It equals the primitive `Prim.slice` (`PrimRel.lslice_eq_prim`). -/
 def lslice (xs : List α) (lo hi : Option Int) : List α :=
   let a := (lo.map (sliceBound' xs.length)).getD 0
   let b := (hi.map (sliceBound' xs.length)).getD xs.length
@@ -114,17 +114,19 @@ def lindex [BEq α] (xs : List α) (x : α) : SpecM Int :=
 
 def lcount [BEq α] (xs : List α) (x : α) : Int := (xs.filter (· == x)).length
 
-/-- A set: the first copy of each element, in order. -/
+/-- A set: the first copy of each element, in order. This is `Prim.dedupBy` on `Id`
+(`PrimRel.dedup_eq_prim`), written out because the proofs unfold it. -/
 def dedup [BEq α] (xs : List α) : List α :=
   xs.foldl (fun acc x => if acc.contains x then acc else acc ++ [x]) []
 
 def bget (b : Bytes) (i : Int) : SpecM Int := do pure (← lget b i).toNat
 
-/-- `int.from_bytes(b, "little")`. -/
+/-- `int.from_bytes(b, "little")`. It equals the primitive `Prim.fromBytesLE`
+(`PrimRel.fromLE_eq_prim`). -/
 def fromLE (b : Bytes) : Int := (b.foldr (fun x acc => acc * 256 + x.toNat) 0 : Nat)
 
 /-- `n.to_bytes(w, "little")`. -/
-def toLE (n : Nat) (w : Nat) : Bytes := leBytes n w
+def toLE (n : Nat) (w : Nat) : Bytes := Prim.serializeUint n w
 
 /-- `range(lo, hi, step)`. -/
 def pyRange (lo hi step : Int) : SpecM (List Int) :=
@@ -148,21 +150,16 @@ instance [PyOrd α] [PyOrd β] [BEq α] : PyOrd (α × β) :=
 
 /-- Stable sort by key, as `sorted(xs, key=k, reverse=r)`. -/
 def pySort [PyOrd κ] (key : α → κ) (rev : Bool) (xs : List α) : List α :=
-  let ins := fun (x : α) (acc : List α) =>
-    let k := key x
-    let (lo, hi) := acc.span fun y =>
-      if rev then !(PyOrd.lt (key y) k) else !(PyOrd.lt k (key y))
-    lo ++ [x] ++ hi
-  xs.foldl (fun acc x => ins x acc) []
+  Id.run (Prim.sortBy (fun a b => pure (PyOrd.lt a b)) rev (xs.map fun x => (key x, x)))
 
 /-- `min(xs)`: the first of the least. Empty is `ValueError`, a bug. -/
 def pyMin [PyOrd α] : List α → SpecM α
   | [] => throw .bug
-  | x :: xs => pure (xs.foldl (fun b y => if PyOrd.lt y b then y else b) x)
+  | x :: xs => pure (Id.run (Prim.pick (fun y b => pure (PyOrd.lt y b)) x xs))
 
 def pyMax [PyOrd α] : List α → SpecM α
   | [] => throw .bug
-  | x :: xs => pure (xs.foldl (fun b y => if PyOrd.lt b y then y else b) x)
+  | x :: xs => pure (Id.run (Prim.pick (fun y b => pure (PyOrd.lt b y)) x xs))
 
 /-! ## SSZ encoding, the oracle and `hash_tree_root` -/
 
@@ -319,7 +316,7 @@ def lextend (xs ys : List α) (limit : Option Nat) : SpecM (List α) :=
 
 /-- `sum(xs, start)` of uints. -/
 def sumU [UintC α] (start : α) (xs : List α) : SpecM α :=
-  xs.foldlM (fun acc x => uOp .add (uv acc) (uv x)) start
+  Prim.sum (fun acc x => uOp .add (uv acc) (uv x)) start xs
 
 /-- `d[k]`. Not found is `KeyError`, a bug. -/
 def dget [BEq κ] (d : List (κ × ν)) (k : κ) : SpecM ν :=
