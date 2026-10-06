@@ -255,6 +255,21 @@ theorem s_fn (d : FunctionDef) (roots : List DV) :
 theorem s_iter (e : Expr) :
     (den env fps (n + 1)).iter fp s e = iterStep env fps n (den env fps n) fp s e := by rw [den_iter]
 
+/-- A loop over a list at a place given by an attribute or a name. -/
+theorem s_iter_attr (l : Line) (o : Expr) (f : Name) :
+    (den env fps (n + 1)).iter fp s (.attr l o f) =
+      DM.bind ((den env fps (n + 1)).expr fp s (.attr l o f)) fun r =>
+        match r with
+        | .place k p => if listPlace s k p then .ok ⟨k, p, false⟩ else none
+        | _ => none := by rw [den_iter, den_expr]; rfl
+
+theorem s_iter_name (l : Line) (x : Name) :
+    (den env fps (n + 1)).iter fp s (.name l x) =
+      DM.bind ((den env fps (n + 1)).expr fp s (.name l x)) fun r =>
+        match r with
+        | .place k p => if listPlace s k p then .ok ⟨k, p, false⟩ else none
+        | _ => none := by rw [den_iter, den_expr]; rfl
+
 theorem s_loop (t : Target) (ls : LSrc) (i : Nat) (body : List Stmt) :
     (den env fps (n + 1)).loop fp s t ls i body = loopStep n (den env fps n) fp s t ls i body := by
   rw [den_loop]
@@ -428,6 +443,19 @@ theorem omap_bind {α β γ : Type} (g : β → γ) (x : DM α) (k : α → DM �
     Option.map (Except.map g) (DM.bind x k) = DM.bind x fun a => Option.map (Except.map g) (k a) := by
   rcases x with _ | ⟨e | a⟩ <;> rfl
 
+theorem setLoc_same (L : Name → Option DRes) (x : Name) (a b : DRes) :
+    setLoc (setLoc L x a) x b = setLoc L x b := by
+  funext y; simp only [setLoc]; split <;> rfl
+
+theorem fite_app {α β : Type} (c : Prop) [Decidable c] (f g : α → β) (a : α) :
+    (if c then f else g) a = if c then f a else g a := by
+  by_cases h : c
+  · rw [if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h]
+
+theorem dst_loc_ite (c : Prop) [Decidable c] (R : List DV) (L1 L2 : Name → Option DRes) :
+    (DSt.mk R (if c then L1 else L2)).loc = if c then L1 else L2 := Eq.trans rfl rfl
+
 theorem dmb_none {α β : Type} (f : α → DM β) : DM.bind none f = none := Eq.trans rfl rfl
 
 end push
@@ -571,7 +599,7 @@ macro_rules
     `(tactic| simp only [l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
-      s_augAssign, s_augName, augName, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
+      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
       dGlobal, env_globals, env_containers, env_config, env_bytesName,
@@ -596,11 +624,11 @@ macro_rules
       List.any_nil, Bool.or_false, Bool.or_true, Bool.false_or, Bool.true_or, beq_self_eq_true, Nat.reduceBEq, List.set_cons_zero, List.set_cons_succ,
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
-      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
+      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
-      s_augAssign, s_augName, augName, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
+      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
       dGlobal, env_globals, env_containers, env_config, env_bytesName,
@@ -625,7 +653,14 @@ macro_rules
       List.any_nil, Bool.or_false, Bool.or_true, Bool.false_or, Bool.true_or, beq_self_eq_true, Nat.reduceBEq, List.set_cons_zero, List.set_cons_succ,
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
-      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
+      Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
+
+/-- The side conditions of a loop lemma: fuel, and the locals of the parameters. -/
+macro "l4_disch" : tactic => `(tactic| first
+  | omega
+  | (simp only [setLoc, ↓reduceIte, Nat.reduceEqDiff]; done)
+  | (simp only [setLoc, ↓reduceIte, Nat.reduceEqDiff]; assumption)
+  | assumption)
 
 open Lean Meta Elab Tactic in
 /-- `by_cases` on the condition of the first `if` in the goal whose condition does not depend

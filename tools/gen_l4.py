@@ -44,6 +44,7 @@ class Model:
     def __init__(self):
         scope = (ROOT / "SpecLean/Gen/Scope.lean").read_text()
         self.fns, self.ids, self.globs = l4_ast.load_scope(str(ROOT / "SpecLean/Gen/Scope.lean"))
+        self.scope = scope
         self.name_id = {v: k for k, v in self.ids.items()}
         rd = (ROOT / "SpecLean/Gen/Readable.lean").read_text()
         self.rd = rd
@@ -420,6 +421,211 @@ def variants(m, name):
     return [c for c in sorted(m.uint) if m.uint[c] == w and (m.uint_ty(c) or "").startswith("(.nominal")]
 
 
+def top_items(text):
+    """The top-level items of a Lean list literal `[a, b, ...]` (the text inside the brackets)."""
+    out, depth, cur = [], 0, ""
+    for ch in text:
+        if ch in "([":
+            depth += 1
+        if ch in ")]":
+            depth -= 1
+        if ch == "," and depth == 0:
+            out.append(cur.strip())
+            cur = ""
+            continue
+        cur += ch
+    if cur.strip():
+        out.append(cur.strip())
+    return out
+
+
+def body_text(m, name):
+    s = m.scope
+    i = s.index("def fn_%s : FunctionDef where" % name)
+    i = s.index("  body := [", i) + len("  body := [")
+    depth, j = 1, i
+    while depth:
+        depth += {"[": 1, "]": -1}.get(s[j], 0)
+        j += 1
+    return s[i:j - 1]
+
+
+def last_list(item):
+    """The text of the last `[...]` of an item: the body of a `for`."""
+    j = item.rindex("]")
+    depth, i = 0, j
+    while True:
+        depth += {"]": 1, "[": -1}.get(item[i], 0)
+        if depth == 0:
+            return item[i:j + 1]
+        i -= 1
+
+
+def loops(m, name, params, roots, rds):
+    """The top-level `for` loops of `name`: one dict each, or Unsupported."""
+    out = []
+    items = top_items(body_text(m, name))
+    f = m.fns[name]
+    pids = f["params"]
+    for idx, (it, st) in enumerate(zip(items, f["body"][1])):
+        k, a = ctor(st)
+        if k != "forStmt":
+            continue
+        tk, ta = ctor(a[1])
+        if tk != "name":
+            raise Unsupported("loop target")
+        lv = ta[1][1]
+        ik, ia = ctor(a[2])
+        if ik != "attr" or ctor(ia[1])[0] != "name":
+            raise Unsupported("loop iterable")
+        pv = ctor(ia[1])[1][1][1]
+        fid = ia[2][1]
+        if pv not in pids:
+            raise Unsupported("loop over a local")
+        pk = pids.index(pv)
+        pt = params[pk][1]
+        if pt not in m.containers:
+            raise Unsupported("loop over a non-container")
+        fn = m.ids[fid]
+        fi = [i for i, (n2, _, _) in enumerate(m.containers[pt]) if n2 == fn]
+        if not fi:
+            raise Unsupported("loop field")
+        fi = fi[0]
+        ssz = strip_parens(m.containers[pt][fi][1])
+        mm = re.fullmatch(r"\.list (\.\w+) (\(.*\)|\.\w+) (none|\(some \d+\))", ssz)
+        if not mm or not mm.group(2).startswith("(.container"):
+            raise Unsupported("loop over a list of flat values")
+        out.append(dict(idx=idx, text=it, lv=lv, line=a[0][1], k=pk, fi=fi, body=last_list(it),
+                        len="%s.%s.length" % (rds[pk], fn), depth=depth(a[3])))
+    n = len(out)
+    for j, lp in enumerate(out):
+        lname = "%s.loop%d" % (name, j + 1)
+        sig = re.search(r"^def %s ((?:\(\w+ : [^)]+\) )*): SpecM (.+?) :=" % re.escape(lname), m.rd, re.M)
+        if not sig:
+            raise Unsupported("loop signature")
+        ps = re.findall(r"\((\w+) : ([^)]+)\)", sig.group(1))
+        if sig.group(2).strip().startswith(("Option", "(")):
+            raise Unsupported("loop result " + sig.group(2))
+        names = [p for p, _ in ps]
+        ni = names.index("i_")
+        lp["pre"] = names[:ni - 1]
+        lp["carried"] = [(p[:-3], t) for p, t in ps[ni + 1:]]
+        if len(lp["carried"]) != 1 or not all(p.endswith("_in") for p, _ in ps[ni + 1:]):
+            raise Unsupported("loop carries %d values" % len(lp["carried"]))
+        if lp["carried"][0][1] not in m.uint:
+            raise Unsupported("loop carries " + lp["carried"][0][1])
+        lp["rt"] = sig.group(2).strip()
+        lp["lname"] = lname
+    return out
+
+
+def loop_theorems(m, name, params, bs, roots, rds, xs, lps):
+    """The induction lemma of each loop and its form for a `bind`."""
+    out = []
+    pids = m.fns[name]["params"]
+    rdmap = {pn: rd for (pn, _), rd in zip(params, rds)}
+    rs = "[%s]" % ", ".join(roots)
+    hyps, hnames = [], []
+    for (pn, pt), pid, r in zip(params, pids, roots):
+        v = "(.val %s)" % r[len("(.leaf "):-1] if r.startswith("(.leaf ") else "(.place %d [])" % pids.index(pid)
+        hyps.append("B %d = some %s" % (pid, v))
+        hnames.append("hB%d" % pid)
+    for j, lp in enumerate(lps):
+        cname, ct = lp["carried"][0]
+        cid = m.name_id[cname]
+        ty = m.uint_ty(ct)
+        C = lp["depth"] + 6
+        LEN = lp["len"]
+        car = "setLoc B %d (.val (.uint %s c))" % (cid, ty)
+        last = "(.place %d [%d, %s - 1])" % (lp["k"], lp["fi"], LEN)
+        fin = ("(if i < %s then setLoc (setLoc B %d %s) %d (.val (.uint %s r.val)) else setLoc B %d (.val (.uint %s r.val)))"
+               % (LEN, lp["lv"], last, cid, ty, cid, ty))
+        pre = " ".join(rdmap[p] for p in lp["pre"])
+        loop1 = "%s %s %s i ⟨c⟩" % (lp["lname"], pre, LEN)
+        ls = "⟨%d, [%d], false⟩" % (lp["k"], lp["fi"])
+        st = "(.name %d %d)" % (lp["line"], lp["lv"])
+        nm = "%s_loop%d" % (name, j + 1)
+        comm = "setLoc_comm_%s" % nm
+        hy = " → ".join(hyps)
+        out.append(
+            "theorem %s (sha : Oracle) (L4n : Nat) (L4B : Name → Option DRes) (L4x : DRes) (L4a L4b : Nat) :\n"
+            "    True := trivial\n" % comm if False else "")
+        out.append(
+            "theorem %s_swap (B : Name → Option DRes) (it v : DRes) :\n"
+            "    setLoc (setLoc B %d v) %d it = setLoc (setLoc B %d it) %d v := by\n"
+            "  funext y; simp only [setLoc]; split <;> split <;> simp_all\n" % (nm, cid, lp["lv"], lp["lv"], cid))
+        out.append(
+            "theorem %s (sha : Oracle) %s :\n"
+            "    ∀ (k i n : Nat) (B : Name → Option DRes) (c : Nat), %s - i = k → k + %d ≤ n → %s →\n"
+            "      Option.map (Except.mapError SpecError.fail)\n"
+            "        ((den (Scope.env sha) fpsGen n).loop [] (DSt.mk %s (%s)) %s %s i\n"
+            "          %s) =\n"
+            "      some ((fun r : %s => (DOut.normal, DSt.mk %s %s)) <$> %s) := by\n"
+            "  intro k\n"
+            "  induction k with\n"
+            "  | zero =>\n"
+            "    intro i n B c hk hn %s\n"
+            "    obtain ⟨n', rfl⟩ : ∃ n', n = n' + 1 := ⟨n - 1, by omega⟩\n"
+            "    have hi : ¬ i < %s := by omega\n"
+            "    rw [s_loop, %s]\n"
+            "    simp only [loopStep, dif_neg hi, if_neg hi]\n"
+            "    l4_eval\n"
+            "    simp (disch := omega) only [List.getElem?_eq_none, Option.map_none]\n"
+            "    all_goals (try l4_eval)\n"
+            "    all_goals l4_close\n"
+            "  | succ k ih =>\n"
+            "    intro i n B c hk hn %s\n"
+            "    obtain ⟨n', rfl⟩ : ∃ n', n = n' + %d := ⟨n - %d, by omega⟩\n"
+            "    rw [show n' + %d = (n' + %d) + 1 from rfl, s_loop, %s]\n"
+            "    have hi : i < %s := by omega\n"
+            "    simp only [loopStep, dif_pos hi, if_pos hi]\n"
+            "    l4_eval [bindLoop, Sem.block, List.getElem?_eq_getElem hi, hi, %s, %s_swap]\n"
+            "    all_goals (try simp (disch := l4_disch) only [ih])\n"
+            "    all_goals (try l4_eval)\n"
+            "    all_goals (by_cases hlast : i + 1 < %s <;>\n"
+            "      (try simp only [hlast, hi, ↓reduceIte, setLoc_same]))\n"
+            "    all_goals (try rw [show %s - 1 = i by omega])\n"
+            "    all_goals l4_close\n"
+            % (nm, " ".join(bs), LEN, C, hy, rs, car, st, ls, lp["body"], lp["rt"], rs, fin, loop1,
+               " ".join(hnames), LEN, lp["lname"], " ".join(hnames), C, C, C, C - 1, lp["lname"], LEN,
+               ", ".join(hnames), nm, LEN, LEN))
+        out.append(
+            "@[l4_simp] theorem %s_call (sha : Oracle) %s (i n : Nat) (B : Name → Option DRes) (c : Nat)\n"
+            "    (hn : %s - i + %d ≤ n) %s {γ : Type} (K : DOut × DSt → DM γ) :\n"
+            "    Option.map (Except.mapError SpecError.fail)\n"
+            "        (DM.bind ((den (Scope.env sha) fpsGen n).loop [] (DSt.mk %s (%s)) %s %s i\n"
+            "          %s) K) =\n"
+            "      callK (%s) fun r => Option.map (Except.mapError SpecError.fail) (K (DOut.normal, DSt.mk %s %s)) :=\n"
+            "  bind_call (%s sha %s _ i n B c rfl hn %s) K\n"
+            % (nm, " ".join(bs), LEN, C, " ".join("(%s : %s)" % (h, y) for h, y in zip(hnames, hyps)),
+               rs, car, st, ls, lp["body"], loop1, rs, fin, nm, " ".join(xs), " ".join(hnames)))
+    return "\n".join(x for x in out if x)
+
+
+LENS_OF = {}   # function -> [(parameter position, field)]: the list lengths its fuel grows with
+
+
+def callee_lens(m, name, params):
+    """The lengths that the fuel of `name` needs for its callees, as (position, field) of its own
+    parameters. A callee argument must be a parameter of `name`."""
+    out = []
+    body = m.bodies.get(name, "")
+    pnames = [p for p, _ in params]
+    for c in m.callees(name):
+        if not LENS_OF.get(c):
+            continue
+        cps = [p for p, _ in m.sigs[c][0]]
+        for mm in re.finditer(r"\b%s((?:\s+\(?\w+\)?)+)" % re.escape(c), body):
+            args = [a.strip("()") for a in mm.group(1).split()]
+            for pos, fld in LENS_OF[c]:
+                if pos >= len(args) or args[pos] not in pnames:
+                    raise Unsupported("callee fuel through a local")
+                item = (pnames.index(args[pos]), fld)
+                if item not in out:
+                    out.append(item)
+    return out
+
+
 def candidate(m, name, proved, sub=None, isub=False):
     """The theorems of `name` (its `_den` and `_call`) and its fuel, or Unsupported. `proved` maps
     each proved function to its fuel."""
@@ -453,34 +659,63 @@ def candidate(m, name, proved, sub=None, isub=False):
     else:
         enc = result(m, rt, sub)
         rs_out = None
+    lps = loops(m, name, params, roots, rds) if not sub else []
+    if sub and any(ctor(st)[0] == "forStmt" for st in f["body"][1]):
+        raise Unsupported("variant with a loop")
     tag = ("_" + sub if sub else "") + ("_i" if isub else "")
     D = depth(f["body"]) + 4 + max([proved[c] + 2 for c in m.callees(name)] + [0])
+    items = [(lp["k"], lp["len"].split(".")[-2]) for lp in lps]
+    for it in callee_lens(m, name, params):
+        if it not in items:
+            items.append(it)
+    LENS = "".join("%s.%s.length + " % (rds[k], fld) for k, fld in items)
+    fcalls = ["%s_fcall" % c for c in m.callees(name) if LENS_OF.get(c)]
+    if lps:
+        D += 6
     rs = "[%s]" % ", ".join(roots)
     rs_out = rs_out or rs
     fp = "(fpsGen %d)" % f["id"] if w else "[]"
     unf = ["Scope.fn_" + name, name, "fpsGen", "fpAll"] + m.consts_of(name)
+    loopstep = ""
+    if lps or fcalls:
+        loopstep = ("  all_goals (repeat (first | (simp (disch := l4_disch) only [%s]) |\n"
+                    "    ((l4_bycases <;> (try l4_eval_star)))))\n  all_goals (try l4_eval)\n"
+                    % ", ".join(["%s_loop%d_call" % (name, j + 1) for j in range(len(lps))] + fcalls))
     thm = ("theorem %s_den%s (sha : Oracle) (m : Nat) %s :\n"
-           "    ((den (Scope.env sha) fpsGen (m + %d)).fn %s Scope.fn_%s %s).map (Except.mapError SpecError.fail) =\n"
+           "    ((den (Scope.env sha) fpsGen (%sm + %d)).fn %s Scope.fn_%s %s).map (Except.mapError SpecError.fail) =\n"
            "      some ((fun x : %s => (%s, %s)) <$> %s %s) := by\n"
            "  rw [s_fn]\n"
            "  l4_eval [%s]\n"
-           "%s"
-           % (name, tag, " ".join(bs), D, fp, name, rs, rt, enc, rs_out, name, " ".join(rds), ", ".join(unf),
+           "%s%s"
+           % (name, tag, " ".join(bs), LENS, D, fp, name, rs, rt, enc, rs_out, name, " ".join(rds), ", ".join(unf), loopstep,
               "" if os.environ.get("L4_NOCLOSE") else
               "  all_goals l4_dbg\n" if os.environ.get("L4_DBG") else "  all_goals l4_close\n"))
     call = ("@[l4_simp] theorem %s_call%s (sha : Oracle) (m : Nat) %s {γ : Type} (k : DRes × List DV → DM γ) :\n"
             "    Option.map (Except.mapError SpecError.fail)\n"
-            "        (DM.bind ((den (Scope.env sha) fpsGen (m + %d)).fn %s Scope.fn_%s %s) k) =\n"
+            "        (DM.bind ((den (Scope.env sha) fpsGen (%sm + %d)).fn %s Scope.fn_%s %s) k) =\n"
             "      callK (%s %s) fun x => Option.map (Except.mapError SpecError.fail) (k (%s, %s)) :=\n"
             "  bind_call (%s_den%s sha m %s) k\n"
-            % (name, tag, " ".join(bs), D, fp, name, rs, name, " ".join(rds), enc, rs_out, name, tag, " ".join(xs)))
-    out = thm + "\n" + call
+            % (name, tag, " ".join(bs), LENS, D, fp, name, rs, name, " ".join(rds), enc, rs_out, name, tag, " ".join(xs)))
+    if LENS:
+        call = call.replace("@[l4_simp] theorem", "theorem")
+        call += ("\ntheorem %s_fcall%s (sha : Oracle) %s (n : Nat) (hn : %s%d ≤ n) {γ : Type}\n"
+                 "    (k : DRes × List DV → DM γ) :\n"
+                 "    Option.map (Except.mapError SpecError.fail)\n"
+                 "        (DM.bind ((den (Scope.env sha) fpsGen n).fn %s Scope.fn_%s %s) k) =\n"
+                 "      callK (%s %s) fun x => Option.map (Except.mapError SpecError.fail) (k (%s, %s)) := by\n"
+                 "  obtain ⟨m, rfl⟩ : ∃ m, n = %sm + %d := ⟨n - (%s%d), by omega⟩\n"
+                 "  exact %s_call%s sha m %s k\n"
+                 % (name, tag, " ".join(bs), LENS, D, fp, name, rs, name, " ".join(rds), enc, rs_out,
+                    LENS, D, LENS, D, name, tag, " ".join(xs)))
     if not sub:
-        out += "\n" + wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f)
+        LENS_OF[name] = items
+    out = (loop_theorems(m, name, params, bs, roots, rds, xs, lps) + "\n" if lps else "") + thm + "\n" + call
+    if not sub:
+        out += "\n" + wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS)
     return out, D
 
 
-def wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f):
+def wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS=""):
     """`<f>_l4`: SPEC 9.2 from `<f>_den`, through `GenWrap.l4_wrap`."""
     vs, hyps, decs = [], [], []
     for i, ((pn, pt), r) in enumerate(zip(params, roots)):
@@ -509,15 +744,15 @@ def wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f):
         E = "(fun (x : %s) _ v => v = %s)" % (m.sigs[name][1], V)
         hE = "(fun x h' v hx => hx.1.1)"
     return ("theorem %s_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) %s %s%s :\n"
-            "    ∀ fuel, %d ≤ fuel →\n"
+            "    ∀ fuel, %s%d ≤ fuel →\n"
             "      ResultMatches gfp %s h %s %s\n"
             "        (interp (Scope.env sha) fuel Scope.Id.«%s» %s h) (%s %s) := by\n"
             "  intro fuel hf\n"
             "  have hden := %s_den sha 0 %s\n"
-            "  rw [Nat.zero_add] at hden\n"
+            "  simp only [Nat.add_zero, Nat.zero_add] at hden\n"
             "  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])\n"
             "    hwf %s %s hden %s)\n"
-            % (name, " ".join(bs), " ".join(hyps), hw, D, fp, VS, E, name, VS, name, " ".join(rds),
+            % (name, " ".join(bs), " ".join(hyps), hw, LENS, D, fp, VS, E, name, VS, name, " ".join(rds),
                name, " ".join(xs), hdec, hwt, hE))
 
 
