@@ -921,3 +921,18 @@ logic, not SHA-256 or Merkle trees.
 - Decide what you trust before you decide what you prove. Proving library code is the most
   expensive way to gain the least.
 - If you trust a model, trust one model. Two models with an unproved link are worse than either.
+
+### First layer 4 counts (2026-10-06 afternoon)
+
+- The layer 4 generator (`tools/gen_l4.py`) now runs over all 162 functions. The design that
+  worked: one rewrite lemma per syntax node of the denotation, so the kernel never unfolds it, and
+  the same three-line proof for every function.
+- Each function gets three theorems: the denotation equals the readable Lean, a rewrite lemma for
+  its callers, and the end-to-end theorem against the interpreter through the one general
+  soundness theorem.
+- Count: 14, then 23, then 28 "denotation = readable", then 37 end to end. The tactic is at 56.
+- The ceiling is the fragment, not the generator. Only about 51 functions use nothing outside it.
+  The rest use method calls such as `append` (41 functions), list or tuple literals (33), keyword
+  constructors (15), `+=` on a local name (14), `while`, `break` or `continue`. Each of those is a
+  new case in the general theorem.
+- Decision: grow the fragment next, ordered by how many functions each feature unlocks.
