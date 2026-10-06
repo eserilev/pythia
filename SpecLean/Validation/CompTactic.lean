@@ -164,12 +164,12 @@ macro "rd_item_end" : tactic => `(tactic| first
   | (first
       | with_reducible refine SpecLean.Validation.itemRel_some ?_ ?_ ?_
       | with_reducible refine SpecLean.Validation.itemRel_none ?_ ?_
-     focus exact SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›
-     focus
-       refine ⟨rfl, ?_⟩
-       repeat (refine SpecLean.Validation.keep_set ?_ (by simp) _)
-       assumption
-     all_goals (refine ⟨?_, ?_⟩ <;> first | rfl | (simp [rd_simp]; done) | omega | (simp [rd_simp]; omega))))
+     all_goals first
+       | exact SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›
+       | (refine ⟨rfl, ?_⟩
+          repeat (refine SpecLean.Validation.keep_set ?_ (by simp) _)
+          assumption)
+       | (refine ⟨?_, ?_⟩ <;> first | rfl | (simp [rd_simp]; done) | omega | (simp [rd_simp]; omega))))
 
 /-- One item of a comprehension in the context of the caller. -/
 macro "rd_comp_step" "[" ls:ident,* "]" : tactic => `(tactic| (
@@ -198,7 +198,7 @@ macro "rd_comp_step" "[" ls:ident,* "]" : tactic => `(tactic| (
   unfold SpecLean.Validation.KeepLocals at hL
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, follow,
     assignTarget, assignTargets, evalIfs, enumItem, hL]
-  rd_step
+  all_goals (try rd_step)
   repeat' (first | rd_call [$ls,*] | (rd_items; (repeat rd_unify); try rd_step) |
     (rd_split <;> (try rd_step)))
   all_goals rd_item_end))
@@ -255,13 +255,13 @@ elab "rd_comp" kf:num "[" ls:ident,* "]" : tactic => withMainContext do
       (fun i L' h' hq hi => by
         rw [hq.1]
         obtain ⟨x, hx⟩ := SpecLean.Validation.seqItem_live_some (a := $aS)
-          ⟨_, _, _, _, ‹_›, by simp; omega⟩ hi
+          ⟨_, _, _, _, ‹_›, by first | omega | (simp <;> omega)⟩ hi
         exact ⟨$itemS, by simp [iterItem, hx]⟩)
       (fun i L' h' hq hi => by
         rw [hq.1]
-        simp [iterItem, SpecLean.Validation.seqItem_live_none (a := $aS) ⟨_, _, _, _, ‹_›, by simp; omega⟩ hi])
+        simp [iterItem, SpecLean.Validation.seqItem_live_none (a := $aS) ⟨_, _, _, _, ‹_›, by first | omega | (simp <;> omega)⟩ hi])
       (by rd_comp_step [$ls,*]) (fun _ _ _ _ e _ => e) ($fuelS - $kf - 1) 0 $LS $hS
-      ⟨rfl, SpecLean.Validation.KeepLocals.refl _ _⟩ (SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›) (by simp; omega)
+      ⟨rfl, SpecLean.Validation.KeepLocals.refl _ _⟩ (SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›) (by first | omega | (simp <;> omega))
     rw [show $fuelS - $kf - 1 + $kf + 1 = $fuelS by omega, List.drop_zero] at $hc:ident
     revert $hc:ident
     generalize $(← s ci) = rcomp
