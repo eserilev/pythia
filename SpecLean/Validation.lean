@@ -5,3 +5,6 @@ import SpecLean.Validation.EffectiveBalance
 import SpecLean.Validation.Isqrt
 import SpecLean.Validation.Gen.Leaves
 import SpecLean.Validation.Gen.Calls
+import SpecLean.Validation.Loop
+import SpecLean.Validation.While
+import SpecLean.Validation.EffectiveBalanceLoop
