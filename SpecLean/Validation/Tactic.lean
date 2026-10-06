@@ -158,6 +158,10 @@ def isValueHead (a : Lean.Expr) : Bool :=
   let f := a.getAppFn
   f.isConstOf ``Except.ok || f.isConstOf ``Except.error || f.isConstOf ``Option.some ||
     f.isConstOf ``Option.none || f.isConstOf ``Pure.pure || a.isFVar || isDecoder f ||
+    -- The continuation of a loop step (`for_rule`): the rest of the loop, never split.
+    (f.isFVar && a.getAppNumArgs > 0) ||
+    -- A comprehension waits for `rd_comp`, which needs both sides.
+    f.isConstOf ``SpecLean.compItems || f.isConstOf ``List.filterMapM || f.isConstOf ``List.mapM ||
     -- A call waits for `rd_call`, which needs the readable call too; the next iteration of a
     -- loop waits for the induction hypothesis.
     f.isConstOf `SpecLean.Validation.Tactic.callStop || f.isConstOf ``SpecLean.execFor || f.isConstOf ``SpecLean.execWhile ||
@@ -678,6 +682,28 @@ elab "rd_objs" : tactic => withMainContext do
      SpecLean.Validation.Where.objs_alloc_self, SpecLean.Validation.Where.objs_alloc_at, $args,*]))
   evalTactic (← `(tactic| try rfl))
 
+/-- `∀ x, xs[i]? = some x → p x`: the fact `xs[i]? = some y` of the context gives `x`. -/
+elab "rd_item_of" : tactic => withMainContext do
+  let g ← getMainGoal
+  let t := (← instantiateMVars (← g.getType)).consumeMData
+  let .forallE _ _ body _ := t | throwError "rd_item_of: no binder"
+  let .forallE _ hyp _ _ := body | throwError "rd_item_of: no fact"
+  let some (_, l, _) := hyp.eq? | throwError "rd_item_of: not an equation"
+  if !l.hasLooseBVars then
+    for d in ← getLCtx do
+      if d.isImplementationDetail then continue
+      let ty ← instantiateMVars d.type
+      let some (_, l', r') := ty.eq? | continue
+      unless r'.isAppOfArity ``Option.some 2 do continue
+      unless l'.isAppOf ``GetElem?.getElem? do continue
+      if l'.hasLooseBVars then continue
+      unless l' == l do continue
+      let hs ← Term.exprToSyntax d.toExpr
+      let gs ← evalTacticAt (← `(tactic| (intro x hx; rw [$hs:term] at hx; cases hx))) g
+      replaceMainGoal gs
+      return
+  throwError "rd_item_of: none"
+
 /-- A write keeps the shape of the object: it writes a value with no reference. -/
 macro "rd_skel" : tactic => `(tactic| first
   | (apply SpecLean.Validation.Where.sameSkel_list_set <;>
@@ -690,6 +716,10 @@ macro "rd_skel" : tactic => `(tactic| first
       | exact SpecLean.Validation.Where.noRef_boolean _)
   | (apply SpecLean.Validation.Where.sameSkel_container_set <;>
       first
+      | (rd_item_of; first
+          | exact SpecLean.Validation.Where.noRef_uint _ _
+          | exact SpecLean.Validation.Where.noRef_bytes _ _
+          | exact SpecLean.Validation.Where.noRef_boolean _)
       | (intro x hx; simp_all; first
           | exact SpecLean.Validation.Where.noRef_uint _ _
           | exact SpecLean.Validation.Where.noRef_bytes _ _
@@ -911,10 +941,11 @@ macro_rules
 macro_rules
   | `(tactic| rd_frame) => `(tactic| repeat' (first
   | rd_after_call
-  | exact SpecLean.Encode.Frame_refl _ _ _
-  | exact SpecLean.Encode.Fresh_refl _
-  | exact SpecLean.Encode.Reach_refl _ _
-  | exact SpecLean.Encode.NoNewPaths_refl _ _ _
+  -- Reducible only: at default transparency `h =?= h.set a o` computes the store.
+  | with_reducible exact SpecLean.Encode.Frame_refl _ _ _
+  | with_reducible exact SpecLean.Encode.Fresh_refl _
+  | with_reducible exact SpecLean.Encode.Reach_refl _ _
+  | with_reducible exact SpecLean.Encode.NoNewPaths_refl _ _ _
   | rd_nnp_move
   | apply SpecLean.Encode.noNewPaths_of_reach
   | rd_atfp
@@ -988,7 +1019,10 @@ macro "rd_callhyp" : tactic => `(tactic| first
   | (refine SpecLean.Encode.ArgsWF_sub (σ := id) (SpecLean.Encode.ArgsWF_skel ‹_› ?_ ‹_›) ?_
      rd_skel
      rd_subargs)
-  | rd_heapwf)
+  | rd_heapwf
+  -- The fuel bound of a callee whose fuel depends on its input (`_runF`).
+  | omega
+  | (dsimp only; omega))
 
 /-- A call of a callee with a theorem: the theorem `L` of the callee relates the call to the
 readable call. Both results are split, and a pair of results that `L` rules out closes. -/
@@ -1303,6 +1337,9 @@ macro "rd_loophyp" : tactic => `(tactic| first
      simp (config := { decide := true }) only [ite_true, ite_false, *]; done)
   | (simp [*]; omega)
   | (simp [rd_simp, *]; omega)
+  | (simp (config := { decide := true }) only [SpecLean.Locals.set_apply, SpecLean.Locals.empty_apply,
+      ite_true, ite_false]; done)
+  | (intro hc; first | cases hc.1 | cases hc.2)
   | rfl)
 
 /-- The next iteration of a loop: the induction hypothesis `Hide _` of the context. -/
@@ -1333,6 +1370,11 @@ elab "rd_loop" "[" ls:ident,* "]" : tactic => withMainContext do
       for m in ms do
         if (← m.mvarId!.isAssigned) then continue
         let ty ← instantiateMVars (← inferType m)
+        -- The global footprint is the caller's.
+        if ty.isConstOf ``SpecLean.Encode.Footprint then
+          for d in ← getLCtx do
+            if d.userName == `gfp then m.mvarId!.assign d.toExpr
+          continue
         if (← isClass? ty).isSome then
           m.mvarId!.assign (← synthInstance ty)
           continue
@@ -1362,6 +1404,14 @@ elab "rd_loop" "[" ls:ident,* "]" : tactic => withMainContext do
         ← `(tactic| rcases $rc:ident with _ | ⟨⟨⟩ | ⟨⟩ | ⟨⟩ | _, _, _⟩),
         ← `(tactic| all_goals rcases $rdc:ident with _ | _),
         ← `(tactic| all_goals simp only [$relId:ident] at $hc:ident)]
+      -- The invariant of the loop rule: a definition whose name ends in `_inv`.
+      let invs := (concl.foldConsts #[] fun c acc =>
+        match c with
+        | .str _ s => if s.endsWith "_inv" && !acc.contains c then acc.push c else acc
+        | _ => acc)
+      let steps := steps ++ (← invs.toList.mapM fun c => do
+        let ci := mkIdent c
+        `(tactic| all_goals (try unfold $ci:ident at $hc:ident)))
       for st in steps do
         gs ← gs.flatMapM fun sg => evalTacticAt st sg
       let mut out := []

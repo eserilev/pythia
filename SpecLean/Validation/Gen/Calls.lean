@@ -22,9 +22,9 @@ set_option linter.unusedSimpArgs false
 -- `whnf` of a result would evaluate a range check on a literal in unary.
 attribute [local irreducible] ResultMatches
 
-attribute [local rd_dec] dec_Uint64 dec_Root dec_Slot dec_Version dec_Epoch dec_Fork dec_ValidatorIndex dec_BeaconBlockHeader dec_Hash32 dec_Eth1Data dec_BLSPubkey dec_Bytes32 dec_Gwei dec_Validator dec_ParticipationFlags dec_Checkpoint dec_SyncCommittee dec_WithdrawalIndex dec_HistoricalSummary dec_BLSSignature dec_PendingDeposit dec_PendingPartialWithdrawal dec_PendingConsolidation dec_Uint8 dec_ExecutionAddress dec_Builder dec_BuilderIndex dec_BuilderPendingWithdrawal dec_BuilderPendingPayment dec_KZGCommitment dec_ExecutionPayloadBid dec_Withdrawal dec_BeaconState dec_WithdrawalRequest dec_VoluntaryExit dec_SignedVoluntaryExit dec_Domain dec_SigningData dec_DomainType dec_ForkData dec_SyncAggregate dec_SignedBeaconBlockHeader dec_ProposerSlashing dec_PayloadAttestationData dec_PayloadAttestation dec_IndexedPayloadAttestation dec_CommitteeIndex dec_AttestationData dec_IndexedAttestation dec_AttesterSlashing dec_Attestation dec_DepositData dec_Deposit dec_BLSToExecutionChange dec_SignedBLSToExecutionChange dec_SignedExecutionPayloadBid dec_DepositRequest dec_ConsolidationRequest dec_BuilderDepositRequest dec_BuilderExitRequest dec_ExecutionRequests dec_BeaconBlockBody dec_BeaconBlock dec_DepositMessage dec_Uint32 dec_LogsBloom dec_Uint256 dec_fulu_ExecutionPayloadHeader dec_fulu_BeaconState dec_SignedBeaconBlock dec_Bytes1
+attribute [local rd_dec] dec_Uint64 dec_Root dec_Slot dec_Version dec_Epoch dec_Fork dec_ValidatorIndex dec_BeaconBlockHeader dec_Hash32 dec_Eth1Data dec_BLSPubkey dec_Bytes32 dec_Gwei dec_Validator dec_ParticipationFlags dec_Checkpoint dec_SyncCommittee dec_WithdrawalIndex dec_HistoricalSummary dec_BLSSignature dec_PendingDeposit dec_PendingPartialWithdrawal dec_PendingConsolidation dec_Uint8 dec_ExecutionAddress dec_Builder dec_BuilderIndex dec_BuilderPendingWithdrawal dec_BuilderPendingPayment dec_KZGCommitment dec_ExecutionPayloadBid dec_Withdrawal dec_BeaconState dec_WithdrawalRequest dec_VoluntaryExit dec_SignedVoluntaryExit dec_DomainType dec_Domain dec_ForkData dec_SigningData dec_SyncAggregate dec_SignedBeaconBlockHeader dec_ProposerSlashing dec_PayloadAttestationData dec_PayloadAttestation dec_IndexedPayloadAttestation dec_CommitteeIndex dec_AttestationData dec_IndexedAttestation dec_AttesterSlashing dec_Attestation dec_DepositData dec_Deposit dec_BLSToExecutionChange dec_SignedBLSToExecutionChange dec_SignedExecutionPayloadBid dec_DepositRequest dec_ConsolidationRequest dec_BuilderDepositRequest dec_BuilderExitRequest dec_ExecutionRequests dec_BeaconBlockBody dec_BeaconBlock dec_DepositMessage dec_Uint32 dec_LogsBloom dec_Uint256 dec_fulu_ExecutionPayloadHeader dec_fulu_BeaconState dec_SignedBeaconBlock dec_Bytes1
 
-attribute [local rd_simp] encUint encBytesN encBoolean enc_Uint64 enc_Root enc_Slot enc_Version enc_Epoch enc_ValidatorIndex enc_Hash32 enc_BLSPubkey enc_Bytes32 enc_Gwei enc_ParticipationFlags enc_WithdrawalIndex enc_BLSSignature enc_Uint8 enc_ExecutionAddress enc_BuilderIndex enc_KZGCommitment enc_Domain enc_DomainType enc_CommitteeIndex enc_Uint32 enc_LogsBloom enc_Uint256 enc_Bytes1
+attribute [local rd_simp] encUint encBytesN encBoolean enc_Uint64 enc_Root enc_Slot enc_Version enc_Epoch enc_ValidatorIndex enc_Hash32 enc_BLSPubkey enc_Bytes32 enc_Gwei enc_ParticipationFlags enc_WithdrawalIndex enc_BLSSignature enc_Uint8 enc_ExecutionAddress enc_BuilderIndex enc_KZGCommitment enc_DomainType enc_Domain enc_CommitteeIndex enc_Uint32 enc_LogsBloom enc_Uint256 enc_Bytes1
 
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 8192 in
@@ -42,6 +42,7 @@ theorem decrease_balance_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Beaco
   repeat' (first | rd_call [saturating_sub_p0i_run, saturating_sub_run, saturating_sub_p0_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem decrease_balance_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (x2 : Nat) (hw : WTree h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] [⟨Scope.Id.«BeaconState», [.exact 12]⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)]) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [⟨Scope.Id.«BeaconState», [.exact 12]⟩] h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
@@ -67,6 +68,7 @@ theorem get_block_root_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconS
   repeat' (first | rd_call [compute_start_slot_at_epoch_run, get_block_root_at_slot_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem get_block_root_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] (fun (r : Root) h' v => v = (enc_Root r h').1 ∧ (BytesC.data r).length = 32 ∧ h' = h)
@@ -92,6 +94,7 @@ theorem get_current_epoch_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Beac
   repeat' (first | rd_call [compute_epoch_at_slot_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem get_current_epoch_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -117,6 +120,7 @@ theorem has_compounding_withdrawal_credential_run (gfp : Footprint) (h : Heap) (
   repeat' (first | rd_call [is_compounding_withdrawal_credential_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem has_compounding_withdrawal_credential_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -143,6 +147,7 @@ theorem is_attestation_same_slot_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0
   repeat' (first | rd_call [get_block_root_at_slot_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_attestation_same_slot_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (r1 : Nat) (x1 : AttestationData) (hy1 : dec_AttestationData h (.ref r1) = some x1) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0), (.ref r1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -168,6 +173,7 @@ theorem switch_to_compounding_validator_run (gfp : Footprint) (h : Heap) (r0 : N
   repeat' (first | rd_call [queue_excess_active_balance_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem switch_to_compounding_validator_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (hw : WTree h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1)] [⟨Scope.Id.«BeaconState», [.exact 12]⟩, ⟨Scope.Id.«BeaconState», [.exact 34]⟩, ⟨Scope.Id.«BeaconState», [.exact 11, .any]⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1)]) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [⟨Scope.Id.«BeaconState», [.exact 12]⟩, ⟨Scope.Id.«BeaconState», [.exact 34]⟩, ⟨Scope.Id.«BeaconState», [.exact 11, .any]⟩] h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
@@ -193,6 +199,7 @@ theorem get_max_effective_balance_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x
   repeat' (first | rd_call [has_compounding_withdrawal_credential_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem get_max_effective_balance_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0)] (fun (r : Gwei) h' v => v = (enc_Gwei r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -218,6 +225,7 @@ theorem get_previous_epoch_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Bea
   repeat' (first | rd_call [get_current_epoch_run, saturating_sub_p0i_run, saturating_sub_run, saturating_sub_p0_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem get_previous_epoch_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -243,6 +251,7 @@ theorem has_execution_withdrawal_credential_run (gfp : Footprint) (h : Heap) (r0
   repeat' (first | rd_call [has_compounding_withdrawal_credential_run, has_eth1_withdrawal_credential_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem has_execution_withdrawal_credential_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -268,6 +277,7 @@ theorem initiate_builder_exit_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : 
   repeat' (first | rd_call [get_current_epoch_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem initiate_builder_exit_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (hw : WTree h [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1)] [⟨Scope.Id.«BeaconState», [.exact 38, .any]⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1)]) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [⟨Scope.Id.«BeaconState», [.exact 38, .any]⟩] h [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
@@ -293,6 +303,7 @@ theorem process_eth1_data_reset_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 
   repeat' (first | rd_call [get_current_epoch_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem process_eth1_data_reset_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (hw : WTree h [(.ref r0)] [⟨Scope.Id.«BeaconState», []⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0)]) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [⟨Scope.Id.«BeaconState», []⟩] h [(.ref r0)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
@@ -318,6 +329,7 @@ theorem process_randao_mixes_reset_run (gfp : Footprint) (h : Heap) (r0 : Nat) (
   repeat' (first | rd_call [get_current_epoch_run, get_randao_mix_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem process_randao_mixes_reset_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (hw : WTree h [(.ref r0)] [⟨Scope.Id.«BeaconState», [.exact 13]⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0)]) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [⟨Scope.Id.«BeaconState», [.exact 13]⟩] h [(.ref r0)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
@@ -343,6 +355,7 @@ theorem process_slashings_reset_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 
   repeat' (first | rd_call [get_current_epoch_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem process_slashings_reset_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (hw : WTree h [(.ref r0)] [⟨Scope.Id.«BeaconState», [.exact 14]⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0)]) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [⟨Scope.Id.«BeaconState», [.exact 14]⟩] h [(.ref r0)] (fun (r : BeaconState) h' v => v = .none ∧ dec_BeaconState h' (.ref r0) = some r)
@@ -368,6 +381,7 @@ theorem get_finality_delay_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Bea
   repeat' (first | rd_call [get_previous_epoch_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem get_finality_delay_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0)] (fun (r : Epoch) h' v => v = (enc_Epoch r h').1 ∧ UintC.val r < 2 ^ 64 ∧ h' = h)
@@ -393,6 +407,7 @@ theorem is_fully_withdrawable_validator_run (gfp : Footprint) (h : Heap) (r0 : N
   repeat' (first | rd_call [has_execution_withdrawal_credential_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_fully_withdrawable_validator_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) (x1 : Nat) (x2 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Gwei» 64) x1), (.uint (.nominal Scope.Id.«Epoch» 64) x2)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -418,6 +433,7 @@ theorem is_partially_withdrawable_validator_run (gfp : Footprint) (h : Heap) (r0
   repeat' (first | rd_call [get_max_effective_balance_run, has_execution_withdrawal_credential_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_partially_withdrawable_validator_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Validator) (hy0 : dec_Validator h (.ref r0) = some x0) (x1 : Nat) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«Gwei» 64) x1)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
@@ -443,6 +459,7 @@ theorem is_in_inactivity_leak_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : 
   repeat' (first | rd_call [get_finality_delay_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
+set_option maxRecDepth 8192 in
 theorem is_in_inactivity_leak_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :
     ∃ N, ∀ fuel ≥ N,
       ResultMatches gfp [] h [(.ref r0)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)

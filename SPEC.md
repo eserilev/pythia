@@ -633,6 +633,17 @@ Unfolding `interp` naively does not scale. The proofs use generic lemmas, proved
   the condition of the loop proves that this case does not occur. The generator now covers
   loops that keep the heap, are at the top level of the body, and do not exit early. A `for`
   loop must run over a list field of the one container argument.
+- Loops that write the heap: the generator applies `for_rule` (`LoopRule.lean`, on the
+  simulation lemma `for_sim` of `Loop.lean`). It emits the body `B` of the readable loop with the
+  recursive call replaced by a continuation `K`, and an invariant on the current heap only: the
+  decode of the state, the objects of the root and of the list, the locals that the body reads,
+  `WTree`, `HeapWF` and `ArgsWF`. The tactic proves one step against `B K`: the step ends in
+  `IterK`, and `rd_iter_end` proves the contract of the step (`rd_contract`) and the invariant.
+  `for_rule` chains the contracts, so the loop gets `Frame`, `Fresh` and `NoNewPaths` from the heap
+  at loop entry. The function needs the footprint to be a part of `gfp` (`hsub`).
+- The steps that read the heap after writes go by syntax (`rd_writes`, `rd_roots`, `rd_wf`): a
+  unification of `h` with `h.set a o` at default transparency computes the store of the heap and
+  does not end.
 
 A custom tactic applies these lemmas in the order of the function's statements. Names are `Nat`
 indices, and the heap is a finite map with decidable lookups, so the kernel does not reduce

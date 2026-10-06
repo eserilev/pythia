@@ -9,3 +9,8 @@ import SpecLean.Validation.Loop
 import SpecLean.Validation.While
 import SpecLean.Validation.EffectiveBalanceLoop
 import SpecLean.Validation.Gen.Loops
+import SpecLean.Validation.Comp
+import SpecLean.Validation.ActiveIndices
+import SpecLean.Validation.DecodeExtra
+import SpecLean.Validation.Alloc
+import SpecLean.Validation.CompSnap
