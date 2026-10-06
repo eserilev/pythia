@@ -300,3 +300,12 @@ theorem mapM_take {α β : Type} {f : α → Option β} :
     simp [List.mapM_cons, hy, mapM_take n hys']
 
 end SpecLean.Validation.Decode
+
+namespace SpecLean.Validation.Decode
+
+/-- A length check that the context proves: the proofs discharge `n = m` by `omega`. -/
+theorem ite_eq_nat_of {α : Type} {n m : Nat} {a b : α} (h : n = m) :
+    (if n = m then a else b) = a :=
+  if_pos h
+
+end SpecLean.Validation.Decode

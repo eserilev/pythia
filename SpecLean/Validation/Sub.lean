@@ -81,4 +81,31 @@ theorem ArgsWF_sub {h : Heap} {vs' vs : List Value} {σ : Nat → Nat} (haw : Ar
     (hs : SubArgs vs' vs σ) : ArgsWF h vs' :=
   fun k q a e => haw (σ k) q a (at?_sub hs e)
 
+/-- A write that keeps the shape of the object keeps `ArgsWF`. -/
+theorem ArgsWF_skel {h : Heap} {a : Nat} {o o' : HeapObj} (ho : h.objs a = some o)
+    (hs : SameSkel o o') {vs : List Value} (haw : ArgsWF h vs) : ArgsWF (h.set a o') vs := by
+  intro k q b e
+  have e0 := (at?_skel ho hs vs k q b).mp e
+  simp only [Heap.set_objs]
+  split
+  · simp
+  · exact haw k q b e0
+
+theorem AtFp_mono_fp {h : Heap} {vs : List Value} {fp fp' : Footprint} {a : Nat}
+    (hsub : ∀ p ∈ fp', p ∈ fp) (ha : AtFp h vs fp' a) : AtFp h vs fp a := by
+  obtain ⟨k, pat, q, hp, hty, hm, e⟩ := ha
+  exact ⟨k, pat, q, hsub pat hp, hty, hm, e⟩
+
+/-- A frame over a part of the footprint is a frame over all of it. -/
+theorem Frame_mono_fp {h h' : Heap} {vs : List Value} {fp fp' : Footprint}
+    (hf : Frame h h' vs fp') (hsub : ∀ p ∈ fp', p ∈ fp) : Frame h h' vs fp :=
+  fun a hn ha => hf a hn (fun h' => ha (AtFp_mono_fp hsub h'))
+
+/-- A write that keeps the shape of the object keeps the footprint paths. -/
+theorem AtFp_skel {h : Heap} {a : Nat} {o o' : HeapObj} (ho : h.objs a = some o)
+    (hs : SameSkel o o') {vs : List Value} {fp : Footprint} {b : Nat} :
+    AtFp (h.set a o') vs fp b → AtFp h vs fp b := by
+  rintro ⟨k, pat, q, hp, hty, hm, e⟩
+  exact ⟨k, pat, q, hp, (rootTy_skel ho hs vs k pat.ty).mp hty, hm, (at?_skel ho hs vs k q b).mp e⟩
+
 end SpecLean.Encode

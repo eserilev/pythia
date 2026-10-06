@@ -156,7 +156,9 @@ def isDecoder (f : Lean.Expr) : Bool :=
 def isValueHead (a : Lean.Expr) : Bool :=
   let f := a.getAppFn
   f.isConstOf ``Except.ok || f.isConstOf ``Except.error || f.isConstOf ``Option.some ||
-    f.isConstOf ``Option.none || f.isConstOf ``Pure.pure || a.isFVar || isDecoder f
+    f.isConstOf ``Option.none || f.isConstOf ``Pure.pure || a.isFVar || isDecoder f ||
+    -- A call waits for `rd_call`, which needs the readable call too.
+    f.isConstOf `SpecLean.Validation.Tactic.callStop
 
 /-- The terms that `x` evaluates first: the first argument of a `bind`, the scrutinees of a
 `match`, the condition of an `if`. `none`: every explicit argument. -/
@@ -609,6 +611,8 @@ elab "rd_heap" : tactic => withMainContext do
     if_true, if_false, ite_true, ite_false, and_self, true_and, and_true, decide_true,
     SpecLean.Rd.UintC.ofNat_val, SpecLean.Rd.BytesC.ofBytes_data, eq_self_iff_true,
     SpecLean.Rd.UintC.bits, SpecLean.Rd.BytesC.len, SpecLean.Validation.Decode.ite_lt_of,
+    SpecLean.Validation.Decode.ite_eq_nat_of, List.length_cons, List.length_take, List.length_tail,
+    List.length_drop, List.length_append, List.length_replicate,
     SpecLean.Validation.Where.objs_set_ne, SpecLean.Validation.Where.objs_set_self, rd_dec,
     SpecLean.Rd.containerFieldsT, SpecLean.Rd.decUintT, SpecLean.Rd.decBytesT,
     SpecLean.Rd.decBooleanV, SpecLean.Rd.decListT, SpecLean.Validation.Local.mapM_same_of,
@@ -700,6 +704,9 @@ syntax "rd_frame" : tactic
 
 /-- `NoNewPaths` of a field that gets a slice of its own list. Defined below. -/
 syntax "rd_nnp_move" : tactic
+
+/-- The frame facts after a call, composed with the writes before it. Defined below. -/
+syntax "rd_after_call" : tactic
 
 end SpecLean.Validation.Tactic
 
@@ -898,6 +905,7 @@ macro_rules
 
 macro_rules
   | `(tactic| rd_frame) => `(tactic| repeat' (first
+  | rd_after_call
   | exact SpecLean.Encode.Frame_refl _ _ _
   | exact SpecLean.Encode.Fresh_refl _
   | exact SpecLean.Encode.Reach_refl _ _
@@ -959,10 +967,21 @@ of the callee from the caller's, when the callee takes the caller's arguments in
 macro "rd_callhyp" : tactic => `(tactic| first
   | rfl
   | decide
+  -- The decode of an argument after writes: the readable argument of the call.
+  | (rd_heap; done)
+  | (rd_heap; rfl)
   | (refine SpecLean.Encode.WTree_sub (σ := id) ‹_› ?_ (by decide)
       (fun _ _ _ _ _ _ e => e)
      rd_subargs)
   | (refine SpecLean.Encode.ArgsWF_sub (σ := id) ‹_› ?_
+     rd_subargs)
+  -- After a write that keeps the shape of an object: the caller's condition still holds.
+  | (refine SpecLean.Encode.WTree_sub (σ := id) (SpecLean.Encode.WTree_skel ‹_› ?_ ‹_›) ?_
+      (by decide) (fun _ _ _ _ _ _ e => e)
+     rd_skel
+     rd_subargs)
+  | (refine SpecLean.Encode.ArgsWF_sub (σ := id) (SpecLean.Encode.ArgsWF_skel ‹_› ?_ ‹_›) ?_
+     rd_skel
      rd_subargs)
   | rd_heapwf)
 
@@ -1014,7 +1033,15 @@ elab "rd_call" "[" ls:ident,* "]" : tactic => withMainContext do
           -- A fact about literals, such as the width of a uint class, or the write condition of
           -- the callee from the caller's.
           let gs ← try evalTacticAt (← `(tactic| rd_callhyp)) m.mvarId!
-            catch _ => throwError m!"rd_call: no fact for {ty}"
+            catch _ =>
+              let s2 ← saveState
+              let msg ← try
+                  let r ← evalTacticAt (← `(tactic| rd_heap)) m.mvarId!
+                  let ts ← r.mapM fun g => do return m!"{← g.getType}"
+                  pure m!"after rd_heap: {ts}"
+                catch e => pure m!"rd_heap failed: {e.toMessageData}"
+              restoreState s2
+              throwError m!"rd_call: no fact for {ty}; {msg}"
           unless gs.isEmpty do throwError m!"rd_call: no fact for {ty}"
       let pf ← instantiateMVars (mkAppN c ms)
       if pf.hasMVar then throwError "rd_call: open arguments"
@@ -1186,3 +1213,50 @@ macro_rules
       refine SpecLean.Validation.Move.noNewPaths_sliced (k0 := 0) ‹_› ‹_› ?_ rfl ‹_› ‹_›
         ⟨_, _, _, ‹_›⟩ ‹_›
       rd_callhyp))
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- The frame, the fresh addresses and `NoNewPaths` after a call: the facts of the callee from
+the heap at the call, composed with the writes before the call. -/
+elab_rules : tactic | `(tactic| rd_after_call) => withMainContext do
+  let g ← getMainGoal
+  let t := (← instantiateMVars (← g.getType)).consumeMData
+  let some kind := (if t.isAppOfArity ``SpecLean.Encode.Frame 4 then some 0
+    else if t.isAppOfArity ``SpecLean.Encode.Fresh 2 then some 1
+    else if t.isAppOfArity ``SpecLean.Encode.NoNewPaths 4 then some 2 else none)
+    | throwError "rd_after_call: not a frame goal"
+  let h2 := t.getArg! 1
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty := (← instantiateMVars d.type).consumeMData
+    unless ty.getAppFn == t.getAppFn && ty.getAppNumArgs == t.getAppNumArgs do continue
+    unless ty.getArg! 1 == h2 do continue
+    let h1 := ty.getArg! 0
+    if h1 == t.getArg! 0 then continue
+    let hB ← Term.exprToSyntax d.toExpr
+    let h1s ← Term.exprToSyntax h1
+    let tac ← match kind with
+      | 0 => `(tactic| (
+          refine SpecLean.Encode.Frame_trans (h2 := $h1s) ?_
+            (SpecLean.Encode.Frame_mono_fp $hB (by decide)) ?_
+          · rd_frame
+          · intro a ha
+            first
+            | exact ha
+            | exact SpecLean.Encode.AtFp_skel ‹_› (by rd_skel) ha))
+      | 1 => `(tactic| exact SpecLean.Encode.Fresh_trans (h2 := $h1s) (by rd_frame) $hB)
+      | _ => `(tactic| exact SpecLean.Encode.NoNewPaths_trans (h2 := $h1s) (by rd_frame)
+          (by rd_frame) $hB)
+    let s ← saveState
+    try
+      let gs ← evalTacticAt tac g
+      if gs.isEmpty then
+        replaceMainGoal []
+        return
+      restoreState s
+    catch _ => restoreState s
+  throwError "rd_after_call: none"
+
+end SpecLean.Validation.Tactic
