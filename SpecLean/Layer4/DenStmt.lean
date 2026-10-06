@@ -184,6 +184,61 @@ theorem targetStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat e
               exact dWrite_csound hI2 hat hd5 (o := .list kd el ll xs) ho
   | _ => simp [targetStep] at hd
 
+/-- `x op= e` on a local. -/
+theorem augName_sound (env : Env) (fps : Name → Footprint) {n : Nat}
+    {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
+    (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L n ((den env fps n).expr fp s)) (l l' : Line)
+    (x : Name) (op : BinOp) (e : Expr) {res : Res (DOut × DSt)}
+    (hd : augName (den env fps n) fp s x op e = some res) :
+    CStmtOK fp h0 vs res (execStmt env (n + 1) L h (.augAssign l (.name l' x) op e)) := by
+  unfold augName at hd
+  cases hx : s.loc x with
+  | none => rw [hx] at hd; cases hd
+  | some r0 =>
+  rw [hx] at hd
+  cases r0 with
+  | place _ _ => cases hd
+  | tree _ => cases hd
+  | val cur =>
+  simp only at hd
+  have hl := hI.i.r.loc x
+  rw [hx] at hl
+  cases hLx : L x with
+  | none => rw [hLx] at hl; exact hl.elim
+  | some w0 =>
+  rw [hLx] at hl
+  obtain ⟨rfl, hcur⟩ := hl
+  have hlk : lookupName env L x = .ok w0 := by simp [lookupName, hLx]
+  rw [execStmt]
+  simp only [hlk, Except.bind_ok']
+  rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rr, he, hd2⟩
+  · obtain ⟨hi, hne⟩ := gok_error (ih h hI e _ he)
+    simp [hi, cstmtOK_err hne]
+  · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (ih h hI e _ he)
+    have hI1 := hI.ext hx1
+    simp only [hi, Except.bind_ok']
+    cases rr with
+    | place _ _ => cases hd2
+    | tree _ => cases hd2
+    | val rv =>
+    obtain ⟨rfl, hrv⟩ := hrel
+    simp only at hd2
+    have hsa : seqAugAdd h1 op w0 w = none := by
+      unfold seqAugAdd; split
+      · exact absurd rfl (flat_nonref hcur _)
+      · rfl
+    rw [hsa, seqBinop_flat (flat_nonref hcur) (flat_nonref hrv)]
+    simp only
+    rcases bind_case hd2 with ⟨err, ht, rfl⟩ | ⟨v, ht, hd3⟩
+    · obtain ⟨htr, hne⟩ := lift_some ht
+      simp [← htr, cstmtOK_err (hne err htr.symm)]
+    · obtain ⟨htr, -⟩ := lift_some ht
+      simp only [← htr, Except.bind_ok']
+      by_cases hv : Flat v = true
+      · simp [hv, DM.ok] at hd3; subst hd3
+        exact ⟨trivial, hI1.setLoc x ⟨rfl, hv⟩ trivial⟩
+      · simp [hv] at hd3
+
 /-- `obj[i] op= e`. -/
 theorem augStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
@@ -549,6 +604,9 @@ theorem stmtStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
     | index l' o ie =>
       simp only [stmtStep] at hd
       exact augStep_sound env fps hlf hI hEF l l' o ie op e hd
+    | name l' x =>
+      simp only [stmtStep] at hd
+      exact augName_sound env fps hI hEF l l' x op e hd
     | _ => simp [stmtStep] at hd
   | exprStmt l e =>
     simp only [stmtStep] at hd

@@ -432,6 +432,19 @@ def loopStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ls : L
       | none => none
   | _ => none
 
+/-- `x op= e` for a local `x` that holds a flat value: `x = x op e`. -/
+def augName (P : Sem) (fp : Footprint) (s : DSt) (x : Name) (op : BinOp) (e : Expr) :
+    DM (DOut × DSt) :=
+  match s.loc x with
+  | some (.val cur) =>
+    DM.bind (P.expr fp s e) fun r =>
+      match r with
+      | .val rv =>
+        DM.bind (lift (binopVal op cur rv)) fun v =>
+          if Flat v then .ok (.normal, { s with loc := setLoc s.loc x (.val v) }) else none
+      | _ => none
+  | _ => none
+
 /-- `obj[i] op= e`, with the parts at the fuel below. -/
 def augStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) (o ie : Expr) (op : BinOp)
     (e : Expr) : DM (DOut × DSt) :=
@@ -463,6 +476,7 @@ def stmtStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) : Stmt → DM (DOu
     DM.bind (P.call fp s e) fun (r, rs) => P.target fp { s with roots := rs } t r
   | .annAssign _ t e =>
     DM.bind (P.call fp s e) fun (r, rs) => P.target fp { s with roots := rs } t r
+  | .augAssign _ (.name _ x) op e => augName P fp s x op e
   | .augAssign _ (.index _ o ie) op e => augStep env P fp s o ie op e
   | .exprStmt _ e => DM.bind (P.call fp s e) fun (_, rs) => .ok (.normal, { s with roots := rs })
   | .ifStmt _ c thn els =>

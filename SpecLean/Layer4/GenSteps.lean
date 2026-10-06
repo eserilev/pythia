@@ -162,6 +162,10 @@ theorem s_augAssign (l l' : Line) (o ie : Expr) (op : BinOp) (e : Expr) :
     (den env fps (n + 1)).stmt fp s (.augAssign l (.index l' o ie) op e) =
       augStep env (den env fps n) fp s o ie op e := by rw [den_stmt]; rfl
 
+theorem s_augName (l l' : Line) (x : Name) (op : BinOp) (e : Expr) :
+    (den env fps (n + 1)).stmt fp s (.augAssign l (.name l' x) op e) =
+      augName (den env fps n) fp s x op e := by rw [den_stmt]; rfl
+
 theorem s_ifStmt (l : Line) (c : Expr) (thn els : List Stmt) :
     (den env fps (n + 1)).stmt fp s (.ifStmt l c thn els) =
       DM.bind ((den env fps n).expr fp s c) fun r =>
@@ -567,7 +571,7 @@ macro_rules
     `(tactic| simp only [l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
-      s_augAssign, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
+      s_augAssign, s_augName, augName, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
       dGlobal, env_globals, env_containers, env_config, env_bytesName,
@@ -596,7 +600,7 @@ macro_rules
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
-      s_augAssign, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
+      s_augAssign, s_augName, augName, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
       dGlobal, env_globals, env_containers, env_config, env_bytesName,
