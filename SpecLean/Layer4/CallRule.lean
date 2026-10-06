@@ -41,13 +41,20 @@ theorem CInv.below {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L
     (hI : CInv fp h0 h vs s L) : BelowArgs h vs :=
   decArgs_below hI.wf hI.i.r.roots hI.i.r.len
 
-theorem ERel_ext {h h' : Heap} {vs : List Value} (hb : BelowArgs h vs) (e : Ext h h') {r : DRes}
-    {w : Value} (hr : ERel h vs r w) : ERel h' vs r w := by
+theorem ERel_ext {h h' : Heap} {vs : List Value} (hwf : HeapWF h) (hb : BelowArgs h vs)
+    (e : Ext h h') {r : DRes} {w : Value} (hr : ERel h vs r w) : ERel h' vs r w := by
   cases r with
   | val v => exact hr
   | place k p =>
     obtain ⟨a, rfl, hat⟩ := hr
     exact ⟨a, rfl, (at?_Skel (Skel_of_Ext e) hb k p a).mpr hat⟩
+  | tree d =>
+    obtain ⟨⟨n, hn⟩, hdj⟩ := hr
+    have hbw : Below h w := dec_below hwf n w d hn
+    refine ⟨⟨n, (dec_unchanged n w fun q a ha => e.2.2 a (hbw q a ha)).trans hn⟩,
+      fun q a ea k p ep => ?_⟩
+    exact hdj q a ((follow_Skel (Skel_of_Ext e) q w w (RefEq.refl w) hbw a).mp ea) k p
+      ((at?_Skel (Skel_of_Ext e) hb k p a).mp ep)
 
 theorem dec_ext {h h' : Heap} (e : Ext h h') {v : Value} (hb : Below h v) (n : Nat) :
     dec h' n v = dec h n v :=
@@ -66,7 +73,7 @@ theorem CInv.ext {fp : Footprint} {h0 h h' : Heap} {vs : List Value} {s : DSt} {
   · have := hI.i.r.loc x
     revert this
     cases s.loc x <;> cases L x <;> simp only [LRel] <;> try exact id
-    exact ERel_ext hb e
+    exact ERel_ext hI.wf hb e
   · rw [at?_Skel hsk hb]; exact hI.i.refs k q b
   · rw [rootTy_Skel hsk hb]; exact hI.i.rty k ty
   · have ha0 : a < h0.next := Nat.lt_of_not_le fun hle => ha (hI.wf0 a hle)
@@ -190,6 +197,9 @@ theorem argRoots_dec {h : Heap} {vs : List Value} {s : DSt} {L : Locals} (hr : R
           | place k p =>
             obtain ⟨a, rfl, hat⟩ := h1
             exact deref_dec hr hat hr1
+          | tree dt =>
+            obtain ⟨⟨nt, hnt⟩, -⟩ := h1
+            simp [argRoot] at hr1; subst hr1; exact ⟨nt, hnt⟩
         | succ k => exact hp k v d (by simpa using hv) (by simpa using hd)
   | [], _ :: _, _, h, _ => h.elim
   | _ :: _, [], _, h, _ => h.elim
@@ -221,7 +231,9 @@ theorem onePlace_spec : ∀ {rs : List DRes} {i k : Nat} {p : List Nat},
         cases r with
         | val v => exact ⟨v, rfl⟩
         | place _ _ => simp at this
+        | tree _ => simp at this
     · cases h
+  | .tree _ :: rs, i, k, p, h => by simp [onePlace] at h
 
 /-! ## The call rule -/
 
@@ -379,6 +391,18 @@ theorem call_rule (hI : CInv fp h0 h vs s L) (hrel : ERels h vs rs ws)
           simp only [LRel, ERel]
           rintro ⟨b, rfl, hb⟩
           exact ⟨b, rfl, (hset k2 p2 b).mpr hb⟩
+        | tree dt =>
+          simp only [LRel, ERel]
+          rintro ⟨⟨nt, hnt⟩, hdj⟩
+          have hbw : Below h w := dec_below hI.wf nt w dt hnt
+          -- Every changed object is reachable from the arguments, so not in the tree.
+          have hun : ∀ q b, follow h w q = some (.ref b) → h'.objs b = h.objs b := by
+            intro q b e
+            refine Classical.byContradiction fun hne => ?_
+            obtain ⟨⟨k3, pat, q3, -, -, -, hq3⟩, -⟩ := changed b (hbw q b e) hne
+            exact hdj q b e k3 q3 hq3
+          refine ⟨⟨nt, (dec_unchanged nt w hun).trans hnt⟩, fun q b e k3 p3 e3 => ?_⟩
+          exact hdj q b ((follow_Skel hsk q w w (RefEq.refl w) hbw b).mp e) k3 p3 ((hset k3 p3 b).mp e3)
   · intro k' q b; rw [hset]; exact hI.i.refs k' q b
   · intro k' ty; rw [rootTy_Skel hsk hbl]; exact hI.i.rty k' ty
   · refine Frame_trans hI.i.frame (fun b hold hn => Classical.byContradiction fun hne =>

@@ -50,6 +50,7 @@ theorem targetStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat e
   | attr l o f =>
         cases r with
     | place _ _ => simp [targetStep] at hd
+    | tree _ => simp [targetStep] at hd
     | val v =>
     obtain ⟨rfl, hv⟩ := hr
     simp only [targetStep] at hd
@@ -61,6 +62,7 @@ theorem targetStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat e
       have hI1 := hI.ext hx1
       simp only [hi, exb_ok, Except.bind_ok']
       cases ro with
+      | tree _ => simp at hd2
       | val _ => simp at hd2
       | place k p =>
       obtain ⟨a, rfl, hat⟩ := hrel
@@ -94,6 +96,7 @@ theorem targetStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat e
   | index l o ie =>
         cases r with
     | place _ _ => simp [targetStep] at hd
+    | tree _ => simp [targetStep] at hd
     | val v =>
     obtain ⟨rfl, hv⟩ := hr
     simp only [targetStep] at hd
@@ -111,12 +114,14 @@ theorem targetStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat e
         have hI2 := hI1.ext hx2
         simp only [hi2, exb_ok, Except.bind_ok']
         cases ro with
+        | tree _ => simp at hd3
         | val _ => simp at hd3
         | place k p =>
         cases ri with
+        | tree _ => simp at hd3
         | place _ _ => simp at hd3
         | val iv =>
-        obtain ⟨a, rfl, hat⟩ := ERel_ext hI1.below hx2 hrel
+        obtain ⟨a, rfl, hat⟩ := ERel_ext hI1.wf hI1.below hx2 hrel
         obtain ⟨rfl, -⟩ := hrel2
         simp only at hd3
         cases hdr : s.deref k p with
@@ -188,12 +193,14 @@ theorem augStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env)
       have hI2 := hI1.ext hx2
       simp only [hi2, exb_ok, Except.bind_ok']
       cases ro with
+      | tree _ => simp at hd3
       | val _ => simp at hd3
       | place k p =>
       cases ri with
+      | tree _ => simp at hd3
       | place _ _ => simp at hd3
       | val iv =>
-      obtain ⟨a, rfl, hat⟩ := ERel_ext hI1.below hx2 hrel
+      obtain ⟨a, rfl, hat⟩ := ERel_ext hI1.wf hI1.below hx2 hrel
       obtain ⟨rfl, -⟩ := hrel2
       simp only at hd3
       cases hdr : s.deref k p with
@@ -250,6 +257,7 @@ theorem augStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env)
             (hx3.2.2 a (at?_below hI2.below hat)).trans ho
           simp only [hi3, exb_ok, Except.bind_ok']
           cases re with
+          | tree _ => simp at hd5
           | place _ _ => simp at hd5
           | val rv =>
           obtain ⟨rfl, -⟩ := hrel3
@@ -552,6 +560,7 @@ theorem stmtStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
       have hI1 := hI.ext hx1
       simp only [hi, exb_ok, Except.bind_ok']
       cases rv with
+      | tree _ => simp at hd2
       | place _ _ => simp at hd2
       | val v =>
       obtain ⟨rfl, hv⟩ := hrel
@@ -581,6 +590,7 @@ theorem stmtStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
       · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (hE e _ he)
         simp only [hi, exb_ok, Except.bind_ok']
         cases rv with
+        | tree _ => simp at hd2
         | place _ _ => simp at hd2
         | val v =>
         obtain ⟨rfl, -⟩ := hrel
@@ -595,6 +605,7 @@ theorem stmtStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
     · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (hE e _ he)
       simp only [hi, exb_ok, Except.bind_ok']
       cases rv with
+      | tree _ => simp at hd2
       | place _ _ => simp at hd2
       | val v =>
       obtain ⟨rfl, hv⟩ := hrel
@@ -730,6 +741,7 @@ theorem iterStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
         toSeq h' (.ref a) = .ok (.live a) := by
     intro h' hI' rr w enum hrel hm
     cases rr with
+    | tree _ => simp at hm
     | val _ => simp at hm
     | place k p =>
       obtain ⟨a, rfl, hat⟩ := hrel

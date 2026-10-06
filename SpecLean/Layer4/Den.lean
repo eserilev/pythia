@@ -65,6 +65,7 @@ def setAt : List Nat → DV → DV → DV
 def argRoot (s : DSt) : DRes → Option DV
   | .val v => some (.leaf v)
   | .place k p => s.deref k p
+  | .tree d => some d
 
 /-- The one place among the arguments: its position and the place. -/
 def onePlace : List DRes → Option (Nat × Nat × List Nat)
@@ -72,6 +73,7 @@ def onePlace : List DRes → Option (Nat × Nat × List Nat)
   | .val _ :: rs => (onePlace rs).map fun (i, kp) => (i + 1, kp)
   | .place k p :: rs => if rs.all (fun r => match r with | .val _ => true | _ => false)
       then some (0, k, p) else none
+  | .tree _ :: _ => none
 
 /-- An SSZ class whose constructor on flat values needs no heap. -/
 def ctorFlat : SszTy → Bool

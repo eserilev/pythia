@@ -80,6 +80,8 @@ heap object. -/
 inductive DRes where
   | val (v : Value)
   | place (k : Nat) (p : List Nat)
+  /-- A new object that this run made and never changes: its whole tree. -/
+  | tree (d : DV)
 
 /-- A child of the node at place `(k, p)`. -/
 def ofChild (k : Nat) (p : List Nat) : DV → DRes
