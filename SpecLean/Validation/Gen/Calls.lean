@@ -22,9 +22,9 @@ set_option linter.unusedSimpArgs false
 -- `whnf` of a result would evaluate a range check on a literal in unary.
 attribute [local irreducible] ResultMatches
 
-attribute [local rd_dec] dec_Uint64 dec_Root dec_Slot dec_Version dec_Epoch dec_Fork dec_ValidatorIndex dec_BeaconBlockHeader dec_Hash32 dec_Eth1Data dec_BLSPubkey dec_Bytes32 dec_Gwei dec_Validator dec_ParticipationFlags dec_Checkpoint dec_SyncCommittee dec_WithdrawalIndex dec_HistoricalSummary dec_BLSSignature dec_PendingDeposit dec_PendingPartialWithdrawal dec_PendingConsolidation dec_Uint8 dec_ExecutionAddress dec_Builder dec_BuilderIndex dec_BuilderPendingWithdrawal dec_BuilderPendingPayment dec_KZGCommitment dec_ExecutionPayloadBid dec_Withdrawal dec_BeaconState dec_WithdrawalRequest dec_VoluntaryExit dec_SignedVoluntaryExit dec_Domain dec_SigningData dec_DomainType dec_ForkData dec_SyncAggregate dec_SignedBeaconBlockHeader dec_ProposerSlashing dec_PayloadAttestationData dec_PayloadAttestation dec_IndexedPayloadAttestation dec_CommitteeIndex dec_AttestationData dec_IndexedAttestation dec_AttesterSlashing dec_Attestation dec_DepositData dec_Deposit dec_BLSToExecutionChange dec_SignedBLSToExecutionChange dec_SignedExecutionPayloadBid dec_DepositRequest dec_ConsolidationRequest dec_BuilderDepositRequest dec_BuilderExitRequest dec_ExecutionRequests dec_BeaconBlockBody dec_BeaconBlock dec_DepositMessage dec_Uint32 dec_LogsBloom dec_Uint256 dec_fulu_ExecutionPayloadHeader dec_fulu_BeaconState dec_SignedBeaconBlock dec_Bytes1
+attribute [local rd_dec] dec_Uint64 dec_Root dec_Slot dec_Version dec_Epoch dec_Fork dec_ValidatorIndex dec_BeaconBlockHeader dec_Hash32 dec_Eth1Data dec_BLSPubkey dec_Bytes32 dec_Gwei dec_Validator dec_ParticipationFlags dec_Checkpoint dec_SyncCommittee dec_WithdrawalIndex dec_HistoricalSummary dec_BLSSignature dec_PendingDeposit dec_PendingPartialWithdrawal dec_PendingConsolidation dec_Uint8 dec_ExecutionAddress dec_Builder dec_BuilderIndex dec_BuilderPendingWithdrawal dec_BuilderPendingPayment dec_KZGCommitment dec_ExecutionPayloadBid dec_Withdrawal dec_BeaconState dec_WithdrawalRequest dec_VoluntaryExit dec_SignedVoluntaryExit dec_DomainType dec_Domain dec_ForkData dec_SigningData dec_SyncAggregate dec_SignedBeaconBlockHeader dec_ProposerSlashing dec_PayloadAttestationData dec_PayloadAttestation dec_IndexedPayloadAttestation dec_CommitteeIndex dec_AttestationData dec_IndexedAttestation dec_AttesterSlashing dec_Attestation dec_DepositData dec_Deposit dec_BLSToExecutionChange dec_SignedBLSToExecutionChange dec_SignedExecutionPayloadBid dec_DepositRequest dec_ConsolidationRequest dec_BuilderDepositRequest dec_BuilderExitRequest dec_ExecutionRequests dec_BeaconBlockBody dec_BeaconBlock dec_DepositMessage dec_Uint32 dec_LogsBloom dec_Uint256 dec_fulu_ExecutionPayloadHeader dec_fulu_BeaconState dec_SignedBeaconBlock dec_Bytes1
 
-attribute [local rd_simp] encUint encBytesN encBoolean enc_Uint64 enc_Root enc_Slot enc_Version enc_Epoch enc_ValidatorIndex enc_Hash32 enc_BLSPubkey enc_Bytes32 enc_Gwei enc_ParticipationFlags enc_WithdrawalIndex enc_BLSSignature enc_Uint8 enc_ExecutionAddress enc_BuilderIndex enc_KZGCommitment enc_Domain enc_DomainType enc_CommitteeIndex enc_Uint32 enc_LogsBloom enc_Uint256 enc_Bytes1
+attribute [local rd_simp] encUint encBytesN encBoolean enc_Uint64 enc_Root enc_Slot enc_Version enc_Epoch enc_ValidatorIndex enc_Hash32 enc_BLSPubkey enc_Bytes32 enc_Gwei enc_ParticipationFlags enc_WithdrawalIndex enc_BLSSignature enc_Uint8 enc_ExecutionAddress enc_BuilderIndex enc_KZGCommitment enc_DomainType enc_Domain enc_CommitteeIndex enc_Uint32 enc_LogsBloom enc_Uint256 enc_Bytes1
 
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 8192 in
@@ -39,7 +39,7 @@ theorem decrease_balance_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Beaco
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_decrease_balance, decrease_balance, Scope.env, Scope.knownNames, *]
   rd_step
-  repeat' (first | rd_call [saturating_sub_run, saturating_sub_p0i_run, saturating_sub_p0_run] | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [saturating_sub_p0i_run, saturating_sub_run, saturating_sub_p0_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
 theorem decrease_balance_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (x2 : Nat) (hw : WTree h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] [⟨Scope.Id.«BeaconState», [.exact 12]⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)]) :
@@ -190,7 +190,7 @@ theorem get_previous_epoch_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Bea
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_previous_epoch, get_previous_epoch, Scope.env, Scope.knownNames, enc_Epoch, encUint, encBytesN, *]
   rd_step
-  repeat' (first | rd_call [get_current_epoch_run, saturating_sub_run, saturating_sub_p0i_run, saturating_sub_p0_run] | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [get_current_epoch_run, saturating_sub_p0i_run, saturating_sub_run, saturating_sub_p0_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
 theorem get_previous_epoch_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) :

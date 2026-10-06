@@ -202,6 +202,38 @@ class Gen:
                 pats.append(p)
         return "[" + ", ".join(pats) + "]"
 
+    def own_slices(self, name, sig, tree):
+        """The fields `root.f = root.f[lo:hi]` of a function, as field positions."""
+        out = set()
+        for st in ast.walk(tree):
+            if not (isinstance(st, ast.Assign) and len(st.targets) == 1):
+                continue
+            t, v = st.targets[0], st.value
+            if not (isinstance(t, ast.Attribute) and isinstance(t.value, ast.Name) and
+                    isinstance(v, ast.Subscript) and isinstance(v.slice, ast.Slice) and
+                    isinstance(v.value, ast.Attribute) and v.value.attr == t.attr and
+                    isinstance(v.value.value, ast.Name) and v.value.value.id == t.value.id):
+                continue
+            for pn, pt in sig.params:
+                if pn == t.value.id and pt[0] == "container":
+                    fields = [f for f, _ in pt[1]._FIELD_TYPES]
+                    if t.attr in fields:
+                        out.add(fields.index(t.attr))
+        return out
+
+    def slices(self, name):
+        """The slice fields of a function and of its callees: each needs a fact about the
+        global footprint (SPEC 9.2, `NoNewPaths`)."""
+        if name in self.slice_memo:
+            return self.slice_memo[name]
+        self.slice_memo[name] = set()
+        out = set(self.own_slices(name, self.em.sigs[name], self.b.fns[name]))
+        for c in self.cls[name]["calls"]:
+            if c in self.em.sigs:
+                out |= self.slices(c)
+        self.slice_memo[name] = out
+        return out
+
     def theorem(self, name, sig, tree, callees=(), fuel=64, poly=None, tie=False):
         """The `_run` theorem at fuel `k + fuel` and the `_valid` theorem of SPEC 9.2. A call to
         a callee in `callees` uses the callee's `_run` theorem (`rd_call`).
@@ -273,6 +305,9 @@ class Gen:
         rargs = " ".join(a[2] for a in args)
         hw = (f" (hw : WTree h {vs} {fp}) (hwf : HeapWF h) (haw : ArgsWF h {vs})"
               if sig.mutated else "")
+        sl = sorted(self.slices(name))
+        hw += "".join(f" (hgfp{f} : ∀ pat ∈ gfp, ∀ j j' rest, Matches pat.steps ({f} :: j :: rest) → "
+                      f"Matches pat.steps ({f} :: j' :: rest))" for f in sl)
         free = S.free_names(tree)
         consts = [T.ident(c) for c in sorted(free) if c in self.b.consts]
         cfg = sorted({n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute) and
@@ -286,7 +321,8 @@ class Gen:
                  f"subst ht{poly}\n" if poly is not None else "")
         if poly is None:
             name_run, name_valid = f"{name}_run", f"{name}_valid"
-        names = " ".join(a[3] for a in args) + (" hw hwf haw" if sig.mutated else "")
+        names = (" ".join(a[3] for a in args) + (" hw hwf haw" if sig.mutated else "") +
+                 "".join(f" hgfp{f}" for f in sl))
         step = (f"(first | rd_call [{', '.join(c + '_run' for c in callees)}] | "
                 f"(rd_split <;> (try rd_step)))" if callees else "(rd_split <;> (try rd_step))")
         return f"""
@@ -370,6 +406,7 @@ def main():
     if args.only:
         tier = [n for n in tier if n in args.only.split(",")]
     g = Gen(b, em)
+    g.cls, g.slice_memo = cls, {}
     from footprint import footprint
     ssz_names = {x for x in dir(spec) if isinstance(getattr(spec, x), type)
                  and T.of_class(getattr(spec, x)) is not None}

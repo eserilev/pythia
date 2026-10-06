@@ -7,6 +7,7 @@ import SpecLean.Validation.Local
 import SpecLean.Validation.Steps
 import SpecLean.Validation.Grow
 import SpecLean.Validation.Sub
+import SpecLean.Validation.Move
 
 /-!
 # Tactics for the generated validation theorems
@@ -611,7 +612,7 @@ elab "rd_heap" : tactic => withMainContext do
     SpecLean.Validation.Where.objs_set_ne, SpecLean.Validation.Where.objs_set_self, rd_dec,
     SpecLean.Rd.containerFieldsT, SpecLean.Rd.decUintT, SpecLean.Rd.decBytesT,
     SpecLean.Rd.decBooleanV, SpecLean.Rd.decListT, SpecLean.Validation.Local.mapM_same_of,
-    SpecLean.Validation.Local.mapM_set_item,
+    SpecLean.Validation.Local.mapM_set_item, SpecLean.Validation.Local.mapM_slice_same,
     SpecLean.Validation.Decode.mapM_map_of, SpecLean.Validation.Decode.mapM_set_map,
     List.mapM_append, List.mapM_cons, List.mapM_nil, rd_dec,
     List.getElem?_set_ne, List.getElem?_set_self', Option.map_eq_map, Option.map_some,
@@ -696,6 +697,9 @@ elab "rd_and" : tactic => do
 
 /-- The frame, the fresh addresses and the reach of a run of writes. Defined below. -/
 syntax "rd_frame" : tactic
+
+/-- `NoNewPaths` of a field that gets a slice of its own list. Defined below. -/
+syntax "rd_nnp_move" : tactic
 
 end SpecLean.Validation.Tactic
 
@@ -898,6 +902,7 @@ macro_rules
   | exact SpecLean.Encode.Fresh_refl _
   | exact SpecLean.Encode.Reach_refl _ _
   | exact SpecLean.Encode.NoNewPaths_refl _ _ _
+  | rd_nnp_move
   | apply SpecLean.Encode.noNewPaths_of_reach
   | rd_atfp
   | (rd_objs; done)
@@ -1175,3 +1180,9 @@ elab "rd_split_keep" x:ident : tactic => withMainContext do
   replaceMainGoal [← addLengths (← getMainGoal)]
 
 end SpecLean.Validation.Tactic
+
+macro_rules
+  | `(tactic| rd_nnp_move) => `(tactic| (
+      refine SpecLean.Validation.Move.noNewPaths_sliced (k0 := 0) ‹_› ‹_› ?_ rfl ‹_› ‹_›
+        ⟨_, _, _, ‹_›⟩ ‹_›
+      rd_callhyp))

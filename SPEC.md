@@ -551,7 +551,9 @@ theorem f_valid : ∀ heap vs args, DecodesArgs heap vs args → WTree heap vs (
     items to new positions: `state.pending_partial_withdrawals = ...[n:]` in
     `update_pending_partial_withdrawals`, and the same in `update_builder_pending_withdrawals`.
     `NoNewPaths` allows a move, because the map sends position `j` to position `j + n`. It needs
-    the patterns of `FP` to address list items only by `*`. `Reach` implies `NoNewPaths` with `φ`
+    the patterns of `FP` to address list items only by `*`. A function with a slice takes this as
+    a hypothesis on the global footprint (`hgfp`), and each caller passes it on
+    (`SpecLean/Validation/Move.lean`). `Reach` implies `NoNewPaths` with `φ`
     the identity (`noNewPaths_of_reach`), so a function that moves nothing still proves `Reach`.
     `NoNewPaths_trans` chains it over loop steps and calls.
 

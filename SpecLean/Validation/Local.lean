@@ -132,6 +132,15 @@ theorem mapM_set_item {α : Type} {f : Dec α} [LocalDec f] {h : Heap} {a : Nat}
       simp only [List.mapM_cons, Option.bind_eq_bind, hx, Option.bind_some, ih, Option.pure_def]
       cases f (h.set a o) (.ref a) <;> simp
 
+/-- A slice of a decoded list whose items the heaps agree on decodes to the slice. -/
+theorem mapM_slice_same {α : Type} {f : Dec α} [LocalDec f] {h h' : Heap} {xs : List Value}
+    {ys : List α} (n m : Nat) (hm : xs.mapM (f h) = some ys)
+    (hall : ∀ (j : Nat) x, xs[j]? = some x → ∀ q c, follow h x q = some (.ref c) →
+      h'.objs c = h.objs c) :
+    ((xs.drop n).take m).mapM (f h') = some ((ys.drop n).take m) :=
+  SpecLean.Validation.Decode.mapM_take m
+    (SpecLean.Validation.Decode.mapM_drop n (mapM_same_of hm hall))
+
 end SpecLean.Validation.Local
 
 open SpecLean.Validation.Local SpecLean.Validation.Decode in

@@ -274,3 +274,29 @@ theorem mapM_getElem_some {α β : Type} {f : α → Option β} {xs : List α} {
     exact ⟨y, h2, h1 ▸ h3⟩
 
 end SpecLean.Validation.Decode
+
+namespace SpecLean.Validation.Decode
+
+theorem mapM_drop {α β : Type} {f : α → Option β} :
+    ∀ (n : Nat) {xs : List α} {ys : List β}, xs.mapM f = some ys →
+      (xs.drop n).mapM f = some (ys.drop n)
+  | 0, _, _, hm => by simpa using hm
+  | n + 1, [], ys, hm => by simp at hm; subst hm; rfl
+  | n + 1, x :: xs, ys, hm => by
+    simp only [List.mapM_cons, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at hm
+    obtain ⟨y, -, ys', hys', rfl⟩ := hm
+    simpa using mapM_drop n hys'
+
+theorem mapM_take {α β : Type} {f : α → Option β} :
+    ∀ (n : Nat) {xs : List α} {ys : List β}, xs.mapM f = some ys →
+      (xs.take n).mapM f = some (ys.take n)
+  | 0, _, _, _ => rfl
+  | n + 1, [], ys, hm => by simp at hm; subst hm; rfl
+  | n + 1, x :: xs, ys, hm => by
+    simp only [List.mapM_cons, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at hm
+    obtain ⟨y, hy, ys', hys', rfl⟩ := hm
+    simp [List.mapM_cons, hy, mapM_take n hys']
+
+end SpecLean.Validation.Decode
