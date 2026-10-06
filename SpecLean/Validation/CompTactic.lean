@@ -285,6 +285,21 @@ macro "rd_item_end" : tactic => `(tactic| first
           assumption)
        | (refine ⟨?_, ?_⟩ <;> first | rfl | (simp [rd_simp]; done) | omega | (simp [rd_simp]; omega))))
 
+/-- `getItem h (.ref a) i` of a list object that a fact of the context names: the item, by
+`getItem_list`. -/
+elab "rd_getitem" : tactic => withMainContext do
+  let t := (← instantiateMVars (← getMainTarget)).consumeMData
+  let some gi := findClosed t (fun e => e.isAppOfArity ``SpecLean.getItem 3 &&
+      (e.getArg! 1).isAppOfArity ``SpecLean.Value.ref 1) | throwError "rd_getitem: none"
+  let h := gi.getArg! 0
+  let a := (gi.getArg! 1).getArg! 0
+  let some ho ← findObj h a | throwError "rd_getitem: no object"
+  let hs ← Term.exprToSyntax ho
+  let idx := gi.getArg! 2
+  let lem ← if idx.isAppOf ``SpecLean.Value.uint then `(SpecLean.getItem_list $hs)
+    else `(SpecLean.getItem_list_int $hs)
+  evalTactic (← `(tactic| rw [$lem:term]))
+
 /-- One item of a comprehension in the context of the caller. -/
 macro "rd_comp_step" "[" ls:ident,* "]" : tactic => `(tactic| (
   intro n i L' h' x y hq hy hx
@@ -321,7 +336,7 @@ macro "rd_comp_step" "[" ls:ident,* "]" : tactic => `(tactic| (
     assignTarget, assignTargets, evalIfs, enumItem, hL]
   all_goals (try rd_step)
   repeat' (first | rd_call [$ls,*] | (rd_items; (repeat rd_unify); try rd_step) |
-    (rd_split <;> (try rd_step)))
+    (rd_getitem; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals rd_item_end))
 
 /-- A comprehension: `comp_sim` with the item fuel `kf`, each item by `rd_comp_step`, then both
@@ -370,17 +385,17 @@ elab "rd_comp" kf:num "[" ls:ident,* "]" : tactic => withMainContext do
   let itemS ← if src.isAppOf ``SpecLean.IterSrc.enum then `(SpecLean.enumItem i x) else `(x)
   let hc := mkIdent `hcomp
   let gfpI := mkIdent `gfp
-  if snap then
-    evalTactic (← `(tactic| (
+  let haveTac ← if snap then
+    `(tactic| (
       have $hc:ident := SpecLean.Validation.comp_snap_sim $envS $tS $ifsS $eltS $aS $kf $ysS
         (by first | exact SpecLean.Validation.snap_len ‹_› | (simp <;> omega)) $fS $ES
         (gfp := $gfpI) (fpf := []) (vs := $vsS) (by simp) ‹_›
         (fun _ L' h' => h' = $hS ∧ SpecLean.Validation.KeepLocals L' $LS $TS)
         (by rd_comp_step [$ls,*]) (fun _ _ _ _ e _ => e) ($fuelS - $kf - 1) 0 $LS $hS
         ⟨rfl, SpecLean.Validation.KeepLocals.refl _ _⟩
-        (SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›) (by first | omega | (simp <;> omega)))))
+        (SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›) (by first | omega | (simp <;> omega))))
   else
-  evalTactic (← `(tactic| (
+    `(tactic| (
     have $hc:ident := SpecLean.Validation.comp_sim $envS $tS $ifsS $eltS $srcS $kf $ysS $fS $ES
       (gfp := $gfpI) (fpf := []) (vs := $vsS) (by simp) ‹_›
       (fun _ L' h' => h' = $hS ∧ SpecLean.Validation.KeepLocals L' $LS $TS)
@@ -393,14 +408,22 @@ elab "rd_comp" kf:num "[" ls:ident,* "]" : tactic => withMainContext do
         rw [hq.1]
         simp [iterItem, SpecLean.Validation.seqItem_live_none (a := $aS) ⟨_, _, _, _, ‹_›, by first | omega | (simp <;> omega)⟩ hi])
       (by rd_comp_step [$ls,*]) (fun _ _ _ _ e _ => e) ($fuelS - $kf - 1) 0 $LS $hS
-      ⟨rfl, SpecLean.Validation.KeepLocals.refl _ _⟩ (SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›) (by first | omega | (simp <;> omega)))))
+      ⟨rfl, SpecLean.Validation.KeepLocals.refl _ _⟩ (SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›) (by first | omega | (simp <;> omega))))
+  evalTactic haveTac
   evalTactic (← `(tactic| (
     rw [show $fuelS - $kf - 1 + $kf + 1 = $fuelS by omega, List.drop_zero] at $hc:ident
-    revert $hc:ident
-    generalize $(← s ci) = rcomp
-    generalize $(← s fm) = rdcomp
+    revert $hc:ident)))
+  -- Generalize the two sides by the terms themselves: a term that goes back through syntax may
+  -- not match the goal (`generalize` finds terms up to instances only).
+  let g ← getMainGoal
+  let (fvs, g) ← g.generalize #[{ expr := ci, xName? := `rcomp }, { expr := fm, xName? := `rdcomp }]
+  replaceMainGoal [g]
+  let rcI := mkIdent `rcomp
+  let rdI := mkIdent `rdcomp
+  let _ := fvs
+  evalTactic (← `(tactic| (
     intro $hc:ident
-    rcases rcomp with _ | ⟨vals, ⟨⟩ | ⟨⟩, hcomp'⟩ <;> rcases rdcomp with _ | bs
+    rcases $rcI:ident with _ | ⟨vals, ⟨⟩ | ⟨⟩, hcomp'⟩ <;> rcases $rdI:ident with _ | bs
     all_goals simp only [SpecLean.Validation.CompOut] at $hc:ident)))
   -- The kept results: the values are the encodings of the readable items.
   let gs ← getGoals
@@ -412,11 +435,14 @@ elab "rd_comp" kf:num "[" ls:ident,* "]" : tactic => withMainContext do
       unless ty.isAppOfArity ``And 2 && (ty.getArg! 0).isAppOf ``SpecLean.Validation.ListRel do
         return [g]
       evalTacticAt (← `(tactic| (
-        obtain ⟨hrel, -, -, -, -, ⟨rfl, -⟩, -⟩ := $hc:ident
-        obtain ⟨rfl, hrange⟩ := SpecLean.Validation.listRel_enc hrel))) g
+        obtain ⟨hrel, -, -, -, -, ⟨hh0, -⟩, -⟩ := $hc:ident
+        subst hh0
+        obtain ⟨hv0, hrange⟩ := SpecLean.Validation.listRel_enc hrel
+        subst hv0))) g
     out := out ++ r
   setGoals out
-  evalTactic (← `(tactic| all_goals (try rd_step)))
+  -- Only the binds of the results: the next step of the caller comes from the loop of steps.
+  evalTactic (← `(tactic| all_goals (try simp only [Except.bind_ok', Except.bind_error'])))
 
 end SpecLean.Validation.Tactic
 
@@ -438,7 +464,8 @@ macro "rd_list_end" : tactic => `(tactic| (
 /-- The comprehension failed: the error of the items is the error of the function. -/
 macro "rd_comp_err" : tactic => `(tactic| first
   | exact ‹_ ≠ SpecLean.SpecError.outOfFuel ∧ _›
-  | exact (‹_ ≠ SpecLean.SpecError.outOfFuel ∧ _›).2)
+  | exact (‹_ ≠ SpecLean.SpecError.outOfFuel ∧ _›).2
+  | (simp only [SpecLean.Encode.ResultMatches]; exact ‹_ ≠ SpecLean.SpecError.outOfFuel ∧ _›))
 
 namespace SpecLean.Validation.Tactic
 
@@ -471,19 +498,27 @@ open Lean Meta Elab Tactic
 /-- `sum` of uints in the goal: the interpreter's fold from the `int` `0` and the readable `sumU`
 over the same items. `sum_uint` relates them; both results split. -/
 elab "rd_sum" : tactic => withMainContext do
+  -- A sum of a new list: read the list from the heap first.
+  let t0 := (← instantiateMVars (← getMainTarget)).consumeMData
+  if (findClosed t0 (·.isAppOf ``SpecLean.allocPyList)).isSome then
+    evalTactic (← `(tactic| try simp only [SpecLean.allocPyList, SpecLean.applyBuiltin,
+      SpecLean.LibModel.builtin, SpecLean.Ssz.builtin, SpecLean.iterElems, SpecLean.iterBase,
+      SpecLean.Validation.Where.alloc_fst, SpecLean.Validation.Where.objs_alloc_self,
+      List.headD_nil, Except.bind_ok']))
+  withMainContext do
   let g ← getMainGoal
   let t := (← instantiateMVars (← g.getType)).consumeMData
-  let some run := findClosed t (fun e => e.isAppOfArity ``List.foldlM 8 &&
-      (e.getArg! 7).isAppOf ``List.map && (e.getArg! 6).isAppOfArity ``SpecLean.Value.int 1)
+  let some run := findClosed t (fun e => e.isAppOfArity ``List.foldlM 7 &&
+      (e.getArg! 6).isAppOf ``List.map && (e.getArg! 5).isAppOfArity ``SpecLean.Value.int 1)
     | throwError "rd_sum: no sum"
   let some rd := findClosed t (·.isAppOf ``SpecLean.Rd.sumU) | throwError "rd_sum: no readable sum"
   let runS ← Term.exprToSyntax run
   let rdS ← Term.exprToSyntax rd
   let hs := mkIdent `hsum
   evalTactic (← `(tactic| (
-    have $hs:ident := SpecLean.Validation.sum_uint _ (by rfl) _ (by rfl) _
     first
-    | (change SpecLean.Validation.SumRel _ $runS $rdS at $hs:ident)
+    | (have $hs:ident : SpecLean.Validation.SumRel _ $runS $rdS :=
+        SpecLean.Validation.sum_uint _ (by rfl) _ (by rfl) _)
     | fail "rd_sum: the sum does not match"
     revert $hs:ident
     generalize $runS = rsum
@@ -495,3 +530,4 @@ elab "rd_sum" : tactic => withMainContext do
     all_goals (try rd_step))))
 
 end SpecLean.Validation.Tactic
+

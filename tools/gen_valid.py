@@ -742,7 +742,9 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             e, encs = self.expect(ret)
             # A new list is the one change of the heap: `ResultMatches` gives the rest.
             # A callee that makes a new object: the heap grows, and `ResultMatches` says how.
-            exp = e if ret[0] == "list" or alloc else f"{e} ∧ h' = h"
+            # A comprehension makes a new list too, also when `sum` reads it.
+            comp_alloc = any(isinstance(x, ast.comprehension) for x in ast.walk(tree))
+            exp = e if ret[0] == "list" or alloc or comp_alloc else f"{e} ∧ h' = h"
         else:
             k0 = 1 if ret != T.NONE else 0
             e, encs = self.expect(ret, rd_fn.Fn.proj(None, "r", 0, len(outs)) if k0 else "r")
@@ -825,12 +827,12 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             [f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"] if callees else [])
         if alloc:
             alts.append("(rd_listres; try rd_step)")
-        if any(isinstance(x, ast.Name) and x.id == "sum" for x in ast.walk(tree)):
-            alts.append("rd_sum")
-        # A comprehension last: the calls and the splits before it come first.
-        tail = ([f"rd_comp {kf} [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"]
+        sums = any(isinstance(x, ast.Name) and x.id == "sum" for x in ast.walk(tree))
+        # A comprehension before the splits: a split of later code would copy its proof.
+        comp = ([f"rd_comp {kf} [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"]
                 if cbounds else [])
-        step = "(first | " + " | ".join(alts + ["(rd_split <;> (try rd_step))"] + tail) + ")"
+        step = "(first | " + " | ".join(alts + comp + (["rd_sum"] if sums else []) +
+                                         ["(rd_split <;> (try rd_step))"]) + ")"
         runF = ""
         if bounded:
             # The fuel as a variable with its bound: a caller's fuel unifies with it.
