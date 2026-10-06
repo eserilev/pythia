@@ -339,19 +339,6 @@ Update: the spike now follows the draft 6 rule (global footprint, stronger frame
 `bug`). All proofs go through, with no `sorry`. A clean build takes 12.8 s. Step 1 is done. Step 2,
 the full interpreter, has started.
 
-## Running list of lessons
-
-- Pure functions on plain integers are what make Rust provable. Leave the glue small and obvious.
-- A proof finds every place where two implementations differ, including the harmless ones. Each
-  one needs a written reason.
-- Check every hypothesis against a real state.
-- Hand-written models are the weakest link, and the hardest to keep current.
-- Do not change the source to fit the tool if the tool can handle the source.
-- Probe the library. Memory is wrong about library behavior.
-- Name things for what they do.
-- An independent reviewer found real errors in every draft.
-- Paper reviews give less each round. When a working prototype exists, let it find the holes.
-
 ### Step 2: the interpreter (2026-10-05)
 
 The interpreter now covers the version 1 scope.
@@ -637,3 +624,90 @@ of proving each generated function.
   "passed" because the memory cap had killed them silently. Always check exit codes.
 
 The spike's verdict: full layer 4 is realistic, and more robust than proving each function.
+
+### Proving all 162: general rules, not one function at a time (2026-10-06)
+
+The count over the day: 25 → 45 → 49 → 50 → 55 of 162.
+
+- After the call rule, progress slowed to about one function per commit. Each commit fixed one
+  shape. We asked the tactic agent to stop and sort every unproved function by its first
+  blocking cause. The answer was good news: four causes blocked 79 of the 113 open functions.
+  The biggest: a result that is a list (33), a result that is a container (17), a loop that
+  writes the heap (16), an `Option` argument (13).
+- So the work became: one general rule per cause, then regenerate all 162. Rules added since:
+  - for loops that write the heap (`process_effective_balance_updates`, the first epoch loop
+    proved with no hand help);
+  - comprehensions, live and over `range(n)`;
+  - new objects (`alloc_contract`: one lemma for the whole contract of a new list);
+  - callers of loop functions, with a fuel bound per function that the caller adds up;
+  - `sum` over a generator, next to unlock `get_total_balance` and its many callers.
+- Two agents split the rules: one builds the generic lemma in new files, the other wires it into
+  the tactic. That kept them out of each other's files.
+- A case explosion stalled the first loop proof: 2.8 MB of open goals. Each step that can fail
+  split into ok and error on both sides, so ten steps gave about 4^10 cases. The fix is a joint
+  step: both sides ok with matching values, or both error with the same class.
+- Container `==` changes in the readable Lean: from derived `BEq` (field by field, not usable as
+  equality in proofs) to `decide (x = y)`. The vectors still have to pass.
+
+### What Aeneas taught us
+
+Aeneas turns Rust into pure Lean, the same job for a different language.
+
+- Aeneas does not prove each function. It trusts the translator, whose method is proved sound
+  once on paper. Rust's borrow checker rules out shared writes, so the translation can use plain
+  values.
+- Python has no borrow checker. Nothing in the language stops two names from writing one object.
+  That is the whole reason for Pythia's heap model and the `WTree` rule.
+- Two kinds of sharing look alike. A local name for a part of the state
+  (`validator = state.validators[i]`) is everywhere in the spec, and the translator maps it to a
+  path. One object at two places in the state, then written, is the dangerous kind. The spec
+  creates that sharing (checkpoints, the payload bid, `eth1_data`) but never writes to it in place.
+  The vectors, the fuzzer and the proofs all agree.
+- Aeneas's `progress` tactic applies each callee's lemma at a call, found by an attribute. Our call
+  rule does the same.
+- Aeneas does not automate loop proofs either. Its users write the loop invariants. That made it
+  fair for us to allow an invariant annotation where the tactic cannot find one.
+
+### Layer 4 takes the lead
+
+The layer 4 spike proved one theorem for a fragment of the spec (no loops or calls): the Lean
+translation matches the heap interpreter for every program in the fragment. It took about 2,400
+lines and builds in 7.5 s.
+
+- It is Aeneas's approach with one upgrade: the soundness proof is in Lean and checked by
+  machine, not on paper.
+- Python's missing borrow checker shows up as `WTree` inside that one theorem, instead of in
+  every function's proof.
+- The decision (2026-10-06): build the layer 4 call rule now, proved once by induction on call
+  depth, while the per-function tactic keeps going as the fallback. If layer 4 gets calls and
+  loops, it becomes the main path. Every lemma from the tactic work carries over.
+
+### Is this viable?
+
+An honest check after a full day and night of agents:
+
+- Solid: the interpreter (678/678 minimal and 593/605 mainnet with the sharing check, 0 wrong
+  results, about 80,000 fuzzed programs) and the translator (all 162 functions, 678/678).
+  Together they are already a readable Lean spec, generated from pyspec and tested against it.
+- Not yet shown: proving all 162. The per-function tactic is at 55. Layer 4 is the better bet
+  for the rest.
+- The goal stays all 162, through general rules.
+
+## Running list of lessons
+
+- Pure functions on plain integers are what make Rust provable. Leave the glue small and obvious.
+- A proof finds every place where two implementations differ, including the harmless ones. Each
+  one needs a written reason.
+- Check every hypothesis against a real state.
+- Hand-written models are the weakest link, and the hardest to keep current.
+- Do not change the source to fit the tool if the tool can handle the source.
+- Probe the library. Memory is wrong about library behavior.
+- Name things for what they do.
+- An independent reviewer found real errors in every draft.
+- Paper reviews give less each round. When a working prototype exists, let it find the holes.
+- When the work stalls, sort the failures by cause. A few causes usually block most of them.
+- A general rule is worth more than any number of one-function fixes.
+- A proof tactic can loop like any program. Cap its memory, and check exit codes: a killed run
+  can look like a pass.
+- Proving the translator once beats proving every output, if the soundness proof is affordable.
+  The spike showed it is.
