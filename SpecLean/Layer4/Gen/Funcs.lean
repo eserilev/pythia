@@ -30,6 +30,16 @@ theorem add_flag_den (sha : Oracle) (m : Nat) (a_flags : Nat) (a_flag_index : In
       callK (add_flag ⟨a_flags⟩ a_flag_index) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 20 8) x.val), [(.leaf (.uint (.nominal 20 8) a_flags)), (.leaf (.int a_flag_index))])) :=
   bind_call (add_flag_den sha m a_flags a_flag_index) k
 
+theorem add_flag_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_flags : Nat) (a_flag_index : Int)  :
+    ∀ fuel, 9 ≤ fuel →
+      ResultMatches gfp [] h [(.uint (.nominal 20 8) a_flags), (.int a_flag_index)] (fun (x : ParticipationFlags) _ v => v = (.uint (.nominal 20 8) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«add_flag» [(.uint (.nominal 20 8) a_flags), (.int a_flag_index)] h) (add_flag ⟨a_flags⟩ a_flag_index) := by
+  intro fuel hf
+  have hden := add_flag_den sha 0 a_flags a_flag_index
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem compute_activation_exit_epoch_den (sha : Oracle) (m : Nat) (a_epoch : Nat) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_compute_activation_exit_epoch [(.leaf (.uint (.nominal 140 64) a_epoch))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Epoch => (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_epoch))])) <$> compute_activation_exit_epoch ⟨a_epoch⟩) := by
@@ -42,6 +52,16 @@ theorem compute_activation_exit_epoch_den (sha : Oracle) (m : Nat) (a_epoch : Na
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_compute_activation_exit_epoch [(.leaf (.uint (.nominal 140 64) a_epoch))]) k) =
       callK (compute_activation_exit_epoch ⟨a_epoch⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_epoch))])) :=
   bind_call (compute_activation_exit_epoch_den sha m a_epoch) k
+
+theorem compute_activation_exit_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_epoch : Nat)  :
+    ∀ fuel, 9 ≤ fuel →
+      ResultMatches gfp [] h [(.uint (.nominal 140 64) a_epoch)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«compute_activation_exit_epoch» [(.uint (.nominal 140 64) a_epoch)] h) (compute_activation_exit_epoch ⟨a_epoch⟩) := by
+  intro fuel hf
+  have hden := compute_activation_exit_epoch_den sha 0 a_epoch
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem compute_epoch_at_slot_den (sha : Oracle) (m : Nat) (a_slot : Nat) :
     ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_compute_epoch_at_slot [(.leaf (.uint (.nominal 196 64) a_slot))]).map (Except.mapError SpecError.fail) =
@@ -56,6 +76,16 @@ theorem compute_epoch_at_slot_den (sha : Oracle) (m : Nat) (a_slot : Nat) :
       callK (compute_epoch_at_slot ⟨a_slot⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 196 64) a_slot))])) :=
   bind_call (compute_epoch_at_slot_den sha m a_slot) k
 
+theorem compute_epoch_at_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_slot : Nat)  :
+    ∀ fuel, 10 ≤ fuel →
+      ResultMatches gfp [] h [(.uint (.nominal 196 64) a_slot)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«compute_epoch_at_slot» [(.uint (.nominal 196 64) a_slot)] h) (compute_epoch_at_slot ⟨a_slot⟩) := by
+  intro fuel hf
+  have hden := compute_epoch_at_slot_den sha 0 a_slot
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem compute_start_slot_at_epoch_den (sha : Oracle) (m : Nat) (a_epoch : Nat) :
     ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_compute_start_slot_at_epoch [(.leaf (.uint (.nominal 140 64) a_epoch))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Slot => (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 140 64) a_epoch))])) <$> compute_start_slot_at_epoch ⟨a_epoch⟩) := by
@@ -68,6 +98,16 @@ theorem compute_start_slot_at_epoch_den (sha : Oracle) (m : Nat) (a_epoch : Nat)
         (DM.bind ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_compute_start_slot_at_epoch [(.leaf (.uint (.nominal 140 64) a_epoch))]) k) =
       callK (compute_start_slot_at_epoch ⟨a_epoch⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 140 64) a_epoch))])) :=
   bind_call (compute_start_slot_at_epoch_den sha m a_epoch) k
+
+theorem compute_start_slot_at_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_epoch : Nat)  :
+    ∀ fuel, 10 ≤ fuel →
+      ResultMatches gfp [] h [(.uint (.nominal 140 64) a_epoch)] (fun (x : Slot) _ v => v = (.uint (.nominal 196 64) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«compute_start_slot_at_epoch» [(.uint (.nominal 140 64) a_epoch)] h) (compute_start_slot_at_epoch ⟨a_epoch⟩) := by
+  intro fuel hf
+  have hden := compute_start_slot_at_epoch_den sha 0 a_epoch
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem convert_builder_index_to_validator_index_den (sha : Oracle) (m : Nat) (a_builder_index : Nat) :
     ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_convert_builder_index_to_validator_index [(.leaf (.uint (.nominal 199 64) a_builder_index))]).map (Except.mapError SpecError.fail) =
@@ -82,6 +122,16 @@ theorem convert_builder_index_to_validator_index_den (sha : Oracle) (m : Nat) (a
       callK (convert_builder_index_to_validator_index ⟨a_builder_index⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 82 64) x.val), [(.leaf (.uint (.nominal 199 64) a_builder_index))])) :=
   bind_call (convert_builder_index_to_validator_index_den sha m a_builder_index) k
 
+theorem convert_builder_index_to_validator_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_builder_index : Nat)  :
+    ∀ fuel, 10 ≤ fuel →
+      ResultMatches gfp [] h [(.uint (.nominal 199 64) a_builder_index)] (fun (x : ValidatorIndex) _ v => v = (.uint (.nominal 82 64) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«convert_builder_index_to_validator_index» [(.uint (.nominal 199 64) a_builder_index)] h) (convert_builder_index_to_validator_index ⟨a_builder_index⟩) := by
+  intro fuel hf
+  have hden := convert_builder_index_to_validator_index_den sha 0 a_builder_index
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem convert_validator_index_to_builder_index_den (sha : Oracle) (m : Nat) (a_validator_index : Nat) :
     ((den (Scope.env sha) fpsGen (m + 11)).fn [] Scope.fn_convert_validator_index_to_builder_index [(.leaf (.uint (.nominal 82 64) a_validator_index))]).map (Except.mapError SpecError.fail) =
       some ((fun x : BuilderIndex => (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 82 64) a_validator_index))])) <$> convert_validator_index_to_builder_index ⟨a_validator_index⟩) := by
@@ -94,6 +144,16 @@ theorem convert_validator_index_to_builder_index_den (sha : Oracle) (m : Nat) (a
         (DM.bind ((den (Scope.env sha) fpsGen (m + 11)).fn [] Scope.fn_convert_validator_index_to_builder_index [(.leaf (.uint (.nominal 82 64) a_validator_index))]) k) =
       callK (convert_validator_index_to_builder_index ⟨a_validator_index⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 82 64) a_validator_index))])) :=
   bind_call (convert_validator_index_to_builder_index_den sha m a_validator_index) k
+
+theorem convert_validator_index_to_builder_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator_index : Nat)  :
+    ∀ fuel, 11 ≤ fuel →
+      ResultMatches gfp [] h [(.uint (.nominal 82 64) a_validator_index)] (fun (x : BuilderIndex) _ v => v = (.uint (.nominal 199 64) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«convert_validator_index_to_builder_index» [(.uint (.nominal 82 64) a_validator_index)] h) (convert_validator_index_to_builder_index ⟨a_validator_index⟩) := by
+  intro fuel hf
+  have hden := convert_validator_index_to_builder_index_den sha 0 a_validator_index
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem saturating_sub_den (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.width 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
@@ -108,18 +168,15 @@ theorem saturating_sub_den (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
       callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.width 64) x.val), [(.leaf (.uint (.width 64) a_a)), (.leaf (.int a_b))])) :=
   bind_call (saturating_sub_den sha m a_a a_b) k
 
-theorem saturating_sub_den_BuilderIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
-  rw [s_fn]
-  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
-  all_goals l4_close
-
-@[l4_simp] theorem saturating_sub_call_BuilderIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
-    Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))])) :=
-  bind_call (saturating_sub_den_BuilderIndex sha m a_a a_b) k
+theorem saturating_sub_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_a : Nat) (a_b : Int)  :
+    ∀ fuel, 9 ≤ fuel →
+      ResultMatches gfp [] h [(.uint (.width 64) a_a), (.int a_b)] (fun (x : Uint64) _ v => v = (.uint (.width 64) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«saturating_sub» [(.uint (.width 64) a_a), (.int a_b)] h) (saturating_sub ⟨a_a⟩ a_b) := by
+  intro fuel hf
+  have hden := saturating_sub_den sha 0 a_a a_b
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem saturating_sub_den_BuilderIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.uint (.nominal 199 64) a_b))]).map (Except.mapError SpecError.fail) =
@@ -134,6 +191,19 @@ theorem saturating_sub_den_BuilderIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (
       callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.uint (.nominal 199 64) a_b))])) :=
   bind_call (saturating_sub_den_BuilderIndex_i sha m a_a a_b) k
 
+theorem saturating_sub_den_BuilderIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
+  rw [s_fn]
+  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
+  all_goals l4_close
+
+@[l4_simp] theorem saturating_sub_call_BuilderIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))])) :=
+  bind_call (saturating_sub_den_BuilderIndex sha m a_a a_b) k
+
 theorem saturating_sub_den_CommitteeIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Uint64 => (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
@@ -146,19 +216,6 @@ theorem saturating_sub_den_CommitteeIndex (sha : Oracle) (m : Nat) (a_a : Nat) (
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.int a_b))]) k) =
       callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.int a_b))])) :=
   bind_call (saturating_sub_den_CommitteeIndex sha m a_a a_b) k
-
-theorem saturating_sub_den_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
-  rw [s_fn]
-  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
-  all_goals l4_close
-
-@[l4_simp] theorem saturating_sub_call_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
-    Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) :=
-  bind_call (saturating_sub_den_CommitteeIndex_i sha m a_a a_b) k
 
 theorem saturating_sub_den_Epoch (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
@@ -186,6 +243,19 @@ theorem saturating_sub_den_Epoch_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : N
       callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))])) :=
   bind_call (saturating_sub_den_Epoch_i sha m a_a a_b) k
 
+theorem saturating_sub_den_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
+  rw [s_fn]
+  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
+  all_goals l4_close
+
+@[l4_simp] theorem saturating_sub_call_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) :=
+  bind_call (saturating_sub_den_CommitteeIndex_i sha m a_a a_b) k
+
 theorem saturating_sub_den_Gwei (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Uint64 => (DRes.val (.uint (.nominal 265 64) x.val), [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
@@ -198,6 +268,19 @@ theorem saturating_sub_den_Gwei (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int)
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.int a_b))]) k) =
       callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.int a_b))])) :=
   bind_call (saturating_sub_den_Gwei sha m a_a a_b) k
+
+theorem saturating_sub_den_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
+  rw [s_fn]
+  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
+  all_goals l4_close
+
+@[l4_simp] theorem saturating_sub_call_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) :=
+  bind_call (saturating_sub_den_Slot sha m a_a a_b) k
 
 theorem saturating_sub_den_Gwei_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))]).map (Except.mapError SpecError.fail) =
@@ -225,19 +308,6 @@ theorem saturating_sub_den_Slot_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Na
       callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))])) :=
   bind_call (saturating_sub_den_Slot_i sha m a_a a_b) k
 
-theorem saturating_sub_den_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
-  rw [s_fn]
-  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
-  all_goals l4_close
-
-@[l4_simp] theorem saturating_sub_call_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
-    Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) :=
-  bind_call (saturating_sub_den_Slot sha m a_a a_b) k
-
 theorem saturating_sub_den_ValidatorIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Uint64 => (DRes.val (.uint (.nominal 82 64) x.val), [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
@@ -250,6 +320,19 @@ theorem saturating_sub_den_ValidatorIndex (sha : Oracle) (m : Nat) (a_a : Nat) (
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.int a_b))]) k) =
       callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 82 64) x.val), [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.int a_b))])) :=
   bind_call (saturating_sub_den_ValidatorIndex sha m a_a a_b) k
+
+theorem saturating_sub_den_WithdrawalIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 748 64) x.val), [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
+  rw [s_fn]
+  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
+  all_goals l4_close
+
+@[l4_simp] theorem saturating_sub_call_WithdrawalIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 748 64) x.val), [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))])) :=
+  bind_call (saturating_sub_den_WithdrawalIndex sha m a_a a_b) k
 
 theorem saturating_sub_den_ValidatorIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.uint (.nominal 82 64) a_b))]).map (Except.mapError SpecError.fail) =
@@ -276,19 +359,6 @@ theorem saturating_sub_den_WithdrawalIndex_i (sha : Oracle) (m : Nat) (a_a : Nat
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.uint (.nominal 748 64) a_b))]) k) =
       callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 748 64) x.val), [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.uint (.nominal 748 64) a_b))])) :=
   bind_call (saturating_sub_den_WithdrawalIndex_i sha m a_a a_b) k
-
-theorem saturating_sub_den_WithdrawalIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 748 64) x.val), [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
-  rw [s_fn]
-  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
-  all_goals l4_close
-
-@[l4_simp] theorem saturating_sub_call_WithdrawalIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
-    Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 748 64) x.val), [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))])) :=
-  bind_call (saturating_sub_den_WithdrawalIndex sha m a_a a_b) k
 -- variants
 
 theorem decrease_balance_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) :
@@ -304,6 +374,16 @@ theorem decrease_balance_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a
       callK (decrease_balance a_state ⟨a_index⟩ ⟨a_delta⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val .none, [(.cont 733 (kids_BeaconState x)), (.leaf (.uint (.nominal 82 64) a_index)), (.leaf (.uint (.nominal 265 64) a_delta))])) :=
   bind_call (decrease_balance_den sha m a_state a_index a_delta) k
 
+theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fpsGen 89)) :
+    ∀ fuel, 21 ≤ fuel →
+      ResultMatches gfp (fpsGen 89) h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
+        (interp (Scope.env sha) fuel Scope.Id.«decrease_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] h) (decrease_balance a_state ⟨a_index⟩ ⟨a_delta⟩) := by
+  intro fuel hf
+  have hden := decrease_balance_den sha 0 a_state a_index a_delta
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
+
 theorem get_beacon_proposer_index_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
     ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_get_beacon_proposer_index [(.cont 733 (kids_BeaconState a_state))]).map (Except.mapError SpecError.fail) =
       some ((fun x : ValidatorIndex => (DRes.val (.uint (.nominal 82 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) <$> get_beacon_proposer_index a_state) := by
@@ -316,6 +396,16 @@ theorem get_beacon_proposer_index_den (sha : Oracle) (m : Nat) (a_state : Beacon
         (DM.bind ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_get_beacon_proposer_index [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_beacon_proposer_index a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 82 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) :=
   bind_call (get_beacon_proposer_index_den sha m a_state) k
+
+theorem get_beacon_proposer_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    ∀ fuel, 10 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_state)] (fun (x : ValidatorIndex) _ v => v = (.uint (.nominal 82 64) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«get_beacon_proposer_index» [(.ref r_state)] h) (get_beacon_proposer_index a_state) := by
+  intro fuel hf
+  have hden := get_beacon_proposer_index_den sha 0 a_state
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem get_block_root_at_slot_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_slot : Nat) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_get_block_root_at_slot [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 196 64) a_slot))]).map (Except.mapError SpecError.fail) =
@@ -330,6 +420,16 @@ theorem get_block_root_at_slot_den (sha : Oracle) (m : Nat) (a_state : BeaconSta
       callK (get_block_root_at_slot a_state ⟨a_slot⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bytes 146 x.data), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 196 64) a_slot))])) :=
   bind_call (get_block_root_at_slot_den sha m a_state a_slot) k
 
+theorem get_block_root_at_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_slot : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    ∀ fuel, 9 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 196 64) a_slot)] (fun (x : Root) _ v => v = (.bytes 146 x.data))
+        (interp (Scope.env sha) fuel Scope.Id.«get_block_root_at_slot» [(.ref r_state), (.uint (.nominal 196 64) a_slot)] h) (get_block_root_at_slot a_state ⟨a_slot⟩) := by
+  intro fuel hf
+  have hden := get_block_root_at_slot_den sha 0 a_state a_slot
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem get_block_root_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_epoch : Nat) :
     ((den (Scope.env sha) fpsGen (m + 23)).fn [] Scope.fn_get_block_root [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 140 64) a_epoch))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Root => (DRes.val (.bytes 146 x.data), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 140 64) a_epoch))])) <$> get_block_root a_state ⟨a_epoch⟩) := by
@@ -342,6 +442,16 @@ theorem get_block_root_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_e
         (DM.bind ((den (Scope.env sha) fpsGen (m + 23)).fn [] Scope.fn_get_block_root [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 140 64) a_epoch))]) k) =
       callK (get_block_root a_state ⟨a_epoch⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bytes 146 x.data), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 140 64) a_epoch))])) :=
   bind_call (get_block_root_den sha m a_state a_epoch) k
+
+theorem get_block_root_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    ∀ fuel, 23 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] (fun (x : Root) _ v => v = (.bytes 146 x.data))
+        (interp (Scope.env sha) fuel Scope.Id.«get_block_root» [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] h) (get_block_root a_state ⟨a_epoch⟩) := by
+  intro fuel hf
+  have hden := get_block_root_den sha 0 a_state a_epoch
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem get_current_epoch_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
     ((den (Scope.env sha) fpsGen (m + 22)).fn [] Scope.fn_get_current_epoch [(.cont 733 (kids_BeaconState a_state))]).map (Except.mapError SpecError.fail) =
@@ -356,6 +466,16 @@ theorem get_current_epoch_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
       callK (get_current_epoch a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 140 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) :=
   bind_call (get_current_epoch_den sha m a_state) k
 
+theorem get_current_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    ∀ fuel, 22 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_state)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«get_current_epoch» [(.ref r_state)] h) (get_current_epoch a_state) := by
+  intro fuel hf
+  have hden := get_current_epoch_den sha 0 a_state
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem get_previous_epoch_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
     ((den (Scope.env sha) fpsGen (m + 35)).fn [] Scope.fn_get_previous_epoch [(.cont 733 (kids_BeaconState a_state))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Epoch => (DRes.val (.uint (.nominal 140 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) <$> get_previous_epoch a_state) := by
@@ -368,6 +488,16 @@ theorem get_previous_epoch_den (sha : Oracle) (m : Nat) (a_state : BeaconState) 
         (DM.bind ((den (Scope.env sha) fpsGen (m + 35)).fn [] Scope.fn_get_previous_epoch [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_previous_epoch a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 140 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) :=
   bind_call (get_previous_epoch_den sha m a_state) k
+
+theorem get_previous_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    ∀ fuel, 35 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_state)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«get_previous_epoch» [(.ref r_state)] h) (get_previous_epoch a_state) := by
+  intro fuel hf
+  have hden := get_previous_epoch_den sha 0 a_state
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem get_finality_delay_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
     ((den (Scope.env sha) fpsGen (m + 47)).fn [] Scope.fn_get_finality_delay [(.cont 733 (kids_BeaconState a_state))]).map (Except.mapError SpecError.fail) =
@@ -382,6 +512,16 @@ theorem get_finality_delay_den (sha : Oracle) (m : Nat) (a_state : BeaconState) 
       callK (get_finality_delay a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 140 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) :=
   bind_call (get_finality_delay_den sha m a_state) k
 
+theorem get_finality_delay_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    ∀ fuel, 47 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_state)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«get_finality_delay» [(.ref r_state)] h) (get_finality_delay a_state) := by
+  intro fuel hf
+  have hden := get_finality_delay_den sha 0 a_state
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem get_index_for_new_validator_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
     ((den (Scope.env sha) fpsGen (m + 12)).fn [] Scope.fn_get_index_for_new_validator [(.cont 733 (kids_BeaconState a_state))]).map (Except.mapError SpecError.fail) =
       some ((fun x : ValidatorIndex => (DRes.val (.uint (.nominal 82 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) <$> get_index_for_new_validator a_state) := by
@@ -394,6 +534,16 @@ theorem get_index_for_new_validator_den (sha : Oracle) (m : Nat) (a_state : Beac
         (DM.bind ((den (Scope.env sha) fpsGen (m + 12)).fn [] Scope.fn_get_index_for_new_validator [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_index_for_new_validator a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 82 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) :=
   bind_call (get_index_for_new_validator_den sha m a_state) k
+
+theorem get_index_for_new_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    ∀ fuel, 12 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_state)] (fun (x : ValidatorIndex) _ v => v = (.uint (.nominal 82 64) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«get_index_for_new_validator» [(.ref r_state)] h) (get_index_for_new_validator a_state) := by
+  intro fuel hf
+  have hden := get_index_for_new_validator_den sha 0 a_state
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem is_compounding_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_withdrawal_credentials : List UInt8) :
     ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_is_compounding_withdrawal_credential [(.leaf (.bytes 505 a_withdrawal_credentials))]).map (Except.mapError SpecError.fail) =
@@ -408,6 +558,16 @@ theorem is_compounding_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_wit
       callK (is_compounding_withdrawal_credential ⟨a_withdrawal_credentials⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.leaf (.bytes 505 a_withdrawal_credentials))])) :=
   bind_call (is_compounding_withdrawal_credential_den sha m a_withdrawal_credentials) k
 
+theorem is_compounding_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_withdrawal_credentials : List UInt8)  :
+    ∀ fuel, 10 ≤ fuel →
+      ResultMatches gfp [] h [(.bytes 505 a_withdrawal_credentials)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«is_compounding_withdrawal_credential» [(.bytes 505 a_withdrawal_credentials)] h) (is_compounding_withdrawal_credential ⟨a_withdrawal_credentials⟩) := by
+  intro fuel hf
+  have hden := is_compounding_withdrawal_credential_den sha 0 a_withdrawal_credentials
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem has_compounding_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_validator : Validator) :
     ((den (Scope.env sha) fpsGen (m + 22)).fn [] Scope.fn_has_compounding_withdrawal_credential [(.cont 396 (kids_Validator a_validator))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Bool => (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator))])) <$> has_compounding_withdrawal_credential a_validator) := by
@@ -420,6 +580,16 @@ theorem has_compounding_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_va
         (DM.bind ((den (Scope.env sha) fpsGen (m + 22)).fn [] Scope.fn_has_compounding_withdrawal_credential [(.cont 396 (kids_Validator a_validator))]) k) =
       callK (has_compounding_withdrawal_credential a_validator) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator))])) :=
   bind_call (has_compounding_withdrawal_credential_den sha m a_validator) k
+
+theorem has_compounding_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+    ∀ fuel, 22 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«has_compounding_withdrawal_credential» [(.ref r_validator)] h) (has_compounding_withdrawal_credential a_validator) := by
+  intro fuel hf
+  have hden := has_compounding_withdrawal_credential_den sha 0 a_validator
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem get_max_effective_balance_den (sha : Oracle) (m : Nat) (a_validator : Validator) :
     ((den (Scope.env sha) fpsGen (m + 32)).fn [] Scope.fn_get_max_effective_balance [(.cont 396 (kids_Validator a_validator))]).map (Except.mapError SpecError.fail) =
@@ -434,6 +604,16 @@ theorem get_max_effective_balance_den (sha : Oracle) (m : Nat) (a_validator : Va
       callK (get_max_effective_balance a_validator) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 396 (kids_Validator a_validator))])) :=
   bind_call (get_max_effective_balance_den sha m a_validator) k
 
+theorem get_max_effective_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+    ∀ fuel, 32 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
+        (interp (Scope.env sha) fuel Scope.Id.«get_max_effective_balance» [(.ref r_validator)] h) (get_max_effective_balance a_validator) := by
+  intro fuel hf
+  have hden := get_max_effective_balance_den sha 0 a_validator
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem get_randao_mix_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_epoch : Nat) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_get_randao_mix [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 140 64) a_epoch))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Bytes32 => (DRes.val (.bytes 505 x.data), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 140 64) a_epoch))])) <$> get_randao_mix a_state ⟨a_epoch⟩) := by
@@ -446,6 +626,16 @@ theorem get_randao_mix_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_e
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_get_randao_mix [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 140 64) a_epoch))]) k) =
       callK (get_randao_mix a_state ⟨a_epoch⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bytes 505 x.data), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 140 64) a_epoch))])) :=
   bind_call (get_randao_mix_den sha m a_state a_epoch) k
+
+theorem get_randao_mix_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    ∀ fuel, 9 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] (fun (x : Bytes32) _ v => v = (.bytes 505 x.data))
+        (interp (Scope.env sha) fuel Scope.Id.«get_randao_mix» [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] h) (get_randao_mix a_state ⟨a_epoch⟩) := by
+  intro fuel hf
+  have hden := get_randao_mix_den sha 0 a_state a_epoch
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem has_eth1_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_validator : Validator) :
     ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_has_eth1_withdrawal_credential [(.cont 396 (kids_Validator a_validator))]).map (Except.mapError SpecError.fail) =
@@ -460,6 +650,16 @@ theorem has_eth1_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_validator
       callK (has_eth1_withdrawal_credential a_validator) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator))])) :=
   bind_call (has_eth1_withdrawal_credential_den sha m a_validator) k
 
+theorem has_eth1_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+    ∀ fuel, 10 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«has_eth1_withdrawal_credential» [(.ref r_validator)] h) (has_eth1_withdrawal_credential a_validator) := by
+  intro fuel hf
+  have hden := has_eth1_withdrawal_credential_den sha 0 a_validator
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem has_execution_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_validator : Validator) :
     ((den (Scope.env sha) fpsGen (m + 34)).fn [] Scope.fn_has_execution_withdrawal_credential [(.cont 396 (kids_Validator a_validator))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Bool => (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator))])) <$> has_execution_withdrawal_credential a_validator) := by
@@ -472,6 +672,16 @@ theorem has_execution_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_vali
         (DM.bind ((den (Scope.env sha) fpsGen (m + 34)).fn [] Scope.fn_has_execution_withdrawal_credential [(.cont 396 (kids_Validator a_validator))]) k) =
       callK (has_execution_withdrawal_credential a_validator) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator))])) :=
   bind_call (has_execution_withdrawal_credential_den sha m a_validator) k
+
+theorem has_execution_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+    ∀ fuel, 34 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«has_execution_withdrawal_credential» [(.ref r_validator)] h) (has_execution_withdrawal_credential a_validator) := by
+  intro fuel hf
+  have hden := has_execution_withdrawal_credential_den sha 0 a_validator
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem has_flag_den (sha : Oracle) (m : Nat) (a_flags : Nat) (a_flag_index : Int) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_has_flag [(.leaf (.uint (.nominal 20 8) a_flags)), (.leaf (.int a_flag_index))]).map (Except.mapError SpecError.fail) =
@@ -486,6 +696,16 @@ theorem has_flag_den (sha : Oracle) (m : Nat) (a_flags : Nat) (a_flag_index : In
       callK (has_flag ⟨a_flags⟩ a_flag_index) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.leaf (.uint (.nominal 20 8) a_flags)), (.leaf (.int a_flag_index))])) :=
   bind_call (has_flag_den sha m a_flags a_flag_index) k
 
+theorem has_flag_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_flags : Nat) (a_flag_index : Int)  :
+    ∀ fuel, 9 ≤ fuel →
+      ResultMatches gfp [] h [(.uint (.nominal 20 8) a_flags), (.int a_flag_index)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«has_flag» [(.uint (.nominal 20 8) a_flags), (.int a_flag_index)] h) (has_flag ⟨a_flags⟩ a_flag_index) := by
+  intro fuel hf
+  have hden := has_flag_den sha 0 a_flags a_flag_index
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem increase_balance_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) :
     ((den (Scope.env sha) fpsGen (m + 8)).fn (fpsGen 83) Scope.fn_increase_balance [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 82 64) a_index)), (.leaf (.uint (.nominal 265 64) a_delta))]).map (Except.mapError SpecError.fail) =
       some ((fun x : BeaconState => (DRes.val .none, [(.cont 733 (kids_BeaconState x)), (.leaf (.uint (.nominal 82 64) a_index)), (.leaf (.uint (.nominal 265 64) a_delta))])) <$> increase_balance a_state ⟨a_index⟩ ⟨a_delta⟩) := by
@@ -498,6 +718,16 @@ theorem increase_balance_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a
         (DM.bind ((den (Scope.env sha) fpsGen (m + 8)).fn (fpsGen 83) Scope.fn_increase_balance [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 82 64) a_index)), (.leaf (.uint (.nominal 265 64) a_delta))]) k) =
       callK (increase_balance a_state ⟨a_index⟩ ⟨a_delta⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val .none, [(.cont 733 (kids_BeaconState x)), (.leaf (.uint (.nominal 82 64) a_index)), (.leaf (.uint (.nominal 265 64) a_delta))])) :=
   bind_call (increase_balance_den sha m a_state a_index a_delta) k
+
+theorem increase_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fpsGen 83)) :
+    ∀ fuel, 8 ≤ fuel →
+      ResultMatches gfp (fpsGen 83) h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
+        (interp (Scope.env sha) fuel Scope.Id.«increase_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] h) (increase_balance a_state ⟨a_index⟩ ⟨a_delta⟩) := by
+  intro fuel hf
+  have hden := increase_balance_den sha 0 a_state a_index a_delta
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
 
 theorem initiate_builder_exit_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_builder_index : Nat) :
     ((den (Scope.env sha) fpsGen (m + 33)).fn (fpsGen 413) Scope.fn_initiate_builder_exit [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 199 64) a_builder_index))]).map (Except.mapError SpecError.fail) =
@@ -512,6 +742,16 @@ theorem initiate_builder_exit_den (sha : Oracle) (m : Nat) (a_state : BeaconStat
       callK (initiate_builder_exit a_state ⟨a_builder_index⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val .none, [(.cont 733 (kids_BeaconState x)), (.leaf (.uint (.nominal 199 64) a_builder_index))])) :=
   bind_call (initiate_builder_exit_den sha m a_state a_builder_index) k
 
+theorem initiate_builder_exit_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fpsGen 413)) :
+    ∀ fuel, 33 ≤ fuel →
+      ResultMatches gfp (fpsGen 413) h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
+        (interp (Scope.env sha) fuel Scope.Id.«initiate_builder_exit» [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] h) (initiate_builder_exit a_state ⟨a_builder_index⟩) := by
+  intro fuel hf
+  have hden := initiate_builder_exit_den sha 0 a_state a_builder_index
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
+
 theorem is_active_builder_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_builder_index : Nat) :
     ((den (Scope.env sha) fpsGen (m + 11)).fn [] Scope.fn_is_active_builder [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 199 64) a_builder_index))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Bool => (DRes.val (.bool x), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 199 64) a_builder_index))])) <$> is_active_builder a_state ⟨a_builder_index⟩) := by
@@ -524,6 +764,16 @@ theorem is_active_builder_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (
         (DM.bind ((den (Scope.env sha) fpsGen (m + 11)).fn [] Scope.fn_is_active_builder [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 199 64) a_builder_index))]) k) =
       callK (is_active_builder a_state ⟨a_builder_index⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 199 64) a_builder_index))])) :=
   bind_call (is_active_builder_den sha m a_state a_builder_index) k
+
+theorem is_active_builder_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    ∀ fuel, 11 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«is_active_builder» [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] h) (is_active_builder a_state ⟨a_builder_index⟩) := by
+  intro fuel hf
+  have hden := is_active_builder_den sha 0 a_state a_builder_index
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem is_active_validator_den (sha : Oracle) (m : Nat) (a_validator : Validator) (a_epoch : Nat) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_is_active_validator [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 140 64) a_epoch))]).map (Except.mapError SpecError.fail) =
@@ -538,6 +788,16 @@ theorem is_active_validator_den (sha : Oracle) (m : Nat) (a_validator : Validato
       callK (is_active_validator a_validator ⟨a_epoch⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 140 64) a_epoch))])) :=
   bind_call (is_active_validator_den sha m a_validator a_epoch) k
 
+theorem is_active_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (a_epoch : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+    ∀ fuel, 9 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 140 64) a_epoch)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«is_active_validator» [(.ref r_validator), (.uint (.nominal 140 64) a_epoch)] h) (is_active_validator a_validator ⟨a_epoch⟩) := by
+  intro fuel hf
+  have hden := is_active_validator_den sha 0 a_validator a_epoch
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem is_builder_index_den (sha : Oracle) (m : Nat) (a_validator_index : Nat) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_is_builder_index [(.leaf (.uint (.nominal 82 64) a_validator_index))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Bool => (DRes.val (.bool x), [(.leaf (.uint (.nominal 82 64) a_validator_index))])) <$> is_builder_index ⟨a_validator_index⟩) := by
@@ -550,6 +810,16 @@ theorem is_builder_index_den (sha : Oracle) (m : Nat) (a_validator_index : Nat) 
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_is_builder_index [(.leaf (.uint (.nominal 82 64) a_validator_index))]) k) =
       callK (is_builder_index ⟨a_validator_index⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.leaf (.uint (.nominal 82 64) a_validator_index))])) :=
   bind_call (is_builder_index_den sha m a_validator_index) k
+
+theorem is_builder_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator_index : Nat)  :
+    ∀ fuel, 9 ≤ fuel →
+      ResultMatches gfp [] h [(.uint (.nominal 82 64) a_validator_index)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«is_builder_index» [(.uint (.nominal 82 64) a_validator_index)] h) (is_builder_index ⟨a_validator_index⟩) := by
+  intro fuel hf
+  have hden := is_builder_index_den sha 0 a_validator_index
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem is_builder_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_withdrawal_credentials : List UInt8) :
     ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_is_builder_withdrawal_credential [(.leaf (.bytes 505 a_withdrawal_credentials))]).map (Except.mapError SpecError.fail) =
@@ -564,6 +834,16 @@ theorem is_builder_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_withdra
       callK (is_builder_withdrawal_credential ⟨a_withdrawal_credentials⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.leaf (.bytes 505 a_withdrawal_credentials))])) :=
   bind_call (is_builder_withdrawal_credential_den sha m a_withdrawal_credentials) k
 
+theorem is_builder_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_withdrawal_credentials : List UInt8)  :
+    ∀ fuel, 10 ≤ fuel →
+      ResultMatches gfp [] h [(.bytes 505 a_withdrawal_credentials)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«is_builder_withdrawal_credential» [(.bytes 505 a_withdrawal_credentials)] h) (is_builder_withdrawal_credential ⟨a_withdrawal_credentials⟩) := by
+  intro fuel hf
+  have hden := is_builder_withdrawal_credential_den sha 0 a_withdrawal_credentials
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem is_eligible_for_activation_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_validator : Validator) :
     ((den (Scope.env sha) fpsGen (m + 11)).fn [] Scope.fn_is_eligible_for_activation [(.cont 733 (kids_BeaconState a_state)), (.cont 396 (kids_Validator a_validator))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Bool => (DRes.val (.bool x), [(.cont 733 (kids_BeaconState a_state)), (.cont 396 (kids_Validator a_validator))])) <$> is_eligible_for_activation a_state a_validator) := by
@@ -576,6 +856,16 @@ theorem is_eligible_for_activation_den (sha : Oracle) (m : Nat) (a_state : Beaco
         (DM.bind ((den (Scope.env sha) fpsGen (m + 11)).fn [] Scope.fn_is_eligible_for_activation [(.cont 733 (kids_BeaconState a_state)), (.cont 396 (kids_Validator a_validator))]) k) =
       callK (is_eligible_for_activation a_state a_validator) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.cont 733 (kids_BeaconState a_state)), (.cont 396 (kids_Validator a_validator))])) :=
   bind_call (is_eligible_for_activation_den sha m a_state a_validator) k
+
+theorem is_eligible_for_activation_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_validator : Validator) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+    ∀ fuel, 11 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_state), (.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«is_eligible_for_activation» [(.ref r_state), (.ref r_validator)] h) (is_eligible_for_activation a_state a_validator) := by
+  intro fuel hf
+  have hden := is_eligible_for_activation_den sha 0 a_state a_validator
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem is_eligible_for_activation_queue_den (sha : Oracle) (m : Nat) (a_validator : Validator) :
     ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_is_eligible_for_activation_queue [(.cont 396 (kids_Validator a_validator))]).map (Except.mapError SpecError.fail) =
@@ -590,6 +880,16 @@ theorem is_eligible_for_activation_queue_den (sha : Oracle) (m : Nat) (a_validat
       callK (is_eligible_for_activation_queue a_validator) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator))])) :=
   bind_call (is_eligible_for_activation_queue_den sha m a_validator) k
 
+theorem is_eligible_for_activation_queue_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+    ∀ fuel, 10 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«is_eligible_for_activation_queue» [(.ref r_validator)] h) (is_eligible_for_activation_queue a_validator) := by
+  intro fuel hf
+  have hden := is_eligible_for_activation_queue_den sha 0 a_validator
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem is_eligible_for_partial_withdrawals_den (sha : Oracle) (m : Nat) (a_validator : Validator) (a_balance : Nat) :
     ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_is_eligible_for_partial_withdrawals [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 265 64) a_balance))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Bool => (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 265 64) a_balance))])) <$> is_eligible_for_partial_withdrawals a_validator ⟨a_balance⟩) := by
@@ -602,6 +902,16 @@ theorem is_eligible_for_partial_withdrawals_den (sha : Oracle) (m : Nat) (a_vali
         (DM.bind ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_is_eligible_for_partial_withdrawals [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 265 64) a_balance))]) k) =
       callK (is_eligible_for_partial_withdrawals a_validator ⟨a_balance⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 265 64) a_balance))])) :=
   bind_call (is_eligible_for_partial_withdrawals_den sha m a_validator a_balance) k
+
+theorem is_eligible_for_partial_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (a_balance : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+    ∀ fuel, 10 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 265 64) a_balance)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«is_eligible_for_partial_withdrawals» [(.ref r_validator), (.uint (.nominal 265 64) a_balance)] h) (is_eligible_for_partial_withdrawals a_validator ⟨a_balance⟩) := by
+  intro fuel hf
+  have hden := is_eligible_for_partial_withdrawals_den sha 0 a_validator a_balance
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem is_fully_withdrawable_validator_den (sha : Oracle) (m : Nat) (a_validator : Validator) (a_balance : Nat) (a_epoch : Nat) :
     ((den (Scope.env sha) fpsGen (m + 46)).fn [] Scope.fn_is_fully_withdrawable_validator [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 265 64) a_balance)), (.leaf (.uint (.nominal 140 64) a_epoch))]).map (Except.mapError SpecError.fail) =
@@ -616,6 +926,16 @@ theorem is_fully_withdrawable_validator_den (sha : Oracle) (m : Nat) (a_validato
       callK (is_fully_withdrawable_validator a_validator ⟨a_balance⟩ ⟨a_epoch⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 265 64) a_balance)), (.leaf (.uint (.nominal 140 64) a_epoch))])) :=
   bind_call (is_fully_withdrawable_validator_den sha m a_validator a_balance a_epoch) k
 
+theorem is_fully_withdrawable_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (a_balance : Nat) (a_epoch : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+    ∀ fuel, 46 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 265 64) a_balance), (.uint (.nominal 140 64) a_epoch)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«is_fully_withdrawable_validator» [(.ref r_validator), (.uint (.nominal 265 64) a_balance), (.uint (.nominal 140 64) a_epoch)] h) (is_fully_withdrawable_validator a_validator ⟨a_balance⟩ ⟨a_epoch⟩) := by
+  intro fuel hf
+  have hden := is_fully_withdrawable_validator_den sha 0 a_validator a_balance a_epoch
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem is_in_inactivity_leak_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
     ((den (Scope.env sha) fpsGen (m + 59)).fn [] Scope.fn_is_in_inactivity_leak [(.cont 733 (kids_BeaconState a_state))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Bool => (DRes.val (.bool x), [(.cont 733 (kids_BeaconState a_state))])) <$> is_in_inactivity_leak a_state) := by
@@ -628,6 +948,16 @@ theorem is_in_inactivity_leak_den (sha : Oracle) (m : Nat) (a_state : BeaconStat
         (DM.bind ((den (Scope.env sha) fpsGen (m + 59)).fn [] Scope.fn_is_in_inactivity_leak [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (is_in_inactivity_leak a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.cont 733 (kids_BeaconState a_state))])) :=
   bind_call (is_in_inactivity_leak_den sha m a_state) k
+
+theorem is_in_inactivity_leak_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    ∀ fuel, 59 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_state)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«is_in_inactivity_leak» [(.ref r_state)] h) (is_in_inactivity_leak a_state) := by
+  intro fuel hf
+  have hden := is_in_inactivity_leak_den sha 0 a_state
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem is_partially_withdrawable_validator_den (sha : Oracle) (m : Nat) (a_validator : Validator) (a_balance : Nat) :
     ((den (Scope.env sha) fpsGen (m + 46)).fn [] Scope.fn_is_partially_withdrawable_validator [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 265 64) a_balance))]).map (Except.mapError SpecError.fail) =
@@ -642,6 +972,16 @@ theorem is_partially_withdrawable_validator_den (sha : Oracle) (m : Nat) (a_vali
       callK (is_partially_withdrawable_validator a_validator ⟨a_balance⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 265 64) a_balance))])) :=
   bind_call (is_partially_withdrawable_validator_den sha m a_validator a_balance) k
 
+theorem is_partially_withdrawable_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (a_balance : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+    ∀ fuel, 46 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 265 64) a_balance)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«is_partially_withdrawable_validator» [(.ref r_validator), (.uint (.nominal 265 64) a_balance)] h) (is_partially_withdrawable_validator a_validator ⟨a_balance⟩) := by
+  intro fuel hf
+  have hden := is_partially_withdrawable_validator_den sha 0 a_validator a_balance
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+
 theorem is_slashable_validator_den (sha : Oracle) (m : Nat) (a_validator : Validator) (a_epoch : Nat) :
     ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_is_slashable_validator [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 140 64) a_epoch))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Bool => (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 140 64) a_epoch))])) <$> is_slashable_validator a_validator ⟨a_epoch⟩) := by
@@ -654,6 +994,16 @@ theorem is_slashable_validator_den (sha : Oracle) (m : Nat) (a_validator : Valid
         (DM.bind ((den (Scope.env sha) fpsGen (m + 10)).fn [] Scope.fn_is_slashable_validator [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 140 64) a_epoch))]) k) =
       callK (is_slashable_validator a_validator ⟨a_epoch⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bool x), [(.cont 396 (kids_Validator a_validator)), (.leaf (.uint (.nominal 140 64) a_epoch))])) :=
   bind_call (is_slashable_validator_den sha m a_validator a_epoch) k
+
+theorem is_slashable_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (a_epoch : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+    ∀ fuel, 10 ≤ fuel →
+      ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 140 64) a_epoch)] (fun (x : Bool) _ v => v = (.bool x))
+        (interp (Scope.env sha) fuel Scope.Id.«is_slashable_validator» [(.ref r_validator), (.uint (.nominal 140 64) a_epoch)] h) (is_slashable_validator a_validator ⟨a_epoch⟩) := by
+  intro fuel hf
+  have hden := is_slashable_validator_den sha 0 a_validator a_epoch
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 theorem process_slashings_reset_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
     ((den (Scope.env sha) fpsGen (m + 33)).fn (fpsGen 541) Scope.fn_process_slashings_reset [(.cont 733 (kids_BeaconState a_state))]).map (Except.mapError SpecError.fail) =
@@ -668,6 +1018,16 @@ theorem process_slashings_reset_den (sha : Oracle) (m : Nat) (a_state : BeaconSt
       callK (process_slashings_reset a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val .none, [(.cont 733 (kids_BeaconState x))])) :=
   bind_call (process_slashings_reset_den sha m a_state) k
 
+theorem process_slashings_reset_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state)] (fpsGen 541)) :
+    ∀ fuel, 33 ≤ fuel →
+      ResultMatches gfp (fpsGen 541) h [(.ref r_state)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
+        (interp (Scope.env sha) fuel Scope.Id.«process_slashings_reset» [(.ref r_state)] h) (process_slashings_reset a_state) := by
+  intro fuel hf
+  have hden := process_slashings_reset_den sha 0 a_state
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
+
 theorem update_next_withdrawal_builder_index_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_processed_builders_sweep_count : Nat) :
     ((den (Scope.env sha) fpsGen (m + 11)).fn (fpsGen 687) Scope.fn_update_next_withdrawal_builder_index [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.width 64) a_processed_builders_sweep_count))]).map (Except.mapError SpecError.fail) =
       some ((fun x : BeaconState => (DRes.val .none, [(.cont 733 (kids_BeaconState x)), (.leaf (.uint (.width 64) a_processed_builders_sweep_count))])) <$> update_next_withdrawal_builder_index a_state ⟨a_processed_builders_sweep_count⟩) := by
@@ -680,6 +1040,16 @@ theorem update_next_withdrawal_builder_index_den (sha : Oracle) (m : Nat) (a_sta
         (DM.bind ((den (Scope.env sha) fpsGen (m + 11)).fn (fpsGen 687) Scope.fn_update_next_withdrawal_builder_index [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.width 64) a_processed_builders_sweep_count))]) k) =
       callK (update_next_withdrawal_builder_index a_state ⟨a_processed_builders_sweep_count⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val .none, [(.cont 733 (kids_BeaconState x)), (.leaf (.uint (.width 64) a_processed_builders_sweep_count))])) :=
   bind_call (update_next_withdrawal_builder_index_den sha m a_state a_processed_builders_sweep_count) k
+
+theorem update_next_withdrawal_builder_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_processed_builders_sweep_count : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] (fpsGen 687)) :
+    ∀ fuel, 11 ≤ fuel →
+      ResultMatches gfp (fpsGen 687) h [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
+        (interp (Scope.env sha) fuel Scope.Id.«update_next_withdrawal_builder_index» [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] h) (update_next_withdrawal_builder_index a_state ⟨a_processed_builders_sweep_count⟩) := by
+  intro fuel hf
+  have hden := update_next_withdrawal_builder_index_den sha 0 a_state a_processed_builders_sweep_count
+  rw [Nat.zero_add] at hden
+  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
+    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
 
 theorem update_next_withdrawal_builder_index_den_BuilderIndex (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_processed_builders_sweep_count : Nat) :
     ((den (Scope.env sha) fpsGen (m + 11)).fn (fpsGen 687) Scope.fn_update_next_withdrawal_builder_index [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 199 64) a_processed_builders_sweep_count))]).map (Except.mapError SpecError.fail) =

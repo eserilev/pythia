@@ -301,7 +301,7 @@ def depth(t):
 # ---------------------------------------------------------------------------
 # Generated Lean
 
-HEADER = """import SpecLean.Layer4.GenSteps
+HEADER = """import SpecLean.Layer4.GenWrap
 import SpecLean.Validation.Tactic
 """
 
@@ -474,7 +474,51 @@ def candidate(m, name, proved, sub=None, isub=False):
             "      callK (%s %s) fun x => Option.map (Except.mapError SpecError.fail) (k (%s, %s)) :=\n"
             "  bind_call (%s_den%s sha m %s) k\n"
             % (name, tag, " ".join(bs), D, fp, name, rs, name, " ".join(rds), enc, rs_out, name, tag, " ".join(xs)))
-    return thm + "\n" + call, D
+    out = thm + "\n" + call
+    if not sub:
+        out += "\n" + wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f)
+    return out, D
+
+
+def wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f):
+    """`<f>_l4`: SPEC 9.2 from `<f>_den`, through `GenWrap.l4_wrap`."""
+    vs, hyps, decs = [], [], []
+    for i, ((pn, pt), r) in enumerate(zip(params, roots)):
+        if r.startswith("(.leaf "):
+            vs.append(r[len("(.leaf "):-1])
+            decs.append("(GenWrap.dec_leaf rfl)")
+        else:
+            vs.append("(.ref r_%s)" % pn)
+            hyps.append("(r_%s : Nat) (hr_%s : ∃ n, dec h n (.ref r_%s) = some %s)" % (pn, pn, pn, r))
+            decs.append("hr_%s" % pn)
+    hdec = "(GenWrap.decArgs_nil h)"
+    for dd in reversed(decs):
+        hdec = "(GenWrap.decArgs_cons %s %s)" % (dd, hdec)
+    VS = "[%s]" % ", ".join(vs)
+    fp = "(fpsGen %d)" % f["id"] if w else "[]"
+    hw = " (hw : WTree h %s %s)" % (VS, fp) if w else ""
+    hwt = "hw" if w else "(Examples.wtree_nil h _)"
+    if w:
+        k = [i for i, (_, pt) in enumerate(params) if pt == w][0]
+        pn = params[k][0]
+        E = ("(fun (x : %s) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_%s) = some (.cont %d (kids_%s x)))"
+             % (w, pn, m.cid[w], w))
+        hE = "(fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 %d rfl rfl⟩)" % k
+    else:
+        V = enc[len("DRes.val "):]
+        E = "(fun (x : %s) _ v => v = %s)" % (m.sigs[name][1], V)
+        hE = "(fun x h' v hx => hx.1.1)"
+    return ("theorem %s_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) %s %s%s :\n"
+            "    ∀ fuel, %d ≤ fuel →\n"
+            "      ResultMatches gfp %s h %s %s\n"
+            "        (interp (Scope.env sha) fuel Scope.Id.«%s» %s h) (%s %s) := by\n"
+            "  intro fuel hf\n"
+            "  have hden := %s_den sha 0 %s\n"
+            "  rw [Nat.zero_add] at hden\n"
+            "  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])\n"
+            "    hwf %s %s hden %s)\n"
+            % (name, " ".join(bs), " ".join(hyps), hw, D, fp, VS, E, name, VS, name, " ".join(rds),
+               name, " ".join(xs), hdec, hwt, hE))
 
 
 def check(text, tag, full=False):

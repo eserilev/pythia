@@ -1,4 +1,4 @@
-import SpecLean.Layer4.GenSteps
+import SpecLean.Layer4.GenWrap
 import SpecLean.Validation.Tactic
 
 /-!
