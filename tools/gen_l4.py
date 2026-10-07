@@ -1364,8 +1364,19 @@ def uses_bls(m, name):
     if name not in BLS:
         BLS[name] = False
         body = m.bodies.get(name, "")
-        BLS[name] = "Spec.bls" in body or "Spec.sha256" in body or any(uses_bls(m, c) for c in m.callees(name))
+        BLS[name] = "Spec.bls" in body or any(uses_bls(m, c) for c in m.callees(name))
     return BLS[name]
+
+
+SHA = {}
+
+
+def uses_sha(m, name):
+    """`name` or a callee calls `sha256`."""
+    if name not in SHA:
+        SHA[name] = False
+        SHA[name] = "Spec.sha256" in m.bodies.get(name, "") or any(uses_sha(m, c) for c in m.callees(name))
+    return SHA[name]
 
 
 def oracle_args(m, c):
@@ -1497,7 +1508,7 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
     cps = comps(m, name, params, roots, rds) if not sub else []
     wls = whiles(m, name, params, roots, rds) if not sub else []
     if uses_bls(m, name):
-        bs.insert(0, "(hbl : GenBridge.OracleBls sha)")
+        bs.insert(0, "(hbl : Validation.BlsBridge.OracleBls sha)")
         xs.insert(0, "hbl")
     if uses_htr(m, name):
         bs.insert(0, "(ho : Validation.HtrBridge.OracleHtr sha)")
@@ -1541,7 +1552,7 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
         unf += ["GenBridge.callK_htrObj_len ho" for _ in objs[:1]]
         unf += ["ho", "ho.sha256"]
     if uses_bls(m, name):
-        unf += ["hbl.verify"]
+        unf += ["hbv"]
     if rt in m.reps and ("theorem kids_%s_mk" % rt) in classes_file_cache(m):
         unf.append("kids_%s_mk" % rt)
     loopstep = ""
@@ -1574,7 +1585,8 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
            % (name, tag, " ".join(bs), LENS, D, fp, name, rs, rt, enc, rs_out, name, " ".join(rds),
               ("".join("  have %s' := %s\n" % (h, h) for h in hoks) +
                "  simp only [%s] at %s\n" % (", ".join("ok_" + n for n in m.rep_order), " ".join(h + "'" for h in hoks)))
-              if hoks else "", "  have hbv := hbl.verify\n  have hsl := hbl.sha256_len\n" if uses_bls(m, name) else "", ", ".join(unf), loopstep,
+              if hoks else "", ("  have hbv := hbl.verify\n  simp only [Scope.Id.«Verify»] at hbv\n" if uses_bls(m, name) else "") +
+              ("  have hsl := ho.sha256_len\n" if uses_sha(m, name) else ""), ", ".join(unf), loopstep,
               "" if os.environ.get("L4_NOCLOSE") else
               "  all_goals l4_dbg\n" if os.environ.get("L4_DBG") else "  all_goals l4_close\n"))
     call = ("@[l4_simp] theorem %s_call%s (sha : Oracle) (m : Nat) %s {γ : Type} (k : DRes × List DV → DM γ) :\n"

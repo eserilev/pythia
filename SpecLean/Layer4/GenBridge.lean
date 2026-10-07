@@ -1,5 +1,6 @@
 import SpecLean.Layer4.GenWrap
 import SpecLean.Validation.HtrBridge
+import SpecLean.Validation.BlsBridge
 
 /-!
 # Layer 4: from the readable decoders to the decoded trees
@@ -429,13 +430,5 @@ theorem callK_htrObj_len [Spec] {sha : Oracle} (ho : Validation.HtrBridge.Oracle
     Layer4.GenSteps.callK (htrObj o) (fun b => if b.length = 32 then g b else z) =
       Layer4.GenSteps.callK (htrObj o) g :=
   callK_htr_len ho (fun (_ : Unit) => o.enc) () g z
-
-/-- The BLS oracle of the interpreter is the one of the readable Lean. Method 447 is `Verify`.
-`sha256` gives 32 bytes. -/
-structure OracleBls [Spec] (sha : Oracle) : Prop where
-  sha256_len : ∀ bs, (Spec.sha256 bs).length = 32
-  verify : ∀ (c1 c2 c3 : Name) (pk msg sig : Bytes),
-    sha.bls 447 Heap.empty [.bytes c1 pk, .bytes c2 msg, .bytes c3 sig] =
-      .ok (.bool (Spec.blsVerify pk msg sig))
 
 end SpecLean.Layer4.GenBridge
