@@ -1518,7 +1518,7 @@ class Fn:
                 for x, t in self.hoisted.items():
                     self.vars.setdefault(x, t)
                     self.declared.add(x)
-                for x in set(al_then) | set(al_else):
+                for x in sorted(set(al_then) | set(al_else)):
                     a, b = al_then.get(x), al_else.get(x)
                     if a is not None and b is not None:
                         if a == b:
