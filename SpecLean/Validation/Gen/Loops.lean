@@ -593,7 +593,7 @@ set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 8192 in
 theorem can_builder_cover_bid_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (x2 : Nat) (k : Nat) :
       ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
-        (interp (Scope.env sha) (k + x0.builder_pending_withdrawals.length + x0.builder_pending_payments.length + 192) Scope.Id.«can_builder_cover_bid» [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] h)
+        (interp (Scope.env sha) (k + x0.builder_pending_payments.length + x0.builder_pending_withdrawals.length + 192) Scope.Id.«can_builder_cover_bid» [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] h)
         (can_builder_cover_bid x0 (⟨x1⟩ : BuilderIndex) (⟨x2⟩ : Gwei)) := by
   have hy0c := hy0
   simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
@@ -611,17 +611,17 @@ theorem can_builder_cover_bid_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 
       ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
         (interp (Scope.env sha) fuel Scope.Id.«can_builder_cover_bid» [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] h)
         (can_builder_cover_bid x0 (⟨x1⟩ : BuilderIndex) (⟨x2⟩ : Gwei)) :=
-  ⟨x0.builder_pending_withdrawals.length + x0.builder_pending_payments.length + 192, fun fuel hf => by
+  ⟨x0.builder_pending_payments.length + x0.builder_pending_withdrawals.length + 192, fun fuel hf => by
     obtain ⟨k, hk⟩ := Nat.exists_eq_add_of_le' hf
-    rw [show fuel = k + x0.builder_pending_withdrawals.length + x0.builder_pending_payments.length + 192 by omega]
+    rw [show fuel = k + x0.builder_pending_payments.length + x0.builder_pending_withdrawals.length + 192 by omega]
     exact can_builder_cover_bid_run sha gfp h r0 x0 hy0 x1 x2 k⟩
 
 set_option maxRecDepth 8192 in
-theorem can_builder_cover_bid_runF (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (x2 : Nat) (F : Nat) (hF : x0.builder_pending_withdrawals.length + x0.builder_pending_payments.length + 192 ≤ F) :
+theorem can_builder_cover_bid_runF (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState) (hy0 : dec_BeaconState h (.ref r0) = some x0) (x1 : Nat) (x2 : Nat) (F : Nat) (hF : x0.builder_pending_payments.length + x0.builder_pending_withdrawals.length + 192 ≤ F) :
     ResultMatches gfp [] h [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] (fun (r : Bool) h' v => v = .bool r ∧ h' = h)
       (interp (Scope.env sha) F Scope.Id.«can_builder_cover_bid» [(.ref r0), (.uint (.nominal Scope.Id.«BuilderIndex» 64) x1), (.uint (.nominal Scope.Id.«Gwei» 64) x2)] h) (can_builder_cover_bid x0 (⟨x1⟩ : BuilderIndex) (⟨x2⟩ : Gwei)) := by
   obtain ⟨k, hk⟩ := Nat.exists_eq_add_of_le' hF
-  rw [show F = k + x0.builder_pending_withdrawals.length + x0.builder_pending_payments.length + 192 by omega]
+  rw [show F = k + x0.builder_pending_payments.length + x0.builder_pending_withdrawals.length + 192 by omega]
   exact can_builder_cover_bid_run sha gfp h r0 x0 hy0 x1 x2 k
 
 set_option maxHeartbeats 4000000 in
