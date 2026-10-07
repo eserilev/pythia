@@ -272,6 +272,9 @@ structure OracleHtr [Spec] (sha : Oracle) : Prop where
   len : ∀ h v r, sha.hashTreeRoot h v = .ok r → r.length = 32
   /-- `sha256` is an oracle too: the readable Lean calls the interpreter's. -/
   sha256 : sha.sha256 = Spec.sha256
+  /-- Every `sha256` digest is 32 bytes. The readable `Bytes32` checks the length, and the
+  interpreter does not. -/
+  sha256_len : ∀ b, (Spec.sha256 b).length = 32
 
 /-- The executable oracle `Htr.root` reads only the content of a value. -/
 theorem htrRoot_ext (H : Htr.Hasher) :

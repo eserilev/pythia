@@ -1000,6 +1000,10 @@ macro "rd_subargs" : tactic => `(tactic| (
       Option.some.injEq, SpecLean.Value.ref.injEq, reduceCtorEq] at hk ⊢ <;>
     first | (subst hk; rfl) | exact hk | rfl))
 
+/-- `Shaped` of an argument of a callee: from the caller's `Shaped` of the object that holds it.
+Defined in `SigningRoots.lean`. -/
+syntax "rd_shaped" : tactic
+
 /-- A hypothesis of a callee theorem at a call: a fact about literals, or the write condition
 of the callee from the caller's, when the callee takes the caller's arguments in place. -/
 macro "rd_callhyp" : tactic => `(tactic| first
@@ -1022,6 +1026,7 @@ macro "rd_callhyp" : tactic => `(tactic| first
      rd_skel
      rd_subargs)
   | rd_heapwf
+  | rd_shaped
   -- The fuel bound of a callee whose fuel depends on its input (`_runF`).
   | omega
   | (dsimp only; omega))
