@@ -3,14 +3,24 @@
 # and hazard tests. With --ef CASES_DIR, also the EF minimal cases with the sharing check and the
 # readable Lean. One summary line per check; the exit status is 1 when any check fails.
 #
-# Usage: tools/regress.sh [--ef CASES_DIR]
+# Usage: tools/regress.sh [--ef CASES_DIR] [--jobs N] [--timeout SECONDS]
 # SPECS is the consensus-specs checkout with the pyspec environment (default ../consensus-specs-safe).
-# Each build and run is capped at 8 GB (24 GB for the EF runners); EF uses 8 parallel runners.
+# Each build and run is capped at 8 GB (24 GB for the EF runners). EF uses EF_JOBS parallel runners
+# (default 4) and stops a case after EF_TIMEOUT seconds (default 3600). The flags override them.
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SPECS=${SPECS:-$ROOT/../consensus-specs-safe}
 EF=""
-if [ "$1" = "--ef" ]; then EF=$2; fi
+EF_JOBS=${EF_JOBS:-4}
+EF_TIMEOUT=${EF_TIMEOUT:-3600}
+while [ $# -gt 0 ]; do
+  case $1 in
+    --ef) EF=$2; shift 2 ;;
+    --jobs) EF_JOBS=$2; shift 2 ;;
+    --timeout) EF_TIMEOUT=$2; shift 2 ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
 export LEAN_NUM_THREADS=4
 CAP="systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0"
 LOG=$(mktemp -d)
@@ -43,7 +53,7 @@ if [ -n "$EF" ]; then
   BIN="$ROOT/.lake/build/bin/efrunner"
   efrun() {
     systemd-run --user --scope -q -p MemoryMax=24G -p MemorySwapMax=0 sh -c \
-      "find '$EF' -name '*.case' | sort | xargs -P 8 -I{} sh -c \"out=\\\$(timeout 2400 $BIN --watch --readable {} | grep -E '^(PASS|FAIL|RD-|  HIT)'); [ -n \\\"\\\$out\\\" ] && echo \\\"\\\$out\\\" || echo 'FAIL {} timeout'\""
+      "find '$EF' -name '*.case' | sort | xargs -P $EF_JOBS -I{} sh -c \"out=\\\$(timeout $EF_TIMEOUT $BIN --watch --readable {} | grep -E '^(PASS|FAIL|RD-|  HIT)'); [ -n \\\"\\\$out\\\" ] && echo \\\"\\\$out\\\" || echo 'FAIL {} timeout'\""
   }
   efrun > "$LOG/ef-raw.log" 2>&1
   n=$(find "$EF" -name '*.case' | wc -l)

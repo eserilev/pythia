@@ -789,8 +789,9 @@ tools/regress.sh --ef CASES_DIR  # also the EF minimal cases, with the sharing c
 It prints one line per check and exits with status 1 when a check fails. `SPECS` names the
 consensus-specs checkout with the pyspec environment (default `../consensus-specs-safe`).
 `CASES_DIR` holds the `.case` files from `tools/ef_cases.py`. Each process runs under an 8 GB
-memory cap, and the EF cases run on 8 parallel runners. The quick checks take a few minutes; the
-EF cases take about 30 minutes.
+memory cap. The EF cases run on 4 parallel runners, and each case stops after 3600 s. Set
+`EF_JOBS` and `EF_TIMEOUT`, or pass `--jobs N` and `--timeout SECONDS`, to change them. The quick
+checks take a few minutes. The EF cases take about one hour, because one case takes about 45 minutes.
 
 ## 12. Risks and open questions
 
