@@ -29,17 +29,17 @@ theorem compute_fork_data_root_run (ho : OracleHtr sha) (gfp : Footprint) (h : H
       (interp (Scope.env sha) (k + 64) Scope.Id.«compute_fork_data_root»
         [(.bytes Scope.Id.«Version» x0), (.bytes Scope.Id.«Root» x1)] h)
       (compute_fork_data_root (⟨x0⟩ : Version) (⟨x1⟩ : Root)) := by
-  have hctor : ∀ m (h' : Heap), callValue (Scope.env sha) m (.glob 158) []
+  have hctor : ∀ m (h' : Heap), callValue (Scope.env sha) m (.glob Scope.Id.«ForkData») []
       [(157, .bytes Scope.Id.«Version» x0), (144, .bytes Scope.Id.«Root» x1)] h' =
-      .ok (.ref h'.next, (h'.alloc (.container 158
+      .ok (.ref h'.next, (h'.alloc (.container Scope.Id.«ForkData»
         [.bytes Scope.Id.«Version» x0, .bytes Scope.Id.«Root» x1])).2) := by
     intro m h'
     rw [callValue.eq_def]
     simp [Scope.env, lookup_lit, LibModel.construct, Ssz.construct, ctorFields, kwArg,
       Ssz.construct.build, depthBound, Ssz.coerceH, coerceField, h0, h1]
     rfl
-  have hhtr : ∀ m (h' : Heap) (a : Nat), callValue (Scope.env sha) m (.glob 159) [.ref a] [] h' =
-      (fun r => (Value.bytes 146 r, h')) <$> sha.hashTreeRoot h' (.ref a) := by
+  have hhtr : ∀ m (h' : Heap) (a : Nat), callValue (Scope.env sha) m (.glob Scope.Id.«hash_tree_root») [.ref a] [] h' =
+      (fun r => (Value.bytes Scope.Id.«Root» r, h')) <$> sha.hashTreeRoot h' (.ref a) := by
     intro m h' a
     rw [callValue.eq_def]
     simp [Scope.env, lookup_lit, applyBuiltin, LibModel.builtin, Ssz.builtin]
@@ -49,7 +49,7 @@ theorem compute_fork_data_root_run (ho : OracleHtr sha) (gfp : Footprint) (h : H
   simp [hctor, hhtr, lookup_lit, Scope.fn_compute_fork_data_root, Scope.env, callFn, bindArgs, evalList,
     bindArgs.go, execBlock, execStmt, evalExpr, evalArgs, lookupName]
   -- The new object and its readable value.
-  let o : HeapObj := .container 158 [.bytes Scope.Id.«Version» x0, .bytes Scope.Id.«Root» x1]
+  let o : HeapObj := .container Scope.Id.«ForkData» [.bytes Scope.Id.«Version» x0, .bytes Scope.Id.«Root» x1]
   let x : ForkData := { current_version := ⟨x0⟩, genesis_validators_root := ⟨x1⟩ }
   have hdec : dec_ForkData (h.alloc o).2 (.ref h.next) = some x := by
     simp [o, x, dec_ForkData, containerFieldsT, Where.objs_alloc_self, decBytesT, h0, h1,
@@ -63,7 +63,7 @@ theorem compute_fork_data_root_run (ho : OracleHtr sha) (gfp : Footprint) (h : H
       rw [Where.objs_alloc_self] at hoc
       simp only [o, Option.some.injEq, HeapObj.container.injEq] at hoc
       obtain ⟨rfl, rfl⟩ := hoc
-      have h2 : (Scope.containers.lookup 158).map List.length = some 2 := rfl
+      have h2 : (Scope.containers.lookup Scope.Id.«ForkData»).map List.length = some 2 := rfl
       rw [hl] at h2
       simp at h2
       simp [h2]
@@ -115,17 +115,17 @@ theorem compute_signing_root_run (ho : OracleHtr sha) (gfp : Footprint) (h : Hea
         [v0, (.bytes Scope.Id.«Domain» x1)] h)
       (compute_signing_root obj (⟨x1⟩ : Domain)) := by
   have hctor : ∀ m (h' : Heap) (r0 : List UInt8), r0.length = 32 →
-      callValue (Scope.env sha) m (.glob 194) []
+      callValue (Scope.env sha) m (.glob Scope.Id.«SigningData») []
         [(193, .bytes Scope.Id.«Root» r0), (192, .bytes Scope.Id.«Domain» x1)] h' =
-      .ok (.ref h'.next, (h'.alloc (.container 194
+      .ok (.ref h'.next, (h'.alloc (.container Scope.Id.«SigningData»
         [.bytes Scope.Id.«Root» r0, .bytes Scope.Id.«Domain» x1])).2) := by
     intro m h' r0 hr0
     rw [callValue.eq_def]
     simp [Scope.env, lookup_lit, LibModel.construct, Ssz.construct, ctorFields, kwArg,
       Ssz.construct.build, depthBound, Ssz.coerceH, coerceField, hr0, h1]
     rfl
-  have hhtr : ∀ m (h' : Heap) (w : Value), callValue (Scope.env sha) m (.glob 159) [w] [] h' =
-      (fun r => (Value.bytes 146 r, h')) <$> sha.hashTreeRoot h' w := by
+  have hhtr : ∀ m (h' : Heap) (w : Value), callValue (Scope.env sha) m (.glob Scope.Id.«hash_tree_root») [w] [] h' =
+      (fun r => (Value.bytes Scope.Id.«Root» r, h')) <$> sha.hashTreeRoot h' w := by
     intro m h' w
     rw [callValue.eq_def]
     simp [Scope.env, lookup_lit, applyBuiltin, LibModel.builtin, Ssz.builtin]
@@ -149,7 +149,7 @@ theorem compute_signing_root_run (ho : OracleHtr sha) (gfp : Footprint) (h : Hea
     simp [erase, Except.mapError, ResultMatches, hne]
   · have hl0 := ho.len _ _ _ hR0
     have hb : bytesOf Root r0 = .ok ⟨r0⟩ := by simp [bytesOf, hl0, BytesC.len, BytesC.ofBytes]
-    let o : HeapObj := .container 194 [.bytes Scope.Id.«Root» r0, .bytes Scope.Id.«Domain» x1]
+    let o : HeapObj := .container Scope.Id.«SigningData» [.bytes Scope.Id.«Root» r0, .bytes Scope.Id.«Domain» x1]
     let x : SigningData := { object_root := ⟨r0⟩, domain := ⟨x1⟩ }
     have hbis : Bis 64 (h.alloc o).2 (.ref h.next) (enc_SigningData x Heap.empty).2
         (enc_SigningData x Heap.empty).1 := by
@@ -158,7 +158,7 @@ theorem compute_signing_root_run (ho : OracleHtr sha) (gfp : Footprint) (h : Hea
     have hbr := htr_bridge ho enc_SigningData hbis
     have hc := alloc_contract gfp [] (vs := [v0, (.bytes Scope.Id.«Domain» x1)]) o hwf haw
     simp only [Except.bind_ok', erase, Except.mapError, hb]
-    rw [show (Value.bytes 146 r0) = Value.bytes Scope.Id.«Root» r0 from rfl, hctor _ _ r0 hl0]
+    rw [show (Value.bytes Scope.Id.«Root» r0) = Value.bytes Scope.Id.«Root» r0 from rfl, hctor _ _ r0 hl0]
     simp only [Except.bind_ok']
     rw [show ({ object_root := ⟨r0⟩, domain := ⟨x1⟩ } : SigningData) = x from rfl, ← hbr]
     revert hc

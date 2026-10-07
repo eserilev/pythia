@@ -20,6 +20,9 @@ namespace SpecLean.Validation
 open SpecLean SpecLean.Rd SpecLean.Rd.Gen SpecLean.Encode SpecLean.Validation.Tactic
 open SpecLean.Validation.Where SpecLean.Validation.Grow
 
+attribute [local simp] Scope.Id.«i» Scope.Id.«v» Scope.Id.«epoch» Scope.Id.«is_active_validator»
+  Scope.Id.«ValidatorIndex» Scope.Id.«enumerate»
+
 set_option linter.unusedSectionVars false
 set_option linter.unusedSimpArgs false
 variable [Spec]
@@ -77,19 +80,19 @@ theorem wrap_uOf_vi (n : Nat) :
 theorem gavi_item (gfp : Footprint) (vs : List Value) (n i : Nat) (L : Locals) (h : Heap) (r : Nat)
     (v : Validator) (x1 : Nat) (hc : CContract gfp [] vs h h)
     (hdv : dec_Validator h (.ref r) = some v)
-    (hL103 : L 103 = some (.uint (.nominal Scope.Id.«Epoch» 64) x1)) (hL215 : L 215 = none)
-    (hL82 : L 82 = none) :
+    (hL103 : L Scope.Id.«epoch» = some (.uint (.nominal Scope.Id.«Epoch» 64) x1)) (hL215 : L Scope.Id.«is_active_validator» = none)
+    (hL82 : L Scope.Id.«ValidatorIndex» = none) :
     ItemRel (CContract gfp [] vs h)
-      (fun L' h' => h' = h ∧ L' 103 = some (.uint (.nominal Scope.Id.«Epoch» 64) x1) ∧
-        L' 215 = none ∧ L' 82 = none)
+      (fun L' h' => h' = h ∧ L' Scope.Id.«epoch» = some (.uint (.nominal Scope.Id.«Epoch» 64) x1) ∧
+        L' Scope.Id.«is_active_validator» = none ∧ L' Scope.Id.«ValidatorIndex» = none)
       (fun v (b : ValidatorIndex) _ => v = .uint (.nominal Scope.Id.«ValidatorIndex» 64) b.val)
-      (compItem (Scope.env sha) (n + 66) L h (.tuple 1474 [(.name 1474 115), (.name 1474 78)])
-        [(.call 1474 (.name 1474 215) [(.pos (.name 1474 78)), (.pos (.name 1474 103))])]
-        (.call 1474 (.name 1474 82) [(.pos (.name 1474 115))]) (enumItem i (.ref r)))
+      (compItem (Scope.env sha) (n + 66) L h (.tuple 1474 [(.name 1474 Scope.Id.«i»), (.name 1474 Scope.Id.«v»)])
+        [(.call 1474 (.name 1474 Scope.Id.«is_active_validator») [(.pos (.name 1474 Scope.Id.«v»)), (.pos (.name 1474 Scope.Id.«epoch»))])]
+        (.call 1474 (.name 1474 Scope.Id.«ValidatorIndex») [(.pos (.name 1474 Scope.Id.«i»))]) (enumItem i (.ref r)))
       (do if (← is_active_validator v ⟨x1⟩) then (do pure (some (← uOf ValidatorIndex (i : Int)))) else pure none) := by
   have hrun := SpecLean.Validation.Gen.is_active_validator_run sha gfp h r v hdv x1 (n + 1)
   obtain ⟨b, hb⟩ : ∃ b, is_active_validator v ⟨x1⟩ = .ok b := ⟨_, rfl⟩
-  have hcall : callStop (Scope.env sha) (n + 65) 215
+  have hcall : callStop (Scope.env sha) (n + 65) Scope.Id.«is_active_validator»
       [.ref r, .uint (.nominal Scope.Id.«Epoch» 64) x1] h =
       .ok (.bool b, h) := by
     rw [callStop_def]
@@ -99,7 +102,7 @@ theorem gavi_item (gfp : Footprint) (vs : List Value) (n i : Nat) (L : Locals) (
     · simp [ResultMatches]
     · simp only [ResultMatches]
       rintro ⟨⟨rfl, rfl⟩, -⟩; rfl
-  have hvi : ∀ (m : Nat) (h' : Heap), callValue (Scope.env sha) m (.glob 82) [.int (i : Int)] [] h' =
+  have hvi : ∀ (m : Nat) (h' : Heap), callValue (Scope.env sha) m (.glob Scope.Id.«ValidatorIndex») [.int (i : Int)] [] h' =
       (fun w => (w, h')) <$> wrapUint (.nominal Scope.Id.«ValidatorIndex» 64) i := by
     intro m h'
     rw [callValue.eq_def]
@@ -109,9 +112,9 @@ theorem gavi_item (gfp : Footprint) (vs : List Value) (n i : Nat) (L : Locals) (
   unfold compItem
   simp [hvi, truthyH, truthy, LibValues.truthy, Ssz.truthy, pyTruthy, enumItem, assignTarget, assignTargets, evalIfs, call_through, evalExpr, evalArgs,
     lookupName, hL103, hL215, hL82, Scope.env, lookup_lit, hb, hcall]
-  have hQ : ((L.set 115 (.int (i : Int))).set 78 (.ref r)) 103 = some (.uint (.nominal Scope.Id.«Epoch» 64) x1) ∧
-      ((L.set 115 (.int (i : Int))).set 78 (.ref r)) 215 = none ∧
-      ((L.set 115 (.int (i : Int))).set 78 (.ref r)) 82 = none := by
+  have hQ : ((L.set Scope.Id.«i» (.int (i : Int))).set Scope.Id.«v» (.ref r)) Scope.Id.«epoch» = some (.uint (.nominal Scope.Id.«Epoch» 64) x1) ∧
+      ((L.set Scope.Id.«i» (.int (i : Int))).set Scope.Id.«v» (.ref r)) Scope.Id.«is_active_validator» = none ∧
+      ((L.set Scope.Id.«i» (.int (i : Int))).set Scope.Id.«v» (.ref r)) Scope.Id.«ValidatorIndex» = none := by
     simp [Locals.set_apply, hL103, hL215, hL82]
   cases b
   · simp only [Bool.false_eq_true, ↓reduceIte, Except.bind_ok', ItemRel]
@@ -147,7 +150,7 @@ theorem gavi_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState)
         [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)] h)
       (get_active_validator_indices x0 ⟨x1⟩) := by
   obtain ⟨fs, va, vrefs, ho, hfv, hov, hm⟩ := dec_state_validators hy0
-  have henum : ∀ m (h' : Heap), callValue (Scope.env sha) m (.glob 216) [.ref va] [] h' =
+  have henum : ∀ m (h' : Heap), callValue (Scope.env sha) m (.glob Scope.Id.«enumerate») [.ref va] [] h' =
       .ok (.enumView (.ref va), h') := by
     intro m h'
     rw [callValue.eq_def]
@@ -165,20 +168,20 @@ theorem gavi_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : BeaconState)
   have hll : ∀ (h' : Heap), h' = h → ListLen h' va x0.validators.length :=
     fun h' e => by subst e; exact ⟨_, _, _, _, hov, hvlen⟩
   let args : List Value := [(.ref r0), (.uint (.nominal Scope.Id.«Epoch» 64) x1)]
-  have hcomp := comp_sim (Scope.env sha) (.tuple 1474 [(.name 1474 115), (.name 1474 78)])
-    [(.call 1474 (.name 1474 215) [(.pos (.name 1474 78)), (.pos (.name 1474 103))])]
-    (.call 1474 (.name 1474 82) [(.pos (.name 1474 115))]) (.enum (.live va)) 66 ys f
+  have hcomp := comp_sim (Scope.env sha) (.tuple 1474 [(.name 1474 Scope.Id.«i»), (.name 1474 Scope.Id.«v»)])
+    [(.call 1474 (.name 1474 Scope.Id.«is_active_validator») [(.pos (.name 1474 Scope.Id.«v»)), (.pos (.name 1474 Scope.Id.«epoch»))])]
+    (.call 1474 (.name 1474 Scope.Id.«ValidatorIndex») [(.pos (.name 1474 Scope.Id.«i»))]) (.enum (.live va)) 66 ys f
     (fun v (b : ValidatorIndex) _ => v = .uint (.nominal Scope.Id.«ValidatorIndex» 64) b.val)
     (gfp := gfp) (fpf := []) (vs := args) (by simp) hwf
-    (fun _ L h' => h' = h ∧ L 103 = some (.uint (.nominal Scope.Id.«Epoch» 64) x1) ∧
-      L 215 = none ∧ L 82 = none)
+    (fun _ L h' => h' = h ∧ L Scope.Id.«epoch» = some (.uint (.nominal Scope.Id.«Epoch» 64) x1) ∧
+      L Scope.Id.«is_active_validator» = none ∧ L Scope.Id.«ValidatorIndex» = none)
     (fun i L h' hq hi => by
       obtain ⟨x, hx⟩ := seqItem_live_some (hll h' hq.1) (by rw [← hys]; exact hi)
       exact ⟨enumItem i x, by simp [iterItem, hx]⟩)
     (fun i L h' hq hi => by
       simp [iterItem, seqItem_live_none (hll h' hq.1) (by rw [← hys]; exact hi)])
     ?hstep (fun _ _ _ _ e _ => e) (k + x0.validators.length + 10) 0
-    ((Locals.empty.set 1 (Value.ref r0)).set 103 (Value.uint (UintTy.nominal Scope.Id.«Epoch» 64) x1)) h
+    ((Locals.empty.set 1 (Value.ref r0)).set Scope.Id.«epoch» (Value.uint (UintTy.nominal Scope.Id.«Epoch» 64) x1)) h
     ⟨rfl, by simp, by simp, by simp⟩ (CContract.refl _ _ _ h hwf haw) (by omega)
   case hstep =>
     intro n i L h' x y hq hy hx
