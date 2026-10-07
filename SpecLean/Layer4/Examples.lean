@@ -134,7 +134,7 @@ theorem dec_vdv (h : Heap) (r0 : Nat) (x : Validator) (fs : List Value)
 theorem is_active_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (r0 : Nat)
     (x : Validator) (e : Nat) (fs : List Value)
     (hfs : h.objs r0 = some (.container Scope.Id.«Validator» fs)) (hl : fs.length = 8)
-    (hy : dec_Validator h (.ref r0) = some x) :
+    (hy : dec_Validator h (.ref r0) = some x) (hwf : HeapWF h) :
     ∀ fuel, 5 ≤ fuel →
       ResultMatches gfp [] h [.ref r0, .uint epochTy e] (fun (b : Bool) _ v => v = .bool b)
         (interp (Scope.env sha) fuel Scope.Id.«is_active_validator» [.ref r0, .uint epochTy e] h)
@@ -159,7 +159,7 @@ theorem is_active_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (r0 :
       | _ + 2, hv, _ => simp at hv
     have hm := denote_sound (Scope.env sha) (coerceFlat_ssz _) gfp [] (f := Scope.Id.«is_active_validator»)
       (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec
-      (wtree_nil h _) hdn fuel (by simp [Scope.fn_is_active_validator, bDep, sDep, eDep, cDep]; omega)
+      (wtree_nil h _) hwf hdn fuel (by simp [Scope.fn_is_active_validator, bDep, sDep, eDep, cDep]; omega)
     rw [hden] at hm
     exact resultMatches_map (fun b h' v he => he.1) hm
 
@@ -326,7 +326,7 @@ theorem increase_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (r0 : Na
     (ds : List DV) (k : ListKind) (l : Option Nat) (st : BeaconState) (i δ : Nat)
     (hd : dec h n (.ref r0) = some (.cont Scope.Id.«BeaconState» ds))
     (hb : ds[12]? = some (.list k (.uint gweiTy) l (st.balances.map gleaf)))
-    (hw : WTree h [.ref r0, .uint vidxTy i, .uint gweiTy δ] ibFp) :
+    (hw : WTree h [.ref r0, .uint vidxTy i, .uint gweiTy δ] ibFp) (hwf : HeapWF h) :
     ∀ fuel, 5 ≤ fuel →
       ResultMatches gfp ibFp h [.ref r0, .uint vidxTy i, .uint gweiTy δ]
         (fun (st' : BeaconState) h' v => v = .none ∧
@@ -351,7 +351,7 @@ theorem increase_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (r0 : Na
       | 2, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨0, dec_flat rfl 0⟩
       | _ + 3, hv, _ => simp at hv
     have hm := denote_sound (Scope.env sha) (coerceFlat_ssz _) gfp ibFp (f := Scope.Id.«increase_balance»)
-      (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hdn fuel
+      (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn fuel
       (by simp [Scope.fn_increase_balance, bDep, sDep, eDep, tDep]; omega)
     rw [hden] at hm
     refine resultMatches_map (fun st' h' v he => ⟨he.1, ?_⟩) hm

@@ -346,7 +346,7 @@ theorem alloc_cont {lo : Nat} {h : Heap} {vs : List Value} (hb : BelowArgs h vs)
     simp [this]
   · have hb' := hpath q b e
     subst hb'
-    have hlt := at?_below hb ((at?_Skel (Skel_of_Ext he) hb k p h.next).mp ep)
+    have hlt := at?_below hb ((at?_Ext he hb k p h.next).mp ep)
     omega
 
 def KwsOK : Res (List (Name × Value)) → Res (List Value × List (Name × Value) × Heap) → Heap → Prop
@@ -514,7 +514,7 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
                 | error e' => intro hx; cases hx
                 | ok q =>
                   obtain ⟨w, h'⟩ := q
-                  rintro ⟨hrr, hlo, -, -, -, hro⟩
+                  rintro ⟨hrr, hlo, -, -, -, hro, -⟩
                   have hx' := hro rfl
                   cases v with
                   | val v =>
@@ -526,7 +526,7 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
                     refine ⟨hx', fun q a ea => Nat.le_trans hI2.i.fresh.1 (hlo q a ea), hdt,
                       fun q a ea k p ep => ?_⟩
                     have hge := hlo q a ea
-                    have hlt := at?_below hI2.below ((at?_Skel (Skel_of_Ext hx') hI2.below k p a).mp ep)
+                    have hlt := at?_below hI2.below ((at?_Ext hx' hI2.below k p a).mp ep)
                     omega
                   | place _ _ => simp at hd3
           · rw [if_neg hfe] at hd2; cases hd2
@@ -883,7 +883,7 @@ theorem itemsStep_sound {env : Env} {fps : Name → Footprint} {n : Nat}
           have hI3 := hI2.ext hx3
           have hat3 : at? h3 vs ls.k ls.p = some (.ref a) := by
             have e13 : Ext h h3 := Ext_trans hx2 hx3
-            exact (at?_Skel (Skel_of_Ext e13) hI.below _ _ a).mpr hat
+            exact (at?_Ext e13 hI.below _ _ a).mpr hat
           rcases bind_case hd3 with ⟨err, he4, rfl⟩ | ⟨vs2, he4, hd4⟩
           · have := hIt fp h0 h3 vs s1 L1 hI3 t ifs elt ls (i + 1) _ a hat3 he4
             revert this
@@ -967,7 +967,7 @@ theorem alloc_tree {lo : Nat} {h : Heap} {vs : List Value} (hb : BelowArgs h vs)
     simp [this]
   · have hb' := hpath q b e
     subst hb'
-    have hlt := at?_below hb ((at?_Skel (Skel_of_Ext he) hb k p h.next).mp ep)
+    have hlt := at?_below hb ((at?_Ext he hb k p h.next).mp ep)
     omega
 
 /-- One fuel step of the expressions. -/

@@ -40,7 +40,15 @@ structure RInv (h : Heap) (vs : List Value) (s : DSt) (L : Locals) : Prop where
 structure SInv (fp : Footprint) (h0 h : Heap) (vs : List Value) (s : DSt) (L : Locals) : Prop where
   r : RInv h vs s L
   wt : WTree h0 vs fp
-  refs : ∀ k q b, at? h vs k q = some (.ref b) ↔ at? h0 vs k q = some (.ref b)
+  /-- Every old path to a reference still reads the same. -/
+  refsF : ∀ k q b, at? h0 vs k q = some (.ref b) → at? h vs k q = some (.ref b)
+  /-- Every path to a reference reads an old path, or reaches a new object. -/
+  refsB : ∀ k q b, at? h vs k q = some (.ref b) → at? h0 vs k q = some (.ref b) ∨ h0.next ≤ b
+  /-- A new object that the arguments reach has one path from them. -/
+  fresh1 : ∀ k q b k' q', at? h vs k q = some (.ref b) → h0.next ≤ b →
+    at? h vs k' q' = some (.ref b) → k' = k ∧ q' = q
+  /-- The arguments reach only old objects at the start. -/
+  below0 : ∀ k q b, at? h0 vs k q = some (.ref b) → b < h0.next
   rty : ∀ k ty, RootTy h vs k ty ↔ RootTy h0 vs k ty
   frame : Frame h0 h vs fp
   fresh : Fresh h0 h
@@ -127,6 +135,14 @@ theorem rootTy_of_dec {h : Heap} {vs : List Value} {k : Nat} {v : Value} (hv : v
   obtain ⟨a, m, fs, rfl, -, ho, -⟩ := dec_cont hd
   exact ⟨a, fs, hv, ho⟩
 
+/-- `Frame_trans` where the monotone step is needed only for old objects. -/
+theorem Frame_trans' {h1 h2 h3 : Heap} {vs : List Value} {fpf : Footprint}
+    (f12 : Frame h1 h2 vs fpf) (f23 : Frame h2 h3 vs fpf)
+    (hmono : ∀ a, h1.objs a ≠ none → AtFp h2 vs fpf a → AtFp h1 vs fpf a) : Frame h1 h3 vs fpf := by
+  intro a hn ha
+  have e12 := f12 a hn ha
+  rw [f23 a (by rw [e12]; exact hn) (fun h2a => ha (hmono a hn h2a)), e12]
+
 /-- The written object is at a footprint path, and under `WTree` it has no other path. -/
 theorem fp_unique {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : SInv fp h0 h vs s L) {k : Nat} {p : List Nat} {a : Nat}
@@ -150,15 +166,19 @@ theorem fp_unique {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L 
         exact rootTy_of_dec hv hn
       | _ => simp [rootIs] at hroot
   refine ⟨⟨k, pat, p, hpat, hty, hm, hat⟩, fun k' q' e => ?_⟩
-  exact hI.wt k pat hpat ((hI.rty k _).mp hty) p hm a ((hI.refs k p a).mp hat) k' q'
-    ((hI.refs k' q' a).mp e)
+  rcases hI.refsB k p a hat with h0p | hnew
+  · have ha0 := hI.below0 k p a h0p
+    rcases hI.refsB k' q' a e with h0q | hnew'
+    · exact hI.wt k pat hpat ((hI.rty k _).mp hty) p hm a h0p k' q' h0q
+    · omega
+  · exact hI.fresh1 k p a k' q' hat hnew e
 
 /-- A write of a flat value through a place keeps the invariant. -/
 theorem write_inv {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : SInv fp h0 h vs s L) {k : Nat} {p : List Nat} {a : Nat}
     (hat : at? h vs k p = some (.ref a)) {d : DV} (hroot : s.roots[k]? = some d) {i : Nat}
     {u : Value} (hu : Flat u = true) (hfp : fpOk fp s.roots k p = true)
-    (hleaf : leafAt d p i = true) {o : HeapObj} (ho : h.objs a = some o) :
+    (hleaf : leafAt d p i = true) {o : HeapObj} (ho : h.objs a = some o) (hwf0 : HeapWF h0) :
     SInv fp h0 (h.set a (o.setChild i u)) vs
       { s with roots := s.roots.set k (updAt p d i (.leaf u)) } L := by
   obtain ⟨v0, hv0, hf0⟩ := at?_some hat
@@ -189,7 +209,7 @@ theorem write_inv {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L 
   -- The new heap and the old heap have the same paths to references.
   have hset : ∀ k' q b, at? (h.set a (o.setChild i u)) vs k' q = some (.ref b) ↔
       at? h vs k' q = some (.ref b) := fun k' q b => at?_skel ho skel vs k' q b
-  refine ⟨⟨by simp [hI.r.len], ?_, ?_⟩, hI.wt, ?_, ?_, ?_, ?_⟩
+  refine ⟨⟨by simp [hI.r.len], ?_, ?_⟩, hI.wt, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro k' v' d'' hv' hd''
     simp only [List.getElem?_set] at hd''
     by_cases hkk : k = k'
@@ -225,10 +245,16 @@ theorem write_inv {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L 
           refine ⟨⟨nt, (dec_away _ nt w (fun q e => hdj q a e k p hat)).trans hnt⟩,
             fun q b e k2 p2 e2 => ?_⟩
           exact hdj q b ((follow_skel ho skel q w w (RefEq.refl w) b).mp e) k2 p2 ((hset k2 p2 b).mp e2)
-  · intro k' q b; rw [hset]; exact hI.refs k' q b
+  · intro k' q b e; exact (hset k' q b).mpr (hI.refsF k' q b e)
+  · intro k' q b e; exact hI.refsB k' q b ((hset k' q b).mp e)
+  · intro k1 q1 b k2 q2 e1 hb e2
+    exact hI.fresh1 k1 q1 b k2 q2 ((hset k1 q1 b).mp e1) hb ((hset k2 q2 b).mp e2)
+  · exact hI.below0
   · intro k' ty; rw [rootTy_skel ho skel]; exact hI.rty k' ty
-  · refine Frame_trans hI.frame (Frame_set hatfp) fun a2 ⟨k2, pat, q, hp, hty, hmq, hq⟩ => ?_
-    exact ⟨k2, pat, q, hp, (hI.rty k2 _).mp hty, hmq, (hI.refs k2 q a2).mp hq⟩
+  · refine Frame_trans' hI.frame (Frame_set hatfp) fun a2 hold ⟨k2, pat, q, hp, hty, hmq, hq⟩ => ?_
+    rcases hI.refsB k2 q a2 hq with h0q | hnew
+    · exact ⟨k2, pat, q, hp, (hI.rty k2 _).mp hty, hmq, h0q⟩
+    · exact absurd (hwf0 a2 hnew) hold
   · exact Fresh_trans hI.fresh (Fresh_set ho)
 
 variable [LibModel]
@@ -237,7 +263,8 @@ variable [LibModel]
 theorem setLoc_inv {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : SInv fp h0 h vs s L) (x : Name) {r : DRes} {w : Value} (hr : ERel h vs r w) :
     SInv fp h0 h vs { s with loc := setLoc s.loc x r } (L.set x w) := by
-  refine ⟨⟨hI.r.len, hI.r.roots, fun y => ?_⟩, hI.wt, hI.refs, hI.rty, hI.frame, hI.fresh⟩
+  refine ⟨⟨hI.r.len, hI.r.roots, fun y => ?_⟩, hI.wt, hI.refsF, hI.refsB, hI.fresh1, hI.below0, hI.rty,
+    hI.frame, hI.fresh⟩
   simp only [setLoc, Locals.set_apply]
   split
   · exact hr
