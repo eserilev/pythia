@@ -81,6 +81,13 @@ class Model:
                 continue
             self.containers[name] = [(fn, f.split(", ", 1)[1], ft) for f, (fn, ft) in zip(fs, st)]
         self.cid = {n: self.name_id[n] for n in self.containers}
+        # `Footprint f`: function id -> [(parameter index, [step names])].
+        self.fnfp = {}
+        c = scope[scope.index("def fnFootprint"):]
+        c = c[:c.index("\n\n")]
+        for m in re.finditer(r"^  \((\d+), \[(.*)\]\)[,\]]*$", c, re.M):
+            self.fnfp[int(m.group(1))] = [(int(k), [self.ids[int(x)] for x in st.split(",") if x])
+                                          for k, st in re.findall(r"\((\d+), \[([\d,]*)\]\)", m.group(2))]
 
     def glob_kind(self, g):
         s = self.globs.get(g, "")
@@ -349,7 +356,7 @@ def classes_file(m):
                "⟨ty, [%s]⟩" % ", ".join([".any"] * k) for k in range(7)),
            "/-- The footprints: a function that returns its updated argument may write anywhere under it. -/",
            "def fpsGen : Name → Footprint\n%s  | _ => []\n" % "".join(
-               "  | %d => fpAll %d\n" % (m.fns[n]["id"], m.cid[w]) for n, w in sorted(writers(m).items()))]
+               "  | %d => %s\n" % (m.fns[n]["id"], footprint(m, n, w)) for n, w in sorted(writers(m).items()))]
     for c in sorted(m.uint):
         out.append("@[l4_simp] theorem uv_%s (y : %s) : UintC.val y = y.val :=\n  Eq.trans rfl rfl" % (c, c))
         out.append("@[l4_simp] theorem ub_%s : UintC.bits %s = %d :=\n  Eq.trans rfl rfl" % (c, c, m.uint[c]))
@@ -575,6 +582,47 @@ def build_reps(m):
             done = True
         if not done:
             break
+
+
+def fpat(m, cls, steps):
+    """The `FPat` of a footprint pattern rooted at readable class `cls`, or None."""
+    out, cur = [], ".container %d" % m.cid[cls]
+    for st in steps:
+        mc = re.fullmatch(r"\.container (\d+)", cur)
+        ml = re.fullmatch(r"\.list (\.\w+) (\(.*\)|\.\w+) (none|\(some \d+\))", cur)
+        if st == "*":
+            if not ml:
+                return None
+            out.append(".any")
+            cur = strip_parens(ml.group(2))
+        else:
+            if not mc:
+                return None
+            fs = m.containers.get(m.ids.get(int(mc.group(1))))
+            if not fs:
+                return None
+            fi = [i for i, (fn, _, _) in enumerate(fs) if fn == st]
+            if not fi:
+                return None
+            out.append(".exact %d" % fi[0])
+            cur = strip_parens(fs[fi[0]][1])
+    return "⟨%d, [%s]⟩" % (m.cid[cls], ", ".join(out))
+
+
+def footprint(m, name, cls):
+    """The footprint term of writer `name` from `Scope.fnFootprint`, else every path."""
+    f = m.fns[name]
+    pats = []
+    params = m.sigs[name][0]
+    for k, steps in m.fnfp.get(f["id"], []):
+        if k >= len(params) or params[k][1] not in m.containers:
+            return "fpAll %d" % m.cid[cls]
+        p = fpat(m, params[k][1], steps)
+        if p is None:
+            return "fpAll %d" % m.cid[cls]
+        if p not in pats:
+            pats.append(p)
+    return "[%s]" % ", ".join(pats) if pats else "fpAll %d" % m.cid[cls]
 
 
 def writers(m):
