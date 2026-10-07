@@ -65,7 +65,7 @@ theorem alloc_contract (gfp fpf : Footprint) {h : Heap} {vs : List Value} (o : H
     have hne : a ≠ h.next := fun ea => haw k [] a e (hwf a (by omega))
     rw [objs_alloc_ne hne] at ho
     exact ⟨a, fs, hk, ho⟩
-  · intro k q k' q' b hb e _
+  · intro k q k' q' b hb _ e _
     rw [hat] at e
     exact absurd (hwf b hb) (haw k q b e)
 

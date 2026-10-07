@@ -39,6 +39,7 @@ HEADER = """import SpecLean.Validation.Gen.Local
 # The calls tier: the first round uses the leaves, a later round also the calls proved so far.
 CALLS_HEADER = """import SpecLean.Validation.Gen.Leaves
 import SpecLean.Validation.HtrForkData
+import SpecLean.Validation.CompTactic
 """
 
 CALLS_NEXT_HEADER = """import SpecLean.Validation.Gen.Calls
@@ -174,6 +175,14 @@ class Gen:
             d = self.em.dec_of(t)
             if d is None:
                 raise Unsupported("argument type list")
+            e = t[1]
+            ety = (translate.ssz_ty_term(self.b, e[1])
+                   if e is not None and e[0] in ("uint", "container", "bytesN") else
+                   ".boolean" if e is not None and e[0] == "boolean" else None)
+            if getattr(self, "seq_elem", False) and t[2] is None and ety is not None:
+                # A `Sequence`: any kind and limit, with the element type that the callers'
+                # lists have, so that the iteration source is known.
+                d = f"(decListE {ety} {self.em.dec_of(e)})"
             lt = self.em.lean_param(t)
             return (f"(r{j} : Nat) ({x} : {lt}) (hy{j} : {d} h (.ref r{j}) = some {x})",
                     f"(.ref r{j})", x, f"r{j} {x} hy{j}")
@@ -907,7 +916,8 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         split = (f"  rcases t{poly} with _ | ⟨_, _⟩ <;> simp only [UintTy.bits] at ht{poly} <;> "
                  f"subst ht{poly}\n" if poly is not None else "")
         if poly is None:
-            isfx = f"_p{self.n.cls(inst)}" if inst is not None else ""
+            isfx = (f"_p{self.n.cls(inst)}" if inst is not None else
+                    f"_po{given}" if given is not None else "")
             name_run, name_valid = f"{name}{isfx}_run", f"{name}{isfx}_valid"
         names = (" ".join(a[3] for a in args if a[3]) + (" hw hwf haw" if sig.mutated else "") +
                  (" hsub" if sig.mutated and lnames else "") +
@@ -915,6 +925,12 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
                  "".join(f" hgfp{f}" for f in sl))
         alts = ([f"rd_loop [{', '.join(lnames)}]"] if lnames else []) + (
             [f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"] if callees else [])
+        if callees:
+            # An object read after a call: the call kept it, so the fact of the entry heap holds.
+            alts.append("(rd_frame_objs; try rd_step)")
+        if sig.mutated and callees:
+            # A field read that a split left open: the field index and the item from the facts.
+            alts.append("(rd_fieldidx; try rd_step)")
         if alloc:
             alts.append("(rd_listres; try rd_step)")
         if any(isinstance(x, ast.Call) and isinstance(x.func, ast.Name) and x.func.id == "set" and
@@ -938,8 +954,10 @@ theorem {name_run}F (gfp : Footprint) (h : Heap) {binders}{hw} (F : Nat) (hF : {
   rw [show F = k + {fuel} by omega]
   exact {name_run} sha gfp h {names} k
 """
+        # A writer that calls: the decode of the result after the calls is the long part.
+        hb = 40000000 if sig.mutated and callees else 4000000
         return ltext + f"""
-set_option maxHeartbeats 4000000 in
+set_option maxHeartbeats {hb} in
 set_option maxRecDepth 8192 in
 theorem {name_run} (gfp : Footprint) (h : Heap) {binders}{hw} (k : Nat) :
       ResultMatches gfp {fp} h {vs} (fun (r : {rt}) h' v => {exp})
@@ -950,7 +968,7 @@ theorem {name_run} (gfp : Footprint) (h : Heap) {binders}{hw} (k : Nat) :
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, {", ".join(defs + (["compLoop", "iterSource", "toSeq", "iterBase"] if cbounds else []))}{", *" if hys else ""}]
   rd_step
   repeat' {step}
-  all_goals (first | rd_finish | {"rd_list_end | rd_comp_err | " if cbounds else ""}((try rd_heap); rd_frame; done)))
+  all_goals (first | rd_finish | {"rd_list_end | rd_comp_err | " if cbounds else ""}({"(try rd_frame_facts); " if callees else ""}(try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
 theorem {name_valid} (gfp : Footprint) (h : Heap) {binders}{hw} :
@@ -1055,6 +1073,9 @@ def main():
         if args.tier == "loops":
             have |= set(re.findall(r"^theorem (\w+)_run ", (gen_dir / "Calls.lean").read_text(),
                                    re.M))
+            # A function with variants (`f_po0`, `f_pSlot`) is proved when its variants are.
+            have |= {m[1] for k in have for m in [re.match(r"(\w+?)_p(?:[A-Z]\w*|o\d+)$", k)]
+                     if m and m[1] in cls}
             # The functions with loops, and the callers that the earlier tiers did not prove: a
             # caller of a loop function comes after it.
             tier = sorted(n for n, c in cls.items() if n not in have and (c["loops"] or c["calls"]))
@@ -1062,6 +1083,7 @@ def main():
         tier = [n for n in tier if n in args.only.split(",")]
     g = Gen(b, em)
     g.cls, g.slice_memo = cls, {}
+    g.seq_elem = args.tier == "loops" or bool(args.emit)
     g.readable = (ROOT / "SpecLean/Gen/Readable.lean").read_text()
     from footprint import footprint
     ssz_names = {x for x in dir(spec) if isinstance(getattr(spec, x), type)
@@ -1124,6 +1146,7 @@ def main():
         for c in cs:
             if c in bf:
                 lemmas.append(c + "_runF")
+                lemmas += [k + "_runF" for k in bf if k.startswith(c + "_p")]
                 extra += g.map_bound(n, c, bf[c][1])
         text = g.theorem(n, em.sigs[n], fns[n], lemmas,
                          64 + max((bf[c][0] if c in bf else fl.get(c, 64) for c in cs),
@@ -1174,10 +1197,21 @@ def main():
         # The fuel of each theorem of the calls tier.
         fuel.update(run_fuels((gen_dir / "Calls.lean").read_text()))
     # A generic function has one theorem per class (`f_pSlot`): a caller sees `f` with their fuel.
-    for k in list(fuel):
+    def base_of(k):
         m = re.match(r"(\w+?)_p(?:[A-Z]\w*|o\d+)$", k)
-        if m and m[1] in cls:
-            fuel[m[1]] = max(fuel.get(m[1], 0), fuel[k])
+        return m[1] if m and m[1] in cls else None
+
+    for k in list(fuel):
+        if base_of(k):
+            fuel[base_of(k)] = max(fuel.get(base_of(k), 0), fuel[k])
+    # The facts of the variants, for the callers of the base name.
+    for d, comb in ((wfneed, any), (honeed, any), (heq, all)):
+        groups = {}
+        for k, v in list(d.items()):
+            if base_of(k):
+                groups.setdefault(base_of(k), []).append(v)
+        for bn, vs in groups.items():
+            d[bn] = comb(vs)
     todo = list(tier)
     while todo:
         cands = {}
@@ -1219,6 +1253,8 @@ def main():
                 for c in callees:
                     if c in bfuel:
                         lemmas.append(c + "_runF")
+                        # Its class-polymorphic variants, with the same bound.
+                        lemmas += [k + "_runF" for k in bfuel if k.startswith(c + "_p")]
                         extra += g.map_bound(n, c, bfuel[c][1])
                 cands[n] = (g.theorem(n, em.sigs[n], fns[n], lemmas, f, extra=extra, wf=wf,
                                       alloc=alloc, ho=hon), f)
@@ -1242,16 +1278,14 @@ def main():
                                   cands.items()))
         new = sorted(n for n, ok, _, _ in results if ok)
         failed.update({n: e for n, ok, _, e in results if not ok and n in tier})
+        # A variant that fails: the error of its function.
+        for nm, ok, _, e in results:
+            if not ok and nm not in tier:
+                for n in tier:
+                    if nm.startswith(n + "_p") and n not in cands:
+                        failed.setdefault(n, f"{nm}: {e}")
         secs.update({n: round(t, 1) for n, _, t, _ in results})
         proved += [n for n in new if n in tier]
-        # A generic function: proved when every class instance is.
-        for n in tier:
-            inst = [k for k in cands if k.startswith(n + "_p") and n not in cands]
-            if inst and all(k in new for k in inst) and n not in proved:
-                proved.append(n)
-                failed.pop(n, None)
-                fuel[n] = max(fuel.get(k, 64) for k in inst)
-                secs[n] = round(sum(secs.get(k, 0) for k in inst), 1)
         body += "".join(cands[n][0] for n in new)
         for n in new:
             fv = run_fuels(cands[n][0]).get(n)
@@ -1264,6 +1298,17 @@ def main():
             wfneed[n] = "(hwf : HeapWF h)" in stmt
             heq[n] = "h' = h)" in stmt or "(hw : WTree" in stmt
             honeed[n] = "(ho : OracleHtr sha)" in stmt
+        # A generic function: proved when every class instance is.
+        for n in tier:
+            inst = [k for k in cands if k.startswith(n + "_p") and n not in cands]
+            if inst and all(k in new for k in inst) and n not in proved:
+                proved.append(n)
+                failed.pop(n, None)
+                fuel[n] = max(fuel.get(k, 64) for k in inst)
+                wfneed[n] = any(wfneed.get(k) for k in inst)
+                honeed[n] = any(honeed.get(k) for k in inst)
+                heq[n] = all(heq.get(k, True) for k in inst)
+                secs[n] = round(sum(secs.get(k, 0) for k in inst), 1)
         out.write_text(f"-- Generated by tools/gen_valid.py. Do not edit.\n{file_header}{doc()}"
                        f"{PRELUDE}{body}{FOOTER}")
         if args.tier == "leaves" or not new:
@@ -1284,7 +1329,7 @@ def main():
     for n in sorted(skipped):
         print(f"  SKIP {n}: {skipped[n]}")
     for n in sorted(failed):
-        print(f"  FAIL {n} ({secs[n]}s): {failed[n][:160]}")
+        print(f"  FAIL {n} ({secs.get(n, 0)}s): {failed[n][:160]}")
     for n in proved:
         print(f"  OK {n} ({secs[n]}s)")
     json.dump({"proved": proved, "failed": failed, "skipped": skipped, "secs": secs},

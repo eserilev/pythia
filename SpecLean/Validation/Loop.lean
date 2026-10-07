@@ -49,7 +49,7 @@ theorem atFp_back {h1 h2 : Heap} {vs : List Value} {gfp fpf : Footprint}
   obtain ⟨k, pat, q, hpat, hty, hm, e⟩ := hat
   have hlt : a < h1.next := Nat.lt_of_not_le fun hle => ha (hwf a hle)
   obtain ⟨φ, hφ⟩ := hn
-  obtain ⟨e1, hpres, -⟩ := hφ k q a e hlt
+  obtain ⟨e1, hpres, -⟩ := hφ k q a e hlt ⟨k, pat, hsub pat hpat, q, hm, e⟩
   exact ⟨k, pat, φ k q, hpat, hr k pat.ty hty, hpres pat (hsub pat hpat) hm, e1⟩
 
 /-- Two runs in a row. The footprint is a part of the global footprint. -/
