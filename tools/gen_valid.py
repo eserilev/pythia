@@ -34,6 +34,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 
 HEADER = """import SpecLean.Validation.Gen.Local
+import SpecLean.Validation.SigningRoots
 """
 
 # The calls tier: the first round uses the leaves, a later round also the calls proved so far.
@@ -67,6 +68,13 @@ SIGNED = ["AttestationData", "BeaconBlock", "BeaconBlockHeader", "BLSToExecution
           "VoluntaryExit"]
 HTR_OPEN = ("\nopen SpecLean.Validation.HtrBridge (OracleHtr Shaped compute_fork_data_root_run "
             "compute_signing_root_run " + " ".join(f"signing_root_{x}" for x in SIGNED) + ")\n")
+
+# `==` on two decoded containers (`SigningRoots.lean`): the lemma and its depth below the
+# interpreter's `depthBound` (64).
+EQ_LEMMAS = {"AttestationData": ("deepEq_AttestationData", 61),
+             "Checkpoint": ("deepEq_Checkpoint", 62), "Eth1Data": ("deepEq_Eth1Data", 62)}
+HTR_OPEN += ("open SpecLean.Validation.HtrBridge (" + " ".join(v[0] for v in EQ_LEMMAS.values()) +
+             ")\n")
 
 LOOPS_NEXT_HEADER = """import SpecLean.Validation.Gen.Loops
 """
@@ -866,6 +874,23 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         base = [re.sub(r"_p(?:[A-Z]\w*|o\d+)$", "", c) for c in base]
         shaped = any(isinstance(x, ast.Name) and x.id == "compute_signing_root"
                      for x in ast.walk(tree)) or any(self.shneed.get(c) for c in base)
+        # `a == b` or `a != b` on two container arguments of a class with an equality lemma.
+        pnames0 = [pn for pn, _ in sig.params]
+        eqs = []
+        for x in ast.walk(tree):
+            if not (isinstance(x, ast.Compare) and len(x.ops) == 1 and
+                    isinstance(x.ops[0], (ast.Eq, ast.NotEq))):
+                continue
+            l, r = x.left, x.comparators[0]
+            if not (isinstance(l, ast.Name) and isinstance(r, ast.Name) and
+                    l.id in pnames0 and r.id in pnames0):
+                continue
+            j, k = pnames0.index(l.id), pnames0.index(r.id)
+            tj, tk = sig.params[j][1], sig.params[k][1]
+            if tj[0] == "container" and tk == tj and self.n.cls(tj[1]) in EQ_LEMMAS:
+                if (j, k) not in eqs:
+                    eqs.append((j, k))
+        shaped = shaped or bool(eqs)
         if shaped:
             for j, (_, t) in enumerate(sig.params):
                 if t[0] == "container" and args[j][0]:
@@ -951,6 +976,14 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             elif t[0] in ("list", "set"):
                 hys.append(f"hy{j}")
         inv = ""
+        for j, k in eqs:
+            lem, d = EQ_LEMMAS[self.n.cls(sig.params[j][1][1])]
+            # The result stays a variable: the split of the decodes would make `==` of two
+            # structure literals, which `whnf` evaluates field by field.
+            inv += (f"  have heq{j}_{k} : deepEq 64 h (.ref r{j}) (.ref r{k}) = "
+                    f".ok (x{j} == x{k}) := {lem} {d} hy{j} hy{k} hs{j} hs{k}\n"
+                    f"  simp only [{T.ident(name)}, bne]\n"
+                    f"  generalize (x{j} == x{k}) = b{j}_{k} at heq{j}_{k} ⊢\n")
         if hys and (callees or bounded):
             # The callees need the decode facts of the arguments: keep a copy of each.
             inv += "".join(f"  have {y}c := {y}\n" for y in hys)
@@ -1187,8 +1220,7 @@ def main():
     global PRELUDE
     if args.tier == "loops" or args.emit:
         PRELUDE += LOOPS_OPEN
-    if args.tier != "leaves" or args.emit:
-        PRELUDE += HTR_OPEN
+    PRELUDE += HTR_OPEN
     decs_all = [f"dec_{names.cls(c)}" for c in b.order
                 if T.is_uint_cls(c) or T.is_bytesn_cls(c) or T.is_container_cls(c)]
     PRELUDE += "\nattribute [local rd_dec] " + " ".join(decs_all) + "\n"
@@ -1245,7 +1277,9 @@ def main():
                          extra=extra, wf=any(wfn.get(c) for c in cs),
                          alloc=any(not hq.get(c, True) for c in cs),
                          ho=any(hon.get(c) for c in cs))
-        Path(args.out).write_text(LOOPS_HEADER + PRELUDE + text + FOOTER)
+        # The callees of every tier: the loops file imports the others.
+        hdr = LOOPS_NEXT_HEADER if (gen_dir / "Loops.lean").exists() else LOOPS_HEADER
+        Path(args.out).write_text(hdr + PRELUDE + text + FOOTER)
         return
     base = {"leaves": "SpecLean.Validation.Gen.Local", "calls": "SpecLean.Validation.Gen.Leaves",
             "loops": "SpecLean.Validation.Gen.Calls"}[args.tier]
