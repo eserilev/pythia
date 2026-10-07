@@ -41,9 +41,9 @@ theorem slot_rel {h : Heap} {vs : List Value} {roots : List DV} (hdec : DecArgs 
 theorem go_rel {h : Heap} {vs : List Value} {roots : List DV} (hdec : DecArgs h vs roots)
     : ∀ (ps : List (Name × Nat)) (dl : Name → Option DRes) (L : Locals),
       (∀ x, LRel h vs (dl x) (L x)) → (∀ q ∈ ps, q.2 < vs.length) →
-      ∃ L', (∀ fd, bindArgs.go [] vs [] fd L ps = .ok L') ∧
+      ∃ L', (∀ dfs fd, bindArgs.go dfs vs [] fd L ps = .ok L') ∧
         ∀ x, LRel h vs (initLoc roots dl ps x) (L' x)
-  | [], dl, L, hl, _ => ⟨L, fun _ => by simp [bindArgs.go], hl⟩
+  | [], dl, L, hl, _ => ⟨L, fun _ _ => by simp [bindArgs.go], hl⟩
   | (x, i) :: rest, dl, L, hl, hps => by
     have hi : i < vs.length := hps (x, i) (by simp)
     have hv : vs[i]? = some vs[i] := List.getElem?_eq_getElem hi
@@ -54,7 +54,7 @@ theorem go_rel {h : Heap} {vs : List Value} {roots : List DV} (hdec : DecArgs h 
       · exact slot_rel hdec hv
       · exact hl y
     obtain ⟨L', hgo, hrel⟩ := go_rel hdec rest _ _ hl' (fun q hq => hps q (by simp [hq]))
-    refine ⟨L', fun fd => ?_, hrel⟩
+    refine ⟨L', fun dfs fd => ?_, hrel⟩
     rw [bindArgs.go]
     simp [hv, hgo]
 

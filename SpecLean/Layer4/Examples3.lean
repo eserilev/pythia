@@ -37,7 +37,7 @@ theorem icwc_den (sha : Oracle) (fp : Footprint) (m : Nat) (wc : List UInt8) :
     (den (Scope.env sha) fpsEx (m + 8)).fn fp Scope.fn_is_compounding_withdrawal_credential
         [.leaf (.bytes b32 wc)] =
       some (.ok (.val (.bool (wc.take 1 == [2])), [.leaf (.bytes b32 wc)])) := by
-  simp [fnStep, Scope.fn_is_compounding_withdrawal_credential, Sem.block, blockOf, stmtStep,
+  simp [fnStep, noneDefaults, Scope.fn_is_compounding_withdrawal_credential, Sem.block, blockOf, stmtStep,
     exprStep, DM.bind, DM.ok, initLoc, setLoc, slot, cmpOf, optOf, dGlobal,
     Validation.Tactic.lookup_lit, Flat, cmpF_eq_bytes, take_bound]
   by_cases h2 : List.take 1 wc = [2] <;> simp [h2]
@@ -51,7 +51,7 @@ theorem hcwc_den (sha : Oracle) (fp : Footprint) (m : Nat) (x : Validator) :
   have hc := icwc_den sha [] (m + 1) (bd x.withdrawal_credentials)
   rw [show m + 1 + 8 = m + 9 by omega] at hc
   rw [den_fn]
-  simp [-den_fn, hc, fnStep, Scope.fn_has_compounding_withdrawal_credential, Sem.block, blockOf,
+  simp [-den_fn, hc, fnStep, noneDefaults, Scope.fn_has_compounding_withdrawal_credential, Sem.block, blockOf,
     stmtStep, exprStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
     setLoc, slot, argsOf, dCallRO, fpsEx, argRoot, dAttr, DSt.deref, subAt, DV.kids, ofChild,
     Validation.Tactic.fieldIndex_lit, Examples.vdv, Flat, comp]
@@ -68,7 +68,7 @@ theorem gmeb_den (sha : Oracle) (fp : Footprint) (m : Nat) (x : Validator) :
   rw [show m + 1 + 12 = m + 13 by omega] at hc
   rw [den_fn]
   cases hcx : comp x <;>
-  simp [-den_fn, hc, hcx, fnStep, Scope.fn_get_max_effective_balance, Sem.block, blockOf,
+  simp [-den_fn, hc, hcx, fnStep, noneDefaults, Scope.fn_get_max_effective_balance, Sem.block, blockOf,
     stmtStep, exprStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
     setLoc, slot_vdv, argsOf, dCallRO, fpsEx, argRoot, DSt.deref, subAt, Flat, meb, dGlobal,
     truthy_lift (truthy_b true), truthy_lift (truthy_b false)]

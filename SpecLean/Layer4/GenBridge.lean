@@ -394,4 +394,17 @@ theorem callK_htr_root [Spec] {sha : Oracle} (ho : Validation.HtrBridge.OracleHt
     simp [hr, erase, Except.mapError, Layer4.GenSteps.callK, bytesOf, hl]
     rfl
 
+/-- The oracle gives 32 bytes, so a check of the length of its result holds. -/
+theorem callK_htr_len [Spec] {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) {α : Type}
+    (enc : Enc α) (x : α) {γ : Type} (g : Bytes → Option (Except Fail γ)) (z : Option (Except Fail γ)) :
+    Layer4.GenSteps.callK (htr enc x) (fun b => if b.length = 32 then g b else z) =
+      Layer4.GenSteps.callK (htr enc x) g := by
+  unfold htr htrObj
+  rw [ho.same]
+  cases hr : sha.hashTreeRoot (enc x Heap.empty).2 (enc x Heap.empty).1 with
+  | error e => simp [hr, erase, Except.mapError, Layer4.GenSteps.callK]
+  | ok r =>
+    have hl := ho.len _ _ r hr
+    simp [hr, erase, Except.mapError, Layer4.GenSteps.callK, hl]
+
 end SpecLean.Layer4.GenBridge

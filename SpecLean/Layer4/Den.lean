@@ -77,7 +77,7 @@ def onePlace : List DRes → Option (Nat × Nat × List Nat)
 
 /-- An SSZ class whose constructor on flat values needs no heap. -/
 def ctorFlat : SszTy → Bool
-  | .uint _ | .boolean => true
+  | .uint _ | .boolean | .bytes _ _ => true
   | _ => false
 
 def allVals : List DRes → Option (List Value)
@@ -675,10 +675,19 @@ def stmtStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) : Stmt → DM (DOu
   | .forStmt _ t it body => DM.bind (P.iter fp s it) fun ls => P.loop fp s t ls 0 body
   | _ => none
 
+def isNoneLit : Expr → Bool
+  | .noneLit _ => true
+  | _ => false
+
+/-- Defaults that are all `None`, in a function with a body: given every argument, a call does
+not use them. -/
+def noneDefaults (d : FunctionDef) : Bool :=
+  d.params.defaults.isEmpty || (d.params.defaults.all isNoneLit && !d.body.isEmpty)
+
 /-- `callFn (n + 1)`: bind the parameters, run the body at fuel `n`. -/
 def fnStep (P : Sem) (fp : Footprint) (d : FunctionDef) (roots : List DV) :
     DM (DRes × List DV) :=
-  if d.params.defaults = [] ∧ d.params.vararg = none ∧ d.params.names.length = roots.length then
+  if noneDefaults d = true ∧ d.params.vararg = none ∧ d.params.names.length = roots.length then
     let s0 : DSt := { roots, loc := initLoc roots (fun _ => none) d.params.names.zipIdx }
     DM.bind (P.block fp s0 d.body) fun (o, s1) =>
       match o with

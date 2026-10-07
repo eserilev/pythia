@@ -746,6 +746,17 @@ theorem stmtStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
   | _ => simp [stmtStep] at hd
 
 /-- `callFn (n + 1)` runs the body at fuel `n`. -/
+theorem evalList_none (env : Env) (n : Nat) (L : Locals) (h : Heap) :
+    ∀ (ds : List Expr), ds.all isNoneLit = true →
+      evalList env (n + 1) L h ds = .ok (ds.map (fun _ => Value.none), h)
+  | [], _ => by simp [evalList]
+  | e :: ds, hall => by
+    simp only [List.all_cons, Bool.and_eq_true] at hall
+    obtain ⟨he, hds⟩ := hall
+    cases e <;> simp [isNoneLit] at he
+    rw [evalList, evalExpr]
+    simp [evalList_none env n L h ds hds]
+
 theorem fnStep_sound (env : Env) {fps : Name → Footprint} {n : Nat} (hL : LevelOK env fps n) :
     FnOK env fps (n + 1) := by
   intro fp d roots vs h r hdec hw hwf hd
@@ -753,7 +764,25 @@ theorem fnStep_sound (env : Env) {fps : Name → Footprint} {n : Nat} (hL : Leve
   unfold fnStep at hd
   split at hd
   · next hc =>
-    obtain ⟨hdef, hva, hnl⟩ := hc
+    obtain ⟨hnd, hva, hnl⟩ := hc
+    obtain ⟨dsv, hdef⟩ : ∃ dsv, evalList env n Locals.empty h d.params.defaults = .ok (dsv, h) := by
+      unfold noneDefaults at hnd
+      cases hdd : d.params.defaults with
+      | nil => exact ⟨[], by simp [evalList]⟩
+      | cons e es =>
+        rw [hdd] at hnd
+        simp only [List.isEmpty_cons, Bool.false_or, Bool.and_eq_true, Bool.not_eq_true',
+          List.isEmpty_eq_false_iff] at hnd
+        obtain ⟨hall, hbody⟩ := hnd
+        cases n with
+        | zero =>
+          exfalso
+          obtain ⟨st, ss, hb⟩ : ∃ st ss, d.body = st :: ss := by
+            cases hdb : d.body with
+            | nil => exact absurd hdb hbody
+            | cons st ss => exact ⟨st, ss, rfl⟩
+          simp [hb, Sem.block, blockOf, den, DM.bind] at hd
+        | succ m => exact ⟨_, evalList_none env m Locals.empty h _ hall⟩
     have hlen : d.params.names.length = vs.length := hnl.trans hdec.1
     obtain ⟨L0, hgo, hrel⟩ := go_rel hdec d.params.names.zipIdx (fun _ => none) Locals.empty
       (fun x => by simp [LRel])

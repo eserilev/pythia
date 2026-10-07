@@ -160,49 +160,73 @@ def fpsGen : Name → Footprint
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_BLSPubkey : BytesC.len BLSPubkey = 48 :=
   Eq.trans rfl rfl
+@[l4_simp] theorem bo_BLSPubkey (b : List UInt8) : (BytesC.ofBytes b : BLSPubkey) = ⟨b⟩ :=
+  Eq.trans rfl rfl
 @[l4_simp] theorem bd_BLSSignature (y : BLSSignature) : BytesC.data y = y.data :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_BLSSignature : BytesC.len BLSSignature = 96 :=
+  Eq.trans rfl rfl
+@[l4_simp] theorem bo_BLSSignature (b : List UInt8) : (BytesC.ofBytes b : BLSSignature) = ⟨b⟩ :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bd_Bytes1 (y : Bytes1) : BytesC.data y = y.data :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_Bytes1 : BytesC.len Bytes1 = 1 :=
   Eq.trans rfl rfl
+@[l4_simp] theorem bo_Bytes1 (b : List UInt8) : (BytesC.ofBytes b : Bytes1) = ⟨b⟩ :=
+  Eq.trans rfl rfl
 @[l4_simp] theorem bd_Bytes32 (y : Bytes32) : BytesC.data y = y.data :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_Bytes32 : BytesC.len Bytes32 = 32 :=
+  Eq.trans rfl rfl
+@[l4_simp] theorem bo_Bytes32 (b : List UInt8) : (BytesC.ofBytes b : Bytes32) = ⟨b⟩ :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bd_Domain (y : Domain) : BytesC.data y = y.data :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_Domain : BytesC.len Domain = 32 :=
   Eq.trans rfl rfl
+@[l4_simp] theorem bo_Domain (b : List UInt8) : (BytesC.ofBytes b : Domain) = ⟨b⟩ :=
+  Eq.trans rfl rfl
 @[l4_simp] theorem bd_DomainType (y : DomainType) : BytesC.data y = y.data :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_DomainType : BytesC.len DomainType = 4 :=
+  Eq.trans rfl rfl
+@[l4_simp] theorem bo_DomainType (b : List UInt8) : (BytesC.ofBytes b : DomainType) = ⟨b⟩ :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bd_ExecutionAddress (y : ExecutionAddress) : BytesC.data y = y.data :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_ExecutionAddress : BytesC.len ExecutionAddress = 20 :=
   Eq.trans rfl rfl
+@[l4_simp] theorem bo_ExecutionAddress (b : List UInt8) : (BytesC.ofBytes b : ExecutionAddress) = ⟨b⟩ :=
+  Eq.trans rfl rfl
 @[l4_simp] theorem bd_Hash32 (y : Hash32) : BytesC.data y = y.data :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_Hash32 : BytesC.len Hash32 = 32 :=
+  Eq.trans rfl rfl
+@[l4_simp] theorem bo_Hash32 (b : List UInt8) : (BytesC.ofBytes b : Hash32) = ⟨b⟩ :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bd_KZGCommitment (y : KZGCommitment) : BytesC.data y = y.data :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_KZGCommitment : BytesC.len KZGCommitment = 48 :=
   Eq.trans rfl rfl
+@[l4_simp] theorem bo_KZGCommitment (b : List UInt8) : (BytesC.ofBytes b : KZGCommitment) = ⟨b⟩ :=
+  Eq.trans rfl rfl
 @[l4_simp] theorem bd_LogsBloom (y : LogsBloom) : BytesC.data y = y.data :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_LogsBloom : BytesC.len LogsBloom = 256 :=
+  Eq.trans rfl rfl
+@[l4_simp] theorem bo_LogsBloom (b : List UInt8) : (BytesC.ofBytes b : LogsBloom) = ⟨b⟩ :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bd_Root (y : Root) : BytesC.data y = y.data :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_Root : BytesC.len Root = 32 :=
   Eq.trans rfl rfl
+@[l4_simp] theorem bo_Root (b : List UInt8) : (BytesC.ofBytes b : Root) = ⟨b⟩ :=
+  Eq.trans rfl rfl
 @[l4_simp] theorem bd_Version (y : Version) : BytesC.data y = y.data :=
   Eq.trans rfl rfl
 @[l4_simp] theorem bl_Version : BytesC.len Version = 4 :=
+  Eq.trans rfl rfl
+@[l4_simp] theorem bo_Version (b : List UInt8) : (BytesC.ofBytes b : Version) = ⟨b⟩ :=
   Eq.trans rfl rfl
 @[l4_simp] theorem po_Uint64 (a b : Uint64) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl
 @[l4_simp] theorem po_Slot (a b : Slot) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl

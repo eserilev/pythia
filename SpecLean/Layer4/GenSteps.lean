@@ -285,7 +285,7 @@ section fn
 
 theorem s_fn (d : FunctionDef) (roots : List DV) :
     (den env fps (n + 1)).fn fp d roots =
-      if d.params.defaults = [] ∧ d.params.vararg = none ∧ d.params.names.length = roots.length then
+      if noneDefaults d = true ∧ d.params.vararg = none ∧ d.params.names.length = roots.length then
         DM.bind (blockOf ((den env fps n).stmt fp)
             { roots, loc := initLoc roots (fun _ => none) d.params.names.zipIdx } d.body) fun (o, s1) =>
           match o with
@@ -599,6 +599,11 @@ theorem cv_iu (op : CmpOp) (t : UintTy) (a : Int) (b : Nat) :
     @cmpVal (@LibModel.toLibValues Ssz.model) op (.int a) (.uint t b) = .ok (cmpInt op a b) := Eq.trans rfl rfl
 theorem cv_ii (op : CmpOp) (a b : Int) :
     @cmpVal (@LibModel.toLibValues Ssz.model) op (.int a) (.int b) = .ok (cmpInt op a b) := Eq.trans rfl rfl
+theorem bv_bytes (op : BinOp) (c c' : Name) (a b : List UInt8) :
+    @binopVal (@LibModel.toLibValues Ssz.model) op (.bytes c a) (.bytes c' b) =
+      (match op with
+       | .add => .ok (.bytes 0 (a ++ b))
+       | _ => .error .typeError) := Eq.trans rfl rfl
 theorem cv_bytes (op : CmpOp) (c c' : Name) (a b : List UInt8) :
     @cmpVal (@LibModel.toLibValues Ssz.model) op (.bytes c a) (.bytes c' b) = pyCmp op (.bytes c a) (.bytes c' b) := Eq.trans rfl rfl
 theorem cv_boolean (op : CmpOp) (a b : Bool) :
@@ -625,6 +630,9 @@ theorem iv_int (n : Int) : @toIndex (@LibModel.toLibValues Ssz.model) (.int n) =
 
 theorem cons_bool (env : Env) (h : Heap) (b : Bool) :
     @LibModel.construct Ssz.model env h .boolean [.bool b] [] = .ok (.boolean b, h) := Eq.trans rfl rfl
+theorem cons_bytes (env : Env) (h : Heap) (ty : Name) (len : Nat) (c : Name) (bs : List UInt8) :
+    @LibModel.construct Ssz.model env h (.bytes ty len) [.bytes c bs] [] =
+      if bs.length = len then .ok (.bytes ty bs, h) else .error .sszValue := Eq.trans rfl rfl
 theorem cons_boolean (env : Env) (h : Heap) (b : Bool) :
     @LibModel.construct Ssz.model env h .boolean [.boolean b] [] = .ok (.boolean b, h) := Eq.trans rfl rfl
 
@@ -715,7 +723,7 @@ macro_rules
       List.lookup_cons, List.lookup_nil, List.map_cons, List.map_nil, Bool.or_self, Bool.true_or, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
       Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,
       Validation.Steps.construct_uint_int, Validation.Steps.construct_uint_uint,
-      Validation.Steps.construct_uint_boolean, cons_bool, cons_boolean, exm_ok, exm_err, omap_bind, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, cv_boolean, tv_bool,
+      Validation.Steps.construct_uint_boolean, cons_bool, cons_boolean, cons_bytes, exm_ok, exm_err, omap_bind, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, bv_bytes, cv_boolean, tv_bool,
       tv_boolean, tv_uint, tv_int, tv_none, tv_bytes, uv_neg, uv_inv, uv_negi, iv_uint, iv_int,
       pyCmp, cmpF, cmpOf, cmpInt, boolOf, List.isEmpty_cons,
       List.isEmpty_nil, dAttr, DSt.deref, subAt, DV.kids, ofChild, List.nil_append,
@@ -726,7 +734,7 @@ macro_rules
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, bmin_max, bmax_max, pickBest, flat_ite, val_ite,
-      Rd.pyMin, Rd.pyMax, env_root, fromBytesOf, s_fromBytes, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
+      Rd.pyMin, Rd.pyMax, Rd.bytesOf, isVal, noneDefaults, isNoneLit, List.isEmpty_cons, List.isEmpty_nil, env_root, fromBytesOf, s_fromBytes, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, Expr.call.injEq, s_append, env_append, appendItemD, appendable_list_cont, appendable_plist_cont, appendable_list_nom, appendable_plist_nom, appendable_list_bytes, appendable_plist_bytes, Ssz.checkLength, Rd.lappend, s_assign, s_annAssign, s_exprStmt,
@@ -747,7 +755,7 @@ macro_rules
       List.lookup_cons, List.lookup_nil, List.map_cons, List.map_nil, Bool.or_self, Bool.true_or, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
       Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,
       Validation.Steps.construct_uint_int, Validation.Steps.construct_uint_uint,
-      Validation.Steps.construct_uint_boolean, cons_bool, cons_boolean, exm_ok, exm_err, omap_bind, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, cv_boolean, tv_bool,
+      Validation.Steps.construct_uint_boolean, cons_bool, cons_boolean, cons_bytes, exm_ok, exm_err, omap_bind, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, bv_bytes, cv_boolean, tv_bool,
       tv_boolean, tv_uint, tv_int, tv_none, tv_bytes, uv_neg, uv_inv, uv_negi, iv_uint, iv_int,
       pyCmp, cmpF, cmpOf, cmpInt, boolOf, List.isEmpty_cons,
       List.isEmpty_nil, dAttr, DSt.deref, subAt, DV.kids, ofChild, List.nil_append,
@@ -758,7 +766,7 @@ macro_rules
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, bmin_max, bmax_max, pickBest, flat_ite, val_ite,
-      Rd.pyMin, Rd.pyMax, env_root, fromBytesOf, s_fromBytes, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
+      Rd.pyMin, Rd.pyMax, Rd.bytesOf, isVal, noneDefaults, isNoneLit, List.isEmpty_cons, List.isEmpty_nil, env_root, fromBytesOf, s_fromBytes, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
 
 /-- The side conditions of a loop lemma: fuel, and the locals of the parameters. -/
 macro "l4_disch" : tactic => `(tactic| first

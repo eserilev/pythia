@@ -38,8 +38,17 @@ theorem bind_pair (h : Heap) (W : Res Value) :
 
 theorem constructFlat_ssz (env : Env) : ConstructFlat env := by
   intro h t vs hc hv
-  cases t <;> simp [ctorFlat] at hc <;> simp only [LibModel.construct, Ssz.construct] <;>
-    split <;> first | rfl | exact bind_pair h _ | contradiction | (simp_all; done) | (exfalso; simp_all)
+  cases t
+  case bytes ty len =>
+    simp only [LibModel.construct, Ssz.construct]
+    match vs, hv with
+    | [], _ => rfl
+    | [v], hv =>
+      have hfv : Flat v = true := hv v (by simp)
+      cases v <;> simp [Flat] at hfv <;> simp [iterElems, iterBase] <;> (try split) <;> rfl
+    | a :: b :: c, _ => split <;> first | rfl | (simp_all; done) | (exfalso; simp_all)
+  all_goals (simp [ctorFlat] at hc <;> simp only [LibModel.construct, Ssz.construct] <;>
+    split <;> first | rfl | exact bind_pair h _ | contradiction | (simp_all; done) | (exfalso; simp_all))
 
 theorem coerceH_flat2 (env : Env) (b : Bool) (d : Nat) (h : Heap) (t : SszTy) (v : Value)
     (ht : ∀ ty, t ≠ .container ty) (hl : ∀ k e l, t ≠ .list k e l) (ha : t ≠ .any)
@@ -226,7 +235,7 @@ theorem ceas_den (sha : Oracle) (fp : Footprint) (m a : Nat) (ha : a < 2 ^ 64) :
       some (.ok (.val (.uint slotTy (a / 8)))) := dBinop_eval (div_slot a ha) rfl
   have hc : dCtor (Scope.env sha) (.uint (.nominal 140 64)) [.val (.uint slotTy (a / 8))] =
       some (.ok (.val (.uint epTy (a / 8)))) := dCtor_eval rfl rfl (ctor_epoch _ _ _ hd) rfl
-  simp [fnStep, Scope.fn_compute_epoch_at_slot, Sem.block, blockOf, stmtStep, exprStep, callHead,
+  simp [fnStep, noneDefaults, Scope.fn_compute_epoch_at_slot, Sem.block, blockOf, stmtStep, exprStep, callHead,
     callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc, setLoc, slot,
     argsOf, dCallRO, dGlobal, hb, hc, Flat]
 
@@ -237,7 +246,7 @@ theorem gce_den (sha : Oracle) (fp : Footprint) (m : Nat) (ds : List DV) (a : Na
   have hc := ceas_den sha [] (m + 1) a ha
   rw [show m + 1 + 8 = m + 9 by omega] at hc
   rw [den_fn]
-  simp [-den_fn, hc, fnStep, Scope.fn_get_current_epoch, Sem.block, blockOf, stmtStep, exprStep, callHead,
+  simp [-den_fn, hc, fnStep, noneDefaults, Scope.fn_get_current_epoch, Sem.block, blockOf, stmtStep, exprStep, callHead,
     callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc, setLoc, slot,
     argsOf, dCallRO, dAttr, DSt.deref, subAt, DV.kids, hs, ofChild, fpsEx, argRoot, Scope.Id.«decrease_balance»,
     Validation.Tactic.fieldIndex_lit, Flat]
@@ -366,12 +375,12 @@ theorem sat_den_ei (sha : Oracle) (fp : Footprint) (m x : Nat) (hx : x < 2 ^ 64)
   by_cases h1 : 1 < x
   · have hb : dBinop .sub (.val (.uint epTy x)) (.val (.int 1)) = some (.ok (.val (.uint epTy (x - 1)))) :=
       dBinop_eval (sub_ui epTy rfl x h1 hx) rfl
-    simp [fnStep, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
+    simp [fnStep, noneDefaults, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
       initLoc, setLoc, slot, cmpOf, hc, hb, h1, truthy_lift (truthy_b true), Flat]
   · have hb : dBinop .sub (.val (.uint epTy x)) (.val (.uint epTy x)) = some (.ok (.val (.uint epTy 0))) := by
       have := dBinop_eval (sub_uu epTy rfl (by simp [resolveUint]) x x (Nat.le_refl x) hx) rfl
       simpa using this
-    simp [fnStep, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
+    simp [fnStep, noneDefaults, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
       initLoc, setLoc, slot, cmpOf, hc, hb, h1, truthy_lift (truthy_b false), Flat]
 
 /-! ## `get_previous_epoch` -/
@@ -384,7 +393,7 @@ theorem gpe_den (sha : Oracle) (fp : Footprint) (m : Nat) (ds : List DV) (a : Na
   have hsat := sat_den_ei sha [] (m + 5) (a / 8) (by omega)
   rw [show m + 5 + 8 = m + 13 by omega] at hsat
   rw [den_fn]
-  simp [-den_fn, hg, hsat, fnStep, Scope.fn_get_previous_epoch, Sem.block, blockOf, stmtStep,
+  simp [-den_fn, hg, hsat, fnStep, noneDefaults, Scope.fn_get_previous_epoch, Sem.block, blockOf, stmtStep,
     exprStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc, setLoc,
     slot, argsOf, dCallRO, fpsEx, argRoot, Scope.Id.«decrease_balance», DSt.deref, subAt, Flat]
 
@@ -448,13 +457,13 @@ theorem sat_den_gg (sha : Oracle) (fp : Footprint) (m b d : Nat) (hb : b < 2 ^ 6
   · have hs : dBinop .sub (.val (.uint gwTy b)) (.val (.uint gwTy d)) =
         some (.ok (.val (.uint gwTy (b - d)))) :=
       dBinop_eval (sub_uu gwTy rfl hr b d (by omega) hb) rfl
-    simp [fnStep, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
+    simp [fnStep, noneDefaults, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
       initLoc, setLoc, slot, cmpOf, hc, hs, h1, truthy_lift (truthy_b true), Flat]
   · have hs : dBinop .sub (.val (.uint gwTy b)) (.val (.uint gwTy b)) =
         some (.ok (.val (.uint gwTy 0))) := by
       have := dBinop_eval (sub_uu gwTy rfl hr b b (Nat.le_refl b) hb) rfl
       simpa using this
-    simp [fnStep, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
+    simp [fnStep, noneDefaults, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
       initLoc, setLoc, slot, cmpOf, hc, hs, h1, truthy_lift (truthy_b false), Flat]
 
 theorem dCoerce_gwei (sha : Oracle) (n : Nat) :
@@ -474,7 +483,7 @@ theorem dbal_den_ok (sha : Oracle) (m : Nat) (ds : List DV) (k : ListKind) (l : 
   have hm : (List.map Examples.gleaf bal)[i]? = some (.leaf (.uint gwTy bal[i].val)) := by
     simp [List.getElem?_eq_getElem hi, Examples.gleaf]
   rw [den_fn]
-  simp [-den_fn, hsat, fnStep, Scope.fn_decrease_balance, Sem.block, blockOf, stmtStep,
+  simp [-den_fn, hsat, fnStep, noneDefaults, Scope.fn_decrease_balance, Sem.block, blockOf, stmtStep,
     exprStep, callStep, appendOf, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
     setLoc, slot, argsOf, dCallRO, dCallW, fpsEx, argRoot, Scope.Id.«decrease_balance»,
     Scope.Id.«saturating_sub», DSt.deref, subAt, DV.kids, dAttr, dIndex, ofChild, hb, hm,
@@ -488,7 +497,7 @@ theorem dbal_den_idx (sha : Oracle) (m : Nat) (ds : List DV) (k : ListKind) (l :
         [.cont Scope.Id.«BeaconState» ds, .leaf (.uint viTy i), .leaf (.uint gwTy δ)] =
       some (.error .indexError) := by
   rw [den_fn]
-  simp [-den_fn, fnStep, Scope.fn_decrease_balance, Sem.block, blockOf, stmtStep,
+  simp [-den_fn, fnStep, noneDefaults, Scope.fn_decrease_balance, Sem.block, blockOf, stmtStep,
     exprStep, callStep, appendOf, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
     setLoc, slot, argsOf, DSt.deref, subAt, DV.kids, dAttr, dIndex, ofChild, hb,
     Validation.Tactic.fieldIndex_lit, isByteList, normIndex_nat, hi]

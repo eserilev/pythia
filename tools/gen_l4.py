@@ -271,6 +271,11 @@ def param(m, i, pn, pt, sub=None, isub=False):
         return "(%s : List UInt8)" % v, "(.leaf (.bytes 0 %s))" % v, v
     if pt in m.reps:
         return "(%s : %s)" % (v, pt), "(.cont %d (kids_%s %s))" % (m.cid[pt], pt, v), v
+    # An optional parameter: the caller passes a value (`some`).
+    mo = re.fullmatch(r"\(?Option (\w+)\)?", pt)
+    if mo:
+        b, r, a = param(m, i, pn, mo.group(1), sub, isub)
+        return b, r, "(some %s)" % a
     # A sequence: the caller passes a Python list.
     mr = re.fullmatch(r"\(?List (\w+)\)?", pt)
     if mr and elem_ssz(m, mr.group(1)):
@@ -366,6 +371,7 @@ def classes_file(m):
     for c in sorted(m.bytes):
         out.append("@[l4_simp] theorem bd_%s (y : %s) : BytesC.data y = y.data :=\n  Eq.trans rfl rfl" % (c, c))
         out.append("@[l4_simp] theorem bl_%s : BytesC.len %s = %d :=\n  Eq.trans rfl rfl" % (c, c, m.bytes[c]))
+        out.append("@[l4_simp] theorem bo_%s (b : List UInt8) : (BytesC.ofBytes b : %s) = ⟨b⟩ :=\n  Eq.trans rfl rfl" % (c, c))
     for c, rhs in re.findall(r"^instance : PyOrd (\w+) := ⟨fun a b => (decide \(a\.val < b\.val\))⟩", m.rd, re.M):
         out.append("@[l4_simp] theorem po_%s (a b : %s) : PyOrd.lt a b = decide (a.val < b.val) := Eq.trans rfl rfl"
                    % (c, c))
@@ -1173,6 +1179,9 @@ def uses_htr(m, name):
 
 def hok_binder(m, pn, pt):
     """The range hypothesis of parameter `pn : pt` in `ok` mode, or None."""
+    mo = re.fullmatch(r"\(?Option (\w+)\)?", pt)
+    if mo:
+        pt = mo.group(1)
     if pt in m.reps:
         return "(hok_%s : ok_%s a_%s)" % (pn, pt, pn)
     if pt in m.uint:
@@ -1196,7 +1205,7 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
     f = m.fns[name]
     if len(params) != len(f["params"]):
         raise Unsupported("params")
-    if f["defaults"] or f["vararg"] != "none":
+    if f["vararg"] != "none":
         raise Unsupported("defaults")
     for c in m.callees(name):
         if c not in proved:
@@ -1241,7 +1250,8 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
         if it not in items:
             items.append(it)
     LENS = "".join(("%s.%s.length + " % (rds[k], fld)) if fld else ("%s.length + " % rds[k]) for k, fld in items)
-    fcalls = ["%s_fcall" % c for c in m.callees(name) if LENS_OF.get(c)]
+    fcalls = ["%s_fcall" % c for c in m.callees(name) if LENS_OF.get(c) and not uses_htr(m, c)]
+    fcalls += ["%s_fcall sha ho" % c for c in m.callees(name) if uses_htr(m, c)]
     if lps or cps:
         D += 6
     rs = "[%s]" % ", ".join(roots)
@@ -1250,8 +1260,8 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
     unf = ["Scope.fn_" + name, name, "fpsGen", "fpAll"] + m.consts_of(name)
     if uses_htr(m, name):
         unf += ["htr_call_%s ho" % c for c in sorted(set(re.findall(r"\bhtr enc_(\w+)", m.bodies.get(name, ""))))]
-        unf += ["GenBridge.callK_htr_root ho"]
-        unf += ["%s_call (ho := ho)" % c for c in m.callees(name) if uses_htr(m, c)]
+        unf += ["GenBridge.callK_htr_root ho", "GenBridge.callK_htr_len ho"]
+        unf += ["ho"]
     if rt in m.reps and ("theorem kids_%s_mk" % rt) in classes_file_cache(m):
         unf.append("kids_%s_mk" % rt)
     loopstep = ""
