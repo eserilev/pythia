@@ -47,7 +47,8 @@ state (section 9.4).
 
 ## 3. Pinned inputs
 
-- Spec: version 1.7.0b3, upstream commit `889a389f9`. The spec text is used unchanged. The existing
+- Spec: upstream commit `889a389f9`, which is v1.7.0-beta.2 plus 31 commits (it does not contain
+  beta.3; an earlier draft called it 1.7.0b3, which was wrong). The spec text is used unchanged. The existing
   hand-written model is at v1.7.0-beta.2. Step 6 pins one version for both.
 - SSZ library: `eth-ssz-specs` (`pyproject.toml`, `from ssz.uint import …`). Pyspec no longer uses
   remerkleable. Every value rule in section 6 comes from probes against `eth-ssz-specs`.
