@@ -742,13 +742,19 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         return text, names, bounds, jj
 
     def theorem(self, name, sig, tree, callees=(), fuel=64, poly=None, tie=False, extra=(),
-                wf=False, alloc=False):
+                wf=False, alloc=False, inst=None):
         """The `_run` theorem at fuel `k + fuel` and the `_valid` theorem of SPEC 9.2. A call to
         a callee in `callees` uses the callee's `_run` theorem (`rd_call`).
 
         `poly = j`: the uint argument `j` has any class of its width, and the result has that
         class. Python keeps the class of an argument through arithmetic, so a caller can pass a
         `Gwei` to a `Uint64` parameter and get a `Gwei` back (`saturating_sub`)."""
+        if inst is not None:
+            # A generic uint parameter: one theorem for each class (`inst`), at its call sites.
+            def fix(t):
+                return ("uint", inst) if t[0] == "utvar" else t
+            sig = rd_fn.Sig(sig.name, [(pn, fix(t)) for pn, t in sig.params], sig.defaults,
+                            fix(sig.ret), sig.mutated, [])
         if any(t[0] in ("tvar", "utvar") for _, t in sig.params):
             raise Unsupported("generic")
         if any(sig.params[j][1][0] != "container" for j in sig.mutated):
@@ -866,7 +872,8 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         split = (f"  rcases t{poly} with _ | ⟨_, _⟩ <;> simp only [UintTy.bits] at ht{poly} <;> "
                  f"subst ht{poly}\n" if poly is not None else "")
         if poly is None:
-            name_run, name_valid = f"{name}_run", f"{name}_valid"
+            isfx = f"_p{self.n.cls(inst)}" if inst is not None else ""
+            name_run, name_valid = f"{name}{isfx}_run", f"{name}{isfx}_valid"
         names = (" ".join(a[3] for a in args) + (" hw hwf haw" if sig.mutated else "") +
                  (" hsub" if sig.mutated and lnames else "") +
                  (" hwf haw" if wfb else "") +
@@ -1115,6 +1122,11 @@ def main():
     if args.tier == "loops":
         # The fuel of each theorem of the calls tier.
         fuel.update(run_fuels((gen_dir / "Calls.lean").read_text()))
+    # A generic function has one theorem per class (`f_pSlot`): a caller sees `f` with their fuel.
+    for k in list(fuel):
+        m = re.match(r"(\w+?)_p[A-Z]\w*$", k)
+        if m and m[1] in cls:
+            fuel[m[1]] = max(fuel.get(m[1], 0), fuel[k])
     todo = list(tier)
     while todo:
         cands = {}
@@ -1127,6 +1139,18 @@ def main():
             lemmas = [k for c in callees for k in fuel if k == c or k.startswith(c + "_p")]
             extra, wf = [], any(wfneed.get(c) for c in callees)
             alloc = any(not heq.get(c, True) for c in callees)
+            sig = em.sigs[n]
+            if any(t[0] == "utvar" for _, t in sig.params) and \
+                    not any(t[0] == "tvar" for _, t in sig.params):
+                # A generic uint function: one theorem for each uint class.
+                for c in b.order:
+                    if T.is_uint_cls(c):
+                        try:
+                            cands[f"{n}_p{names.cls(c)}"] = (
+                                g.theorem(n, sig, fns[n], lemmas, f, wf=wf, alloc=alloc, inst=c), f)
+                        except (Unsupported, S.Unsupported, ValueError) as e:
+                            skipped[n] = f"no statement: {e}"
+                continue
             try:
                 for c in callees:
                     if c in bfuel:
@@ -1137,7 +1161,6 @@ def main():
             except (Unsupported, S.Unsupported, ValueError) as e:
                 skipped[n] = f"no statement: {e}"
                 continue
-            sig = em.sigs[n]
             for j, (_, t) in enumerate(sig.params):
                 if t[0] == "uint" and sig.ret[0] == "uint" and not sig.mutated:
                     for tie in (False, True):
@@ -1146,7 +1169,8 @@ def main():
                                 g.theorem(n, sig, fns[n], lemmas, f, poly=j, tie=tie), f)
                         except (Unsupported, S.Unsupported, ValueError):
                             pass
-        todo = [n for n in todo if n not in cands and n not in skipped]
+        todo = [n for n in todo if n not in cands and n not in skipped and
+                not any(k.startswith(n + "_p") for k in cands)]
         if not cands:
             break
         with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
@@ -1156,6 +1180,14 @@ def main():
         failed.update({n: e for n, ok, _, e in results if not ok and n in tier})
         secs.update({n: round(t, 1) for n, _, t, _ in results})
         proved += [n for n in new if n in tier]
+        # A generic function: proved when every class instance is.
+        for n in tier:
+            inst = [k for k in cands if k.startswith(n + "_p") and n not in cands]
+            if inst and all(k in new for k in inst) and n not in proved:
+                proved.append(n)
+                failed.pop(n, None)
+                fuel[n] = max(fuel.get(k, 64) for k in inst)
+                secs[n] = round(sum(secs.get(k, 0) for k in inst), 1)
         body += "".join(cands[n][0] for n in new)
         for n in new:
             fv = run_fuels(cands[n][0]).get(n)
