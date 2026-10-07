@@ -254,6 +254,17 @@ def dBuiltin (env : Env) (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
     | _ => none
   | _ => none
 
+/-- The trees of the arguments of a call that leaves out trailing arguments: `None` for each.
+The callee checks that their defaults are `None`. -/
+def padNone (d : FunctionDef) (rg : List DV) : Option (List DV) :=
+  if rg.length ≤ d.params.names.length ∧ d.params.names.length ≤ rg.length + d.params.defaults.length then
+    some (rg ++ List.replicate (d.params.names.length - rg.length) (.leaf .none))
+  else none
+
+theorem padNone_full {d : FunctionDef} {rg : List DV} (h : rg.length = d.params.names.length) :
+    padNone d rg = some rg := by
+  unfold padNone; rw [if_pos (by omega)]; simp [h]
+
 /-- A call that writes nothing. `fn` is the callee body at the fuel of the call. -/
 def dCallRO (env : Env) (fps : Name → Footprint)
     (fn : Footprint → FunctionDef → List DV → DM (DRes × List DV)) (s : DSt) (g : Name)
@@ -262,11 +273,14 @@ def dCallRO (env : Env) (fps : Name → Footprint)
   | some (.fn d) =>
     if (fps g).isEmpty then
       match rs.mapM (argRoot s) with
-      | some rg => DM.bind (fn [] d rg) fun (r, _) =>
-          match r with
-          | .val v => if Flat v then .ok (.val v) else none
-          | .tree t => .ok (.tree t)
-          | .place _ _ => none
+      | some rg =>
+        match padNone d rg with
+        | some rg' => DM.bind (fn [] d rg') fun (r, _) =>
+            match r with
+            | .val v => if Flat v then .ok (.val v) else none
+            | .tree t => .ok (.tree t)
+            | .place _ _ => none
+        | none => none
       | none => none
     else none
   | some (.type t) => dCtor env t rs

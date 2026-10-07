@@ -380,6 +380,14 @@ def classes_file(m):
     for f, v in re.findall(r"^  (\w+) := (.+)$", cfg, re.M):
         out.append("@[l4_simp] theorem cfg_%s : @Cfg.%s Cfg.default = %s := Eq.trans rfl rfl" % (f, f, v))
     out.append("")
+    for n in sorted(m.fns):
+        f = m.fns[n]
+        nd = len([x for x in split_top(f["defaults"])]) if f["defaults"].strip() else 0
+        out.append("@[l4_simp] theorem fnlen_%s : Scope.fn_%s.params.names.length = %d := Eq.trans rfl rfl"
+                   % (n, n, len(f["params"])))
+        out.append("@[l4_simp] theorem fndef_%s : Scope.fn_%s.params.defaults.length = %d := Eq.trans rfl rfl"
+                   % (n, n, nd))
+    out.append("")
     for n in m.rep_order:
         out.append("/-- The children of the decoded tree of a `%s`. -/" % n)
         out.append("def kids_%s (x : %s) : List DV :=\n  [%s]\n" % (n, n, ",\n    ".join(m.reps[n])))
@@ -1166,6 +1174,7 @@ def callee_lens(m, name, params):
 
 
 HTR = {}
+NONE_OK = set()
 
 
 def uses_htr(m, name):
@@ -1196,7 +1205,7 @@ def hok_binder(m, pn, pt):
     return None
 
 
-def candidate(m, name, proved, sub=None, isub=False, ok=False):
+def candidate(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
     """The theorems of `name` (its `_den` and `_call`) and its fuel, or Unsupported. `proved` maps
     each proved function to its fuel."""
     if name not in m.sigs:
@@ -1222,6 +1231,11 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
             rds.append("a_%s" % pn)
             xs.extend(["a_" + pn, "t_" + pn, "ds_" + pn, "he_" + pn])
             objs.append(pn)
+            continue
+        if nonep and re.fullmatch(r"\(?Option (\w+)\)?", pt):
+            # The caller leaves the argument out: `None`.
+            roots.append("(.leaf .none)")
+            rds.append("none")
             continue
         b, r, a = param(m, i, pn, pt, sub, isub)
         bs.append(b)
@@ -1253,7 +1267,7 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
         xs.insert(0, "ho")
     if sub and any(ctor(st)[0] == "forStmt" for st in f["body"][1]):
         raise Unsupported("variant with a loop")
-    tag = ("_" + sub if sub else "") + ("_i" if isub else "")
+    tag = ("_" + sub if sub else "") + ("_i" if isub else "") + ("_none" if nonep else "")
     D = depth(f["body"]) + 4 + max([proved[c] + 2 for c in m.callees(name)] + [0])
     items = [(lp["k"], lp["path"] and lp["len"].split(".")[-2] or None) for lp in lps + cps]
     for it in callee_lens(m, name, params):
@@ -1269,6 +1283,8 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
             fcalls += ["%s_fcall_%s sha ho" % (c, X) for X in sorted(set(objcls))]
         else:
             fcalls += ["%s_fcall sha ho" % c]
+            if c in NONE_OK:
+                fcalls += ["%s_fcall_none sha ho" % c]
     if lps or cps:
         D += 6
     rs = "[%s]" % ", ".join(roots)
@@ -1297,7 +1313,8 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
            "  l4_eval [%s]\n"
            "%s%s"
            % (name, tag, " ".join(bs), LENS, D, fp, name, rs, rt, enc, rs_out, name, " ".join(rds),
-              ("  simp only [%s] at %s\n" % (", ".join("ok_" + n for n in m.rep_order), " ".join(hoks)))
+              ("".join("  have %s' := %s\n" % (h, h) for h in hoks) +
+               "  simp only [%s] at %s\n" % (", ".join("ok_" + n for n in m.rep_order), " ".join(h + "'" for h in hoks)))
               if hoks else "", ", ".join(unf), loopstep,
               "" if os.environ.get("L4_NOCLOSE") else
               "  all_goals l4_dbg\n" if os.environ.get("L4_DBG") else "  all_goals l4_close\n"))
@@ -1341,11 +1358,11 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
                                          not b.startswith("(ds_%s" % pn) and not b.startswith("(he_%s" % pn)),
                         LENS, D, fp, name, rsX, name, rdsX, enc, routX, name,
                         " ".join(x for x in xsX)))
-    if not sub:
+    if not sub and not nonep:
         LENS_OF[name] = items
     out = ((loop_theorems(m, name, params, bs, roots, rds, xs, lps) + "\n" if lps else "") +
            (comp_theorems(m, name, params, bs, roots, rds, xs, cps) + "\n" if cps else "") + thm + "\n" + call)
-    if not sub:
+    if not sub and not nonep:
         out += "\n" + wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS)
     out = re.sub(r"^(@\[l4_simp\] )?theorem ", lambda mm: "set_option maxHeartbeats %s in\n" % os.environ.get("L4_HB", "1000000") + mm.group(0), out,
                  flags=re.M)
@@ -1551,6 +1568,11 @@ def main():
             except Unsupported as e:
                 fails[n] = "unsupported: " + str(e)
                 continue
+            if any(re.fullmatch(r"\(?Option (\w+)\)?", t) for _, t in m.sigs[n][0]):
+                try:
+                    cands[n + "@none"] = candidate(m, n, proved, ok=True, nonep=True)
+                except Unsupported:
+                    pass
             for c in variants(m, n):
                 for isub in ([False, True] if any(t == "Int" for _, t in m.sigs[n][0]) else [False]):
                     try:
@@ -1566,6 +1588,8 @@ def main():
                 if "@" in n:
                     if ok:
                         vtexts.setdefault(n.split("@")[0], []).append(cands[n][0])
+                        if n.endswith("@none"):
+                            NONE_OK.add(n.split("@")[0])
                     continue
                 if ok:
                     proved[n] = cands[n][1]

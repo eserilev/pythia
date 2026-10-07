@@ -115,7 +115,7 @@ theorem c_vi (sha : Oracle) (fp : Footprint) (n : Nat) {s : DSt} {j : Nat} (hj :
   rw [show n + 3 = (n + 2) + 1 by omega, den_expr]
   simp only [exprStep, hh, allKw_pos, Bool.false_eq_true, ↓reduceIte]
   rw [args1 a1, dm_bind_ok]
-  simp only [dCallRO, hl]
+  simp only [dCallRO, padNone, hl]
   exact hc
 
 /-- The active indices of `xs`, numbered from `j`. -/

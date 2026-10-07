@@ -53,7 +53,7 @@ theorem hcwc_den (sha : Oracle) (fp : Footprint) (m : Nat) (x : Validator) :
   rw [den_fn]
   simp [-den_fn, hc, fnStep, noneDefaults, Scope.fn_has_compounding_withdrawal_credential, Sem.block, blockOf,
     stmtStep, exprStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
-    setLoc, slot, argsOf, dCallRO, fpsEx, argRoot, dAttr, DSt.deref, subAt, DV.kids, ofChild,
+    setLoc, slot, argsOf, dCallRO, padNone, fpsEx, argRoot, dAttr, DSt.deref, subAt, DV.kids, ofChild,
     Validation.Tactic.fieldIndex_lit, Examples.vdv, Flat, comp]
 
 theorem slot_vdv (x : Validator) : slot [Examples.vdv x] 0 = .place 0 [] := rfl
@@ -70,7 +70,7 @@ theorem gmeb_den (sha : Oracle) (fp : Footprint) (m : Nat) (x : Validator) :
   cases hcx : comp x <;>
   simp [-den_fn, hc, hcx, fnStep, noneDefaults, Scope.fn_get_max_effective_balance, Sem.block, blockOf,
     stmtStep, exprStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
-    setLoc, slot_vdv, argsOf, dCallRO, fpsEx, argRoot, DSt.deref, subAt, Flat, meb, dGlobal,
+    setLoc, slot_vdv, argsOf, dCallRO, padNone, fpsEx, argRoot, DSt.deref, subAt, Flat, meb, dGlobal,
     truthy_lift (truthy_b true), truthy_lift (truthy_b false)]
 
 theorem icwc_read (wc : Bytes32) :
@@ -210,7 +210,7 @@ theorem e_hi (h32 : s.loc 32 = none) (h211 : s.loc 211 = none) (h527 : s.loc 527
       (.call 1242 (.name 1242 32) [(.pos (.binop 1242 .floorDiv (.name 1242 211) (.name 1242 527)))]) =
       some (.ok (.val (.uint u64 250000000))) := by
   simp [exprStep, DM.bind, DM.ok, callHead, callable, Validation.Tactic.lookup_lit, h32, h211, h527,
-    argsOf, dGlobal, Flat, dCallRO, c_div, c_ctor sha]
+    argsOf, dGlobal, Flat, dCallRO, padNone, c_div, c_ctor sha]
 
 theorem e_mul (x c r : Nat) (h526 : s.loc 526 = some (.val (.uint u64 250000000))) (hx : s.loc x = none)
     (hc : (Scope.env sha).globals.lookup x = some (.const (.uint u64 c)))
@@ -228,7 +228,7 @@ theorem e_meb (hc : Ctx s ds kV lV kB lB vals bals) {i : Nat} (hi : i < vals.len
   have hv : (vals.map Examples.vdv)[i]? = some (Examples.vdv vals[i]) := by
     simp [List.getElem?_eq_getElem hi]
   simp [-den_fn, exprStep, DM.bind, DM.ok, callHead, callable, Validation.Tactic.lookup_lit, h361,
-    h25, argsOf, dCallRO, fpsEx, argRoot, DSt.deref, subAt, DV.kids, hc.roots, pebuRoot,
+    h25, argsOf, dCallRO, padNone, fpsEx, argRoot, DSt.deref, subAt, DV.kids, hc.roots, pebuRoot,
     List.getElem?_set, hc.l11, hv, hg, Flat]
 
 
@@ -259,7 +259,7 @@ theorem e_min {b M : Nat} (hb : b < 2 ^ 64) (h213 : s.loc 213 = none) (h211 : s.
       some (.ok (.val (.uint gwTy (b - b % 1000000000)))) :=
     dBinop_eval (sub_uu gwTy rfl (by simp [resolveUint]) b _ (Nat.mod_le _ _) hb) rfl
   simp [exprStep, DM.bind, DM.ok, callHead, callable, Validation.Tactic.lookup_lit, h213, h211,
-    h9, h397, argsOf, dGlobal, Flat, dCallRO, hmod, hsub, min_gw, newEb]
+    h9, h397, argsOf, dGlobal, Flat, dCallRO, padNone, hmod, hsub, min_gw, newEb]
 theorem e_eb (n : Nat) (hc : Ctx s ds kV lV kB lB vals bals) {i : Nat} (hi : i < vals.length)
     (h25 : s.loc 25 = some (.place 0 [11, i])) :
     (den (Scope.env sha) fpsEx (n + 2)).expr pebuFp s (.attr l (.name l' 25) 113) =

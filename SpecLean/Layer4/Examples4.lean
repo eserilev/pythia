@@ -162,7 +162,7 @@ theorem cvb_call (sha : Oracle) (fp : Footprint) (m vi : Nat) (hv : vi < 2 ^ 64)
   simp only [exprStep, hhead, allKw_pos, Bool.false_eq_true, ↓reduceIte]
   simp only [argsOf]
   rw [ha, dm_bind_ok, dm_ok, dm_bind_ok, dm_ok, dm_bind_ok]
-  simp only [dCallRO, hl]
+  simp only [dCallRO, padNone, hl]
   exact hc
 
 theorem cvb_den (sha : Oracle) (fp : Footprint) (m vi : Nat) (hv : vi < 2 ^ 64) :
@@ -300,14 +300,15 @@ theorem e_callfn {sha : Oracle} {fp : Footprint} {s : DSt} {n : Nat} {l l' : Lin
     (hloc : s.loc g = none)
     (ha : argsOf ((den (Scope.env sha) fpsEx (n + 1)).expr fp s) args = some (.ok rs))
     (hr : rs.mapM (argRoot s) = some rg)
-    (hf : (den (Scope.env sha) fpsEx (n + 1)).fn [] d rg = some (.ok (.val v, rg'))) (hflat : Flat v = true) :
+    (hf : (den (Scope.env sha) fpsEx (n + 1)).fn [] d rg = some (.ok (.val v, rg'))) (hflat : Flat v = true)
+    (hlen : rg.length = d.params.names.length := by simp) :
     (den (Scope.env sha) fpsEx (n + 2)).expr fp s (.call l (.name l' g) args) = some (.ok (.val v)) := by
   have hh : callHead (Scope.env sha) s (.call l (.name l' g) args) = some (g, args) := by
     simp [callHead, hloc, callable, hl]
   rw [den_expr]
   simp only [exprStep, hh, allKw_of_argsOf _ _ ha, Bool.false_eq_true, ↓reduceIte]
   rw [ha, dm_bind_ok]
-  simp only [dCallRO, hl, hfp, if_true, hr, hf, dm_bind_ok, hflat]
+  simp only [dCallRO, padNone_full hlen, hl, hfp, if_true, hr, hf, dm_bind_ok, hflat]
   rfl
 
 

@@ -121,6 +121,39 @@ theorem kwctor_ssz (env : Env) (h : Heap) (ty : Name) (fs : List (Name × SszTy)
   simp only [Ssz.construct, hfs, hcf, Except.bind_ok', build_kw env h kvs fs r hk]
   cases r <;> rfl
 
+/-! The arity of the callees of the examples. -/
+
+@[simp] theorem exlen_apply_withdrawals : Scope.fn_apply_withdrawals.params.names.length = 2 := Eq.trans rfl rfl
+@[simp] theorem exdef_apply_withdrawals : Scope.fn_apply_withdrawals.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_compute_epoch_at_slot : Scope.fn_compute_epoch_at_slot.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_compute_epoch_at_slot : Scope.fn_compute_epoch_at_slot.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_convert_validator_index_to_builder_index : Scope.fn_convert_validator_index_to_builder_index.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_convert_validator_index_to_builder_index : Scope.fn_convert_validator_index_to_builder_index.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_decrease_balance : Scope.fn_decrease_balance.params.names.length = 3 := Eq.trans rfl rfl
+@[simp] theorem exdef_decrease_balance : Scope.fn_decrease_balance.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_get_active_validator_indices : Scope.fn_get_active_validator_indices.params.names.length = 2 := Eq.trans rfl rfl
+@[simp] theorem exdef_get_active_validator_indices : Scope.fn_get_active_validator_indices.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_get_current_epoch : Scope.fn_get_current_epoch.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_get_current_epoch : Scope.fn_get_current_epoch.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_get_max_effective_balance : Scope.fn_get_max_effective_balance.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_get_max_effective_balance : Scope.fn_get_max_effective_balance.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_get_previous_epoch : Scope.fn_get_previous_epoch.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_get_previous_epoch : Scope.fn_get_previous_epoch.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_has_compounding_withdrawal_credential : Scope.fn_has_compounding_withdrawal_credential.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_has_compounding_withdrawal_credential : Scope.fn_has_compounding_withdrawal_credential.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_increase_balance : Scope.fn_increase_balance.params.names.length = 3 := Eq.trans rfl rfl
+@[simp] theorem exdef_increase_balance : Scope.fn_increase_balance.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_is_active_validator : Scope.fn_is_active_validator.params.names.length = 2 := Eq.trans rfl rfl
+@[simp] theorem exdef_is_active_validator : Scope.fn_is_active_validator.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_is_builder_index : Scope.fn_is_builder_index.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_is_builder_index : Scope.fn_is_builder_index.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_is_compounding_withdrawal_credential : Scope.fn_is_compounding_withdrawal_credential.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_is_compounding_withdrawal_credential : Scope.fn_is_compounding_withdrawal_credential.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_process_effective_balance_updates : Scope.fn_process_effective_balance_updates.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_process_effective_balance_updates : Scope.fn_process_effective_balance_updates.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_saturating_sub : Scope.fn_saturating_sub.params.names.length = 2 := Eq.trans rfl rfl
+@[simp] theorem exdef_saturating_sub : Scope.fn_saturating_sub.params.defaults.length = 0 := Eq.trans rfl rfl
+
 /-- The method names that the SSZ model checks before `append` differ from it. -/
 def NmOK (env : Env) : Prop :=
   env.nm.append ≠ env.nm.extend ∧ env.nm.append ≠ env.nm.copy ∧ env.nm.append ≠ env.nm.hashTreeRoot
@@ -237,7 +270,7 @@ theorem ceas_den (sha : Oracle) (fp : Footprint) (m a : Nat) (ha : a < 2 ^ 64) :
       some (.ok (.val (.uint epTy (a / 8)))) := dCtor_eval rfl rfl (ctor_epoch _ _ _ hd) rfl
   simp [fnStep, noneDefaults, Scope.fn_compute_epoch_at_slot, Sem.block, blockOf, stmtStep, exprStep, callHead,
     callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc, setLoc, slot,
-    argsOf, dCallRO, dGlobal, hb, hc, Flat]
+    argsOf, dCallRO, padNone, dGlobal, hb, hc, Flat]
 
 theorem gce_den (sha : Oracle) (fp : Footprint) (m : Nat) (ds : List DV) (a : Nat)
     (hs : ds[2]? = some (.leaf (.uint slotTy a))) (ha : a < 2 ^ 64) :
@@ -248,7 +281,7 @@ theorem gce_den (sha : Oracle) (fp : Footprint) (m : Nat) (ds : List DV) (a : Na
   rw [den_fn]
   simp [-den_fn, hc, fnStep, noneDefaults, Scope.fn_get_current_epoch, Sem.block, blockOf, stmtStep, exprStep, callHead,
     callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc, setLoc, slot,
-    argsOf, dCallRO, dAttr, DSt.deref, subAt, DV.kids, hs, ofChild, fpsEx, argRoot, Scope.Id.«decrease_balance»,
+    argsOf, dCallRO, padNone, dAttr, DSt.deref, subAt, DV.kids, hs, ofChild, fpsEx, argRoot, Scope.Id.«decrease_balance»,
     Validation.Tactic.fieldIndex_lit, Flat]
 
 theorem uOf_ok [UintC α] (n : Nat) (hn : n < 2 ^ UintC.bits α) :
@@ -395,7 +428,7 @@ theorem gpe_den (sha : Oracle) (fp : Footprint) (m : Nat) (ds : List DV) (a : Na
   rw [den_fn]
   simp [-den_fn, hg, hsat, fnStep, noneDefaults, Scope.fn_get_previous_epoch, Sem.block, blockOf, stmtStep,
     exprStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc, setLoc,
-    slot, argsOf, dCallRO, fpsEx, argRoot, Scope.Id.«decrease_balance», DSt.deref, subAt, Flat]
+    slot, argsOf, dCallRO, padNone, fpsEx, argRoot, Scope.Id.«decrease_balance», DSt.deref, subAt, Flat]
 
 theorem sat_read_i (x : Nat) (hx : x < 2 ^ 64) :
     saturating_sub (⟨x⟩ : Uint64) (1 : Int) = .ok ⟨if 1 < x then x - 1 else 0⟩ := by
@@ -485,7 +518,7 @@ theorem dbal_den_ok (sha : Oracle) (m : Nat) (ds : List DV) (k : ListKind) (l : 
   rw [den_fn]
   simp [-den_fn, hsat, fnStep, noneDefaults, Scope.fn_decrease_balance, Sem.block, blockOf, stmtStep,
     exprStep, callStep, appendOf, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
-    setLoc, slot, argsOf, dCallRO, dCallW, fpsEx, argRoot, Scope.Id.«decrease_balance»,
+    setLoc, slot, argsOf, dCallRO, padNone, dCallW, fpsEx, argRoot, Scope.Id.«decrease_balance»,
     Scope.Id.«saturating_sub», DSt.deref, subAt, DV.kids, dAttr, dIndex, ofChild, hb, hm,
     Validation.Tactic.fieldIndex_lit, isByteList, normIndex_nat, hi, targetStep, dCoerce_gwei,
     dWriteD, dWrite, Except.map, Flat, fpOk, Examples.ibFp, rootIs, matchesB, leafAt, updAt, List.map_set, Examples.gleaf]

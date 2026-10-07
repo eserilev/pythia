@@ -905,6 +905,21 @@ theorem saturating_sub_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : Hea
     hwf hh (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
+theorem saturating_sub_den_BuilderIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
+  rw [s_fn]
+  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
+  all_goals l4_close
+
+set_option maxHeartbeats 1000000 in
+@[l4_simp] theorem saturating_sub_call_BuilderIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))])) :=
+  bind_call (saturating_sub_den_BuilderIndex sha m a_a a_b) k
+
+set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_BuilderIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.uint (.nominal 199 64) a_b))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Uint64 => (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.uint (.nominal 199 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
@@ -935,19 +950,19 @@ set_option maxHeartbeats 1000000 in
   bind_call (saturating_sub_den_CommitteeIndex sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_BuilderIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
+theorem saturating_sub_den_Epoch (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
   rw [s_fn]
   l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
   all_goals l4_close
 
 set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_BuilderIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
+@[l4_simp] theorem saturating_sub_call_Epoch (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
     Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.int a_b))])) :=
-  bind_call (saturating_sub_den_BuilderIndex sha m a_a a_b) k
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.int a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.int a_b))])) :=
+  bind_call (saturating_sub_den_Epoch sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
@@ -963,21 +978,6 @@ set_option maxHeartbeats 1000000 in
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]) k) =
       callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) :=
   bind_call (saturating_sub_den_CommitteeIndex_i sha m a_a a_b) k
-
-set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_Epoch (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
-  rw [s_fn]
-  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
-  all_goals l4_close
-
-set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_Epoch (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
-    Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.int a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.int a_b))])) :=
-  bind_call (saturating_sub_den_Epoch sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_Epoch_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
@@ -1025,21 +1025,6 @@ set_option maxHeartbeats 1000000 in
   bind_call (saturating_sub_den_Gwei_i sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
-  rw [s_fn]
-  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
-  all_goals l4_close
-
-set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
-    Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) :=
-  bind_call (saturating_sub_den_Slot sha m a_a a_b) k
-
-set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_Slot_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Uint64 => (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
@@ -1053,6 +1038,21 @@ set_option maxHeartbeats 1000000 in
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))]) k) =
       callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))])) :=
   bind_call (saturating_sub_den_Slot_i sha m a_a a_b) k
+
+set_option maxHeartbeats 1000000 in
+theorem saturating_sub_den_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
+  rw [s_fn]
+  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
+  all_goals l4_close
+
+set_option maxHeartbeats 1000000 in
+@[l4_simp] theorem saturating_sub_call_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) :=
+  bind_call (saturating_sub_den_Slot sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_ValidatorIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
@@ -1567,7 +1567,8 @@ theorem get_domain_den (sha : Oracle) (m : Nat) (ho : Validation.HtrBridge.Oracl
     ((den (Scope.env sha) fpsGen (m + 37)).fn [] Scope.fn_get_domain [(.cont 733 (kids_BeaconState a_state)), (.leaf (.bytes 746 a_domain_type)), (.leaf (.uint (.nominal 140 64) a_epoch))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Domain => (DRes.val (.bytes 149 x.data), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.bytes 746 a_domain_type)), (.leaf (.uint (.nominal 140 64) a_epoch))])) <$> get_domain a_state ⟨a_domain_type⟩ (some ⟨a_epoch⟩)) := by
   rw [s_fn]
-  simp only [ok_Builder, ok_BuilderPendingWithdrawal, ok_ForkData, ok_SigningData, ok_Withdrawal, ok_Checkpoint, ok_PayloadAttestationData, ok_SyncCommittee, ok_Validator, ok_DepositMessage, ok_PendingDeposit, ok_BeaconBlockHeader, ok_BuilderPendingPayment, ok_PendingConsolidation, ok_Eth1Data, ok_HistoricalSummary, ok_DepositRequest, ok_WithdrawalRequest, ok_ConsolidationRequest, ok_BuilderDepositRequest, ok_BuilderExitRequest, ok_PendingPartialWithdrawal, ok_Fork, ok_ExecutionPayloadBid, ok_SignedBeaconBlockHeader, ok_DepositData, ok_VoluntaryExit, ok_SyncAggregate, ok_BLSToExecutionChange, ok_SignedExecutionPayloadBid, ok_PayloadAttestation, ok_AttestationData, ok_IndexedPayloadAttestation, ok_ExecutionRequests, ok_BeaconState, ok_ProposerSlashing, ok_Attestation, ok_Deposit, ok_SignedVoluntaryExit, ok_SignedBLSToExecutionChange, ok_IndexedAttestation, ok_AttesterSlashing, ok_BeaconBlockBody, ok_BeaconBlock, ok_SignedBeaconBlock] at hok_state
+  have hok_state' := hok_state
+  simp only [ok_Builder, ok_BuilderPendingWithdrawal, ok_ForkData, ok_SigningData, ok_Withdrawal, ok_Checkpoint, ok_PayloadAttestationData, ok_SyncCommittee, ok_Validator, ok_DepositMessage, ok_PendingDeposit, ok_BeaconBlockHeader, ok_BuilderPendingPayment, ok_PendingConsolidation, ok_Eth1Data, ok_HistoricalSummary, ok_DepositRequest, ok_WithdrawalRequest, ok_ConsolidationRequest, ok_BuilderDepositRequest, ok_BuilderExitRequest, ok_PendingPartialWithdrawal, ok_Fork, ok_ExecutionPayloadBid, ok_SignedBeaconBlockHeader, ok_DepositData, ok_VoluntaryExit, ok_SyncAggregate, ok_BLSToExecutionChange, ok_SignedExecutionPayloadBid, ok_PayloadAttestation, ok_AttestationData, ok_IndexedPayloadAttestation, ok_ExecutionRequests, ok_BeaconState, ok_ProposerSlashing, ok_Attestation, ok_Deposit, ok_SignedVoluntaryExit, ok_SignedBLSToExecutionChange, ok_IndexedAttestation, ok_AttesterSlashing, ok_BeaconBlockBody, ok_BeaconBlock, ok_SignedBeaconBlock] at hok_state'
   l4_eval [Scope.fn_get_domain, get_domain, fpsGen, fpAll, GenBridge.callK_htr_root ho, GenBridge.callK_htr_len ho, ho]
   all_goals (repeat (first | (simp (disch := l4_disch) only [compute_domain_fcall sha ho]) |
     ((l4_bycases <;> (try l4_eval_star)))))
@@ -1610,6 +1611,36 @@ theorem get_domain_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF
       ResultMatches gfp [] h [(.ref r_state), (.bytes 746 a_domain_type), (.uint (.nominal 140 64) a_epoch)] (fun (x : Domain) _ v => v = (.bytes 149 x.data))
         (interp (Scope.env sha) fuel Scope.Id.«get_domain» [(.ref r_state), (.bytes 746 a_domain_type), (.uint (.nominal 140 64) a_epoch)] h) (get_domain a_state ⟨a_domain_type⟩ (some ⟨a_epoch⟩)) :=
   get_domain_l4 sha gfp h hwf hh ho a_state (okb_BeaconState hy_state) a_domain_type hok_domain_type a_epoch hok_epoch r_state (bridge_BeaconState hc hy_state)
+
+set_option maxHeartbeats 1000000 in
+theorem get_domain_den_none (sha : Oracle) (m : Nat) (ho : Validation.HtrBridge.OracleHtr sha) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_domain_type : List UInt8) (hok_domain_type : a_domain_type.length = 4) :
+    ((den (Scope.env sha) fpsGen (m + 37)).fn [] Scope.fn_get_domain [(.cont 733 (kids_BeaconState a_state)), (.leaf (.bytes 746 a_domain_type)), (.leaf .none)]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Domain => (DRes.val (.bytes 149 x.data), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.bytes 746 a_domain_type)), (.leaf .none)])) <$> get_domain a_state ⟨a_domain_type⟩ none) := by
+  rw [s_fn]
+  have hok_state' := hok_state
+  simp only [ok_Builder, ok_BuilderPendingWithdrawal, ok_ForkData, ok_SigningData, ok_Withdrawal, ok_Checkpoint, ok_PayloadAttestationData, ok_SyncCommittee, ok_Validator, ok_DepositMessage, ok_PendingDeposit, ok_BeaconBlockHeader, ok_BuilderPendingPayment, ok_PendingConsolidation, ok_Eth1Data, ok_HistoricalSummary, ok_DepositRequest, ok_WithdrawalRequest, ok_ConsolidationRequest, ok_BuilderDepositRequest, ok_BuilderExitRequest, ok_PendingPartialWithdrawal, ok_Fork, ok_ExecutionPayloadBid, ok_SignedBeaconBlockHeader, ok_DepositData, ok_VoluntaryExit, ok_SyncAggregate, ok_BLSToExecutionChange, ok_SignedExecutionPayloadBid, ok_PayloadAttestation, ok_AttestationData, ok_IndexedPayloadAttestation, ok_ExecutionRequests, ok_BeaconState, ok_ProposerSlashing, ok_Attestation, ok_Deposit, ok_SignedVoluntaryExit, ok_SignedBLSToExecutionChange, ok_IndexedAttestation, ok_AttesterSlashing, ok_BeaconBlockBody, ok_BeaconBlock, ok_SignedBeaconBlock] at hok_state'
+  l4_eval [Scope.fn_get_domain, get_domain, fpsGen, fpAll, GenBridge.callK_htr_root ho, GenBridge.callK_htr_len ho, ho]
+  all_goals (repeat (first | (simp (disch := l4_disch) only [compute_domain_fcall sha ho]) |
+    ((l4_bycases <;> (try l4_eval_star)))))
+  all_goals (try l4_eval)
+  all_goals l4_close
+
+set_option maxHeartbeats 1000000 in
+theorem get_domain_call_none (sha : Oracle) (m : Nat) (ho : Validation.HtrBridge.OracleHtr sha) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_domain_type : List UInt8) (hok_domain_type : a_domain_type.length = 4) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 37)).fn [] Scope.fn_get_domain [(.cont 733 (kids_BeaconState a_state)), (.leaf (.bytes 746 a_domain_type)), (.leaf .none)]) k) =
+      callK (get_domain a_state ⟨a_domain_type⟩ none) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bytes 149 x.data), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.bytes 746 a_domain_type)), (.leaf .none)])) :=
+  bind_call (get_domain_den_none sha m ho a_state hok_state a_domain_type hok_domain_type) k
+
+set_option maxHeartbeats 1000000 in
+theorem get_domain_fcall_none (sha : Oracle) (ho : Validation.HtrBridge.OracleHtr sha) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_domain_type : List UInt8) (hok_domain_type : a_domain_type.length = 4) (n : Nat) (hn : 37 ≤ n) {γ : Type}
+    (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen n).fn [] Scope.fn_get_domain [(.cont 733 (kids_BeaconState a_state)), (.leaf (.bytes 746 a_domain_type)), (.leaf .none)]) k) =
+      callK (get_domain a_state ⟨a_domain_type⟩ none) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.bytes 149 x.data), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.bytes 746 a_domain_type)), (.leaf .none)])) := by
+  obtain ⟨m, rfl⟩ : ∃ m, n = m + 37 := ⟨n - (37), by omega⟩
+  exact get_domain_call_none sha m ho a_state hok_state a_domain_type hok_domain_type k
+-- variants
 
 set_option maxHeartbeats 1000000 in
 theorem get_previous_epoch_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
@@ -2613,7 +2644,9 @@ theorem process_deposit_request_den (sha : Oracle) (m : Nat) (a_state : BeaconSt
     ((den (Scope.env sha) fpsGen (m + 11)).fn (fpsGen 54) Scope.fn_process_deposit_request [(.cont 733 (kids_BeaconState a_state)), (.cont 760 (kids_DepositRequest a_deposit_request))]).map (Except.mapError SpecError.fail) =
       some ((fun x : BeaconState => (DRes.val .none, [(.cont 733 (kids_BeaconState x)), (.cont 760 (kids_DepositRequest a_deposit_request))])) <$> process_deposit_request a_state a_deposit_request) := by
   rw [s_fn]
-  simp only [ok_Builder, ok_BuilderPendingWithdrawal, ok_ForkData, ok_SigningData, ok_Withdrawal, ok_Checkpoint, ok_PayloadAttestationData, ok_SyncCommittee, ok_Validator, ok_DepositMessage, ok_PendingDeposit, ok_BeaconBlockHeader, ok_BuilderPendingPayment, ok_PendingConsolidation, ok_Eth1Data, ok_HistoricalSummary, ok_DepositRequest, ok_WithdrawalRequest, ok_ConsolidationRequest, ok_BuilderDepositRequest, ok_BuilderExitRequest, ok_PendingPartialWithdrawal, ok_Fork, ok_ExecutionPayloadBid, ok_SignedBeaconBlockHeader, ok_DepositData, ok_VoluntaryExit, ok_SyncAggregate, ok_BLSToExecutionChange, ok_SignedExecutionPayloadBid, ok_PayloadAttestation, ok_AttestationData, ok_IndexedPayloadAttestation, ok_ExecutionRequests, ok_BeaconState, ok_ProposerSlashing, ok_Attestation, ok_Deposit, ok_SignedVoluntaryExit, ok_SignedBLSToExecutionChange, ok_IndexedAttestation, ok_AttesterSlashing, ok_BeaconBlockBody, ok_BeaconBlock, ok_SignedBeaconBlock] at hok_state hok_deposit_request
+  have hok_state' := hok_state
+  have hok_deposit_request' := hok_deposit_request
+  simp only [ok_Builder, ok_BuilderPendingWithdrawal, ok_ForkData, ok_SigningData, ok_Withdrawal, ok_Checkpoint, ok_PayloadAttestationData, ok_SyncCommittee, ok_Validator, ok_DepositMessage, ok_PendingDeposit, ok_BeaconBlockHeader, ok_BuilderPendingPayment, ok_PendingConsolidation, ok_Eth1Data, ok_HistoricalSummary, ok_DepositRequest, ok_WithdrawalRequest, ok_ConsolidationRequest, ok_BuilderDepositRequest, ok_BuilderExitRequest, ok_PendingPartialWithdrawal, ok_Fork, ok_ExecutionPayloadBid, ok_SignedBeaconBlockHeader, ok_DepositData, ok_VoluntaryExit, ok_SyncAggregate, ok_BLSToExecutionChange, ok_SignedExecutionPayloadBid, ok_PayloadAttestation, ok_AttestationData, ok_IndexedPayloadAttestation, ok_ExecutionRequests, ok_BeaconState, ok_ProposerSlashing, ok_Attestation, ok_Deposit, ok_SignedVoluntaryExit, ok_SignedBLSToExecutionChange, ok_IndexedAttestation, ok_AttesterSlashing, ok_BeaconBlockBody, ok_BeaconBlock, ok_SignedBeaconBlock] at hok_state' hok_deposit_request'
   l4_eval [Scope.fn_process_deposit_request, process_deposit_request, fpsGen, fpAll]
   all_goals l4_close
 
@@ -2686,7 +2719,8 @@ theorem queue_excess_active_balance_den (sha : Oracle) (m : Nat) (a_state : Beac
     ((den (Scope.env sha) fpsGen (m + 12)).fn (fpsGen 690) Scope.fn_queue_excess_active_balance [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 82 64) a_index))]).map (Except.mapError SpecError.fail) =
       some ((fun x : BeaconState => (DRes.val .none, [(.cont 733 (kids_BeaconState x)), (.leaf (.uint (.nominal 82 64) a_index))])) <$> queue_excess_active_balance a_state ⟨a_index⟩) := by
   rw [s_fn]
-  simp only [ok_Builder, ok_BuilderPendingWithdrawal, ok_ForkData, ok_SigningData, ok_Withdrawal, ok_Checkpoint, ok_PayloadAttestationData, ok_SyncCommittee, ok_Validator, ok_DepositMessage, ok_PendingDeposit, ok_BeaconBlockHeader, ok_BuilderPendingPayment, ok_PendingConsolidation, ok_Eth1Data, ok_HistoricalSummary, ok_DepositRequest, ok_WithdrawalRequest, ok_ConsolidationRequest, ok_BuilderDepositRequest, ok_BuilderExitRequest, ok_PendingPartialWithdrawal, ok_Fork, ok_ExecutionPayloadBid, ok_SignedBeaconBlockHeader, ok_DepositData, ok_VoluntaryExit, ok_SyncAggregate, ok_BLSToExecutionChange, ok_SignedExecutionPayloadBid, ok_PayloadAttestation, ok_AttestationData, ok_IndexedPayloadAttestation, ok_ExecutionRequests, ok_BeaconState, ok_ProposerSlashing, ok_Attestation, ok_Deposit, ok_SignedVoluntaryExit, ok_SignedBLSToExecutionChange, ok_IndexedAttestation, ok_AttesterSlashing, ok_BeaconBlockBody, ok_BeaconBlock, ok_SignedBeaconBlock] at hok_state
+  have hok_state' := hok_state
+  simp only [ok_Builder, ok_BuilderPendingWithdrawal, ok_ForkData, ok_SigningData, ok_Withdrawal, ok_Checkpoint, ok_PayloadAttestationData, ok_SyncCommittee, ok_Validator, ok_DepositMessage, ok_PendingDeposit, ok_BeaconBlockHeader, ok_BuilderPendingPayment, ok_PendingConsolidation, ok_Eth1Data, ok_HistoricalSummary, ok_DepositRequest, ok_WithdrawalRequest, ok_ConsolidationRequest, ok_BuilderDepositRequest, ok_BuilderExitRequest, ok_PendingPartialWithdrawal, ok_Fork, ok_ExecutionPayloadBid, ok_SignedBeaconBlockHeader, ok_DepositData, ok_VoluntaryExit, ok_SyncAggregate, ok_BLSToExecutionChange, ok_SignedExecutionPayloadBid, ok_PayloadAttestation, ok_AttestationData, ok_IndexedPayloadAttestation, ok_ExecutionRequests, ok_BeaconState, ok_ProposerSlashing, ok_Attestation, ok_Deposit, ok_SignedVoluntaryExit, ok_SignedBLSToExecutionChange, ok_IndexedAttestation, ok_AttesterSlashing, ok_BeaconBlockBody, ok_BeaconBlock, ok_SignedBeaconBlock] at hok_state'
   l4_eval [Scope.fn_queue_excess_active_balance, queue_excess_active_balance, fpsGen, fpAll, G2_POINT_AT_INFINITY, GENESIS_SLOT, MIN_ACTIVATION_BALANCE]
   all_goals l4_close
 

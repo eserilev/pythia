@@ -625,6 +625,120 @@ theorem fromBytes_sound {env : Env} (hlf : LibFlat env) {k : Nat}
             · simp [hv, DM.ok] at hd3; subst hd3; exact ⟨Ext_refl _, trivial, rfl, hv⟩
             · simp [hv] at hd3
 
+/-! ## Missing arguments with a `None` default -/
+
+theorem evalList_noneLit {env : Env} {n : Nat} {L : Locals} :
+    ∀ (es : List Expr) (h : Heap) (ds : List Value) (h' : Heap), es.all isNoneLit = true →
+      evalList env n L h es = .ok (ds, h') → ds = es.map (fun _ => Value.none)
+  | [], h, ds, h', _, e => by simp [evalList] at e; obtain ⟨rfl, -⟩ := e; rfl
+  | e :: es, h, ds, h', hall, he => by
+    simp only [List.all_cons, Bool.and_eq_true] at hall
+    obtain ⟨he1, hes⟩ := hall
+    cases e <;> simp [isNoneLit] at he1
+    rw [evalList] at he
+    cases n with
+    | zero => simp [evalExpr] at he
+    | succ n =>
+      rw [evalExpr] at he
+      simp only [pure, Except.pure, Except.bind_ok'] at he
+      cases hr : evalList env (n + 1) L h es with
+      | error e => rw [hr] at he; cases he
+      | ok q =>
+        obtain ⟨ds', h2⟩ := q
+        rw [hr] at he
+        simp at he
+        obtain ⟨rfl, rfl⟩ := he
+        simp [evalList_noneLit es h ds' h2 hes hr]
+
+theorem go_pad {ds ws : List Value} {k fd : Nat}
+    (hd : ∀ i, ws.length ≤ i → i < ws.length + k → fd ≤ i ∧ ds[i - fd]? = some .none) :
+    ∀ (xs : List (Name × Nat)) (L : Locals), (∀ q ∈ xs, q.2 < ws.length + k) →
+      bindArgs.go ds ws [] fd L xs = bindArgs.go ds (ws ++ List.replicate k .none) [] fd L xs
+  | [], L, _ => by simp [bindArgs.go]
+  | (x, i) :: rest, L, hxs => by
+    have hi : i < ws.length + k := hxs (x, i) (by simp)
+    have ih := go_pad hd rest
+    rw [bindArgs.go, bindArgs.go]
+    by_cases hlt : i < ws.length
+    · have h1 : ws[i]? = some ws[i] := List.getElem?_eq_getElem hlt
+      have h2 : (ws ++ List.replicate k Value.none)[i]? = some ws[i] := by
+        rw [List.getElem?_append_left hlt, h1]
+      simp only [h1, h2, pure, Except.pure, Except.bind_ok']
+      exact ih _ (fun q hq => hxs q (by simp [hq]))
+    · have h1 : ws[i]? = none := List.getElem?_eq_none (by omega)
+      have h2 : (ws ++ List.replicate k Value.none)[i]? = some .none := by
+        rw [List.getElem?_append_right (by omega), List.getElem?_replicate, if_pos (by omega)]
+      obtain ⟨hf, hdi⟩ := hd i (by omega) hi
+      simp only [h1, h2, List.lookup_nil, hdi, if_pos hf, pure, Except.pure, Except.bind_ok']
+      exact ih _ (fun q hq => hxs q (by simp [hq]))
+
+/-- A call that leaves out trailing arguments with a `None` default: as with `None` given. -/
+theorem callFn_pad {env : Env} (n : Nat) (ps : Params) (body : ClosureBody) (ws : List Value)
+    (h : Heap) (k : Nat) (hall : ps.defaults.all isNoneLit = true) (hva : ps.vararg = none)
+    (hk : ws.length + k = ps.names.length) (hkd : k ≤ ps.defaults.length) :
+    callFn env n ps body Locals.empty ws [] h =
+      callFn env n ps body Locals.empty (ws ++ List.replicate k .none) [] h := by
+  cases n with
+  | zero => rw [callFn, callFn]
+  | succ n =>
+    rw [callFn, callFn]
+    cases he : evalList env n Locals.empty h ps.defaults with
+    | error e => rfl
+    | ok q =>
+      obtain ⟨ds, h0⟩ := q
+      have hds := evalList_noneLit ps.defaults h ds h0 hall he
+      simp only [Except.bind_ok']
+      have hb : bindArgs ps ds ws [] Locals.empty = bindArgs ps ds (ws ++ List.replicate k .none) [] Locals.empty := by
+        unfold bindArgs
+        have hl1 : ¬ (ws.length > ps.names.length ∧ ps.vararg.isNone = true) := by omega
+        have hl2 : ¬ ((ws ++ List.replicate k Value.none).length > ps.names.length ∧ ps.vararg.isNone = true) := by
+          simp; omega
+        simp only [hl1, hl2, if_false, List.any_nil, Bool.false_eq_true]
+        rw [go_pad (k := k) (fun i h1 h2 => ⟨by omega, by
+          rw [hds, List.getElem?_map, List.getElem?_eq_getElem (by omega)]; rfl⟩) _ _
+          (fun q hq => by have := (List.mem_zipIdx hq).2.1; simp at this; omega)]
+        simp only [hva]
+      rw [hb]
+
+theorem padNone_spec {d : FunctionDef} {rg rg' : List DV} (h : padNone d rg = some rg') :
+    (rg.length ≤ d.params.names.length ∧ d.params.names.length ≤ rg.length + d.params.defaults.length) ∧
+      rg' = rg ++ List.replicate (d.params.names.length - rg.length) (.leaf .none) := by
+  unfold padNone at h
+  split at h
+  · next hc => simp at h; exact ⟨hc, h.symm⟩
+  · cases h
+
+theorem decArgs_pad {h : Heap} {vs : List Value} {roots : List DV} (hd : DecArgs h vs roots) (k : Nat) :
+    DecArgs h (vs ++ List.replicate k .none) (roots ++ List.replicate k (.leaf .none)) := by
+  refine ⟨by simp [hd.1], fun i v d hv hdd => ?_⟩
+  by_cases hi : i < vs.length
+  · rw [List.getElem?_append_left hi] at hv
+    rw [List.getElem?_append_left (by rw [hd.1]; exact hi)] at hdd
+    exact hd.2 i v d hv hdd
+  · rw [List.getElem?_append_right (by omega), List.getElem?_replicate] at hv
+    rw [List.getElem?_append_right (by rw [hd.1]; omega), List.getElem?_replicate] at hdd
+    split at hv
+    · simp at hv hdd; subst hv; rw [hd.1] at hdd; simp [show i - vs.length < k by omega] at hdd
+      subst hdd; exact ⟨0, dec_flat rfl 0⟩
+    · cases hv
+
+/-- A callee at fuel `n + 1` that gives a result: its defaults are `None`, and the tree of each
+parameter is given. -/
+theorem fn_shape {env : Env} {fps : Name → Footprint} {n : Nat} {fp : Footprint} {d : FunctionDef}
+    {roots : List DV} {r : Res (DRes × List DV)} (hf : (den env fps (n + 1)).fn fp d roots = some r) :
+    d.params.defaults.all isNoneLit = true ∧ d.params.vararg = none ∧ d.params.names.length = roots.length := by
+  rw [den_fn] at hf
+  unfold fnStep at hf
+  split at hf
+  · next hc =>
+    obtain ⟨hnd, hva, hnl⟩ := hc
+    refine ⟨?_, hva, hnl⟩
+    unfold noneDefaults at hnd
+    cases hdd : d.params.defaults with
+    | nil => rfl
+    | cons e es => rw [hdd] at hnd; simp at hnd; rw [← hdd]; simpa [hdd] using hnd.1
+  · cases hf
+
 theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) {m : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L (m + 1) ((den env fps (m + 1)).expr fp s))
@@ -673,15 +787,31 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
             | some rg =>
               rw [hm] at hd2
               simp only at hd2
+              have hda := argRoots_dec hI2.i.r hrel hm
+              cases hp : padNone d rg with
+              | none => simp [hp] at hd2
+              | some rgp =>
+              simp only [hp] at hd2
+              obtain ⟨⟨hl1, hl2⟩, rfl⟩ := padNone_spec hp
+              have hpad := decArgs_pad hda (d.params.names.length - rg.length)
+              rw [hda.1] at hpad
               rcases bind_case hd2 with ⟨err, hf, rfl⟩ | ⟨⟨v, rg'⟩, hf, hd3⟩
-              · have := hF [] d rg ws h2 _ (argRoots_dec hI2.i.r hrel hm) (fun _ _ hp => by simp at hp) hI2.wf hf
+              · obtain ⟨hall, hva, -⟩ := fn_shape hf
+                rw [callFn_pad (m + 1) d.params _ ws h2 (d.params.names.length - ws.length) hall hva
+                  (by rw [← hda.1]; omega) (by rw [← hda.1]; omega)]
+                have := hF [] d _ _ h2 _ hpad (fun _ _ hp => by simp at hp) hI2.wf (by rw [hda.1] at hf; exact hf)
                 revert this
-                cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h2 with
+                cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty
+                    (ws ++ List.replicate (d.params.names.length - ws.length) .none) [] h2 with
                 | error e' => rintro ⟨rfl, hne⟩; exact ⟨rfl, hne⟩
                 | ok q => intro hx; cases hx
-              · have := hF [] d rg ws h2 _ (argRoots_dec hI2.i.r hrel hm) (fun _ _ hp => by simp at hp) hI2.wf hf
+              · obtain ⟨hall, hva, -⟩ := fn_shape hf
+                rw [callFn_pad (m + 1) d.params _ ws h2 (d.params.names.length - ws.length) hall hva
+                  (by rw [← hda.1]; omega) (by rw [← hda.1]; omega)]
+                have := hF [] d _ _ h2 _ hpad (fun _ _ hp => by simp at hp) hI2.wf (by rw [hda.1] at hf; exact hf)
                 revert this
-                cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h2 with
+                cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty
+                    (ws ++ List.replicate (d.params.names.length - ws.length) .none) [] h2 with
                 | error e' => intro hx; cases hx
                 | ok q =>
                   obtain ⟨w, h'⟩ := q
