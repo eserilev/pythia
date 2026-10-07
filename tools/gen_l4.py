@@ -1250,6 +1250,7 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
     unf = ["Scope.fn_" + name, name, "fpsGen", "fpAll"] + m.consts_of(name)
     if uses_htr(m, name):
         unf += ["htr_call_%s ho" % c for c in sorted(set(re.findall(r"\bhtr enc_(\w+)", m.bodies.get(name, ""))))]
+        unf += ["GenBridge.callK_htr_root ho"]
         unf += ["%s_call (ho := ho)" % c for c in m.callees(name) if uses_htr(m, c)]
     if rt in m.reps and ("theorem kids_%s_mk" % rt) in classes_file_cache(m):
         unf.append("kids_%s_mk" % rt)

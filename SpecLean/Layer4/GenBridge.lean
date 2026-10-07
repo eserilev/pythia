@@ -380,4 +380,18 @@ theorem htr_den [Spec] {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) 
     have : e ≠ .outOfFuel := fun he => hno (by rw [hr, he])
     simp [hr, lift, DM.bind, erase, Except.mapError, this]
 
+/-- The oracle gives 32 bytes, so the `Root` of its result needs no check. -/
+theorem callK_htr_root [Spec] {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) {α : Type}
+    (enc : Enc α) (x : α) {γ : Type} (g : Rd.Gen.Root → Option (Except Fail γ)) :
+    Layer4.GenSteps.callK (htr enc x) (fun b => Layer4.GenSteps.callK (bytesOf Rd.Gen.Root b) g) =
+      Layer4.GenSteps.callK (htr enc x) (fun b => g ⟨b⟩) := by
+  unfold htr htrObj
+  rw [ho.same]
+  cases hr : sha.hashTreeRoot (enc x Heap.empty).2 (enc x Heap.empty).1 with
+  | error e => simp [hr, erase, Except.mapError, Layer4.GenSteps.callK]
+  | ok r =>
+    have hl := ho.len _ _ r hr
+    simp [hr, erase, Except.mapError, Layer4.GenSteps.callK, bytesOf, hl]
+    rfl
+
 end SpecLean.Layer4.GenBridge
