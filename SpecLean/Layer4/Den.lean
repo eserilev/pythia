@@ -424,6 +424,20 @@ def fromBytesOf (env : Env) (s : DSt) : Expr → Option (List Arg)
     | _ => none
   | _ => none
 
+/-- `bls.f(args)`: the method and the arguments, when no local hides `bls`. -/
+def blsOf (env : Env) (s : DSt) : Expr → Option (Name × List Arg)
+  | .call _ (.attr _ (.name _ g) f) args =>
+    match env.globals.lookup g with
+    | some (.module .bls) => if (s.loc g).isNone then some (f, args) else none
+    | _ => none
+  | _ => none
+
+/-- A BLS oracle call on flat values. -/
+def dBls (env : Env) (f : Name) (rs : List DRes) : DM DRes :=
+  match allVals rs with
+  | some vs => DM.bind (lift (env.bls f Heap.empty vs)) fun v => if Flat v then .ok (.val v) else none
+  | none => none
+
 /-- `int.from_bytes` of flat values. -/
 def dFromBytes (env : Env) (rs : List DRes) : DM DRes :=
   match allVals rs with
@@ -484,7 +498,10 @@ def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
     | _ + 2, none =>
       match fromBytesOf env s e with
       | some args => DM.bind (argsOf (P.expr fp s) args) fun rs => dFromBytes env rs
-      | none => none
+      | none =>
+        match blsOf env s e with
+        | some (f, args) => DM.bind (argsOf (P.expr fp s) args) fun rs => dBls env f rs
+        | none => none
     | _, _ => none
   | _ => none
 

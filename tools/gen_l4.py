@@ -1213,6 +1213,27 @@ def rng_theorem(m, name):
             % (name, binders, rt, name, args, m.bytes[rt], name, " | ".join(closers)))
 
 
+BLS = {}
+
+
+def uses_bls(m, name):
+    """`name` or a callee calls the BLS oracle."""
+    if name not in BLS:
+        BLS[name] = False
+        body = m.bodies.get(name, "")
+        BLS[name] = "Spec.bls" in body or any(uses_bls(m, c) for c in m.callees(name))
+    return BLS[name]
+
+
+def oracle_args(m, c):
+    """The oracle hypotheses that the call lemmas of `c` take after `sha`."""
+    return " ".join(["sha"] + (["ho"] if uses_htr(m, c) else []) + (["hbl"] if uses_bls(m, c) else []))
+
+
+def needs_oracle(m, c):
+    return uses_htr(m, c) or uses_bls(m, c)
+
+
 def uses_htr(m, name):
     """`name` or a callee hashes an object with the oracle."""
     if name not in HTR:
@@ -1298,6 +1319,9 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
         rs_out = None
     lps = loops(m, name, params, roots, rds) if not sub else []
     cps = comps(m, name, params, roots, rds) if not sub else []
+    if uses_bls(m, name):
+        bs.insert(0, "(hbl : GenBridge.OracleBls sha)")
+        xs.insert(0, "hbl")
     if uses_htr(m, name):
         bs.insert(0, "(ho : Validation.HtrBridge.OracleHtr sha)")
         xs.insert(0, "ho")
@@ -1310,17 +1334,18 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
         if it not in items:
             items.append(it)
     LENS = "".join(("%s.%s.length + " % (rds[k], fld)) if fld else ("%s.length + " % rds[k]) for k, fld in items)
-    fcalls = ["%s_fcall" % c for c in m.callees(name) if LENS_OF.get(c) and not uses_htr(m, c)]
+    fcalls = ["%s_fcall" % c for c in m.callees(name) if LENS_OF.get(c) and not needs_oracle(m, c)]
     for c in m.callees(name):
-        if not uses_htr(m, c):
+        if not needs_oracle(m, c):
             continue
+        oa = oracle_args(m, c)
         objcls = re.findall(r"\b%s \(⟨enc_(\w+)" % re.escape(c), m.bodies.get(name, ""))
         if objcls:
-            fcalls += ["%s_fcall_%s sha ho" % (c, X) for X in sorted(set(objcls))]
+            fcalls += ["%s_fcall_%s %s" % (c, X, oa) for X in sorted(set(objcls))]
         else:
-            fcalls += ["%s_fcall sha ho" % c]
+            fcalls += ["%s_fcall %s" % (c, oa)]
             if c in NONE_OK:
-                fcalls += ["%s_fcall_none sha ho" % c]
+                fcalls += ["%s_fcall_none %s" % (c, oa)]
     if lps or cps:
         D += 6
     rs = "[%s]" % ", ".join(roots)
@@ -1333,6 +1358,8 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
         unf += ["GenBridge.htr_obj_call ho a_%s he_%s" % (pn, pn) for pn in objs]
         unf += ["GenBridge.callK_htrObj_len ho" for _ in objs[:1]]
         unf += ["ho"]
+    if uses_bls(m, name):
+        unf += ["hbl.verify"]
     if rt in m.reps and ("theorem kids_%s_mk" % rt) in classes_file_cache(m):
         unf.append("kids_%s_mk" % rt)
     loopstep = ""
@@ -1350,13 +1377,13 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
            "    ((den (Scope.env sha) fpsGen (%sm + %d)).fn %s Scope.fn_%s %s).map (Except.mapError SpecError.fail) =\n"
            "      some ((fun x : %s => (%s, %s)) <$> %s %s) := by\n"
            "  rw [s_fn]\n"
-           "%s"
+           "%s%s"
            "  l4_eval [%s]\n"
            "%s%s"
            % (name, tag, " ".join(bs), LENS, D, fp, name, rs, rt, enc, rs_out, name, " ".join(rds),
               ("".join("  have %s' := %s\n" % (h, h) for h in hoks) +
                "  simp only [%s] at %s\n" % (", ".join("ok_" + n for n in m.rep_order), " ".join(h + "'" for h in hoks)))
-              if hoks else "", ", ".join(unf), loopstep,
+              if hoks else "", "  have hbv := hbl.verify\n" if uses_bls(m, name) else "", ", ".join(unf), loopstep,
               "" if os.environ.get("L4_NOCLOSE") else
               "  all_goals l4_dbg\n" if os.environ.get("L4_DBG") else "  all_goals l4_close\n"))
     call = ("@[l4_simp] theorem %s_call%s (sha : Oracle) (m : Nat) %s {γ : Type} (k : DRes × List DV → DM γ) :\n"
@@ -1365,7 +1392,7 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
             "      callK (%s %s) fun x => Option.map (Except.mapError SpecError.fail) (k (%s, %s)) :=\n"
             "  bind_call (%s_den%s sha m %s) k\n"
             % (name, tag, " ".join(bs), LENS, D, fp, name, rs, name, " ".join(rds), enc, rs_out, name, tag, " ".join(xs)))
-    if LENS or uses_htr(m, name):
+    if LENS or needs_oracle(m, name):
         call = call.replace("@[l4_simp] theorem", "theorem")
         call += ("\ntheorem %s_fcall%s (sha : Oracle) %s (n : Nat) (hn : %s%d ≤ n) {γ : Type}\n"
                  "    (k : DRes × List DV → DM γ) :\n"
@@ -1376,7 +1403,7 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
                  "  exact %s_call%s sha m %s k\n"
                  % (name, tag, " ".join(bs), LENS, D, fp, name, rs, name, " ".join(rds), enc, rs_out,
                     LENS, D, LENS, D, name, tag, " ".join(xs)))
-    if objs and len(objs) == 1 and (LENS or uses_htr(m, name)):
+    if objs and len(objs) == 1 and (LENS or needs_oracle(m, name)):
         # The call with an object of each class: its encoder decodes to its tree.
         pn = objs[0]
         for X in sorted(m.encdec):
@@ -1385,7 +1412,7 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
             for x in xs:
                 xsX.append({"a_" + pn: "(⟨enc_%s x_%s⟩ : SszObj)" % (X, pn), "t_" + pn: str(m.cid[X]),
                             "ds_" + pn: "(kids_%s x_%s)" % (X, pn), "he_" + pn: "(encDec_%s x_%s)" % (X, pn)}.get(x, x))
-            bsX.insert(1, "(x_%s : %s)" % (pn, X))
+            bsX.insert(len([b for b in bsX if b.startswith(("(ho :", "(hbl :"))]), "(x_%s : %s)" % (pn, X))
             rsX = rs.replace("(.cont t_%s ds_%s)" % (pn, pn), "(.cont %d (kids_%s x_%s))" % (m.cid[X], X, pn))
             rdsX = " ".join(rds).replace("a_%s" % pn, "(⟨enc_%s x_%s⟩ : SszObj)" % (X, pn))
             routX = rs_out.replace("(.cont t_%s ds_%s)" % (pn, pn), "(.cont %d (kids_%s x_%s))" % (m.cid[X], X, pn))

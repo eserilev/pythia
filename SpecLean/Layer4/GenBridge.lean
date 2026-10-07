@@ -261,9 +261,10 @@ where
 
 /-- An oracle that reads only the content of a value reads only its decoded tree. -/
 theorem htrDec_of_ext {sha : Oracle}
-    (hx : ∀ h v h' v', Validation.HtrBridge.Bis 64 h v h' v' → sha.hashTreeRoot h v = sha.hashTreeRoot h' v') :
+    (hx : ∀ h v h' v', Validation.HtrBridge.Bis 64 h v h' v' → sha.hashTreeRoot h v = sha.hashTreeRoot h' v')
+    (hb : ∀ h f vs, (∀ v ∈ vs, Flat v = true) → sha.bls f h vs = sha.bls f Heap.empty vs) :
     Examples2.HtrDec (Scope.env sha) :=
-  fun h v h' v' _ _ _ e1 e2 => hx h v h' v' (Bis_of_dec 64 e1 e2)
+  ⟨fun h v h' v' _ _ _ e1 e2 => hx h v h' v' (Bis_of_dec 64 e1 e2), hb⟩
 
 /-- An encoder that adds objects and gives a value that decodes to `d`. -/
 def EncDec (f : Heap → Value × Heap) (d : DV) : Prop :=
@@ -428,5 +429,11 @@ theorem callK_htrObj_len [Spec] {sha : Oracle} (ho : Validation.HtrBridge.Oracle
     Layer4.GenSteps.callK (htrObj o) (fun b => if b.length = 32 then g b else z) =
       Layer4.GenSteps.callK (htrObj o) g :=
   callK_htr_len ho (fun (_ : Unit) => o.enc) () g z
+
+/-- The BLS oracle of the interpreter is the one of the readable Lean. Method 447 is `Verify`. -/
+structure OracleBls [Spec] (sha : Oracle) : Prop where
+  verify : ∀ (c1 c2 c3 : Name) (pk msg sig : Bytes),
+    sha.bls 447 Heap.empty [.bytes c1 pk, .bytes c2 msg, .bytes c3 sig] =
+      .ok (.bool (Spec.blsVerify pk msg sig))
 
 end SpecLean.Layer4.GenBridge

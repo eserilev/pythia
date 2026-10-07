@@ -44,6 +44,11 @@ structure LibFlat (env : Env) : Prop where
   /-- The library leaves `int.from_bytes` to the core. -/
   fromBytesM : ∀ h g args, env.globals.lookup g = some (.builtin .int) →
     LibModel.method env h (.glob g) env.nm.fromBytes args = none
+  /-- The library leaves `bls.f` to the core. -/
+  blsM : ∀ h g f args, env.globals.lookup g = some (.module .bls) →
+    LibModel.method env h (.glob g) f args = none
+  /-- The BLS oracle on flat values does not read the heap. -/
+  blsFlat : ∀ h f vs, (∀ v ∈ vs, Flat v = true) → env.bls f h vs = env.bls f Heap.empty vs
   /-- `hash_tree_root` is the oracle of the environment. -/
   htr : ∀ h v, LibModel.builtin env h .hashTreeRoot [v] [] =
     some (do pure (.bytes env.nm.root (← env.hashTreeRoot h v), h))
@@ -707,6 +712,91 @@ theorem padNone_spec {d : FunctionDef} {rg rg' : List DV} (h : padNone d rg = so
   split at h
   · next hc => simp at h; exact ⟨hc, h.symm⟩
   · cases h
+
+theorem blsOf_spec {env : Env} {s : DSt} {e : Expr} {f : Name} {args' : List Arg}
+    (h : blsOf env s e = some (f, args')) :
+    ∃ l la ln g, e = .call l (.attr la (.name ln g) f) args' ∧ s.loc g = none ∧
+      env.globals.lookup g = some (.module .bls) := by
+  cases e with
+  | call l fn args =>
+    cases fn with
+    | attr la o f' =>
+      cases o with
+      | name ln g =>
+        simp only [blsOf] at h
+        cases hg : env.globals.lookup g with
+        | none => simp [hg] at h
+        | some gl =>
+          rw [hg] at h
+          cases gl with
+          | module k =>
+            cases k <;> simp only [reduceCtorEq] at h
+            case bls =>
+              split at h
+              · next hc =>
+                simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, rfl⟩ := h
+                simp only [Option.isNone_iff_eq_none] at hc
+                exact ⟨l, la, ln, g, rfl, hc, hg⟩
+              · cases h
+          | _ => simp at h
+      | _ => simp [blsOf] at h
+    | _ => simp [blsOf] at h
+  | _ => simp [blsOf] at h
+
+/-- `bls.f(args)`. -/
+theorem bls_sound {env : Env} (hlf : LibFlat env) {k : Nat}
+    {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals} {ev : Expr → DM DRes}
+    (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L (k + 2) ev)
+    {e : Expr} {f : Name} {args : List Arg} (hfb : blsOf env s e = some (f, args))
+    {r : Res DRes} (hd : DM.bind (argsOf ev args) (fun rs => dBls env f rs) = some r) :
+    GOK h0.next h vs r (evalExpr env (k + 3) L h e) := by
+  obtain ⟨l, l', l'', g, rfl, hloc, hg⟩ := blsOf_spec hfb
+  have hL : L g = none := by
+    have := hI.i.r.loc g; rw [hloc] at this
+    revert this; cases L g <;> simp [LRel]
+  have hattr : evalExpr env (k + 2) L h (.attr l' (.name l'' g) f) =
+      .ok (.member (.glob g) f, h) := by
+    rw [evalExpr, evalExpr]; simp [lookupName, hL, hg, getAttr]
+  rw [evalExpr]
+  simp only [hattr, Except.bind_ok', anyAll]
+  rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rs, he, hd2⟩
+  · have := argsOf_sound ih args h _ hI he
+    revert this
+    cases evalArgs env (k + 2) L h args with
+    | error e' => rintro ⟨rfl, hne⟩; exact ⟨rfl, hne⟩
+    | ok q => intro hx; cases hx
+  · have := argsOf_sound ih args h _ hI he
+    revert this
+    cases evalArgs env (k + 2) L h args with
+    | error e' => intro hx; cases hx
+    | ok q =>
+      obtain ⟨ws, kws, h2⟩ := q
+      rintro ⟨hx2, rfl, hrel⟩
+      simp only [Except.bind_ok']
+      refine gok_ext hx2 ?_
+      rw [callValue.eq_def]
+      simp only [List.isEmpty_nil, if_true, applyMethod, hlf.blsM h2 g f ws hg, hg]
+      unfold dBls at hd2
+      cases hav : allVals rs with
+      | none => simp [hav] at hd2
+      | some vals =>
+        rw [hav] at hd2
+        obtain ⟨rfl, hflv⟩ := allVals_spec hrel hav
+        rw [hlf.blsFlat h2 f _ hflv]
+        rcases bind_case hd2 with ⟨err, hl, rfl⟩ | ⟨v, hl, hd3⟩
+        · obtain ⟨hr, hne⟩ := lift_some hl
+          cases hf : env.bls f Heap.empty ws with
+          | ok q => rw [hf] at hr; cases hr
+          | error e' => rw [hf] at hr; cases hr; exact ⟨rfl, hne _ (by rw [hf])⟩
+        · obtain ⟨hr, -⟩ := lift_some hl
+          cases hf : env.bls f Heap.empty ws with
+          | error e' => rw [hf] at hr; cases hr
+          | ok q =>
+            rw [hf] at hr; simp only [Except.ok.injEq] at hr; subst hr
+            simp only [Except.bind_ok', Except.pure_ok']
+            by_cases hv : Flat v = true
+            · simp [hv, DM.ok] at hd3; subst hd3; exact ⟨Ext_refl _, trivial, rfl, hv⟩
+            · simp [hv] at hd3
 
 theorem decArgs_pad {h : Heap} {vs : List Value} {roots : List DV} (hd : DecArgs h vs roots) (k : Nat) :
     DecArgs h (vs ++ List.replicate k .none) (roots ++ List.replicate k (.leaf .none)) := by
@@ -1564,7 +1654,14 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
         | succ k =>
         simp only [hch] at hd
         cases hfb : fromBytesOf env s (.call l fn args) with
-        | none => simp [hfb] at hd
+        | none =>
+          simp only [hfb] at hd
+          cases hbl : blsOf env s (.call l fn args) with
+          | none => simp [hbl] at hd
+          | some fa =>
+            obtain ⟨f, args'⟩ := fa
+            simp only [hbl] at hd
+            exact bls_sound hlf hI ih hbl hd
         | some args' =>
           simp only [hfb] at hd
           exact fromBytes_sound hlf hI ih hfb hd

@@ -218,10 +218,12 @@ theorem coerceCont_ssz (env : Env) (h : Heap) (b : Nat) (ty : Name) (fs : List V
 theorem nmOK_scope (sha : Oracle) : NmOK (Scope.env sha) := by
   simp only [NmOK, Scope.env]; decide
 
-/-- The `hash_tree_root` oracle reads only the decoded content of a value. -/
+/-- The oracles read only content: `hash_tree_root` the decoded tree of a value, BLS its flat
+arguments. -/
 def HtrDec (env : Env) : Prop :=
-  ∀ h v h' v' n n' d, dec h n v = some d → dec h' n' v' = some d →
-    env.hashTreeRoot h v = env.hashTreeRoot h' v'
+  (∀ h v h' v' n n' d, dec h n v = some d → dec h' n' v' = some d →
+    env.hashTreeRoot h v = env.hashTreeRoot h' v') ∧
+  ∀ h f vs, (∀ v ∈ vs, Flat v = true) → env.bls f h vs = env.bls f Heap.empty vs
 
 theorem libFlat_ssz (env : Env) (hn : NmOK env) (hh : HtrDec env) : LibFlat env :=
   ⟨Examples.coerceFlat_ssz env, constructFlat_ssz env, fun h b args kws hb => by
@@ -229,7 +231,9 @@ theorem libFlat_ssz (env : Env) (hn : NmOK env) (hh : HtrDec env) : LibFlat env 
    fun h ty fs kvs r hfs hall hk => kwctor_ssz env h ty fs kvs r hfs hall hk,
    fun h a k e l xs v ho hap => append_ssz env hn h a k e l xs v ho hap,
    fun h g args hg => by show Ssz.method env h (.glob g) env.nm.fromBytes args = none; simp [Ssz.method, hg],
-   fun h v => rfl, hh,
+   fun h g f args hg => by show Ssz.method env h (.glob g) f args = none; simp [Ssz.method, hg],
+   hh.2,
+   fun h v => rfl, hh.1,
    fun h b ty fs ho => coerceCont_ssz env h b ty fs ho⟩
 
 -- The value rules as the denotation and the interpreter see them.
