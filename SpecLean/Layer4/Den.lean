@@ -140,6 +140,8 @@ structure Sem where
   items : Footprint → DSt → Target → List Expr → Expr → LSrc → Nat → DM (List DV)
   /-- `expr` at the fuel below: the receiver `o` of a method call `o.m(args)`. -/
   sub : Footprint → DSt → Expr → DM DRes
+  /-- `execWhile`: a `while` loop, one fuel unit per test. -/
+  whl : Footprint → DSt → Expr → List Stmt → DM (DOut × DSt)
 
 def blockOf (stmt : DSt → Stmt → DM (DOut × DSt)) : DSt → List Stmt → DM (DOut × DSt)
   | s, [] => .ok (.normal, s)
@@ -645,6 +647,21 @@ def loopStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ls : L
       | none => none
   | _ => none
 
+/-- `execWhile (n + 1)`: the test and the body at fuel `n`, then the loop again at fuel `n`. -/
+def whileStep (P : Sem) (fp : Footprint) (s : DSt) (c : Expr) (body : List Stmt) : DM (DOut × DSt) :=
+  DM.bind (P.expr fp s c) fun r =>
+    match r with
+    | .val v =>
+      DM.bind (lift (truthy v)) fun b =>
+        if b then
+          DM.bind (P.block fp s body) fun (o, s1) =>
+            match o with
+            | .brk => .ok (.normal, s1)
+            | .ret v => .ok (.ret v, s1)
+            | _ => P.whl fp s1 c body
+        else .ok (.normal, s)
+    | _ => none
+
 /-- `x op= e` for a local `x` that holds a flat value: `x = x op e`. -/
 def augName (P : Sem) (fp : Footprint) (s : DSt) (x : Name) (op : BinOp) (e : Expr) :
     DM (DOut × DSt) :=
@@ -713,6 +730,7 @@ def stmtStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) : Stmt → DM (DOu
       | _ => none
   | .pass _ => .ok (.normal, s)
   | .forStmt _ t it body => DM.bind (P.iter fp s it) fun ls => P.loop fp s t ls 0 body
+  | .whileStmt _ c body => P.whl fp s c body
   | _ => none
 
 def isNoneLit : Expr → Bool
@@ -740,7 +758,7 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
   | 0 => { expr := fun _ _ _ => none, call := fun _ _ _ => none, target := fun _ _ _ _ => none,
            stmt := fun _ _ _ => none, fn := fun _ _ _ => none, iter := fun _ _ _ => none,
            items := fun _ _ _ _ _ _ _ => none,
-           loop := fun _ _ _ _ _ _ => none, sub := fun _ _ _ => none }
+           loop := fun _ _ _ _ _ _ => none, sub := fun _ _ _ => none, whl := fun _ _ _ _ => none }
   | n + 1 =>
     let P := den env fps n
     { expr := exprStep env fps n P
@@ -751,7 +769,8 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
       iter := iterStep env fps n P
       loop := loopStep n P
       items := itemsStep n P
-      sub := P.expr }
+      sub := P.expr
+      whl := whileStep P }
 
 /-! Each part one fuel up, without unfolding the others. -/
 
@@ -773,5 +792,7 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
     (den env fps (n + 1)).items = itemsStep n (den env fps n) := rfl
 @[simp] theorem den_sub (env : Env) (fps : Name → Footprint) (n : Nat) :
     (den env fps (n + 1)).sub = (den env fps n).expr := rfl
+@[simp] theorem den_whl (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).whl = whileStep (den env fps n) := rfl
 
 end SpecLean.Layer4
