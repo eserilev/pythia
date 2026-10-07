@@ -181,7 +181,21 @@ def dCtor (env : Env) (t : SszTy) (rs : List DRes) : DM DRes :=
     | none => none
   else none
 
-/-- `min`, `max` of two or more flat values, and `len` of a list at a place. -/
+/-- The values of a list of leaves. -/
+def leafVals : List DV → Option (List Value)
+  | [] => some []
+  | .leaf v :: ds => (leafVals ds).map (v :: ·)
+  | _ :: _ => none
+
+/-- `sum(xs)` of a list of flat values that is not a byte list. -/
+def dSum (kd : ListKind) (el : SszTy) (ds : List DV) : DM DRes :=
+  if isByteList kd el then none else
+  match leafVals ds with
+  | some xs => DM.bind (lift (xs.foldlM (binopVal .add) (.int 0))) fun w => if Flat w then .ok (.val w) else none
+  | none => none
+
+/-- `min`, `max` of two or more flat values, `len` of a list, and `sum` of a list of flat
+values. -/
 def dBuiltin (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
   match b with
   | .min | .max =>
@@ -196,6 +210,14 @@ def dBuiltin (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
       | some (.list _ _ _ ds) => .ok (.val (.int ds.length))
       | _ => none
     | [.tree (.list _ _ _ ds)] => .ok (.val (.int ds.length))
+    | _ => none
+  | .sum =>
+    match rs with
+    | [.place k p] =>
+      match s.deref k p with
+      | some (.list kd el _ ds) => dSum kd el ds
+      | _ => none
+    | [.tree (.list kd el _ ds)] => dSum kd el ds
     | _ => none
   | _ => none
 

@@ -652,6 +652,15 @@ def loops(m, name, params, roots, rds):
             raise Unsupported("loop target")
         lv = ta[1][1]
         ik, ia = ctor(a[2])
+        if ik == "name" and ia[1][1] in pids:
+            # `for x in xs` over a list parameter.
+            pk = pids.index(ia[1][1])
+            mr = re.fullmatch(r"\(?List (\w+)\)?", params[pk][1])
+            if not mr or mr.group(1) not in m.reps:
+                raise Unsupported("loop over a list of flat values")
+            out.append(dict(idx=idx, text=it, lv=lv, line=a[0][1], k=pk, path=[], body=last_list(it),
+                            len="%s.length" % rds[pk], depth=depth(a[3])))
+            continue
         if ik != "attr" or ctor(ia[1])[0] != "name":
             raise Unsupported("loop iterable")
         pv = ctor(ia[1])[1][1][1]
@@ -671,7 +680,7 @@ def loops(m, name, params, roots, rds):
         mm = re.fullmatch(r"\.list (\.\w+) (\(.*\)|\.\w+) (none|\(some \d+\))", ssz)
         if not mm or not mm.group(2).startswith("(.container"):
             raise Unsupported("loop over a list of flat values")
-        out.append(dict(idx=idx, text=it, lv=lv, line=a[0][1], k=pk, fi=fi, body=last_list(it),
+        out.append(dict(idx=idx, text=it, lv=lv, line=a[0][1], k=pk, path=[fi], body=last_list(it),
                         len="%s.%s.length" % (rds[pk], fn), depth=depth(a[3])))
     n = len(out)
     for j, lp in enumerate(out):
@@ -713,12 +722,12 @@ def loop_theorems(m, name, params, bs, roots, rds, xs, lps):
         C = lp["depth"] + 6
         LEN = lp["len"]
         car = "setLoc B %d (.val (.uint %s c))" % (cid, ty)
-        last = "(.place %d [%d, %s - 1])" % (lp["k"], lp["fi"], LEN)
+        last = "(.place %d [%s])" % (lp["k"], ", ".join([str(x) for x in lp["path"]] + ["%s - 1" % LEN]))
         fin = ("(if i < %s then setLoc (setLoc B %d %s) %d (.val (.uint %s r.val)) else setLoc B %d (.val (.uint %s r.val)))"
                % (LEN, lp["lv"], last, cid, ty, cid, ty))
         pre = " ".join(rdmap[p] for p in lp["pre"])
         loop1 = "%s %s %s i ⟨c⟩" % (lp["lname"], pre, LEN)
-        ls = "⟨%d, [%d], false⟩" % (lp["k"], lp["fi"])
+        ls = "⟨%d, [%s], false⟩" % (lp["k"], ", ".join(str(x) for x in lp["path"]))
         st = "(.name %d %d)" % (lp["line"], lp["lv"])
         nm = "%s_loop%d" % (name, j + 1)
         comm = "setLoc_comm_%s" % nm
@@ -832,20 +841,29 @@ def comps(m, name, params, roots, rds):
     pnames = [p for p, _ in params]
     pids = m.fns[name]["params"]
     mm = re.fullmatch(r"\(\.call \d+ \(\.name \d+ (\d+)\) \[\(\.pos \(\.attr \d+ \(\.name \d+ (\d+)\) (\d+)\)\)\]\)", it)
+    mp = re.fullmatch(r"\(\.call \d+ \(\.name \d+ (\d+)\) \[\(\.pos \(\.name \d+ (\d+)\)\)\]\)", it)
     enum = True
-    if not mm:
-        raise Unsupported("comprehension iterable")
-    if m.ids.get(int(mm.group(1))) != "enumerate":
-        raise Unsupported("comprehension over a call")
-    pv, fid = int(mm.group(2)), int(mm.group(3))
-    if pv not in pids:
-        raise Unsupported("comprehension over a local")
-    pk = pids.index(pv)
-    pt = params[pk][1]
-    fn = m.ids[fid]
-    fi = [i for i, (n2, _, _) in enumerate(m.containers.get(pt, [])) if n2 == fn]
-    if not fi:
-        raise Unsupported("comprehension field")
+    if mp and m.ids.get(int(mp.group(1))) == "enumerate" and int(mp.group(2)) in pids:
+        # `enumerate(xs)` of a list parameter.
+        pk = pids.index(int(mp.group(2)))
+        if not re.fullmatch(r"\(?List (\w+)\)?", params[pk][1]):
+            raise Unsupported("comprehension iterable")
+        path, LEN = [], "%s.length" % rds[pk]
+    else:
+        if not mm:
+            raise Unsupported("comprehension iterable")
+        if m.ids.get(int(mm.group(1))) != "enumerate":
+            raise Unsupported("comprehension over a call")
+        pv, fid = int(mm.group(2)), int(mm.group(3))
+        if pv not in pids:
+            raise Unsupported("comprehension over a local")
+        pk = pids.index(pv)
+        pt = params[pk][1]
+        fn = m.ids[fid]
+        fi = [i for i, (n2, _, _) in enumerate(m.containers.get(pt, [])) if n2 == fn]
+        if not fi:
+            raise Unsupported("comprehension field")
+        path, LEN = [fi[0]], "%s.%s.length" % (rds[pk], fn)
     rd = m.bodies[name]
     j = rd.find(".filterMapM fun")
     if j < 0:
@@ -900,8 +918,8 @@ def comps(m, name, params, roots, rds):
     if lsub:
         F = re.sub(r"\b(%s)\b" % "|".join(map(re.escape, lsub)), lambda mm4: lsub[mm4.group(1)], F)
     enc = "(DV.leaf (.uint %s y.val))" % m.uint_ty(mr.group(1))
-    return [dict(tgt=tgt, ifs=ifs, elt=elt, k=pk, fi=fi[0], X=rep(X), F=F, enc=enc, et=mr.group(1), locs=locs,
-                 len="%s.%s.length" % (rds[pk], fn), depth=depth_text(c))]
+    return [dict(tgt=tgt, ifs=ifs, elt=elt, k=pk, path=path, X=rep(X), F=F, enc=enc, et=mr.group(1), locs=locs,
+                 len=LEN, depth=depth_text(c))]
 
 
 def depth_text(t):
@@ -940,7 +958,7 @@ def comp_theorems(m, name, params, bs, roots, rds, xs, cps):
             lxs += " lv_%s" % ln
         C = cp["depth"] + 6
         LEN = cp["len"]
-        ls = "⟨%d, [%d], true⟩" % (cp["k"], cp["fi"])
+        ls = "⟨%d, [%s], true⟩" % (cp["k"], ", ".join(str(x) for x in cp["path"]))
         swaps = []
         tids = [int(t) for t in re.findall(r"\(\.name \d+ (\d+)\)", cp["tgt"])]
         for lid, ln, lt in cp["locs"]:
@@ -1100,11 +1118,11 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
         raise Unsupported("variant with a loop")
     tag = ("_" + sub if sub else "") + ("_i" if isub else "")
     D = depth(f["body"]) + 4 + max([proved[c] + 2 for c in m.callees(name)] + [0])
-    items = [(lp["k"], lp["len"].split(".")[-2]) for lp in lps + cps]
+    items = [(lp["k"], lp["path"] and lp["len"].split(".")[-2] or None) for lp in lps + cps]
     for it in callee_lens(m, name, params):
         if it not in items:
             items.append(it)
-    LENS = "".join("%s.%s.length + " % (rds[k], fld) for k, fld in items)
+    LENS = "".join(("%s.%s.length + " % (rds[k], fld)) if fld else ("%s.length + " % rds[k]) for k, fld in items)
     fcalls = ["%s_fcall" % c for c in m.callees(name) if LENS_OF.get(c)]
     if lps or cps:
         D += 6

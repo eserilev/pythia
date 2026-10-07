@@ -26,8 +26,8 @@ def ConstructFlat (env : Env) : Prop :=
 structure LibFlat (env : Env) : Prop where
   coerce : CoerceFlat env
   ctor : ConstructFlat env
-  /-- The library leaves `len`, `min`, `max` and `enumerate` to the core. -/
-  builtin : ∀ h b args kws, (b = .len ∨ b = .min ∨ b = .max ∨ b = .enumerate) →
+  /-- The library leaves `len`, `min`, `max`, `enumerate` and `sum` to the core. -/
+  builtin : ∀ h b args kws, (b = .len ∨ b = .min ∨ b = .max ∨ b = .enumerate ∨ b = .sum) →
     LibModel.builtin env h b args kws = none
   /-- A container from keyword arguments, all fields given and flat: a new object. -/
   kwctor : ∀ h ty fs kvs (r : Res (List Value)), env.containers.lookup ty = some fs →
@@ -464,6 +464,57 @@ theorem kwCall_sound {env : Env} (hlf : LibFlat env) {m : Nat}
         | _ => simp at hd2
       | _ => simp at hd2
 
+theorem mapM_leafVals {h : Heap} {m : Nat} :
+    ∀ (xs : List Value) (ds : List DV) (vs : List Value), xs.mapM (dec h m) = some ds →
+      leafVals ds = some vs → xs = vs
+  | [], ds, vs, hm, hl => by simp at hm; subst hm; simp [leafVals] at hl; exact hl.symm
+  | x :: xs, ds, vs, hm, hl => by
+    simp only [List.mapM_cons, Option.bind_eq_bind, Option.bind_eq_some_iff] at hm
+    obtain ⟨d, hd, ds', hds', e⟩ := hm
+    simp at e; subst e
+    cases d with
+    | leaf u =>
+      simp only [leafVals, Option.map_eq_some_iff] at hl
+      obtain ⟨vs', hl', rfl⟩ := hl
+      obtain ⟨rfl, -⟩ := dec_leaf hd
+      rw [mapM_leafVals xs ds' vs' hds' hl']
+    | cont _ _ => simp [leafVals] at hl
+    | list _ _ _ _ => simp [leafVals] at hl
+
+/-- `sum` of a list object whose items decode to `ds`. -/
+theorem dSum_sound {env : Env} (hlf : LibFlat env) {lo : Nat} {h : Heap} {vs : List Value}
+    {a : Nat} {kd : ListKind} {el : SszTy} {ll : Option Nat} {xs : List Value} {m : Nat}
+    {ds : List DV} (ho : h.objs a = some (.list kd el ll xs)) (hm : xs.mapM (dec h m) = some ds)
+    {r : Res DRes} (hd : dSum kd el ds = some r) :
+    GOK lo h vs r (applyBuiltin env h .sum [.ref a] []) := by
+  unfold dSum at hd
+  cases hb : isByteList kd el with
+  | true => simp [hb] at hd
+  | false =>
+  simp only [hb, Bool.false_eq_true, ↓reduceIte] at hd
+  cases hl : leafVals ds with
+  | none => simp [hl] at hd
+  | some ys =>
+  simp only [hl] at hd
+  have hxy := mapM_leafVals xs ds ys hm hl
+  subst hxy
+  have hnb : ¬(kd = .list ∧ el = .uint (.width 8)) := by simpa [isByteList] using hb
+  have hit : iterElems h (.ref a) = .ok xs := by
+    simp only [iterElems, iterBase, ho]
+    split
+    · next heq => simp at heq; exact absurd ⟨heq.1, heq.2.1⟩ hnb
+    · next heq => simp at heq; obtain ⟨-, -, -, rfl⟩ := heq; rfl
+    all_goals (simp_all <;> (exfalso; rename_i hx; exact hx _ _ _ _ rfl rfl rfl rfl))
+  simp only [applyBuiltin, hlf.builtin h .sum _ [] (by simp), hit, Except.bind_ok', List.headD_nil]
+  rcases bind_case hd with ⟨err, hl2, rfl⟩ | ⟨w, hl2, hd2⟩
+  · obtain ⟨hr, hne⟩ := lift_some hl2
+    rw [← hr]; exact ⟨rfl, hne err hr.symm⟩
+  · obtain ⟨hr, -⟩ := lift_some hl2
+    rw [← hr]
+    by_cases hv : Flat w = true
+    · simp [hv, DM.ok] at hd2; subst hd2; exact ⟨Ext_refl _, trivial, rfl, hv⟩
+    · simp [hv] at hd2
+
 theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) {m : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L (m + 1) ((den env fps (m + 1)).expr fp s))
@@ -635,6 +686,35 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
                 have hlen := ((mapM_some_iff xs ds).mp hm).1
                 simp [applyBuiltin, hlf.builtin h2 .len _ [] (by simp), ho, hlen]
                 exact ⟨Ext_refl _, trivial, rfl, rfl⟩
+            | [.val _], _, _, hd2 => simp at hd2
+            | [], _, _, hd2 => simp at hd2
+            | _ :: _ :: _, _, _, hd2 => simp at hd2
+          case sum =>
+            simp only [dBuiltin] at hd2
+            match rs, ws, hrel, hd2 with
+            | [.place k p], [w], ⟨⟨a, hw, hat⟩, _⟩, hd2 =>
+              subst hw
+              simp only at hd2
+              cases hdr : s.deref k p with
+              | none => simp [hdr] at hd2
+              | some dd =>
+                rw [hdr] at hd2
+                cases dd with
+                | leaf _ => simp at hd2
+                | cont _ _ => simp at hd2
+                | list kd el ll ds =>
+                  obtain ⟨nn, hn⟩ := deref_dec hI2.i.r hat hdr
+                  obtain ⟨a', mm, xs, ha, -, ho, hm⟩ := dec_list hn
+                  cases ha
+                  exact dSum_sound hlf ho hm hd2
+            | [.tree d], [w], ⟨⟨⟨nn, hn⟩, _⟩, _⟩, hd2 =>
+              cases d with
+              | leaf _ => simp at hd2
+              | cont _ _ => simp at hd2
+              | list kd el ll ds =>
+                obtain ⟨a', mm, xs, ha, -, ho, hm⟩ := dec_list hn
+                subst ha
+                exact dSum_sound hlf ho hm hd2
             | [.val _], _, _, hd2 => simp at hd2
             | [], _, _, hd2 => simp at hd2
             | _ :: _ :: _, _, _, hd2 => simp at hd2
