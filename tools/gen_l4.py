@@ -1694,6 +1694,23 @@ def main():
                     texts[n] = retry[n][0]
                     del fails[n]
                 print("%-55s %s" % (n + " (ok)", "ok" if ok else err), flush=True)
+        # A heartbeat timeout again, with four times the heartbeats.
+        retry2 = {}
+        for n in cands:
+            if "@" in n or n in proved or "maximum number of heartbeats" not in fails.get(n, ""):
+                continue
+            t = retry.get(n, cands[n])
+            retry2[n] = (t[0].replace("maxHeartbeats 1000000 in", "maxHeartbeats 4000000 in"), t[1])
+        with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
+            futs = {ex.submit(check, pre + t + "\nend SpecLean.Layer4.Gen\n", n): n for n, (t, _) in retry2.items()}
+            for fu in concurrent.futures.as_completed(futs):
+                n = futs[fu]
+                ok, err = fu.result()
+                if ok:
+                    proved[n] = retry2[n][1]
+                    texts[n] = retry2[n][0]
+                    del fails[n]
+                print("%-55s %s" % (n + " (4M)", "ok" if ok else err), flush=True)
         # The range lemmas of the new functions with a bytes result.
         rngc = {}
         for n in cands:
