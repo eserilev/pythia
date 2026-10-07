@@ -27,7 +27,7 @@ structure LibFlat (env : Env) : Prop where
   coerce : CoerceFlat env
   ctor : ConstructFlat env
   /-- The library leaves `len`, `min`, `max`, `enumerate` and `sum` to the core. -/
-  builtin : ∀ h b args kws, (b = .len ∨ b = .min ∨ b = .max ∨ b = .enumerate ∨ b = .sum) →
+  builtin : ∀ h b args kws, (b = .len ∨ b = .min ∨ b = .max ∨ b = .enumerate ∨ b = .sum ∨ b = .sha256) →
     LibModel.builtin env h b args kws = none
   /-- A container from keyword arguments, all fields given and flat: a new object. -/
   kwctor : ∀ h ty fs kvs (r : Res (List Value)), env.containers.lookup ty = some fs →
@@ -49,6 +49,9 @@ structure LibFlat (env : Env) : Prop where
     LibModel.method env h (.glob g) f args = none
   /-- The BLS oracle on flat values does not read the heap. -/
   blsFlat : ∀ h f vs, (∀ v ∈ vs, Flat v = true) → env.bls f h vs = env.bls f Heap.empty vs
+  /-- `ssz_serialize` of a uint: its little-endian bytes. -/
+  serU : ∀ h t n, LibModel.builtin env h .sszSerialize [.uint t n] [] =
+    some (.ok (.bytes env.bytesName (Prim.serializeUint n (t.bits / 8)), h))
   /-- `hash_tree_root` is the oracle of the environment. -/
   htr : ∀ h v, LibModel.builtin env h .hashTreeRoot [v] [] =
     some (do pure (.bytes env.nm.root (← env.hashTreeRoot h v), h))
@@ -829,6 +832,23 @@ theorem fn_shape {env : Env} {fps : Name → Footprint} {n : Nat} {fp : Footprin
     | cons e es => rw [hdd] at hnd; simp at hnd; rw [← hdd]; simpa [hdd] using hnd.1
   · cases hf
 
+theorem dSha_spec {env : Env} {s : DSt} {rs : List DRes} {r : Res DRes}
+    (h : dBuiltin env s .sha256 rs = some r) :
+    ∃ c bs, rs = [.val (.bytes c bs)] ∧ r = .ok (.val (.bytes env.nm.bytes32 (env.sha256 bs))) := by
+  simp only [dBuiltin] at h
+  split at h
+  · next c bs => simp [DM.ok] at h; exact ⟨c, bs, rfl, h.symm⟩
+  · cases h
+
+theorem dSer_spec {env : Env} {s : DSt} {rs : List DRes} {r : Res DRes}
+    (h : dBuiltin env s .sszSerialize rs = some r) :
+    ∃ t n, rs = [.val (.uint t n)] ∧
+      r = .ok (.val (.bytes env.bytesName (Prim.serializeUint n (t.bits / 8)))) := by
+  simp only [dBuiltin] at h
+  split at h
+  · next t n => simp [DM.ok] at h; exact ⟨t, n, rfl, h.symm⟩
+  · cases h
+
 theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) {m : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L (m + 1) ((den env fps (m + 1)).expr fp s))
@@ -1019,6 +1039,20 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
             | [.val _], _, _, hd2 => simp at hd2
             | [], _, _, hd2 => simp at hd2
             | _ :: _ :: _, _, _, hd2 => simp at hd2
+          case sha256 =>
+            obtain ⟨c, bs, rfl, rfl⟩ := dSha_spec hd2
+            match ws, hrel with
+            | [w], ⟨⟨hw, _⟩, _⟩ =>
+              subst hw
+              simp [applyBuiltin, hlf.builtin h2 .sha256 _ [] (by simp)]
+              exact ⟨Ext_refl _, trivial, rfl, rfl⟩
+          case sszSerialize =>
+            obtain ⟨t, n, rfl, rfl⟩ := dSer_spec hd2
+            match ws, hrel with
+            | [w], ⟨⟨hw, _⟩, _⟩ =>
+              subst hw
+              simp [applyBuiltin, hlf.serU h2 t n]
+              exact ⟨Ext_refl _, trivial, rfl, rfl⟩
           case hashTreeRoot =>
             simp only [dBuiltin] at hd2
             match rs, ws, hrel, hd2 with

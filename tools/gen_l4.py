@@ -63,6 +63,12 @@ class Model:
             ps = [tuple(t.strip() for t in x.split(" : ", 1)) for x in ps]
             self.sigs[m.group(1)] = ([(a, strip_parens(b)) for a, b in ps], m.group(3).strip())
             self.bodies[m.group(1)] = def_text(rd, m.start())
+        # Functions generic over a uint class: one theorem set per class.
+        self.generic = set()
+        for m in re.finditer(r"^def (\w+) \{β : Type\} \[UintC β\] \((\w+) : β\) : SpecM (.+?) :=", rd, re.M):
+            self.sigs[m.group(1)] = ([(m.group(2), "β")], m.group(3).strip())
+            self.bodies[m.group(1)] = def_text(rd, m.start())
+            self.generic.add(m.group(1))
         for m in re.finditer(r"^def (\w+)\.loop\d+ ", rd, re.M):
             if m.group(1) in self.bodies:
                 self.bodies[m.group(1)] += "\n" + def_text(rd, m.start())
@@ -1266,6 +1272,39 @@ def hok_binder(m, pn, pt):
 
 
 def candidate(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
+    if name in m.generic and not getattr(m, "_inst", False):
+        return candidate_generic(m, name, proved, ok)
+    return candidate1(m, name, proved, sub, isub, ok, nonep)
+
+
+def candidate_generic(m, name, proved, ok):
+    """A function generic over a uint class: the theorems of each class, with the class in the
+    theorem names and given to the readable function."""
+    sig = m.sigs[name]
+    texts, D = [], 0
+    try:
+        m._inst = True
+        for C in sorted(m.uint):
+            if not m.uint_ty(C):
+                continue
+            m.sigs[name] = ([(pn, C if pt == "β" else pt) for pn, pt in sig[0]], sig[1])
+            try:
+                t, d = candidate1(m, name, proved, ok=ok)
+            except Unsupported:
+                continue
+            t = re.sub(r"\b%s_(den|call|fcall|l4|l4r)\b" % name, lambda mm: "%s_%s_%s" % (name, mm.group(1), C), t)
+            t = re.sub(r"\b%s (⟨)" % name, lambda mm: "%s (β := %s) %s" % (name, C, mm.group(1)), t)
+            texts.append(t)
+            D = max(D, d)
+    finally:
+        m._inst = False
+        m.sigs[name] = sig
+    if not texts:
+        raise Unsupported("generic " + name)
+    return "\n".join(texts), D
+
+
+def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
     """The theorems of `name` (its `_den` and `_call`) and its fuel, or Unsupported. `proved` maps
     each proved function to its fuel."""
     if name not in m.sigs:

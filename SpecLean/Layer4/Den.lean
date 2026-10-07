@@ -244,6 +244,14 @@ def dBuiltin (env : Env) (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
       | _ => none
     | [.tree (.list kd el _ ds)] => dSum kd el ds
     | _ => none
+  | .sha256 =>
+    match rs with
+    | [.val (.bytes _ bs)] => .ok (.val (.bytes env.nm.bytes32 (env.sha256 bs)))
+    | _ => none
+  | .sszSerialize =>
+    match rs with
+    | [.val (.uint t n)] => .ok (.val (.bytes env.bytesName (Prim.serializeUint n (t.bits / 8))))
+    | _ => none
   | .hashTreeRoot =>
     match rs with
     | [.place k p] =>
@@ -316,7 +324,8 @@ def callable (env : Env) (g : Name) : Bool :=
   match env.globals.lookup g with
   | some (.fn _) | some (.type _) => true
   | some (.builtin .min) | some (.builtin .max) | some (.builtin .len) => true
-  | some (.builtin .sum) | some (.builtin .hashTreeRoot) => true
+  | some (.builtin .sum) | some (.builtin .hashTreeRoot) | some (.builtin .sha256)
+  | some (.builtin .sszSerialize) => true
   | _ => false
 
 /-- Bind the loop target at fuel `n`, as `assignTarget n`. -/
