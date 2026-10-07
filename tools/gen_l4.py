@@ -910,6 +910,136 @@ def loop_theorems(m, name, params, bs, roots, rds, xs, lps):
     return "\n".join(x for x in out if x)
 
 
+def whiles(m, name, params, roots, rds):
+    """The top-level `while` loops of `name`: one dict each, or Unsupported. Each loop carries
+    uint locals only, and its body reads only parameters and carried locals."""
+    out = []
+    items = top_items(body_text(m, name))
+    f = m.fns[name]
+    pids = f["params"]
+    nfor = sum(1 for st in f["body"][1] if ctor(st)[0] == "forStmt")
+    for idx, (it, st) in enumerate(zip(items, f["body"][1])):
+        k, a = ctor(st)
+        if k != "whileStmt":
+            continue
+        j = nfor + len(out) + 1
+        lname = "%s.loop%d" % (name, j)
+        sig = re.search(r"^def %s ((?:\(\w+ : [^)]+\) )*): SpecM (.+?) :=" % re.escape(lname), m.rd, re.M)
+        msig = re.search(r"^def %s\.μ ((?:\(\w+ : [^)]+\) )*): Nat :=" % re.escape(lname), m.rd, re.M)
+        if not sig or not msig:
+            raise Unsupported("while signature")
+        ps = re.findall(r"\((\w+) : ([^)]+)\)", sig.group(1))
+        mps = re.findall(r"\((\w+) : ([^)]+)\)", msig.group(1))
+        pre = [p for p, _ in ps if not p.endswith("_in")]
+        car = [(p[:-3], t) for p, t in ps if p.endswith("_in")]
+        if [p for p, _ in mps] != pre + [c for c, _ in car]:
+            raise Unsupported("while measure arguments")
+        if not car or any(t not in m.uint or not m.uint_ty(t) for _, t in car):
+            raise Unsupported("while carries a non-uint")
+        pnames = [p for p, _ in params]
+        if any(p not in pnames for p in pre):
+            raise Unsupported("while reads a local")
+        rt = sig.group(2).strip()
+        if rt.strip("()") != " × ".join(t for _, t in car):
+            raise Unsupported("while result " + rt)
+        cids = [m.name_id[c] for c, _ in car]
+        a2 = split_args(it)
+        cond, body = a2[2], a2[3]
+        used = {int(x) for x in re.findall(r"\(\.name \d+ (\d+)\)", cond + body)}
+        if not used <= set(pids) | set(cids) or "(.call " in cond + body:
+            raise Unsupported("while body")
+        out.append(dict(idx=idx, line=a[0][1] if isinstance(a[0], tuple) else a2[1], lname=lname,
+                        pre=pre, car=car, cids=cids, rt=rt, cond=cond, body=body,
+                        C=max(depth(a[1]), depth(a[2])) + 6))
+    return out
+
+
+def while_theorems(m, name, params, bs, roots, rds, xs, wls):
+    """The measure induction lemma of each `while` loop and its form for a `bind`."""
+    out = []
+    pids = m.fns[name]["params"]
+    rdmap = {pn: rd for (pn, _), rd in zip(params, rds)}
+    rs = "[%s]" % ", ".join(roots)
+    hyps, hnames = [], []
+    for (pn, pt), pid, r in zip(params, pids, roots):
+        v = "(.val %s)" % r[len("(.leaf "):-1] if r.startswith("(.leaf ") else "(.place %d [])" % pids.index(pid)
+        hyps.append("B %d = some %s" % (pid, v))
+        hnames.append("hB%d" % pid)
+    for wl in wls:
+        nm = "%s_while%s" % (name, wl["lname"].rsplit("loop", 1)[1])
+        K = len(wl["car"])
+        cs = ["c%d" % (i + 1) for i in range(K)]
+        tys = [m.uint_ty(t) for _, t in wl["car"]]
+
+        def chain(vals):
+            t = "B"
+            for cid, ty, v in zip(wl["cids"], tys, vals):
+                t = "(setLoc %s %d (.val (.uint %s %s)))" % (t, cid, ty, v)
+            return t
+
+        def proj(i):
+            return "r" + ".2" * i + (".1" if i < K - 1 else "")
+
+        st0 = chain(cs)
+        st1 = chain(["%s.val" % proj(i) for i in range(K)])
+        pre = " ".join(rdmap[p] for p in wl["pre"])
+        args = " ".join("⟨%s⟩" % c for c in cs)
+        mu = "%s.μ %s %s" % (wl["lname"], pre, args)
+        loop1 = "%s %s %s" % (wl["lname"], pre, args)
+        C = wl["C"]
+        swaps = []
+        for i in range(K):
+            for j in range(i + 1, K):
+                sw = "%s_swap%d_%d" % (nm, i + 1, j + 1)
+                swaps.append(sw)
+                out.append(
+                    "theorem %s (B : Name → Option DRes) (a b : DRes) :\n"
+                    "    setLoc (setLoc B %d b) %d a = setLoc (setLoc B %d a) %d b := by\n"
+                    "  funext y; simp only [setLoc]; split <;> split <;> simp_all\n"
+                    % (sw, wl["cids"][j], wl["cids"][i], wl["cids"][i], wl["cids"][j]))
+        side = "simp [%s.μ, uv, UintC.val] at hk hc ⊢; omega" % wl["lname"]
+        hy = " → ".join(hyps)
+        out.append(
+            "theorem %s (sha : Oracle) %s :\n"
+            "    ∀ (k nf : Nat) (B : Name → Option DRes) (%s : Nat), %s = k → k + %d ≤ nf → %s →\n"
+            "      Option.map (Except.mapError SpecError.fail)\n"
+            "        ((den (Scope.env sha) fpsGen nf).whl [] (DSt.mk %s %s) %s\n"
+            "          %s) =\n"
+            "      some ((fun r : %s => (DOut.normal, DSt.mk %s %s)) <$> %s) := by\n"
+            "  intro k\n"
+            "  induction k using Nat.strongRecOn with\n"
+            "  | ind k ih =>\n"
+            "  intro nf B %s hk hn %s\n"
+            "  obtain ⟨n', rfl⟩ : ∃ n', nf = n' + %d := ⟨nf - %d, by omega⟩\n"
+            "  rw [show n' + %d = (n' + %d) + 1 from rfl, den_whl]\n"
+            "  unfold whileStep\n"
+            "  rw [%s]\n"
+            "  l4_eval [%s]\n"
+            "  l4_bycases\n"
+            "  · simp only [hc, ↓reduceIte, Bool.true_eq_false, decide_true, decide_false]\n"
+            "    rw [dif_pos ?hμ, ih _ ?hlt _ B %s rfl ?hf %s]\n"
+            "    case hμ => %s\n"
+            "    case hlt => %s\n"
+            "    case hf => %s\n"
+            "  · simp only [Bool.not_eq_true] at hc\n"
+            "    simp only [hc, ↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, decide_true, decide_false]\n"
+            % (nm, " ".join(bs), " ".join(cs), mu, C, hy, rs, st0, wl["cond"], wl["body"], wl["rt"], rs, st1, loop1,
+               " ".join(cs), " ".join(hnames), C, C, C, C - 1, wl["lname"],
+               ", ".join(hnames + swaps + ["Sem.block", "blockOf", "setLoc_same"]),
+               " ".join("_" for _ in cs), " ".join(hnames), side, side, side))
+        out.append(
+            "@[l4_simp] theorem %s_call (sha : Oracle) %s (nf : Nat) (B : Name → Option DRes) (%s : Nat)\n"
+            "    (hk : %s ≤ bigFuel) (hn : bigFuel + %d ≤ nf) %s {γ : Type} (K : DOut × DSt → DM γ) :\n"
+            "    Option.map (Except.mapError SpecError.fail)\n"
+            "        (DM.bind ((den (Scope.env sha) fpsGen nf).whl [] (DSt.mk %s %s) %s\n"
+            "          %s) K) =\n"
+            "      callK (%s) fun r => Option.map (Except.mapError SpecError.fail) (K (DOut.normal, DSt.mk %s %s)) :=\n"
+            "  bind_call (%s sha %s _ nf B %s rfl (by omega) %s) K\n"
+            % (nm, " ".join(bs), " ".join(cs), mu, C, " ".join("(%s : %s)" % (h, y) for h, y in zip(hnames, hyps)),
+               rs, st0, wl["cond"], wl["body"], loop1, rs, st1, nm, " ".join(xs), " ".join(cs), " ".join(hnames)))
+    return "\n".join(out)
+
+
 def split_args(t):
     """The space-separated arguments of a parenthesized application `(.f a b c)`."""
     t = t.strip()[1:-1]
@@ -1185,6 +1315,10 @@ def callee_lens(m, name, params):
         for mm in re.finditer(r"\b%s((?:\s+\(?\w+\)?)+)" % re.escape(c), body):
             args = [a.strip("()") for a in mm.group(1).split()]
             for pos, fld in LENS_OF[c]:
+                if pos == "W":
+                    if ("W", None) not in out:
+                        out.append(("W", None))
+                    continue
                 if pos >= len(args) or args[pos] not in pnames:
                     raise Unsupported("callee fuel through a local")
                 item = (pnames.index(args[pos]), fld)
@@ -1361,21 +1495,25 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
         rs_out = None
     lps = loops(m, name, params, roots, rds) if not sub else []
     cps = comps(m, name, params, roots, rds) if not sub else []
+    wls = whiles(m, name, params, roots, rds) if not sub else []
     if uses_bls(m, name):
         bs.insert(0, "(hbl : GenBridge.OracleBls sha)")
         xs.insert(0, "hbl")
     if uses_htr(m, name):
         bs.insert(0, "(ho : Validation.HtrBridge.OracleHtr sha)")
         xs.insert(0, "ho")
-    if sub and any(ctor(st)[0] == "forStmt" for st in f["body"][1]):
+    if sub and any(ctor(st)[0] in ("forStmt", "whileStmt") for st in f["body"][1]):
         raise Unsupported("variant with a loop")
     tag = ("_" + sub if sub else "") + ("_i" if isub else "") + ("_none" if nonep else "")
     D = depth(f["body"]) + 4 + max([proved[c] + 2 for c in m.callees(name)] + [0])
     items = [(lp["k"], lp["path"] and lp["len"].split(".")[-2] or None) for lp in lps + cps]
+    if wls:
+        items.append(("W", None))
     for it in callee_lens(m, name, params):
         if it not in items:
             items.append(it)
-    LENS = "".join(("%s.%s.length + " % (rds[k], fld)) if fld else ("%s.length + " % rds[k]) for k, fld in items)
+    LENS = "".join("bigFuel + " if k == "W" else ("%s.%s.length + " % (rds[k], fld)) if fld else ("%s.length + " % rds[k])
+                   for k, fld in items)
     fcalls = ["%s_fcall" % c for c in m.callees(name) if LENS_OF.get(c) and not needs_oracle(m, c)]
     for c in m.callees(name):
         if not needs_oracle(m, c):
@@ -1390,6 +1528,8 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
                 fcalls += ["%s_fcall_none %s" % (c, oa)]
     if lps or cps:
         D += 6
+    if wls:
+        D += max(wl["C"] for wl in wls) + 2
     rs = "[%s]" % ", ".join(roots)
     rs_out = rs_out or rs
     fp = "(fpsGen %d)" % f["id"] if w else "[]"
@@ -1405,8 +1545,11 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
     if rt in m.reps and ("theorem kids_%s_mk" % rt) in classes_file_cache(m):
         unf.append("kids_%s_mk" % rt)
     loopstep = ""
-    if lps or fcalls or cps or any(c in RNG for c in m.callees(name)):
+    if lps or fcalls or cps or wls or any(c in RNG for c in m.callees(name)):
         disch = "l4_disch"
+        if wls:
+            disch = "first | l4_disch | " + " | ".join(
+                "(simp [%s.μ, uv, UintC.val, bigFuel_eq]; omega)" % wl["lname"] for wl in wls)
         rngs = ["%s_rng" % c for c in m.callees(name) if c in RNG]
         if rngs:
             disch = "first | l4_disch | " + " | ".join("(apply %s <;> assumption)" % r for r in rngs)
@@ -1418,7 +1561,8 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
         loopstep = ("  all_goals (repeat (first | (simp (disch := %s) only [%s]) |\n"
                     "    ((l4_bycases <;> (try l4_eval_star))) |\n"
                     "    ((refine callK_congr' _ fun _ hy => ?_)%s <;> (try l4_eval_star))))\n  all_goals (try l4_eval)\n"
-                    % (disch, ", ".join(["%s_loop%d_call" % (name, j + 1) for j in range(len(lps))] + fcalls +
+                    % (disch, ", ".join(["%s_loop%d_call" % (name, j + 1) for j in range(len(lps))] +
+                                ["%s_while%s_call" % (name, wl["lname"].rsplit("loop", 1)[1]) for wl in wls] + fcalls +
                                 ["%s_items_call" % name for _ in cps]), haves))
     thm = ("theorem %s_den%s (sha : Oracle) (m : Nat) %s :\n"
            "    ((den (Scope.env sha) fpsGen (%sm + %d)).fn %s Scope.fn_%s %s).map (Except.mapError SpecError.fail) =\n"
@@ -1476,6 +1620,7 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
     if not sub and not nonep:
         LENS_OF[name] = items
     out = ((loop_theorems(m, name, params, bs, roots, rds, xs, lps) + "\n" if lps else "") +
+           (while_theorems(m, name, params, bs, roots, rds, xs, wls) + "\n" if wls else "") +
            (comp_theorems(m, name, params, bs, roots, rds, xs, cps) + "\n" if cps else "") + thm + "\n" + call)
     if not sub and not nonep:
         out += "\n" + wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS)

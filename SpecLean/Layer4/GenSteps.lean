@@ -251,7 +251,17 @@ theorem s_forStmt (l : Line) (t : Target) (it : Expr) (body : List Stmt) :
       DM.bind ((den env fps n).iter fp s it) fun ls => (den env fps n).loop fp s t ls 0 body := by
   rw [den_stmt]; rfl
 
+theorem s_whileStmt (l : Line) (c : Expr) (body : List Stmt) :
+    (den env fps (n + 1)).stmt fp s (.whileStmt l c body) = (den env fps n).whl fp s c body := by
+  rw [den_stmt]; rfl
+
 end stmt
+
+/-- The fuel for a `while` loop: one level per iteration, and a uint measure is below `2 ^ 64`.
+It is irreducible: a literal this large in a fuel term makes `simp` run out of memory. -/
+@[irreducible] def bigFuel : Nat := 2 ^ 64
+
+theorem bigFuel_eq : bigFuel = 2 ^ 64 := by unfold bigFuel; rfl
 
 section target
 
@@ -855,7 +865,7 @@ macro_rules
     `(tactic| simp only [l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, Expr.call.injEq, s_append, env_append, appendItemD, appendable_list_cont, appendable_plist_cont, appendable_list_nom, appendable_plist_nom, appendable_list_bytes, appendable_plist_bytes, Ssz.checkLength, Rd.lappend, s_assign, s_annAssign, s_exprStmt,
-      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, s_iter_enum, isEnumerate, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
+      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, s_iter_enum, isEnumerate, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_whileStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
       dGlobal, env_globals, env_containers, env_config, env_bytesName,
@@ -887,7 +897,7 @@ macro_rules
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, Expr.call.injEq, s_append, env_append, appendItemD, appendable_list_cont, appendable_plist_cont, appendable_list_nom, appendable_plist_nom, appendable_list_bytes, appendable_plist_bytes, Ssz.checkLength, Rd.lappend, s_assign, s_annAssign, s_exprStmt,
-      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, s_iter_enum, isEnumerate, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
+      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, s_iter_enum, isEnumerate, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_whileStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
       dGlobal, env_globals, env_containers, env_config, env_bytesName,
