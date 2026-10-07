@@ -1,4 +1,5 @@
 import SpecLean.Gen.Ast
+import SpecLean.Gen.Readable
 import SpecLean.Readable
 
 /-!
@@ -119,5 +120,70 @@ def runIsqrt (name : String) (n : Nat) (plainInt : Bool) : IO Unit := do
     fun (v, _) => showVal v
   if plainInt then IO.println s!"readable {name}: skip"
   else rline name <| (Readable.integer_squareroot ⟨n⟩).map fun r => s!"Uint64 {r.val}"
+
+/-! The cases below use the full scope, because `Gen.Ast` has only the three targets above. -/
+
+def senv : Env :=
+  Scope.env ⟨fun _ => [], fun _ _ => .error .unsupported, fun _ _ _ => .error .unsupported⟩
+
+def sgwei : UintTy := .nominal Scope.Id.Gwei 64
+def svidx : UintTy := .nominal Scope.Id.ValidatorIndex 64
+def sepoch : UintTy := .nominal Scope.Id.Epoch 64
+def swidx : UintTy := .nominal Scope.Id.WithdrawalIndex 64
+
+/-- A heap with one `BeaconState` at slot 0 with validators, balances and pending partial
+withdrawals `(validator_index, amount, withdrawable_epoch)`, and a Python list of prior
+withdrawals `(index, validator_index, amount)`. Returns the state and the list. -/
+def mkPpwState (vals : List (Nat × Nat)) (bals : List Nat) (ppws : List (Nat × Nat × Nat))
+    (prior : List (Nat × Nat × Nat)) : Nat × Nat × Heap :=
+  let allocAll (h : Heap) (os : List HeapObj) : List Nat × Heap :=
+    os.foldl (init := ([], h)) fun (rs, h) o => let (r, h) := h.alloc o; (rs ++ [r], h)
+  let (vrefs, h) := allocAll Heap.empty <| vals.map fun (e, p) =>
+    .container Scope.Id.Validator
+      [.bytes Scope.Id.BLSPubkey (List.replicate 48 0), .bytes Scope.Id.Bytes32 (wc p),
+       .uint sgwei e, .boolean false, .uint sepoch 0, .uint sepoch 0, .uint sepoch 0,
+       .uint sepoch 0]
+  let (prefs, h) := allocAll h <| ppws.map fun (i, a, e) =>
+    .container Scope.Id.PendingPartialWithdrawal [.uint svidx i, .uint sgwei a, .uint sepoch e]
+  let (wrefs, h) := allocAll h <| prior.map fun (k, i, a) =>
+    .container Scope.Id.Withdrawal
+      [.uint swidx k, .uint svidx i, .bytes Scope.Id.ExecutionAddress (List.replicate 20 0),
+       .uint sgwei a]
+  let (va, h) := h.alloc (.list .progressiveList (.container Scope.Id.Validator) none
+    (vrefs.map .ref))
+  let (ba, h) := h.alloc (.list .progressiveList (.uint sgwei) none (bals.map (.uint sgwei ·)))
+  let (pa, h) := h.alloc (.list .progressiveList (.container Scope.Id.PendingPartialWithdrawal)
+    none (prefs.map .ref))
+  let (wa, h) := h.alloc (.list .pyList .any none (wrefs.map .ref))
+  let fields := (((List.replicate 46 Value.none).set 2 (.uint (.nominal Scope.Id.Slot 64) 0)
+    |>.set 11 (.ref va)).set 12 (.ref ba)).set 35 (.ref pa)
+  let (root, h) := h.alloc (.container Scope.Id.BeaconState fields)
+  (root, wa, h)
+
+/-- `get_pending_partial_withdrawals` with withdrawal index 0. Prints the number of
+withdrawals, the next withdrawal index and the processed count. -/
+def runPPW (name : String) (vals : List (Nat × Nat)) (bals : List Nat)
+    (ppws prior : List (Nat × Nat × Nat)) : IO Unit := do
+  let (root, wa, h) := mkPpwState vals bals ppws prior
+  line "interp" name <| (interp senv fuel Scope.Id.get_pending_partial_withdrawals
+    [.ref root, .uint swidx 0, .ref wa] h).bind fun (v, h') =>
+      match v with
+      | .tuple [.ref ws, .uint _ k, .uint _ c] => match h'.objs ws with
+        | some (.list _ _ _ xs) => .ok s!"n={xs.length} index={k} count={c}"
+        | _ => .error (.other "result")
+      | _ => .error (.other "result")
+  let st : Rd.Gen.BeaconState :=
+    { (default : Rd.Gen.BeaconState) with
+      validators := vals.map fun (e, p) =>
+        { pubkey := ⟨List.replicate 48 0⟩, withdrawal_credentials := ⟨wc p⟩,
+          effective_balance := ⟨e⟩, slashed := ⟨false⟩, activation_eligibility_epoch := ⟨0⟩,
+          activation_epoch := ⟨0⟩, exit_epoch := ⟨0⟩, withdrawable_epoch := ⟨0⟩ },
+      balances := bals.map (⟨·⟩),
+      pending_partial_withdrawals := ppws.map fun (i, a, e) =>
+        { validator_index := ⟨i⟩, amount := ⟨a⟩, withdrawable_epoch := ⟨e⟩ } }
+  let pw : List Rd.Gen.Withdrawal := prior.map fun (k, i, a) =>
+    { index := ⟨k⟩, validator_index := ⟨i⟩, address := ⟨List.replicate 20 0⟩, amount := ⟨a⟩ }
+  rline name <| (Rd.Gen.get_pending_partial_withdrawals st ⟨0⟩ pw).map
+    fun (ws, k, c) => s!"n={ws.length} index={k.val} count={c.val}"
 
 end SpecLean.Tests
