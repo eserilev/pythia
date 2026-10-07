@@ -175,6 +175,14 @@ class Gen:
             d = self.em.dec_of(t)
             if d is None:
                 raise Unsupported("argument type list")
+            e = t[1]
+            ety = (translate.ssz_ty_term(self.b, e[1])
+                   if e is not None and e[0] in ("uint", "container", "bytesN") else
+                   ".boolean" if e is not None and e[0] == "boolean" else None)
+            if getattr(self, "seq_elem", False) and t[2] is None and ety is not None:
+                # A `Sequence`: any kind and limit, with the element type that the callers'
+                # lists have, so that the iteration source is known.
+                d = f"(decListE {ety} {self.em.dec_of(e)})"
             lt = self.em.lean_param(t)
             return (f"(r{j} : Nat) ({x} : {lt}) (hy{j} : {d} h (.ref r{j}) = some {x})",
                     f"(.ref r{j})", x, f"r{j} {x} hy{j}")
@@ -1075,6 +1083,7 @@ def main():
         tier = [n for n in tier if n in args.only.split(",")]
     g = Gen(b, em)
     g.cls, g.slice_memo = cls, {}
+    g.seq_elem = args.tier == "loops" or bool(args.emit)
     g.readable = (ROOT / "SpecLean/Gen/Readable.lean").read_text()
     from footprint import footprint
     ssz_names = {x for x in dir(spec) if isinstance(getattr(spec, x), type)

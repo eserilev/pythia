@@ -84,6 +84,36 @@ theorem sum_uint {α : Type} [UintC α] (t : UintTy) (ht : t.bits = UintC.bits �
 
 end SumRule
 
+/-- A `Sequence` argument: a list object of any kind and limit whose element type is `e`, and
+whose items decode in order. The element type tells the iteration rule which source it is. -/
+def decListE {α : Type} (e : SszTy) (f : Rd.Dec α) : Rd.Dec (List α)
+  | h, .ref a =>
+    match h.objs a with
+    | some (.list _ e' _ xs) => if e' = e then xs.mapM (f h) else none
+    | _ => none
+  | _, _ => none
+
+@[rd_dec] theorem decListE_ref_eq_some {α : Type} (e : SszTy) (f : Rd.Dec α) (h : Heap) (a : Nat)
+    (ys : List α) : decListE e f h (.ref a) = some ys ↔
+      ∃ k l xs, h.objs a = some (.list k e l xs) ∧ xs.mapM (f h) = some ys := by
+  show (match h.objs a with
+    | some (.list _ e' _ xs) => if e' = e then xs.mapM (f h) else none
+    | _ => none) = some ys ↔ _
+  constructor
+  · intro hx
+    cases ho : h.objs a with
+    | none => rw [ho] at hx; cases hx
+    | some o =>
+      rw [ho] at hx
+      cases o with
+      | list k e' l xs =>
+        by_cases he : e' = e
+        · subst he; simp at hx; exact ⟨k, l, xs, rfl, hx⟩
+        · simp [he] at hx
+      | _ => cases hx
+  · rintro ⟨k, l, xs, ho, hm⟩
+    simp [ho, hm]
+
 /-- A Python set of decoded items: the object is a set, and its elements decode in order. -/
 def decSetV {α : Type} (f : Rd.Dec α) : Rd.Dec (List α)
   | h, .ref a =>
@@ -129,6 +159,23 @@ theorem snap_item_map {α : Type} {g : α → Value} {ys : List α} {i : Nat} {x
 theorem snap_len {α : Type} {dec : Value → Option α} {xs : List Value} {ys : List α}
     (hm : xs.mapM dec = some ys) : xs.length = ys.length :=
   ((SpecLean.Encode.mapM_some_iff _ _).mp hm).1.symm
+
+theorem filterMapM_loop_ok {ε α β : Type} (f : α → Option β) :
+    ∀ (l : List α) (acc : List β),
+      List.filterMapM.loop (fun x => (Except.ok (f x) : Except ε (Option β))) l acc =
+        .ok (acc.reverse ++ l.filterMap f)
+  | [], acc => by simp [List.filterMapM.loop, pure, Except.pure]
+  | a :: l, acc => by
+    simp only [List.filterMapM.loop, bind, Except.bind]
+    cases hf : f a with
+    | none => simp [filterMapM_loop_ok f l acc, hf]
+    | some b => simp [filterMapM_loop_ok f l (b :: acc), hf]
+
+/-- A readable comprehension with no failing step: `filterMap`, as the monadic rule sees it. -/
+theorem filterMapM_pure {ε α β : Type} (f : α → Option β) (l : List α) :
+    l.filterMapM (fun x => (pure (f x) : Except ε (Option β))) = .ok (l.filterMap f) := by
+  have := filterMapM_loop_ok (ε := ε) f l []
+  simpa [List.filterMapM, pure, Except.pure] using this
 
 /-- A bound on the length of a readable result: a comprehension keeps at most its items. -/
 def FMLen {ε β : Type} : Except ε (List β) → Nat → Prop
@@ -457,7 +504,18 @@ elab "rd_comp" kf:num "[" ls:ident,* "]" : tactic => withMainContext do
   let t := (← instantiateMVars (← g.getType)).consumeMData
   let some ci := findClosed t (·.isAppOf ``SpecLean.compItems)
     | throwError "rd_comp: no comprehension"
-  let some fm := findClosed t (·.isAppOfArity ``List.filterMapM 6)
+  -- A readable comprehension with no failing step is a plain `filterMap`: the rule runs on its
+  -- monadic form, and the result is the plain list.
+  let pfm := if (findClosed t (·.isAppOfArity ``List.filterMapM 6)).isSome then none
+    else findClosed t (·.isAppOfArity ``List.filterMap 4)
+  let some fm ← (match pfm with
+      | some p => do
+        let pf ← Term.exprToSyntax (p.getArg! 2)
+        let pl ← Term.exprToSyntax (p.getArg! 3)
+        let e ← Term.withSynthesize <| Term.elabTerm
+          (← `(List.filterMapM (fun x => (pure ($pf x) : Except SpecLean.Fail _)) $pl)) none
+        pure (some (← instantiateMVars e))
+      | none => pure (findClosed t (·.isAppOfArity ``List.filterMapM 6)))
     | throwError "rd_comp: no readable comprehension"
   let some vs := (if t.isAppOfArity ``SpecLean.Encode.ResultMatches 8 then some (t.getArg! 4)
       else none) | throwError "rd_comp: not a validation goal"
@@ -524,18 +582,30 @@ elab "rd_comp" kf:num "[" ls:ident,* "]" : tactic => withMainContext do
     revert $hl:ident)))
   -- Generalize the two sides by the terms themselves: a term that goes back through syntax may
   -- not match the goal (`generalize` finds terms up to instances only).
-  let g ← getMainGoal
-  let (fvs, g) ← g.generalize #[{ expr := ci, xName? := `rcomp }, { expr := fm, xName? := `rdcomp }]
-  replaceMainGoal [g]
   let rcI := mkIdent `rcomp
   let rdI := mkIdent `rdcomp
-  let _ := fvs
-  evalTactic (← `(tactic| (
-    intro $hl:ident $hc:ident
-    rcases $rcI:ident with _ | ⟨vals, ⟨⟩ | ⟨⟩, hcomp'⟩ <;> rcases $rdI:ident with _ | bs
-    all_goals simp only [SpecLean.Validation.CompOut] at $hc:ident
-    all_goals simp only [SpecLean.Validation.FMLen, List.length_map, List.length_zipIdx,
-      List.length_range] at $hl:ident)))
+  if let some p := pfm then
+    -- The plain readable list: the monadic form is `.ok` of it.
+    evalTactic (← `(tactic| simp only [SpecLean.Validation.filterMapM_pure]))
+    let g ← getMainGoal
+    let (_, g) ← g.generalize #[{ expr := ci, xName? := `rcomp }, { expr := p, xName? := `bs }]
+    replaceMainGoal [g]
+    evalTactic (← `(tactic| (
+      intro $hl:ident $hc:ident
+      rcases $rcI:ident with _ | ⟨vals, ⟨⟩ | ⟨⟩, hcomp'⟩
+      all_goals simp only [SpecLean.Validation.CompOut] at $hc:ident
+      all_goals simp only [SpecLean.Validation.FMLen, List.length_map, List.length_zipIdx,
+        List.length_range] at $hl:ident)))
+  else
+    let g ← getMainGoal
+    let (_, g) ← g.generalize #[{ expr := ci, xName? := `rcomp }, { expr := fm, xName? := `rdcomp }]
+    replaceMainGoal [g]
+    evalTactic (← `(tactic| (
+      intro $hl:ident $hc:ident
+      rcases $rcI:ident with _ | ⟨vals, ⟨⟩ | ⟨⟩, hcomp'⟩ <;> rcases $rdI:ident with _ | bs
+      all_goals simp only [SpecLean.Validation.CompOut] at $hc:ident
+      all_goals simp only [SpecLean.Validation.FMLen, List.length_map, List.length_zipIdx,
+        List.length_range] at $hl:ident)))
   -- The kept results: the values are the encodings of the readable items.
   let gs ← getGoals
   let mut out := []
