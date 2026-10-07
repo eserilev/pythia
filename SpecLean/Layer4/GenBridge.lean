@@ -1,4 +1,5 @@
 import SpecLean.Layer4.GenWrap
+import SpecLean.Validation.HtrBridge
 
 /-!
 # Layer 4: from the readable decoders to the decoded trees
@@ -16,6 +17,10 @@ open SpecLean SpecLean.Encode SpecLean.Layer4 SpecLean.Rd
 def ContWF (h : Heap) : Prop :=
   ∀ a ty fs ffs, h.objs a = some (.container ty fs) → Scope.containers.lookup ty = some ffs →
     fs.length = ffs.length
+
+/-- A heap where every container has the fields of its class gives `Shaped` for every value. -/
+theorem shaped_of_contWF {h : Heap} (hc : ContWF h) (v : Value) : Validation.HtrBridge.Shaped h v :=
+  fun _ c ty fs tys _ ho hl => hc c ty fs tys ho hl
 
 /-- A field or an element decodes to a tree, at some depth. -/
 def DecTo (h : Heap) (v : Value) (d : DV) : Prop := ∃ n, dec h n v = some d
