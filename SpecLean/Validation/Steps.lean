@@ -42,7 +42,7 @@ attribute [rd_simp] Rd.uCast Rd.uOp Rd.uOf Rd.iOp Rd.bd Rd.assert Rd.assertBug R
   Rd.PyOrd.lt
 
 -- `min` and `max` of the interpreter.
-attribute [rd_simp] pickBest isVal
+attribute [rd_simp] pickBest isVal List.getElem?_set_self' List.getElem?_set_ne
 
 end SpecLean.Validation.Steps
 

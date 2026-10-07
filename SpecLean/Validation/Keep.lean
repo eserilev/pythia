@@ -147,6 +147,17 @@ namespace SpecLean.Validation.Tactic
 
 open Lean Meta Elab Tactic
 
+/-- The subterms of `e` that meet `p`. -/
+partial def findAllApps (p : Lean.Expr → Bool) (e : Lean.Expr) (acc : Array Lean.Expr := #[]) :
+    Array Lean.Expr :=
+  let acc := if p e then acc.push e else acc
+  match e with
+  | .app f a => findAllApps p a (findAllApps p f acc)
+  | .lam _ d b _ | .forallE _ d b _ => findAllApps p b (findAllApps p d acc)
+  | .letE _ t v b _ => findAllApps p b (findAllApps p v (findAllApps p t acc))
+  | .mdata _ b | .proj _ _ b => findAllApps p b acc
+  | _ => acc
+
 /-- `HeapWF h`: a fact, a new object on a well-formed heap, or a `Fresh` step from one. -/
 partial def proveHeapWF (g : MVarId) : TacticM Bool := g.withContext do
   let t ← instantiateMVars (← g.getType)
@@ -454,9 +465,236 @@ elab "rd_chain" : tactic => withMainContext do
 
 end SpecLean.Validation.Tactic
 
-macro_rules | `(tactic| rd_frame) => `(tactic| ((repeat' (first | rd_chain | apply And.intro)); done))
+macro_rules | `(tactic| rd_frame) => `(tactic| ((repeat' (first | rd_chain | with_reducible apply And.intro)); done))
 macro_rules | `(tactic| rd_callhyp) => `(tactic| rd_keep)
 macro_rules | `(tactic| rd_callhyp) => `(tactic| rd_argswf)
 macro_rules | `(tactic| rd_callhyp) => `(tactic| (first
   | exact SpecLean.Validation.Keep.heapWF_alloc (by assumption)
   | exact SpecLean.Validation.Keep.heapWF_alloc ((‹SpecLean.Encode.Fresh _ _›).2 (by assumption))))
+
+namespace SpecLean.Validation.Keep
+
+theorem frameNil_objs {h0 h : Heap} {a : Nat} {o : HeapObj} (hf : FrameNil h0 h)
+    (ho : h0.objs a = some o) : h.objs a = some o := by
+  rw [hf a (by rw [ho]; exact Option.some_ne_none o), ho]
+
+theorem objs_ne_none_of_frameNil {h0 h : Heap} {a : Nat} (hf : FrameNil h0 h)
+    (h0a : h0.objs a ≠ none) : h.objs a ≠ none := by
+  rw [hf a h0a]; exact h0a
+
+end SpecLean.Validation.Keep
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- A split gave `h.objs a = none` for an argument object of an earlier heap that every step
+since then kept: the case is impossible. -/
+elab "rd_objs_none" : tactic => withMainContext do
+  let g ← getMainGoal
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let some (_, l, r) := ty.eq? | continue
+    unless r.isAppOf ``Option.none && l.isAppOfArity ``SpecLean.Heap.objs 2 do continue
+    let h := l.getArg! 0
+    let a := l.getArg! 1
+    for e in ← getLCtx do
+      if e.isImplementationDetail then continue
+      let ety ← instantiateMVars e.type
+      unless ety.isAppOfArity ``SpecLean.Encode.ArgsWF 2 do continue
+      let h0 := ety.getArg! 0
+      let s ← saveState
+      try
+        let v := mkApp (mkConst ``SpecLean.Value.ref) a
+        let stx ← `(SpecLean.Validation.Keep.reach_of_mem (v := $(← Term.exprToSyntax v))
+          $(← Term.exprToSyntax e.toExpr) (by simp))
+        let hr ← Term.withoutErrToSorry do
+          let pf ← Term.elabTerm stx none
+          Term.synthesizeSyntheticMVarsNoPostponing
+          instantiateMVars pf
+        if hr.hasSorry then throwError "no"
+        let gf ← mkFreshExprMVar (← mkAppM ``SpecLean.Validation.Keep.FrameNil #[h0, h])
+        unless ← proveFrameNil gf.mvarId! do throwError "no"
+        -- The root object itself: the empty path reaches it.
+        let h0a ← mkAppM' hr #[← mkAppOptM ``List.nil #[mkConst ``Nat], a, ← mkEqRefl (← mkAppOptM ``Option.some #[none, v])]
+        let ne ← mkAppM ``SpecLean.Validation.Keep.objs_ne_none_of_frameNil #[gf, h0a]
+        g.assign (← mkFalseElim (← g.getType) (mkApp ne d.toExpr))
+        replaceMainGoal []
+        return
+      catch _ => restoreState s
+  throwError "rd_objs_none: none"
+
+/-- An arithmetic error of the interpreter: the operator and its class from `intArith`. -/
+elab "rd_interr" : tactic => withMainContext do
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let some (_, l, r) := ty.eq? | continue
+    unless l.isAppOfArity ``SpecLean.intArith 3 && r.isAppOf ``Except.error do continue
+    let s ← saveState
+    try
+      let (_, g') ← (← getMainGoal).revert #[d.fvarId]
+      replaceMainGoal [g']
+      evalTactic (← `(tactic| (
+        simp only [SpecLean.intArith]
+        split <;> intro hie <;> cases hie <;> simp [SpecLean.SpecError.fail] <;> done)))
+      return
+    catch _ => restoreState s
+  throwError "rd_interr: none"
+
+/-- An object of an earlier heap that every step since then kept: read it in the goal's heap
+from the fact of the earlier heap. -/
+elab "rd_frame_objs" : tactic => withMainContext do
+  let t := (← instantiateMVars (← getMainTarget)).consumeMData
+  let reads := findAllApps (fun e => e.isAppOfArity ``SpecLean.Heap.objs 2 && !e.hasLooseBVars) t
+  let mut done := false
+  for rd in reads do
+    let h := rd.getArg! 0
+    let a := rd.getArg! 1
+    for d in ← getLCtx do
+      if d.isImplementationDetail then continue
+      let ty ← instantiateMVars d.type
+      let some (_, l, r) := ty.eq? | continue
+      unless r.isAppOfArity ``Option.some 2 && l.isAppOfArity ``SpecLean.Heap.objs 2 do continue
+      unless ← withReducible (isDefEq (l.getArg! 1) a) do continue
+      let h0 := l.getArg! 0
+      if ← withReducible (isDefEq h0 h) then continue
+      let s ← saveState
+      let gf ← mkFreshExprMVar (← mkAppM ``SpecLean.Validation.Keep.FrameNil #[h0, h])
+      if ← proveFrameNil gf.mvarId! then
+        let eq ← mkAppM ``SpecLean.Validation.Keep.frameNil_objs #[gf, d.toExpr]
+        let g ← getMainGoal
+        let r ← g.rewrite (← g.getType) eq
+        let g' ← g.replaceTargetEq r.eNew r.eqProof
+        replaceMainGoal (g' :: r.mvarIds)
+        done := true
+        break
+      restoreState s
+    if done then break
+  unless done do throwError "rd_frame_objs: none"
+
+/-- A field read that a split left open: compute the field index, then read the item of the
+field list from the facts. In an impossible case the facts contradict the split. -/
+elab "rd_fieldidx" : tactic => withMainContext do
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let some (_, l, r) := ty.consumeMData.eq? | continue
+    let l := l.consumeMData
+    let r := r.consumeMData
+    unless l.isAppOfArity ``SpecLean.fieldIndex 3 && r.isAppOfArity ``Option.some 2 do continue
+    unless (r.getArg! 1).isFVar do continue
+    let s ← saveState
+    try
+      let (_, g) ← (← getMainGoal).revert #[d.fvarId]
+      replaceMainGoal [g]
+      evalTactic (← `(tactic| (
+        simp only [SpecLean.Validation.Tactic.fieldIndex_lit, Option.some.injEq]
+        intro hfi
+        subst hfi)))
+      -- The item read at the field index: from the facts of the field list.
+      let lctx ← withMainContext getLCtx
+      for e in lctx.decls.toArray.reverse do
+        let some e := e | continue
+        if e.isImplementationDetail then continue
+        let ety ← instantiateMVars e.type
+        let some (_, l2, r2) := ety.consumeMData.eq? | continue
+        unless l2.isAppOfArity ``GetElem?.getElem? 7 && (l2.getArg! 5).isAppOf ``List.set do continue
+        unless r2.isAppOfArity ``Option.some 2 && (r2.getArg! 1).isFVar do continue
+        let s2 ← saveState
+        try
+          let (_, g2) ← (← getMainGoal).revert #[e.fvarId]
+          replaceMainGoal [g2]
+          withMainContext <| evalTactic (← `(tactic| (
+            simp (disch := decide) only [List.getElem?_set_ne, List.getElem?_set_self',
+              Option.map_eq_map, Option.map_some, Option.map_none, Function.const_apply,
+              Option.some.injEq, reduceCtorEq, *]
+            try intro hit
+            try subst hit)))
+        catch _ => restoreState s2
+        break
+      evalTactic (← `(tactic| try rd_contra))
+      return
+    catch ex =>
+      restoreState s
+      throwError "rd_fieldidx: {ex.toMessageData}"
+  throwError "rd_fieldidx: none"
+
+/-- The object facts of an earlier heap, restated for each later heap of the goal that every
+step since then kept, so that `rd_heap` reads the objects there. -/
+elab "rd_frame_facts" : tactic => withMainContext do
+  let t := (← instantiateMVars (← getMainTarget)).consumeMData
+  let mut heaps : Array Lean.Expr := #[]
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    if (← instantiateMVars d.type).isConstOf ``SpecLean.Heap && t.containsFVar d.fvarId then
+      heaps := heaps.push d.toExpr
+  let mut facts : Array (Lean.Expr × Lean.Expr) := #[]
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let some (_, l, r) := ty.eq? | continue
+    unless r.isAppOfArity ``Option.some 2 && l.isAppOfArity ``SpecLean.Heap.objs 2 do continue
+    facts := facts.push (l.getArg! 0, d.toExpr)
+  let mut n := 0
+  for h in heaps do
+    for h0 in (facts.map (·.1)).toList.eraseDups do
+      if h0 == h then continue
+      let s ← saveState
+      let gf ← mkFreshExprMVar (← mkAppM ``SpecLean.Validation.Keep.FrameNil #[h0, h])
+      unless ← proveFrameNil gf.mvarId! do restoreState s; continue
+      for (h1, pf) in facts do
+        unless h1 == h0 do continue
+        let eq ← mkAppM ``SpecLean.Validation.Keep.frameNil_objs #[gf, pf]
+        let g ← getMainGoal
+        let (_, g') ← (← g.assert `hkeep (← inferType eq) eq).intro1P
+        replaceMainGoal [g']
+        n := n + 1
+  if n == 0 then throwError "rd_frame_facts: none"
+
+end SpecLean.Validation.Tactic
+
+macro_rules | `(tactic| rd_finish) => `(tactic| rd_objs_none)
+macro_rules | `(tactic| rd_finish) => `(tactic| rd_interr)
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta
+
+/-- A proof of `0 ≤ e` for an `Int` built from casts, literals, `max _ 0`, sums and products. -/
+partial def intNonneg (e : Lean.Expr) : MetaM (Option Lean.Expr) := do
+  let e := e.consumeMData
+  if e.isAppOfArity ``Nat.cast 3 then
+    return some (← mkAppM ``Int.natCast_nonneg #[e.getArg! 2])
+  if e.isAppOfArity ``Max.max 4 then
+    let b := e.getArg! 3
+    if (← isDefEq b (mkIntLit 0)) then
+      return some (← mkAppM ``Int.le_max_right #[e.getArg! 2, b])
+    return none
+  if e.isAppOfArity ``HAdd.hAdd 6 then
+    let some p ← intNonneg (e.getArg! 4) | return none
+    let some q ← intNonneg (e.getArg! 5) | return none
+    return some (← mkAppM ``Int.add_nonneg #[p, q])
+  if e.isAppOfArity ``HMul.hMul 6 then
+    let some p ← intNonneg (e.getArg! 4) | return none
+    let some q ← intNonneg (e.getArg! 5) | return none
+    return some (← mkAppM ``Int.mul_nonneg #[p, q])
+  if e.isAppOfArity ``OfNat.ofNat 3 then
+    let t ← mkAppM ``LE.le #[mkIntLit 0, e]
+    try
+      let p ← mkDecideProof t
+      return some p
+    catch _ => return none
+  return none
+
+/-- `max x 0 = x` when `x` is visibly not negative. -/
+simproc [rd_simp] maxZeroNonneg (@Max.max Int _ _ 0) := fun e => do
+  unless e.isAppOfArity ``Max.max 4 do return .continue
+  unless (← inferType e).isConstOf ``Int do return .continue
+  let x := e.getArg! 2
+  unless (← isDefEq (e.getArg! 3) (mkIntLit 0)) do return .continue
+  let some h ← intNonneg x | return .continue
+  return .done { expr := x, proof? := some (← mkAppM ``Int.max_eq_left #[h]) }
+
+end SpecLean.Validation.Tactic

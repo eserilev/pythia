@@ -684,17 +684,6 @@ elab "rd_set" : tactic => withMainContext do
       simp only [SpecLean.Validation.keyMatch_uint]; cases x; cases y; simp) $yS]
     simp only [Except.bind_ok'])))
 
-/-- The subterms of `e` that meet `p`. -/
-partial def findAllApps (p : Lean.Expr → Bool) (e : Lean.Expr) (acc : Array Lean.Expr := #[]) :
-    Array Lean.Expr :=
-  let acc := if p e then acc.push e else acc
-  match e with
-  | .app f a => findAllApps p a (findAllApps p f acc)
-  | .lam _ d b _ | .forallE _ d b _ => findAllApps p b (findAllApps p d acc)
-  | .letE _ t v b _ => findAllApps p b (findAllApps p v (findAllApps p t acc))
-  | .mdata _ b | .proj _ _ b => findAllApps p b acc
-  | _ => acc
-
 /-- The length facts of each `dedup` in the goal, for `omega`. -/
 elab "rd_dedup_len" : tactic => withMainContext do
   let t := (← instantiateMVars (← getMainTarget)).consumeMData

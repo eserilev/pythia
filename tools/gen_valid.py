@@ -917,6 +917,12 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
                  "".join(f" hgfp{f}" for f in sl))
         alts = ([f"rd_loop [{', '.join(lnames)}]"] if lnames else []) + (
             [f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"] if callees else [])
+        if callees:
+            # An object read after a call: the call kept it, so the fact of the entry heap holds.
+            alts.append("(rd_frame_objs; try rd_step)")
+        if sig.mutated and callees:
+            # A field read that a split left open: the field index and the item from the facts.
+            alts.append("(rd_fieldidx; try rd_step)")
         if alloc:
             alts.append("(rd_listres; try rd_step)")
         if any(isinstance(x, ast.Call) and isinstance(x.func, ast.Name) and x.func.id == "set" and
@@ -940,8 +946,10 @@ theorem {name_run}F (gfp : Footprint) (h : Heap) {binders}{hw} (F : Nat) (hF : {
   rw [show F = k + {fuel} by omega]
   exact {name_run} sha gfp h {names} k
 """
+        # A writer that calls: the decode of the result after the calls is the long part.
+        hb = 40000000 if sig.mutated and callees else 4000000
         return ltext + f"""
-set_option maxHeartbeats 4000000 in
+set_option maxHeartbeats {hb} in
 set_option maxRecDepth 8192 in
 theorem {name_run} (gfp : Footprint) (h : Heap) {binders}{hw} (k : Nat) :
       ResultMatches gfp {fp} h {vs} (fun (r : {rt}) h' v => {exp})
@@ -952,7 +960,7 @@ theorem {name_run} (gfp : Footprint) (h : Heap) {binders}{hw} (k : Nat) :
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, {", ".join(defs + (["compLoop", "iterSource", "toSeq", "iterBase"] if cbounds else []))}{", *" if hys else ""}]
   rd_step
   repeat' {step}
-  all_goals (first | rd_finish | {"rd_list_end | rd_comp_err | " if cbounds else ""}((try rd_heap); rd_frame; done)))
+  all_goals (first | rd_finish | {"rd_list_end | rd_comp_err | " if cbounds else ""}({"(try rd_frame_facts); " if callees else ""}(try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
 theorem {name_valid} (gfp : Footprint) (h : Heap) {binders}{hw} :
@@ -1057,6 +1065,9 @@ def main():
         if args.tier == "loops":
             have |= set(re.findall(r"^theorem (\w+)_run ", (gen_dir / "Calls.lean").read_text(),
                                    re.M))
+            # A function with variants (`f_po0`, `f_pSlot`) is proved when its variants are.
+            have |= {m[1] for k in have for m in [re.match(r"(\w+?)_p(?:[A-Z]\w*|o\d+)$", k)]
+                     if m and m[1] in cls}
             # The functions with loops, and the callers that the earlier tiers did not prove: a
             # caller of a loop function comes after it.
             tier = sorted(n for n, c in cls.items() if n not in have and (c["loops"] or c["calls"]))
@@ -1126,6 +1137,7 @@ def main():
         for c in cs:
             if c in bf:
                 lemmas.append(c + "_runF")
+                lemmas += [k + "_runF" for k in bf if k.startswith(c + "_p")]
                 extra += g.map_bound(n, c, bf[c][1])
         text = g.theorem(n, em.sigs[n], fns[n], lemmas,
                          64 + max((bf[c][0] if c in bf else fl.get(c, 64) for c in cs),
@@ -1232,6 +1244,8 @@ def main():
                 for c in callees:
                     if c in bfuel:
                         lemmas.append(c + "_runF")
+                        # Its class-polymorphic variants, with the same bound.
+                        lemmas += [k + "_runF" for k in bfuel if k.startswith(c + "_p")]
                         extra += g.map_bound(n, c, bfuel[c][1])
                 cands[n] = (g.theorem(n, em.sigs[n], fns[n], lemmas, f, extra=extra, wf=wf,
                                       alloc=alloc, ho=hon), f)
