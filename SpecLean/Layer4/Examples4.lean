@@ -486,7 +486,7 @@ theorem s_else (M : Nat) (hc : ACtx s ds kB lB bals kD lD bs kW lW ws) {i : Nat}
   rw [den_stmt]
   simp only [stmtStep]
   rw [show M + 15 = (M + 14) + 1 by omega, den_call]
-  simp only [callStep, hh, allKw_pos, Bool.false_eq_true, ↓reduceIte]
+  simp only [callStep, appendOf, hh, allKw_pos, Bool.false_eq_true, ↓reduceIte]
   rw [ha, dm_bind_ok]
   rw [fps89] at hcov
   have hmap : List.mapM (argRoot s) [DRes.place 0 [], .val (.uint viTy ws[i].validator_index.val),
@@ -987,7 +987,7 @@ theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
       | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
       | 1, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨nw, hdw⟩
       | _ + 2, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp awFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _)) gfp awFp
       (f := Scope.Id.«apply_withdrawals»)
       (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
     rw [hden] at hm

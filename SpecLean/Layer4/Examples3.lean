@@ -370,9 +370,10 @@ end body
 theorem call_of_expr {sha : Oracle} {n : Nat} {fp : Footprint} {s : DSt} {e : Expr} {r : Res DRes}
     (hro : ∀ g args, callHead (Scope.env sha) s e = some (g, args) →
       (fpsEx g).isEmpty = true ∨ ∃ t, (Scope.env sha).globals.lookup g = some (.type t))
-    (h : (den (Scope.env sha) fpsEx (n + 1)).expr fp s e = some r) :
+    (h : (den (Scope.env sha) fpsEx (n + 1)).expr fp s e = some r)
+    (hap : appendOf (Scope.env sha) e = none := by simp [appendOf]) :
     (den (Scope.env sha) fpsEx (n + 1)).call fp s e = some (r.map (·, s.roots)) := by
-  rw [den_call, call_ro hro]
+  rw [den_call, call_ro hro hap]
   rw [den_expr] at h
   rw [h]; rfl
 
@@ -1069,7 +1070,7 @@ theorem process_effective_balance_updates_l4 (sha : Oracle) (gfp : Footprint) (h
       match k, hv, hd' with
       | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
       | _ + 1, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp pebuFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _)) gfp pebuFp
       (f := Scope.Id.«process_effective_balance_updates»)
       (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
     rw [hden] at hm

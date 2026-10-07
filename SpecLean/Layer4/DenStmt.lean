@@ -1,4 +1,4 @@
-import SpecLean.Layer4.DenExpr
+import SpecLean.Layer4.DenAppend
 
 /-!
 # Layer 4: statements with calls, and the theorem for the fragment with calls
@@ -376,10 +376,22 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
       IterRel h vs r (evalExpr env n L h it))
     (hItems : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ifs elt ls i r a,
       at? h vs ls.k ls.p = some (.ref a) → (den env fps n).items fp s t ifs elt ls i = some r →
-      ItemsOK h r (compItems env n L h t ifs [] elt none (ls.src a) i)) :
+      ItemsOK h r (compItems env n L h t ifs [] elt none (ls.src a) i))
+    (hSub : ∀ m, n = m + 1 → ∀ fp h0 h vs s L, CInv fp h0 h vs s L →
+      EvOK env h0.next h vs L m ((den env fps n).sub fp s)) :
     ∀ e r, callStep env fps n (den env fps n) fp s e = some r →
       CallOK fp h0 h vs s L r (evalExpr env (n + 1) L h e) := by
   intro e r hd
+  unfold callStep at hd
+  cases hao : appendOf env e with
+  | some oa =>
+    obtain ⟨o, a⟩ := oa
+    rw [hao] at hd
+    obtain ⟨l, l', rfl⟩ := appendOf_spec hao
+    exact appendStep_sound env fps hlf hI hEx hSub hd
+  | none =>
+  rw [hao] at hd
+  simp only at hd
   have ih : EvF env fp h0 vs s L n ((den env fps n).expr fp s) := fun h1 hI1 => hEx fp h0 h1 vs s L hI1
   have hE1 := exprStep_sound env fps hlf hEx hF hIter hItems hI
   have fallback : (exprStep env fps n (den env fps n) fp s e).map (·.map (·, s.roots)) = some r →
@@ -390,7 +402,6 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
     | some r0 =>
       simp [he] at hx; subst hx
       exact callOK_of_exprOK hI (hE1 e r0 he)
-  unfold callStep at hd
   split at hd
   · next m g args hch =>
     obtain ⟨l, l', rfl, hloc, hc⟩ := callHead_spec hch
@@ -532,6 +543,8 @@ structure LevelOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop where
   items : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ifs elt ls i r a,
     at? h vs ls.k ls.p = some (.ref a) → (den env fps n).items fp s t ifs elt ls i = some r →
     ItemsOK h r (compItems env n L h t ifs [] elt none (ls.src a) i)
+  sub : ∀ m, n = m + 1 → ∀ fp h0 h vs s L, CInv fp h0 h vs s L →
+    EvOK env h0.next h vs L m ((den env fps n).sub fp s)
 
 theorem blockOf_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : LevelOK env fps n)
     {fp : Footprint} {h0 : Heap} {vs : List Value} :
@@ -938,21 +951,25 @@ theorem level_zero (env : Env) (fps : Name → Footprint) : LevelOK env fps 0 :=
    fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
-   fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd⟩
+   fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
+   fun m hm => absurd hm.symm (Nat.succ_ne_zero m)⟩
 
 theorem level_succ (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
     (hL : LevelOK env fps n) : LevelOK env fps (n + 1) :=
   ⟨fun fp h0 h vs s L hI =>
      exprStep_sound env fps hlf hL.expr hL.fn hL.iter hL.items hI,
    fun fp h0 h vs s L hI =>
-     callStep_sound env fps hlf hI hL.expr hL.fn hL.iter hL.items,
+     callStep_sound env fps hlf hI hL.expr hL.fn hL.iter hL.items hL.sub,
    fun fp h0 h vs s L hI t r w res hr hlo hd =>
      targetStep_sound env fps hlf hI (fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1) t hr hlo hd,
    fun fp h0 h vs s L hI => stmtStep_sound env fps hlf hL hI,
    fnStep_sound env hL,
    fun fp h0 h vs s L hI => iterStep_sound env fps hlf hL hI,
    fun fp h0 h vs s L hI t ls i body r a hat hd => loopStep_sound hL hI hat hd,
-   fun fp h0 h vs s L hI t ifs elt ls i r a hat hd => itemsStep_sound hL.expr hL.items hI hat hd⟩
+   fun fp h0 h vs s L hI t ifs elt ls i r a hat hd => itemsStep_sound hL.expr hL.items hI hat hd,
+   fun m hm fp h0 h vs s L hI => by
+     cases hm
+     exact hL.expr fp h0 h vs s L hI⟩
 
 theorem level_ok (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) :
     ∀ n, LevelOK env fps n

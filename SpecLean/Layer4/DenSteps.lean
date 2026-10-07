@@ -72,9 +72,11 @@ theorem allKw_of_argsOf {ev : Expr → DM DRes} :
 theorem call_ro {env : Env} {fps : Name → Footprint} {n : Nat} {P : Sem} {fp : Footprint}
     {s : DSt} {e : Expr}
     (h : ∀ g args, callHead env s e = some (g, args) →
-      (fps g).isEmpty = true ∨ ∃ t, env.globals.lookup g = some (.type t)) :
+      (fps g).isEmpty = true ∨ ∃ t, env.globals.lookup g = some (.type t))
+    (hap : appendOf env e = none) :
     callStep env fps n P fp s e = (exprStep env fps n P fp s e).map (·.map (·, s.roots)) := by
   unfold callStep
+  simp only [hap]
   split
   · next m g args hch =>
     obtain hro := h g args hch

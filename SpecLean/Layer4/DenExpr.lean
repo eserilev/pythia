@@ -34,6 +34,16 @@ structure LibFlat (env : Env) : Prop where
     kvs.all (fun kv => (fs.map (·.1)).contains kv.1) = true → kwFields kvs fs = some r →
     LibModel.construct env h (.container ty) [] kvs =
       (fun ws => (Value.ref (h.alloc (.container ty ws)).1, (h.alloc (.container ty ws)).2)) <$> r
+  /-- `o.append(v)` on a list that `appendable` admits: coerce `v` as an item, check the limit,
+  add it at the end. -/
+  append : ∀ h a k e l xs v, h.objs a = some (.list k e l xs) → appendable k e = true →
+    applyMethod env h (.ref a) env.nm.append [v] =
+      (coerceWith env false h e v).bind fun x =>
+        (Ssz.checkLength k l (xs.length + 1)).bind fun _ =>
+          .ok (.none, x.2.set a (.list k e l (xs ++ [x.1])))
+  /-- A container of class `ty` is an item of type `container ty` as it is. -/
+  coerceCont : ∀ h b ty fs, h.objs b = some (.container ty fs) →
+    coerceWith env false h (.container ty) (.ref b) = .ok (.ref b, h)
 
 /-- An expression result and the interpreter's: the heap only gains objects (`Ext`), and the
 values agree in the new heap. A call of a function that writes nothing can allocate. -/

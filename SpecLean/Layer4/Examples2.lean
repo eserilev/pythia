@@ -112,10 +112,76 @@ theorem kwctor_ssz (env : Env) (h : Heap) (ty : Name) (fs : List (Name × SszTy)
   simp only [Ssz.construct, hfs, hcf, Except.bind_ok', build_kw env h kvs fs r hk]
   cases r <;> rfl
 
-theorem libFlat_ssz (env : Env) : LibFlat env :=
+/-- The method names that the SSZ model checks before `append` differ from it. -/
+def NmOK (env : Env) : Prop :=
+  env.nm.append ≠ env.nm.extend ∧ env.nm.append ≠ env.nm.copy ∧ env.nm.append ≠ env.nm.hashTreeRoot
+
+theorem append_ssz (env : Env) (hn : NmOK env) (h : Heap) (a : Nat) (k : ListKind) (e : SszTy)
+    (l : Option Nat) (xs : List Value) (v : Value) (ho : h.objs a = some (.list k e l xs))
+    (hap : appendable k e = true) :
+    applyMethod env h (.ref a) env.nm.append [v] =
+      (coerceWith env false h e v).bind fun x =>
+        (Ssz.checkLength k l (xs.length + 1)).bind fun _ =>
+          .ok (.none, x.2.set a (.list k e l (xs ++ [x.1]))) := by
+  obtain ⟨n1, n2, n3⟩ := hn
+  simp only [appendable, decide_eq_true_eq] at hap
+  obtain ⟨hk, he, hb⟩ := hap
+  have hpy : k ≠ .pyList := by rcases hk with rfl | rfl <;> simp
+  have hm : LibModel.method env h (.ref a) env.nm.append [v] = none := by
+    show Ssz.method env h (.ref a) env.nm.append [v] = none
+    simp [Ssz.method, ho, n1, n2, n3]
+  have hc : coerceWith env false h e v = Ssz.coerceH env false depthBound h e v := by
+    unfold coerceWith
+    show (match Ssz.coerce env false h e v with | some r => r | none => .ok (v, h)) = _
+    cases e <;> first | exact absurd rfl he | rfl
+  have happ : appendItem env h a v =
+      (coerceWith env false h e v).bind fun x =>
+        (Ssz.checkLength k l (xs.length + 1)).bind fun _ => .ok (x.2.set a (.list k e l (xs ++ [x.1]))) := by
+    unfold appendItem
+    show (match Ssz.append env h a v with | some r => r | none => _) = _
+    rw [hc]
+    rcases hk with rfl | rfl
+    · have : ¬ (e = .uint (.width 8)) := fun h' => hb ⟨rfl, h'⟩
+      simp only [Ssz.append, ho]
+      split
+      · simp_all
+      · rfl
+    · simp only [Ssz.append, ho]; rfl
+  unfold applyMethod
+  rw [hm]
+  simp only [ho]
+  split
+  · next heq =>
+    simp only [Option.some.injEq, HeapObj.list.injEq] at heq
+    exact absurd ⟨heq.1, heq.2.1⟩ hb
+  · next heq =>
+    simp only [Option.some.injEq, HeapObj.list.injEq] at heq
+    obtain ⟨-, -, -, rfl⟩ := heq
+    simp only [if_true, happ]
+    cases coerceWith env false h e v with
+    | error _ => rfl
+    | ok x =>
+      cases Ssz.checkLength k l (xs.length + 1) <;> rfl
+  all_goals (simp_all <;> (exfalso; rename_i hx; exact hx _ _ _ _ rfl rfl rfl rfl))
+
+theorem coerceCont_ssz (env : Env) (h : Heap) (b : Nat) (ty : Name) (fs : List Value)
+    (ho : h.objs b = some (.container ty fs)) :
+    coerceWith env false h (.container ty) (.ref b) = .ok (.ref b, h) := by
+  show (match Ssz.coerce env false h (.container ty) (.ref b) with
+    | some r => r | none => Except.ok (Value.ref b, h)) = _
+  simp only [Ssz.coerce]
+  rw [show depthBound = 63 + 1 from rfl, Ssz.coerceH]
+  simp [ho]
+
+theorem nmOK_scope (sha : Oracle) : NmOK (Scope.env sha) := by
+  simp only [NmOK, Scope.env]; decide
+
+theorem libFlat_ssz (env : Env) (hn : NmOK env) : LibFlat env :=
   ⟨Examples.coerceFlat_ssz env, constructFlat_ssz env, fun h b args kws hb => by
     rcases hb with rfl | rfl | rfl | rfl <;> simp [LibModel.builtin, Ssz.builtin],
-   fun h ty fs kvs r hfs hall hk => kwctor_ssz env h ty fs kvs r hfs hall hk⟩
+   fun h ty fs kvs r hfs hall hk => kwctor_ssz env h ty fs kvs r hfs hall hk,
+   fun h a k e l xs v ho hap => append_ssz env hn h a k e l xs v ho hap,
+   fun h b ty fs ho => coerceCont_ssz env h b ty fs ho⟩
 
 -- The value rules as the denotation and the interpreter see them.
 attribute [local instance high] LibModel.toLibValues
@@ -242,7 +308,7 @@ theorem get_current_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
     match k, hv, hd' with
     | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
     | _ + 1, hv, _ => simp at hv
-  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp []
+  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _)) gfp []
     (f := Scope.Id.«get_current_epoch») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
     hdec (Examples.wtree_nil h _) hwf hden
   refine resultMatches_mono hf (Examples.resultMatches_map
@@ -401,7 +467,7 @@ theorem dbal_den_ok (sha : Oracle) (m : Nat) (ds : List DV) (k : ListKind) (l : 
     simp [List.getElem?_eq_getElem hi, Examples.gleaf]
   rw [den_fn]
   simp [-den_fn, hsat, fnStep, Scope.fn_decrease_balance, Sem.block, blockOf, stmtStep,
-    exprStep, callStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
+    exprStep, callStep, appendOf, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
     setLoc, slot, argsOf, dCallRO, dCallW, fpsEx, argRoot, Scope.Id.«decrease_balance»,
     Scope.Id.«saturating_sub», DSt.deref, subAt, DV.kids, dAttr, dIndex, ofChild, hb, hm,
     Validation.Tactic.fieldIndex_lit, isByteList, normIndex_nat, hi, targetStep, dCoerce_gwei,
@@ -415,7 +481,7 @@ theorem dbal_den_idx (sha : Oracle) (m : Nat) (ds : List DV) (k : ListKind) (l :
       some (.error .indexError) := by
   rw [den_fn]
   simp [-den_fn, fnStep, Scope.fn_decrease_balance, Sem.block, blockOf, stmtStep,
-    exprStep, callStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
+    exprStep, callStep, appendOf, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
     setLoc, slot, argsOf, DSt.deref, subAt, DV.kids, dAttr, dIndex, ofChild, hb,
     Validation.Tactic.fieldIndex_lit, isByteList, normIndex_nat, hi]
 
@@ -489,7 +555,7 @@ theorem get_previous_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf :
     match k, hv, hd' with
     | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
     | _ + 1, hv, _ => simp at hv
-  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp []
+  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _)) gfp []
     (f := Scope.Id.«get_previous_epoch») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
     hdec (Examples.wtree_nil h _) hwf hden
   refine resultMatches_mono hf (Examples.resultMatches_map
@@ -531,7 +597,7 @@ theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : H
       | 1, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨0, dec_flat rfl 0⟩
       | 2, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨0, dec_flat rfl 0⟩
       | _ + 3, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp Examples.ibFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _)) gfp Examples.ibFp
       (f := Scope.Id.«decrease_balance») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
       hdec hw hwf hdn
     rw [hden] at hm

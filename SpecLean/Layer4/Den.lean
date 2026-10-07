@@ -118,6 +118,8 @@ structure Sem where
   loop : Footprint → DSt → Target → LSrc → Nat → List Stmt → DM (DOut × DSt)
   /-- `compItems`: the items of a list comprehension from item `i`, one fuel unit per item. -/
   items : Footprint → DSt → Target → List Expr → Expr → LSrc → Nat → DM (List DV)
+  /-- `expr` at the fuel below: the receiver `o` of a method call `o.m(args)`. -/
+  sub : Footprint → DSt → Expr → DM DRes
 
 def blockOf (stmt : DSt → Stmt → DM (DOut × DSt)) : DSt → List Stmt → DM (DOut × DSt)
   | s, [] => .ok (.normal, s)
@@ -398,8 +400,51 @@ def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
     | _, _ => none
   | _ => none
 
+/-- `o.append(a)`: the receiver and the argument. -/
+def appendOf (env : Env) : Expr → Option (Expr × Expr)
+  | .call _ (.attr _ o m) [.pos a] => if m = env.nm.append then some (o, a) else none
+  | _ => none
+
+/-- An SSZ list that takes `append` with the item rules of the core: a `List` or a
+`ProgressiveList`, not a byte list. -/
+def appendable (k : ListKind) (e : SszTy) : Bool :=
+  decide ((k = .list ∨ k = .progressiveList) ∧ e ≠ .any ∧ ¬ (k = .list ∧ e = .uint (.width 8)))
+
+/-- The tree of an appended item: a flat value, coerced as an item, or a new container from
+keyword arguments. -/
+def appendItemD (env : Env) (s : DSt) (el : SszTy) (a : Expr) : DRes → DM DV
+  | .val v => DM.bind (dCoerce env false el v) fun v' => if Flat v' then .ok (.leaf v') else none
+  | .tree (.cont ty ds) =>
+    match callHead env s a, el with
+    | some (_, cargs), .container ty' => if allKw cargs && ty' == ty then .ok (.cont ty ds) else none
+    | _, _ => none
+  | _ => none
+
+/-- `o.append(a)` at fuel `n + 1`: the list at a place in the footprint gains an item at its end. -/
+def appendStep (env : Env) (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (o a : Expr) :
+    DM (DRes × List DV) :=
+  match n with
+  | 0 => none
+  | _ + 1 =>
+    DM.bind (P.sub fp s o) fun ro =>
+      match ro with
+      | .place k p =>
+        match s.deref k p, s.roots[k]? with
+        | some (.list kd el l ds), some dk =>
+          if appendable kd el && fpOk fp s.roots k p then
+            DM.bind (P.expr fp s a) fun ra =>
+              DM.bind (appendItemD env s el a ra) fun d =>
+                DM.bind (lift (Ssz.checkLength kd l (ds.length + 1))) fun _ =>
+                  .ok (.val .none, s.roots.set k (setAt p dk (.list kd el l (ds ++ [d]))))
+          else none
+        | _, _ => none
+      | _ => none
+
 def callStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Footprint)
     (s : DSt) (e : Expr) : DM (DRes × List DV) :=
+  match appendOf env e with
+  | some (o, a) => appendStep env n P fp s o a
+  | none =>
   match n, callHead env s e with
   | _ + 1, some (g, args) =>
     if allKw args then
@@ -572,7 +617,7 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
   | 0 => { expr := fun _ _ _ => none, call := fun _ _ _ => none, target := fun _ _ _ _ => none,
            stmt := fun _ _ _ => none, fn := fun _ _ _ => none, iter := fun _ _ _ => none,
            items := fun _ _ _ _ _ _ _ => none,
-           loop := fun _ _ _ _ _ _ => none }
+           loop := fun _ _ _ _ _ _ => none, sub := fun _ _ _ => none }
   | n + 1 =>
     let P := den env fps n
     { expr := exprStep env fps n P
@@ -582,7 +627,8 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
       fn := fnStep P
       iter := iterStep env fps n P
       loop := loopStep n P
-      items := itemsStep n P }
+      items := itemsStep n P
+      sub := P.expr }
 
 /-! Each part one fuel up, without unfolding the others. -/
 
@@ -602,5 +648,7 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
     (den env fps (n + 1)).loop = loopStep n (den env fps n) := rfl
 @[simp] theorem den_items (env : Env) (fps : Name → Footprint) (n : Nat) :
     (den env fps (n + 1)).items = itemsStep n (den env fps n) := rfl
+@[simp] theorem den_sub (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).sub = (den env fps n).expr := rfl
 
 end SpecLean.Layer4

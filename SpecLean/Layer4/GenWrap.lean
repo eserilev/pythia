@@ -27,7 +27,7 @@ theorem l4_wrap {sha : Oracle} {fps : Name → Footprint} {gfp fp : Footprint} {
   | none => rw [hd] at hden; cases hden
   | some r0 =>
     rw [hd] at hden
-    have hm := denote_sound_calls (Scope.env sha) fps (Examples2.libFlat_ssz _) gfp fp hg hdec hw hwf hd
+    have hm := denote_sound_calls (Scope.env sha) fps (Examples2.libFlat_ssz _ (Examples2.nmOK_scope _)) gfp fp hg hdec hw hwf hd
     simp only [Option.map_some, Option.some.injEq] at hden
     rw [hden] at hm
     exact Examples.resultMatches_map hE hm
