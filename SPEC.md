@@ -808,6 +808,12 @@ EF cases take about 30 minutes.
   share objects. The runner also continues after an invalid step. The first version covers the
   state transition only.
 
+- Shape assumption. The readable decoders read container fields by index and ignore extra
+  fields. So theorems that hash or compare containers assume `Shaped h v`: every container that
+  `v` reaches has exactly its class's field count. Layer 4 uses the stronger `ContWF h`, which
+  implies it. Cleanup: make the decoders check the field count, derive `Shaped` from a successful
+  decode, and drop the assumption everywhere at once.
+
 ## 13. Plan
 
 | Step | Content |
