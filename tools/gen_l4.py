@@ -1230,7 +1230,7 @@ def uses_bls(m, name):
     if name not in BLS:
         BLS[name] = False
         body = m.bodies.get(name, "")
-        BLS[name] = "Spec.bls" in body or any(uses_bls(m, c) for c in m.callees(name))
+        BLS[name] = "Spec.bls" in body or "Spec.sha256" in body or any(uses_bls(m, c) for c in m.callees(name))
     return BLS[name]
 
 
@@ -1248,7 +1248,7 @@ def uses_htr(m, name):
     if name not in HTR:
         HTR[name] = False
         body = m.bodies.get(name, "")
-        HTR[name] = bool(re.search(r"\bhtr(Obj)? ", body)) or any(uses_htr(m, c) for c in m.callees(name))
+        HTR[name] = bool(re.search(r"\bhtr(Obj)? |Spec\.sha256", body)) or any(uses_htr(m, c) for c in m.callees(name))
     return HTR[name]
 
 
@@ -1399,7 +1399,7 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
         unf += ["GenBridge.callK_htr_root ho", "GenBridge.callK_htr_len ho"]
         unf += ["GenBridge.htr_obj_call ho a_%s he_%s" % (pn, pn) for pn in objs]
         unf += ["GenBridge.callK_htrObj_len ho" for _ in objs[:1]]
-        unf += ["ho"]
+        unf += ["ho", "ho.sha256"]
     if uses_bls(m, name):
         unf += ["hbl.verify"]
     if rt in m.reps and ("theorem kids_%s_mk" % rt) in classes_file_cache(m):
@@ -1430,7 +1430,7 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
            % (name, tag, " ".join(bs), LENS, D, fp, name, rs, rt, enc, rs_out, name, " ".join(rds),
               ("".join("  have %s' := %s\n" % (h, h) for h in hoks) +
                "  simp only [%s] at %s\n" % (", ".join("ok_" + n for n in m.rep_order), " ".join(h + "'" for h in hoks)))
-              if hoks else "", "  have hbv := hbl.verify\n" if uses_bls(m, name) else "", ", ".join(unf), loopstep,
+              if hoks else "", "  have hbv := hbl.verify\n  have hsl := hbl.sha256_len\n" if uses_bls(m, name) else "", ", ".join(unf), loopstep,
               "" if os.environ.get("L4_NOCLOSE") else
               "  all_goals l4_dbg\n" if os.environ.get("L4_DBG") else "  all_goals l4_close\n"))
     call = ("@[l4_simp] theorem %s_call%s (sha : Oracle) (m : Nat) %s {γ : Type} (k : DRes × List DV → DM γ) :\n"
@@ -1638,6 +1638,11 @@ def main():
         fuel = dict(re.findall(r"theorem (\w+)_den \(sha : Oracle\) \(m : Nat\) .*?m \+ (\d+)\)\)\.fn",
                                (GEN / "Funcs.lean").read_text(), re.S)) if (GEN / "Funcs.lean").exists() else {}
         fuel = {k: int(v) for k, v in fuel.items()}
+        for g in m.generic:
+            mg = re.search(r"theorem %s_den_\w+ \(sha : Oracle\) \(m : Nat\) .*?m \+ (\d+)\)\)\.fn" % g,
+                           (GEN / "Funcs.lean").read_text(), re.S)
+            if mg:
+                fuel[g] = int(mg.group(1))
         NONE_OK.update(re.findall(r"theorem (\w+)_fcall_none ", (GEN / "Funcs.lean").read_text()))
         RNG.update(re.findall(r"theorem (\w+)_rng ", (GEN / "Funcs.lean").read_text()))
         for n in order(m, set(fuel)):
