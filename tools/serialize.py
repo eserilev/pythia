@@ -84,7 +84,7 @@ def load_scope(rev: str, fork: str, preset: str, roots: list[str], extra=None):
             continue
         tree = ast.parse(sources_text[name]).body[0]
         fns[name] = tree
-        todo += [c for c in free_names(tree) if c in sources_text]
+        todo += [c for c in sorted(free_names(tree)) if c in sources_text]
     return commit, spec_object, sources, spec, fns, sources_text, extra_names
 
 

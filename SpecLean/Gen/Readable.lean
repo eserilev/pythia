@@ -682,17 +682,6 @@ def dec_SignedVoluntaryExit : Dec SignedVoluntaryExit := fun h v => do
   pure { message, signature }
 
 
-structure DomainType where
-  data : Bytes
-  deriving DecidableEq, Repr, Hashable
-
-instance : Inhabited DomainType := ⟨⟨List.replicate 4 0⟩⟩
-instance : BytesC DomainType := ⟨4, DomainType.data, DomainType.mk, fun _ => rfl, fun _ => rfl⟩
-instance : PyOrd DomainType := ⟨fun a b => PyOrd.lt a.data b.data⟩
-def enc_DomainType : Enc DomainType := encBytesN Scope.Id.«DomainType»
-abbrev dec_DomainType : Dec DomainType := decBytesT Scope.Id.«DomainType»
-
-
 structure Domain where
   data : Bytes
   deriving DecidableEq, Repr, Hashable
@@ -702,23 +691,6 @@ instance : BytesC Domain := ⟨32, Domain.data, Domain.mk, fun _ => rfl, fun _ =
 instance : PyOrd Domain := ⟨fun a b => PyOrd.lt a.data b.data⟩
 def enc_Domain : Enc Domain := encBytesN Scope.Id.«Domain»
 abbrev dec_Domain : Dec Domain := decBytesT Scope.Id.«Domain»
-
-
-structure ForkData where
-  current_version : Version
-  genesis_validators_root : Root
-  deriving DecidableEq, Repr
-
-instance : Inhabited ForkData := ⟨{ current_version := default, genesis_validators_root := default }⟩
-
-def enc_ForkData : Enc ForkData := fun x =>
-  encContainer Scope.Id.«ForkData» [enc_Version x.current_version, enc_Root x.genesis_validators_root]
-
-def dec_ForkData : Dec ForkData := fun h v => do
-  let fs ← containerFieldsT Scope.Id.«ForkData» h v
-  let current_version ← fs[0]? >>= dec_Version h
-  let genesis_validators_root ← fs[1]? >>= dec_Root h
-  pure { current_version, genesis_validators_root }
 
 
 structure SigningData where
@@ -736,6 +708,34 @@ def dec_SigningData : Dec SigningData := fun h v => do
   let object_root ← fs[0]? >>= dec_Root h
   let domain ← fs[1]? >>= dec_Domain h
   pure { object_root, domain }
+
+
+structure DomainType where
+  data : Bytes
+  deriving DecidableEq, Repr, Hashable
+
+instance : Inhabited DomainType := ⟨⟨List.replicate 4 0⟩⟩
+instance : BytesC DomainType := ⟨4, DomainType.data, DomainType.mk, fun _ => rfl, fun _ => rfl⟩
+instance : PyOrd DomainType := ⟨fun a b => PyOrd.lt a.data b.data⟩
+def enc_DomainType : Enc DomainType := encBytesN Scope.Id.«DomainType»
+abbrev dec_DomainType : Dec DomainType := decBytesT Scope.Id.«DomainType»
+
+
+structure ForkData where
+  current_version : Version
+  genesis_validators_root : Root
+  deriving DecidableEq, Repr
+
+instance : Inhabited ForkData := ⟨{ current_version := default, genesis_validators_root := default }⟩
+
+def enc_ForkData : Enc ForkData := fun x =>
+  encContainer Scope.Id.«ForkData» [enc_Version x.current_version, enc_Root x.genesis_validators_root]
+
+def dec_ForkData : Dec ForkData := fun h v => do
+  let fs ← containerFieldsT Scope.Id.«ForkData» h v
+  let current_version ← fs[0]? >>= dec_Version h
+  let genesis_validators_root ← fs[1]? >>= dec_Root h
+  pure { current_version, genesis_validators_root }
 
 
 structure SyncAggregate where
