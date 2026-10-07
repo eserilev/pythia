@@ -143,6 +143,33 @@ theorem s_callStep (e : Expr) (hap : appendOf env e = none) :
     rw [← den_expr]
     rcases (den env fps (n + 2)).expr fp s e with _ | ⟨_ | _⟩ <;> rfl
 
+/-- `o.append(a)`: the receiver at the fuel below, the item at this fuel. -/
+theorem s_append (l l' : Line) (o a : Expr) (m : Name) (hm : m = env.nm.append) :
+    (den env fps (n + 2)).call fp s (.call l (.attr l' o m) [.pos a]) =
+      DM.bind ((den env fps n).expr fp s o) fun ro =>
+        match ro with
+        | .place k p =>
+          match s.deref k p, s.roots[k]? with
+          | some (.list kd el lm ds), some dk =>
+            if appendable kd el && fpOk fp s.roots k p then
+              DM.bind ((den env fps (n + 1)).expr fp s a) fun ra =>
+                DM.bind (appendItemD env s el a ra) fun d =>
+                  DM.bind (lift (Ssz.checkLength kd lm (ds.length + 1))) fun _ =>
+                    .ok (.val .none, s.roots.set k (setAt p dk (.list kd el lm (ds ++ [d]))))
+            else none
+          | _, _ => none
+        | _ => none := by
+  subst hm; rw [den_call]; unfold callStep; simp only [appendOf, if_true]; rfl
+
+theorem appendable_list_cont (ty : Name) : appendable .list (.container ty) = true := rfl
+theorem appendable_plist_cont (ty : Name) : appendable .progressiveList (.container ty) = true := rfl
+theorem appendable_list_nom (c : Name) (b : Nat) : appendable .list (.uint (.nominal c b)) = true := rfl
+theorem appendable_plist_nom (c : Name) (b : Nat) :
+    appendable .progressiveList (.uint (.nominal c b)) = true := rfl
+theorem appendable_list_bytes (c : Name) (b : Nat) : appendable .list (.bytes c b) = true := rfl
+theorem appendable_plist_bytes (c : Name) (b : Nat) :
+    appendable .progressiveList (.bytes c b) = true := rfl
+
 end call
 
 section stmt
@@ -635,6 +662,7 @@ theorem env_globals (o : Oracle) : (Scope.env o).globals = Scope.globals := Eq.t
 theorem env_containers (o : Oracle) : (Scope.env o).containers = Scope.containers := Eq.trans rfl rfl
 theorem env_config (o : Oracle) : (Scope.env o).config = Scope.config := Eq.trans rfl rfl
 theorem env_bytesName (o : Oracle) : (Scope.env o).bytesName = 0 := Eq.trans rfl rfl
+theorem env_append (o : Oracle) : (Scope.env o).nm.append = Scope.Id.«append» := Eq.trans rfl rfl
 
 end env
 
@@ -650,7 +678,7 @@ macro_rules
     let extra := (extra.map (·.getElems)).getD #[]
     `(tactic| simp only [l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
-      Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, Expr.call.injEq, s_assign, s_annAssign, s_exprStmt,
+      Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, Expr.call.injEq, s_append, env_append, appendItemD, appendable_list_cont, appendable_plist_cont, appendable_list_nom, appendable_plist_nom, appendable_list_bytes, appendable_plist_bytes, Ssz.checkLength, Rd.lappend, s_assign, s_annAssign, s_exprStmt,
       s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, s_iter_enum, isEnumerate, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
@@ -682,7 +710,7 @@ macro_rules
       Rd.pyMin, Rd.pyMax, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
-      Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, Expr.call.injEq, s_assign, s_annAssign, s_exprStmt,
+      Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, Expr.call.injEq, s_append, env_append, appendItemD, appendable_list_cont, appendable_plist_cont, appendable_list_nom, appendable_plist_nom, appendable_list_bytes, appendable_plist_bytes, Ssz.checkLength, Rd.lappend, s_assign, s_annAssign, s_exprStmt,
       s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, s_iter_enum, isEnumerate, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,

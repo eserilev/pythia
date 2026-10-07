@@ -365,6 +365,22 @@ def classes_file(m):
           out.append("theorem kids_%s_mk %s :\n    kids_%s { %s } =\n      [%s] :=\n  Eq.trans rfl rfl\n"
                    % (n, " ".join("(a_%s : %s)" % (fn, strip_parens(rt)) for fn, _, rt in m.containers[n]), n,
                       ", ".join("%s := a_%s" % (fn, fn) for fn in fns), ", ".join(mk_reps)))
+          # A new container from its flat fields, as the readable value (an appended item).
+          raws = []
+          for fn, ssz, rt in m.containers[n]:
+              try:
+                  b, pat, rv = raw_of(m, ssz, rt)
+              except Unsupported:
+                  raws = None
+                  break
+              tag = "_" + fn
+              raws.append((re.sub(r"\((\w+) :", lambda mm: "(%s%s :" % (mm.group(1), tag), b, count=1),
+                           re.sub(r"\b(n|b)\b", lambda mm: mm.group(1) + tag, pat),
+                           fn, re.sub(r"\b(n|b)\b", lambda mm: mm.group(1) + tag, rv)))
+          if raws:
+              out.append("@[l4_simp] theorem kids_%s_fold %s :\n    (DV.cont %d [%s] : DV) =\n      DV.cont %d (kids_%s { %s }) :=\n  Eq.trans rfl rfl\n"
+                         % (n, " ".join(r[0] for r in raws), m.cid[n], ", ".join(r[1] for r in raws), m.cid[n], n,
+                            ", ".join("%s := %s" % (r[2], r[3]) for r in raws)))
         for i, (fn, ssz, rt) in enumerate(m.containers[n]):
             b, pat, rv = raw_of(m, ssz, rt)
             out.append("@[l4_simp] theorem kids_%s_set_%d (x : %s) %s :\n    (kids_%s x).set %d %s = kids_%s { x with %s := %s } :=\n  Eq.trans rfl rfl"
@@ -389,6 +405,11 @@ def classes_file(m):
             k = seen[inner] = len(seen)
             out.append("@[l4_simp] theorem lset_%d (xs : %s) (i : Nat) %s :\n    (xs.map fun z => (%s : DV)).set i %s =\n      (xs.set i %s).map fun z => (%s : DV) := by\n  rw [List.map_set]"
                        % (k, paren(rt2), b, inner, pat, rv, inner))
+            out.append("@[l4_simp] theorem lapp_%d (xs : %s) %s :\n    (xs.map fun z => (%s : DV)) ++ [%s] =\n      (xs ++ [%s]).map fun z => (%s : DV) := by\n  rw [List.map_append]; rfl"
+                       % (k, paren(rt2), b, inner, pat, rv, inner))
+    out.append("/-! The range facts of the readable values. -/\n")
+    for n in m.rep_order:
+        out.append(ok_def(m, n))
     out.append("/-! The decoded tree of a readable value, from its decoder. -/\n")
     for n in m.rep_order:
         if ("def dec_%s : Dec %s := fun h v => do" % (n, n)) not in m.rd:
@@ -396,6 +417,11 @@ def classes_file(m):
         try:
             out.append("set_option maxHeartbeats 1000000 in\n" + bridge_theorem(m, n))
             m.bridged.add(n)
+        except Unsupported:
+            pass
+        try:
+            out.append("set_option maxHeartbeats 1000000 in\n" + okb_theorem(m, n))
+            m.okb.add(n)
         except Unsupported:
             pass
     out.append("\nend SpecLean.Layer4.Gen\n")
@@ -420,6 +446,65 @@ def bridge_field(m, ssz, rt, hy):
         he = "he" + "'" * d
         return "(GenBridge.listT_dec %s (fun _ _ %s => %s))" % (hy, he, bridge_field(m, mm.group(2), mr.group(1), he))
     raise Unsupported("bridge field")
+
+
+def ok_fact(m, ssz, rt, t, depth=0):
+    """The range fact of a field or an element `t`, or None when it has none."""
+    ssz, rt = strip_parens(ssz), strip_parens(rt)
+    if re.fullmatch(r"\.uint (.*)", ssz) and rt in m.uint:
+        return "%s.val < 2 ^ %d" % (t, m.uint[rt])
+    if re.fullmatch(r"\.bytes (\d+) \d+", ssz) and rt in m.bytes:
+        return "%s.data.length = %d" % (t, m.bytes[rt])
+    if re.fullmatch(r"\.container (\d+)", ssz) and rt in m.reps:
+        return "ok_%s %s" % (rt, t)
+    mm = re.fullmatch(r"\.list (\.\w+) (\(.*\)|\.\w+) (none|\(some \d+\))", ssz)
+    mr = re.fullmatch(r"List (.*)", rt)
+    if mm and mr:
+        y = "y%d" % depth
+        inner = ok_fact(m, mm.group(2), mr.group(1), y, depth + 1)
+        if inner:
+            return "(∀ %s ∈ %s, %s)" % (y, t, inner)
+    return None
+
+
+def ok_proof(m, ssz, rt, hy, depth=0):
+    """A proof of `ok_fact` from `hy : dec_T h w = some y`, or Unsupported."""
+    ssz, rt = strip_parens(ssz), strip_parens(rt)
+    if re.fullmatch(r"\.uint (.*)", ssz) and rt in m.uint:
+        return "(by have := GenBridge.uintT_ok %s; simpa only [uv_%s, ub_%s] using this)" % (hy, rt, rt)
+    if re.fullmatch(r"\.bytes (\d+) \d+", ssz) and rt in m.bytes:
+        return "(by have := GenBridge.bytesT_ok %s; simpa only [bd_%s, bl_%s] using this)" % (hy, rt, rt)
+    if re.fullmatch(r"\.container (\d+)", ssz) and rt in m.reps:
+        if rt not in m.okb:
+            raise Unsupported("ok of " + rt)
+        return "(okb_%s %s)" % (rt, hy)
+    mm = re.fullmatch(r"\.list (\.\w+) (\(.*\)|\.\w+) (none|\(some \d+\))", ssz)
+    mr = re.fullmatch(r"List (.*)", rt)
+    if mm and mr:
+        he = "he%d" % depth
+        return "(GenBridge.listT_ok %s (fun _ _ %s => %s))" % (hy, he, ok_proof(m, mm.group(2), mr.group(1), he,
+                                                                                depth + 1))
+    raise Unsupported("ok field")
+
+
+def ok_def(m, n):
+    facts = [f for f in (ok_fact(m, ssz, rt, "x.%s" % fn) for fn, ssz, rt in m.containers[n]) if f]
+    return ("/-- The fields of a `%s` are in range, as its decoder checks. -/\n"
+            "def ok_%s (x : %s) : Prop :=\n  %s\n" % (n, n, n, " ∧\n  ".join(facts + ["True"])))
+
+
+def okb_theorem(m, n):
+    fs = m.containers[n]
+    K = len(fs)
+    pat = ", ".join("y%d, ⟨w%d, hw%d, hy%d⟩" % (i, i, i, i) for i in range(K))
+    prfs = [ok_proof(m, ssz, rt, "hy%d" % i) for i, (fn, ssz, rt) in enumerate(fs)
+            if ok_fact(m, ssz, rt, "x.%s" % fn)]
+    return ("theorem okb_%s {h : Heap} {v : Value} {x : %s} (hd : dec_%s h v = some x) : ok_%s x := by\n"
+            "  simp only [dec_%s, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,\n"
+            "    Option.some.injEq] at hd\n"
+            "  obtain ⟨fs, hfs, %s, rfl⟩ := hd\n"
+            "  unfold ok_%s\n"
+            "  exact ⟨%s⟩\n" % (n, n, n, n, n, pat, n, ", ".join(prfs + ["trivial"])))
 
 
 def bridge_theorem(m, n):
@@ -450,6 +535,7 @@ def build_reps(m):
     """The containers whose fields all have a DV form, in dependency order."""
     m.reps, m.rep_order = {}, []
     m.bridged = set()
+    m.okb = set()
     todo = dict(m.containers)
     while True:
         done = False
@@ -934,7 +1020,18 @@ def callee_lens(m, name, params):
     return out
 
 
-def candidate(m, name, proved, sub=None, isub=False):
+def hok_binder(m, pn, pt):
+    """The range hypothesis of parameter `pn : pt` in `ok` mode, or None."""
+    if pt in m.reps:
+        return "(hok_%s : ok_%s a_%s)" % (pn, pt, pn)
+    if pt in m.uint:
+        return "(hok_%s : a_%s < 2 ^ %d)" % (pn, pn, m.uint[pt])
+    if pt in m.bytes:
+        return "(hok_%s : a_%s.length = %d)" % (pn, pn, m.bytes[pt])
+    return None
+
+
+def candidate(m, name, proved, sub=None, isub=False, ok=False):
     """The theorems of `name` (its `_den` and `_call`) and its fuel, or Unsupported. `proved` maps
     each proved function to its fuel."""
     if name not in m.sigs:
@@ -949,12 +1046,19 @@ def candidate(m, name, proved, sub=None, isub=False):
         if c not in proved:
             raise Unsupported("callee " + c)
     bs, roots, rds, xs = [], [], [], []
+    hoks = []
     for i, (pn, pt) in enumerate(params):
         b, r, a = param(m, i, pn, pt, sub, isub)
         bs.append(b)
         roots.append(r)
         rds.append(a)
         xs.append("a_" + pn)
+        hb = hok_binder(m, pn, pt) if ok and not sub else None
+        if hb:
+            bs.append(hb)
+            xs.append("hok_" + pn)
+            if pt in m.reps:
+                hoks.append("hok_" + pn)
     w = writers(m).get(name)
     if w:
         ks = [i for i, (_, pt) in enumerate(params) if pt == w]
@@ -997,9 +1101,12 @@ def candidate(m, name, proved, sub=None, isub=False):
            "    ((den (Scope.env sha) fpsGen (%sm + %d)).fn %s Scope.fn_%s %s).map (Except.mapError SpecError.fail) =\n"
            "      some ((fun x : %s => (%s, %s)) <$> %s %s) := by\n"
            "  rw [s_fn]\n"
+           "%s"
            "  l4_eval [%s]\n"
            "%s%s"
-           % (name, tag, " ".join(bs), LENS, D, fp, name, rs, rt, enc, rs_out, name, " ".join(rds), ", ".join(unf), loopstep,
+           % (name, tag, " ".join(bs), LENS, D, fp, name, rs, rt, enc, rs_out, name, " ".join(rds),
+              ("  simp only [%s] at %s\n" % (", ".join("ok_" + n for n in m.rep_order), " ".join(hoks)))
+              if hoks else "", ", ".join(unf), loopstep,
               "" if os.environ.get("L4_NOCLOSE") else
               "  all_goals l4_dbg\n" if os.environ.get("L4_DBG") else "  all_goals l4_close\n"))
     call = ("@[l4_simp] theorem %s_call%s (sha : Oracle) (m : Nat) %s {γ : Type} (k : DRes × List DV → DM γ) :\n"
@@ -1081,6 +1188,15 @@ def bridged_wrapper(m, name, params, bs, rds, xs, vs, hw, LENS, D, fp, VS, E, f)
     conts = [(pn, pt) for (pn, pt), v in zip(params, vs) if v.startswith("(.ref ")]
     if not conts or any(pt not in m.bridged for _, pt in conts):
         return ""
+    bs = list(bs)
+    xs = list(xs)
+    for pn, pt in conts:
+        hb = "(hok_%s : ok_%s a_%s)" % (pn, pt, pn)
+        if hb in bs:
+            if pt not in m.okb:
+                return ""
+            bs.remove(hb)
+            xs[xs.index("hok_" + pn)] = "(okb_%s hy_%s)" % (pt, pn)
     hyps = " ".join("(r_%s : Nat) (hy_%s : dec_%s h (.ref r_%s) = some a_%s)" % (pn, pn, pt, pn, pn)
                     for pn, pt in conts)
     args = " ".join("r_%s (bridge_%s hc hy_%s)" % (pn, pt, pn) for pn, pt in conts)
@@ -1180,7 +1296,8 @@ def main():
                 pass
         pre = ("import SpecLean.Layer4.Gen.Funcs\n" if fuel else "import SpecLean.Layer4.Gen.Classes\n") + \
             OPEN + "\nnamespace SpecLean.Layer4.Gen\n\n"
-        print(check(pre + candidate(m, args.show, fuel)[0] + "\nend SpecLean.Layer4.Gen\n", "show", True)[1])
+        print(check(pre + candidate(m, args.show, fuel, ok=bool(os.environ.get("L4_OK")))[0] +
+                    "\nend SpecLean.Layer4.Gen\n", "show", True)[1])
         return
     names = list(m.fns) if not args.only else args.only.split(",")
     names = order(m, set(names))
@@ -1239,6 +1356,25 @@ def main():
                 else:
                     fails[n] = err
                 print("%-55s %s" % (n, "ok" if ok else err), flush=True)
+        # A failed function again, with range hypotheses on its inputs.
+        retry = {}
+        for n in cands:
+            if "@" in n or n in proved or fails.get(n) == "timeout":
+                continue
+            try:
+                retry[n] = candidate(m, n, proved, ok=True)
+            except Unsupported:
+                pass
+        with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
+            futs = {ex.submit(check, pre + t + "\nend SpecLean.Layer4.Gen\n", n): n for n, (t, _) in retry.items()}
+            for fu in concurrent.futures.as_completed(futs):
+                n = futs[fu]
+                ok, err = fu.result()
+                if ok:
+                    proved[n] = retry[n][1]
+                    texts[n] = retry[n][0]
+                    del fails[n]
+                print("%-55s %s" % (n + " (ok)", "ok" if ok else err), flush=True)
         for n, vs in vtexts.items():
             if n in texts and not texts[n].endswith("-- variants\n"):
                 texts[n] = texts[n] + "\n" + "\n".join(vs) + "-- variants\n"

@@ -150,6 +150,59 @@ theorem mapM_of_fields {h : Heap} :
       rw [mapM_dec.mapM_mono_dec h2 (Nat.le_max_right n1 n2)]; exact h2
     simp [List.mapM_cons, e1, e2]
 
+/-! ## Decoded values are in range -/
+
+theorem uintT_ok {α : Type} [UintC α] {t : UintTy} {h : Heap} {v : Value} {y : α}
+    (hd : decUintT t h v = some y) : UintC.val y < 2 ^ UintC.bits α := by
+  cases v with
+  | lib l =>
+    cases l with
+    | uint t' n =>
+      simp only [decUintT] at hd
+      split at hd
+      · next hc => cases hd; rw [UintC.val_ofNat]; exact hc.2
+      · cases hd
+    | boolean _ => simp [decUintT] at hd
+  | _ => simp [decUintT] at hd
+
+theorem bytesT_ok {α : Type} [BytesC α] {c : Name} {h : Heap} {v : Value} {y : α}
+    (hd : decBytesT c h v = some y) : (BytesC.data y).length = BytesC.len α := by
+  cases v with
+  | bytes c' b =>
+    simp only [decBytesT] at hd
+    split at hd
+    · next hc => cases hd; rw [BytesC.data_ofBytes]; exact hc.2
+    · cases hd
+  | _ => simp [decBytesT] at hd
+
+theorem mapM_ok {α : Type} {h : Heap} {f : Dec α} {P : α → Prop}
+    (hf : ∀ x y, f h x = some y → P y) :
+    ∀ (xs : List Value) (ys : List α), xs.mapM (f h) = some ys → ∀ y ∈ ys, P y
+  | [], ys, e => by simp at e; subst e; simp
+  | x :: xs, ys, e => by
+    simp only [List.mapM_cons, Option.bind_eq_bind, Option.bind_eq_some_iff] at e
+    obtain ⟨y, hy, ys', hys', e⟩ := e
+    simp at e; subst e
+    intro z hz
+    simp only [List.mem_cons] at hz
+    rcases hz with rfl | hz
+    · exact hf x z hy
+    · exact mapM_ok hf xs ys' hys' z hz
+
+theorem listT_ok {α : Type} {k : ListKind} {e : SszTy} {l : Option Nat} {f : Dec α}
+    {P : α → Prop} {h : Heap} {v : Value} {ys : List α} (hd : decListT k e l f h v = some ys)
+    (hf : ∀ x y, f h x = some y → P y) : ∀ y ∈ ys, P y := by
+  cases v with
+  | ref a =>
+    simp only [decListT] at hd
+    split at hd
+    · next xs ho =>
+      split at hd
+      · exact mapM_ok hf xs ys hd
+      · cases hd
+    · cases hd
+  | _ => simp [decListT] at hd
+
 /-- A container from its fields, each decoded. -/
 theorem cont_of_fields {h : Heap} {a : Nat} {ty : Name} {fs : List Value} {ds : List DV}
     (ho : h.objs a = some (.container ty fs)) (hl : fs.length = ds.length)

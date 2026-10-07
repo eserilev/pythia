@@ -261,6 +261,11 @@ theorem kids_Builder_mk (a_pubkey : BLSPubkey) (a_version : Uint8) (a_execution_
       [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.uint (.width 8) a_version.val)), (.leaf (.bytes 378 a_execution_address.data)), (.leaf (.uint (.nominal 265 64) a_balance.val)), (.leaf (.uint (.nominal 140 64) a_deposit_epoch.val)), (.leaf (.uint (.nominal 140 64) a_withdrawable_epoch.val))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_Builder_fold (b_pubkey : List UInt8) (n_version : Nat) (b_execution_address : List UInt8) (n_balance : Nat) (n_deposit_epoch : Nat) (n_withdrawable_epoch : Nat) :
+    (DV.cont 14 [(.leaf (.bytes 656 b_pubkey)), (.leaf (.uint (.width 8) n_version)), (.leaf (.bytes 378 b_execution_address)), (.leaf (.uint (.nominal 265 64) n_balance)), (.leaf (.uint (.nominal 140 64) n_deposit_epoch)), (.leaf (.uint (.nominal 140 64) n_withdrawable_epoch))] : DV) =
+      DV.cont 14 (kids_Builder { pubkey := (⟨b_pubkey⟩ : BLSPubkey), version := (⟨n_version⟩ : Uint8), execution_address := (⟨b_execution_address⟩ : ExecutionAddress), balance := (⟨n_balance⟩ : Gwei), deposit_epoch := (⟨n_deposit_epoch⟩ : Epoch), withdrawable_epoch := (⟨n_withdrawable_epoch⟩ : Epoch) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_Builder_set_0 (x : Builder) (b : List UInt8) :
     (kids_Builder x).set 0 (.leaf (.bytes 656 b)) = kids_Builder { x with pubkey := (⟨b⟩ : BLSPubkey) } :=
   Eq.trans rfl rfl
@@ -300,6 +305,11 @@ theorem kids_BuilderPendingWithdrawal_mk (a_fee_recipient : ExecutionAddress) (a
       [(.leaf (.bytes 378 a_fee_recipient.data)), (.leaf (.uint (.nominal 265 64) a_amount.val)), (.leaf (.uint (.nominal 199 64) a_builder_index.val))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_BuilderPendingWithdrawal_fold (b_fee_recipient : List UInt8) (n_amount : Nat) (n_builder_index : Nat) :
+    (DV.cont 67 [(.leaf (.bytes 378 b_fee_recipient)), (.leaf (.uint (.nominal 265 64) n_amount)), (.leaf (.uint (.nominal 199 64) n_builder_index))] : DV) =
+      DV.cont 67 (kids_BuilderPendingWithdrawal { fee_recipient := (⟨b_fee_recipient⟩ : ExecutionAddress), amount := (⟨n_amount⟩ : Gwei), builder_index := (⟨n_builder_index⟩ : BuilderIndex) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_BuilderPendingWithdrawal_set_0 (x : BuilderPendingWithdrawal) (b : List UInt8) :
     (kids_BuilderPendingWithdrawal x).set 0 (.leaf (.bytes 378 b)) = kids_BuilderPendingWithdrawal { x with fee_recipient := (⟨b⟩ : ExecutionAddress) } :=
   Eq.trans rfl rfl
@@ -327,6 +337,11 @@ theorem kids_ForkData_mk (a_current_version : Version) (a_genesis_validators_roo
       [(.leaf (.bytes 745 a_current_version.data)), (.leaf (.bytes 146 a_genesis_validators_root.data))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_ForkData_fold (b_current_version : List UInt8) (b_genesis_validators_root : List UInt8) :
+    (DV.cont 158 [(.leaf (.bytes 745 b_current_version)), (.leaf (.bytes 146 b_genesis_validators_root))] : DV) =
+      DV.cont 158 (kids_ForkData { current_version := (⟨b_current_version⟩ : Version), genesis_validators_root := (⟨b_genesis_validators_root⟩ : Root) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_ForkData_set_0 (x : ForkData) (b : List UInt8) :
     (kids_ForkData x).set 0 (.leaf (.bytes 745 b)) = kids_ForkData { x with current_version := (⟨b⟩ : Version) } :=
   Eq.trans rfl rfl
@@ -349,6 +364,11 @@ def kids_SigningData (x : SigningData) : List DV :=
 theorem kids_SigningData_mk (a_object_root : Root) (a_domain : Domain) :
     kids_SigningData { object_root := a_object_root, domain := a_domain } =
       [(.leaf (.bytes 146 a_object_root.data)), (.leaf (.bytes 149 a_domain.data))] :=
+  Eq.trans rfl rfl
+
+@[l4_simp] theorem kids_SigningData_fold (b_object_root : List UInt8) (b_domain : List UInt8) :
+    (DV.cont 194 [(.leaf (.bytes 146 b_object_root)), (.leaf (.bytes 149 b_domain))] : DV) =
+      DV.cont 194 (kids_SigningData { object_root := (⟨b_object_root⟩ : Root), domain := (⟨b_domain⟩ : Domain) }) :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_SigningData_set_0 (x : SigningData) (b : List UInt8) :
@@ -381,6 +401,11 @@ theorem kids_Withdrawal_mk (a_index : WithdrawalIndex) (a_validator_index : Vali
       [(.leaf (.uint (.nominal 748 64) a_index.val)), (.leaf (.uint (.nominal 82 64) a_validator_index.val)), (.leaf (.bytes 378 a_address.data)), (.leaf (.uint (.nominal 265 64) a_amount.val))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_Withdrawal_fold (n_index : Nat) (n_validator_index : Nat) (b_address : List UInt8) (n_amount : Nat) :
+    (DV.cont 297 [(.leaf (.uint (.nominal 748 64) n_index)), (.leaf (.uint (.nominal 82 64) n_validator_index)), (.leaf (.bytes 378 b_address)), (.leaf (.uint (.nominal 265 64) n_amount))] : DV) =
+      DV.cont 297 (kids_Withdrawal { index := (⟨n_index⟩ : WithdrawalIndex), validator_index := (⟨n_validator_index⟩ : ValidatorIndex), address := (⟨b_address⟩ : ExecutionAddress), amount := (⟨n_amount⟩ : Gwei) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_Withdrawal_set_0 (x : Withdrawal) (n : Nat) :
     (kids_Withdrawal x).set 0 (.leaf (.uint (.nominal 748 64) n)) = kids_Withdrawal { x with index := (⟨n⟩ : WithdrawalIndex) } :=
   Eq.trans rfl rfl
@@ -411,6 +436,11 @@ theorem kids_Checkpoint_mk (a_epoch : Epoch) (a_root : Root) :
       [(.leaf (.uint (.nominal 140 64) a_epoch.val)), (.leaf (.bytes 146 a_root.data))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_Checkpoint_fold (n_epoch : Nat) (b_root : List UInt8) :
+    (DV.cont 741 [(.leaf (.uint (.nominal 140 64) n_epoch)), (.leaf (.bytes 146 b_root))] : DV) =
+      DV.cont 741 (kids_Checkpoint { epoch := (⟨n_epoch⟩ : Epoch), root := (⟨b_root⟩ : Root) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_Checkpoint_set_0 (x : Checkpoint) (n : Nat) :
     (kids_Checkpoint x).set 0 (.leaf (.uint (.nominal 140 64) n)) = kids_Checkpoint { x with epoch := (⟨n⟩ : Epoch) } :=
   Eq.trans rfl rfl
@@ -439,6 +469,11 @@ def kids_PayloadAttestationData (x : PayloadAttestationData) : List DV :=
 theorem kids_PayloadAttestationData_mk (a_beacon_block_root : Root) (a_slot : Slot) (a_payload_present : Boolean) (a_blob_data_available : Boolean) :
     kids_PayloadAttestationData { beacon_block_root := a_beacon_block_root, slot := a_slot, payload_present := a_payload_present, blob_data_available := a_blob_data_available } =
       [(.leaf (.bytes 146 a_beacon_block_root.data)), (.leaf (.uint (.nominal 196 64) a_slot.val)), (.leaf (.boolean a_payload_present.val)), (.leaf (.boolean a_blob_data_available.val))] :=
+  Eq.trans rfl rfl
+
+@[l4_simp] theorem kids_PayloadAttestationData_fold (b_beacon_block_root : List UInt8) (n_slot : Nat) (b_payload_present : Bool) (b_blob_data_available : Bool) :
+    (DV.cont 753 [(.leaf (.bytes 146 b_beacon_block_root)), (.leaf (.uint (.nominal 196 64) n_slot)), (.leaf (.boolean b_payload_present)), (.leaf (.boolean b_blob_data_available))] : DV) =
+      DV.cont 753 (kids_PayloadAttestationData { beacon_block_root := (⟨b_beacon_block_root⟩ : Root), slot := (⟨n_slot⟩ : Slot), payload_present := (⟨b_payload_present⟩ : Boolean), blob_data_available := (⟨b_blob_data_available⟩ : Boolean) }) :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_PayloadAttestationData_set_0 (x : PayloadAttestationData) (b : List UInt8) :
@@ -508,6 +543,11 @@ theorem kids_Validator_mk (a_pubkey : BLSPubkey) (a_withdrawal_credentials : Byt
       [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.bytes 505 a_withdrawal_credentials.data)), (.leaf (.uint (.nominal 265 64) a_effective_balance.val)), (.leaf (.boolean a_slashed.val)), (.leaf (.uint (.nominal 140 64) a_activation_eligibility_epoch.val)), (.leaf (.uint (.nominal 140 64) a_activation_epoch.val)), (.leaf (.uint (.nominal 140 64) a_exit_epoch.val)), (.leaf (.uint (.nominal 140 64) a_withdrawable_epoch.val))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_Validator_fold (b_pubkey : List UInt8) (b_withdrawal_credentials : List UInt8) (n_effective_balance : Nat) (b_slashed : Bool) (n_activation_eligibility_epoch : Nat) (n_activation_epoch : Nat) (n_exit_epoch : Nat) (n_withdrawable_epoch : Nat) :
+    (DV.cont 396 [(.leaf (.bytes 656 b_pubkey)), (.leaf (.bytes 505 b_withdrawal_credentials)), (.leaf (.uint (.nominal 265 64) n_effective_balance)), (.leaf (.boolean b_slashed)), (.leaf (.uint (.nominal 140 64) n_activation_eligibility_epoch)), (.leaf (.uint (.nominal 140 64) n_activation_epoch)), (.leaf (.uint (.nominal 140 64) n_exit_epoch)), (.leaf (.uint (.nominal 140 64) n_withdrawable_epoch))] : DV) =
+      DV.cont 396 (kids_Validator { pubkey := (⟨b_pubkey⟩ : BLSPubkey), withdrawal_credentials := (⟨b_withdrawal_credentials⟩ : Bytes32), effective_balance := (⟨n_effective_balance⟩ : Gwei), slashed := (⟨b_slashed⟩ : Boolean), activation_eligibility_epoch := (⟨n_activation_eligibility_epoch⟩ : Epoch), activation_epoch := (⟨n_activation_epoch⟩ : Epoch), exit_epoch := (⟨n_exit_epoch⟩ : Epoch), withdrawable_epoch := (⟨n_withdrawable_epoch⟩ : Epoch) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_Validator_set_0 (x : Validator) (b : List UInt8) :
     (kids_Validator x).set 0 (.leaf (.bytes 656 b)) = kids_Validator { x with pubkey := (⟨b⟩ : BLSPubkey) } :=
   Eq.trans rfl rfl
@@ -553,6 +593,11 @@ theorem kids_DepositMessage_mk (a_pubkey : BLSPubkey) (a_withdrawal_credentials 
       [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.bytes 505 a_withdrawal_credentials.data)), (.leaf (.uint (.nominal 265 64) a_amount.val))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_DepositMessage_fold (b_pubkey : List UInt8) (b_withdrawal_credentials : List UInt8) (n_amount : Nat) :
+    (DV.cont 444 [(.leaf (.bytes 656 b_pubkey)), (.leaf (.bytes 505 b_withdrawal_credentials)), (.leaf (.uint (.nominal 265 64) n_amount))] : DV) =
+      DV.cont 444 (kids_DepositMessage { pubkey := (⟨b_pubkey⟩ : BLSPubkey), withdrawal_credentials := (⟨b_withdrawal_credentials⟩ : Bytes32), amount := (⟨n_amount⟩ : Gwei) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_DepositMessage_set_0 (x : DepositMessage) (b : List UInt8) :
     (kids_DepositMessage x).set 0 (.leaf (.bytes 656 b)) = kids_DepositMessage { x with pubkey := (⟨b⟩ : BLSPubkey) } :=
   Eq.trans rfl rfl
@@ -587,6 +632,11 @@ def kids_PendingDeposit (x : PendingDeposit) : List DV :=
 theorem kids_PendingDeposit_mk (a_pubkey : BLSPubkey) (a_withdrawal_credentials : Bytes32) (a_amount : Gwei) (a_signature : BLSSignature) (a_slot : Slot) :
     kids_PendingDeposit { pubkey := a_pubkey, withdrawal_credentials := a_withdrawal_credentials, amount := a_amount, signature := a_signature, slot := a_slot } =
       [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.bytes 505 a_withdrawal_credentials.data)), (.leaf (.uint (.nominal 265 64) a_amount.val)), (.leaf (.bytes 747 a_signature.data)), (.leaf (.uint (.nominal 196 64) a_slot.val))] :=
+  Eq.trans rfl rfl
+
+@[l4_simp] theorem kids_PendingDeposit_fold (b_pubkey : List UInt8) (b_withdrawal_credentials : List UInt8) (n_amount : Nat) (b_signature : List UInt8) (n_slot : Nat) :
+    (DV.cont 525 [(.leaf (.bytes 656 b_pubkey)), (.leaf (.bytes 505 b_withdrawal_credentials)), (.leaf (.uint (.nominal 265 64) n_amount)), (.leaf (.bytes 747 b_signature)), (.leaf (.uint (.nominal 196 64) n_slot))] : DV) =
+      DV.cont 525 (kids_PendingDeposit { pubkey := (⟨b_pubkey⟩ : BLSPubkey), withdrawal_credentials := (⟨b_withdrawal_credentials⟩ : Bytes32), amount := (⟨n_amount⟩ : Gwei), signature := (⟨b_signature⟩ : BLSSignature), slot := (⟨n_slot⟩ : Slot) }) :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_PendingDeposit_set_0 (x : PendingDeposit) (b : List UInt8) :
@@ -629,6 +679,11 @@ def kids_BeaconBlockHeader (x : BeaconBlockHeader) : List DV :=
 theorem kids_BeaconBlockHeader_mk (a_slot : Slot) (a_proposer_index : ValidatorIndex) (a_parent_root : Root) (a_state_root : Root) (a_body_root : Root) :
     kids_BeaconBlockHeader { slot := a_slot, proposer_index := a_proposer_index, parent_root := a_parent_root, state_root := a_state_root, body_root := a_body_root } =
       [(.leaf (.uint (.nominal 196 64) a_slot.val)), (.leaf (.uint (.nominal 82 64) a_proposer_index.val)), (.leaf (.bytes 146 a_parent_root.data)), (.leaf (.bytes 146 a_state_root.data)), (.leaf (.bytes 146 a_body_root.data))] :=
+  Eq.trans rfl rfl
+
+@[l4_simp] theorem kids_BeaconBlockHeader_fold (n_slot : Nat) (n_proposer_index : Nat) (b_parent_root : List UInt8) (b_state_root : List UInt8) (b_body_root : List UInt8) :
+    (DV.cont 497 [(.leaf (.uint (.nominal 196 64) n_slot)), (.leaf (.uint (.nominal 82 64) n_proposer_index)), (.leaf (.bytes 146 b_parent_root)), (.leaf (.bytes 146 b_state_root)), (.leaf (.bytes 146 b_body_root))] : DV) =
+      DV.cont 497 (kids_BeaconBlockHeader { slot := (⟨n_slot⟩ : Slot), proposer_index := (⟨n_proposer_index⟩ : ValidatorIndex), parent_root := (⟨b_parent_root⟩ : Root), state_root := (⟨b_state_root⟩ : Root), body_root := (⟨b_body_root⟩ : Root) }) :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_BeaconBlockHeader_set_0 (x : BeaconBlockHeader) (n : Nat) :
@@ -689,6 +744,11 @@ theorem kids_PendingConsolidation_mk (a_source_index : ValidatorIndex) (a_target
       [(.leaf (.uint (.nominal 82 64) a_source_index.val)), (.leaf (.uint (.nominal 82 64) a_target_index.val))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_PendingConsolidation_fold (n_source_index : Nat) (n_target_index : Nat) :
+    (DV.cont 523 [(.leaf (.uint (.nominal 82 64) n_source_index)), (.leaf (.uint (.nominal 82 64) n_target_index))] : DV) =
+      DV.cont 523 (kids_PendingConsolidation { source_index := (⟨n_source_index⟩ : ValidatorIndex), target_index := (⟨n_target_index⟩ : ValidatorIndex) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_PendingConsolidation_set_0 (x : PendingConsolidation) (n : Nat) :
     (kids_PendingConsolidation x).set 0 (.leaf (.uint (.nominal 82 64) n)) = kids_PendingConsolidation { x with source_index := (⟨n⟩ : ValidatorIndex) } :=
   Eq.trans rfl rfl
@@ -716,6 +776,11 @@ theorem kids_Eth1Data_mk (a_deposit_root : Root) (a_deposit_count : Uint64) (a_b
       [(.leaf (.bytes 146 a_deposit_root.data)), (.leaf (.uint (.width 64) a_deposit_count.val)), (.leaf (.bytes 758 a_block_hash.data))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_Eth1Data_fold (b_deposit_root : List UInt8) (n_deposit_count : Nat) (b_block_hash : List UInt8) :
+    (DV.cont 759 [(.leaf (.bytes 146 b_deposit_root)), (.leaf (.uint (.width 64) n_deposit_count)), (.leaf (.bytes 758 b_block_hash))] : DV) =
+      DV.cont 759 (kids_Eth1Data { deposit_root := (⟨b_deposit_root⟩ : Root), deposit_count := (⟨n_deposit_count⟩ : Uint64), block_hash := (⟨b_block_hash⟩ : Hash32) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_Eth1Data_set_0 (x : Eth1Data) (b : List UInt8) :
     (kids_Eth1Data x).set 0 (.leaf (.bytes 146 b)) = kids_Eth1Data { x with deposit_root := (⟨b⟩ : Root) } :=
   Eq.trans rfl rfl
@@ -741,6 +806,11 @@ def kids_HistoricalSummary (x : HistoricalSummary) : List DV :=
 theorem kids_HistoricalSummary_mk (a_block_summary_root : Root) (a_state_summary_root : Root) :
     kids_HistoricalSummary { block_summary_root := a_block_summary_root, state_summary_root := a_state_summary_root } =
       [(.leaf (.bytes 146 a_block_summary_root.data)), (.leaf (.bytes 146 a_state_summary_root.data))] :=
+  Eq.trans rfl rfl
+
+@[l4_simp] theorem kids_HistoricalSummary_fold (b_block_summary_root : List UInt8) (b_state_summary_root : List UInt8) :
+    (DV.cont 570 [(.leaf (.bytes 146 b_block_summary_root)), (.leaf (.bytes 146 b_state_summary_root))] : DV) =
+      DV.cont 570 (kids_HistoricalSummary { block_summary_root := (⟨b_block_summary_root⟩ : Root), state_summary_root := (⟨b_state_summary_root⟩ : Root) }) :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_HistoricalSummary_set_0 (x : HistoricalSummary) (b : List UInt8) :
@@ -774,6 +844,11 @@ def kids_DepositRequest (x : DepositRequest) : List DV :=
 theorem kids_DepositRequest_mk (a_pubkey : BLSPubkey) (a_withdrawal_credentials : Bytes32) (a_amount : Gwei) (a_signature : BLSSignature) (a_index : Uint64) :
     kids_DepositRequest { pubkey := a_pubkey, withdrawal_credentials := a_withdrawal_credentials, amount := a_amount, signature := a_signature, index := a_index } =
       [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.bytes 505 a_withdrawal_credentials.data)), (.leaf (.uint (.nominal 265 64) a_amount.val)), (.leaf (.bytes 747 a_signature.data)), (.leaf (.uint (.width 64) a_index.val))] :=
+  Eq.trans rfl rfl
+
+@[l4_simp] theorem kids_DepositRequest_fold (b_pubkey : List UInt8) (b_withdrawal_credentials : List UInt8) (n_amount : Nat) (b_signature : List UInt8) (n_index : Nat) :
+    (DV.cont 760 [(.leaf (.bytes 656 b_pubkey)), (.leaf (.bytes 505 b_withdrawal_credentials)), (.leaf (.uint (.nominal 265 64) n_amount)), (.leaf (.bytes 747 b_signature)), (.leaf (.uint (.width 64) n_index))] : DV) =
+      DV.cont 760 (kids_DepositRequest { pubkey := (⟨b_pubkey⟩ : BLSPubkey), withdrawal_credentials := (⟨b_withdrawal_credentials⟩ : Bytes32), amount := (⟨n_amount⟩ : Gwei), signature := (⟨b_signature⟩ : BLSSignature), index := (⟨n_index⟩ : Uint64) }) :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_DepositRequest_set_0 (x : DepositRequest) (b : List UInt8) :
@@ -812,6 +887,11 @@ theorem kids_WithdrawalRequest_mk (a_source_address : ExecutionAddress) (a_valid
       [(.leaf (.bytes 378 a_source_address.data)), (.leaf (.bytes 656 a_validator_pubkey.data)), (.leaf (.uint (.nominal 265 64) a_amount.val))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_WithdrawalRequest_fold (b_source_address : List UInt8) (b_validator_pubkey : List UInt8) (n_amount : Nat) :
+    (DV.cont 761 [(.leaf (.bytes 378 b_source_address)), (.leaf (.bytes 656 b_validator_pubkey)), (.leaf (.uint (.nominal 265 64) n_amount))] : DV) =
+      DV.cont 761 (kids_WithdrawalRequest { source_address := (⟨b_source_address⟩ : ExecutionAddress), validator_pubkey := (⟨b_validator_pubkey⟩ : BLSPubkey), amount := (⟨n_amount⟩ : Gwei) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_WithdrawalRequest_set_0 (x : WithdrawalRequest) (b : List UInt8) :
     (kids_WithdrawalRequest x).set 0 (.leaf (.bytes 378 b)) = kids_WithdrawalRequest { x with source_address := (⟨b⟩ : ExecutionAddress) } :=
   Eq.trans rfl rfl
@@ -840,6 +920,11 @@ def kids_ConsolidationRequest (x : ConsolidationRequest) : List DV :=
 theorem kids_ConsolidationRequest_mk (a_source_address : ExecutionAddress) (a_source_pubkey : BLSPubkey) (a_target_pubkey : BLSPubkey) :
     kids_ConsolidationRequest { source_address := a_source_address, source_pubkey := a_source_pubkey, target_pubkey := a_target_pubkey } =
       [(.leaf (.bytes 378 a_source_address.data)), (.leaf (.bytes 656 a_source_pubkey.data)), (.leaf (.bytes 656 a_target_pubkey.data))] :=
+  Eq.trans rfl rfl
+
+@[l4_simp] theorem kids_ConsolidationRequest_fold (b_source_address : List UInt8) (b_source_pubkey : List UInt8) (b_target_pubkey : List UInt8) :
+    (DV.cont 762 [(.leaf (.bytes 378 b_source_address)), (.leaf (.bytes 656 b_source_pubkey)), (.leaf (.bytes 656 b_target_pubkey))] : DV) =
+      DV.cont 762 (kids_ConsolidationRequest { source_address := (⟨b_source_address⟩ : ExecutionAddress), source_pubkey := (⟨b_source_pubkey⟩ : BLSPubkey), target_pubkey := (⟨b_target_pubkey⟩ : BLSPubkey) }) :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_ConsolidationRequest_set_0 (x : ConsolidationRequest) (b : List UInt8) :
@@ -875,6 +960,11 @@ theorem kids_BuilderDepositRequest_mk (a_pubkey : BLSPubkey) (a_withdrawal_crede
       [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.bytes 505 a_withdrawal_credentials.data)), (.leaf (.uint (.nominal 265 64) a_amount.val)), (.leaf (.bytes 747 a_signature.data))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_BuilderDepositRequest_fold (b_pubkey : List UInt8) (b_withdrawal_credentials : List UInt8) (n_amount : Nat) (b_signature : List UInt8) :
+    (DV.cont 763 [(.leaf (.bytes 656 b_pubkey)), (.leaf (.bytes 505 b_withdrawal_credentials)), (.leaf (.uint (.nominal 265 64) n_amount)), (.leaf (.bytes 747 b_signature))] : DV) =
+      DV.cont 763 (kids_BuilderDepositRequest { pubkey := (⟨b_pubkey⟩ : BLSPubkey), withdrawal_credentials := (⟨b_withdrawal_credentials⟩ : Bytes32), amount := (⟨n_amount⟩ : Gwei), signature := (⟨b_signature⟩ : BLSSignature) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_BuilderDepositRequest_set_0 (x : BuilderDepositRequest) (b : List UInt8) :
     (kids_BuilderDepositRequest x).set 0 (.leaf (.bytes 656 b)) = kids_BuilderDepositRequest { x with pubkey := (⟨b⟩ : BLSPubkey) } :=
   Eq.trans rfl rfl
@@ -905,6 +995,11 @@ theorem kids_BuilderExitRequest_mk (a_source_address : ExecutionAddress) (a_pubk
       [(.leaf (.bytes 378 a_source_address.data)), (.leaf (.bytes 656 a_pubkey.data))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_BuilderExitRequest_fold (b_source_address : List UInt8) (b_pubkey : List UInt8) :
+    (DV.cont 764 [(.leaf (.bytes 378 b_source_address)), (.leaf (.bytes 656 b_pubkey))] : DV) =
+      DV.cont 764 (kids_BuilderExitRequest { source_address := (⟨b_source_address⟩ : ExecutionAddress), pubkey := (⟨b_pubkey⟩ : BLSPubkey) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_BuilderExitRequest_set_0 (x : BuilderExitRequest) (b : List UInt8) :
     (kids_BuilderExitRequest x).set 0 (.leaf (.bytes 378 b)) = kids_BuilderExitRequest { x with source_address := (⟨b⟩ : ExecutionAddress) } :=
   Eq.trans rfl rfl
@@ -930,6 +1025,11 @@ def kids_PendingPartialWithdrawal (x : PendingPartialWithdrawal) : List DV :=
 theorem kids_PendingPartialWithdrawal_mk (a_validator_index : ValidatorIndex) (a_amount : Gwei) (a_withdrawable_epoch : Epoch) :
     kids_PendingPartialWithdrawal { validator_index := a_validator_index, amount := a_amount, withdrawable_epoch := a_withdrawable_epoch } =
       [(.leaf (.uint (.nominal 82 64) a_validator_index.val)), (.leaf (.uint (.nominal 265 64) a_amount.val)), (.leaf (.uint (.nominal 140 64) a_withdrawable_epoch.val))] :=
+  Eq.trans rfl rfl
+
+@[l4_simp] theorem kids_PendingPartialWithdrawal_fold (n_validator_index : Nat) (n_amount : Nat) (n_withdrawable_epoch : Nat) :
+    (DV.cont 681 [(.leaf (.uint (.nominal 82 64) n_validator_index)), (.leaf (.uint (.nominal 265 64) n_amount)), (.leaf (.uint (.nominal 140 64) n_withdrawable_epoch))] : DV) =
+      DV.cont 681 (kids_PendingPartialWithdrawal { validator_index := (⟨n_validator_index⟩ : ValidatorIndex), amount := (⟨n_amount⟩ : Gwei), withdrawable_epoch := (⟨n_withdrawable_epoch⟩ : Epoch) }) :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_PendingPartialWithdrawal_set_0 (x : PendingPartialWithdrawal) (n : Nat) :
@@ -960,6 +1060,11 @@ def kids_Fork (x : Fork) : List DV :=
 theorem kids_Fork_mk (a_previous_version : Version) (a_current_version : Version) (a_epoch : Epoch) :
     kids_Fork { previous_version := a_previous_version, current_version := a_current_version, epoch := a_epoch } =
       [(.leaf (.bytes 745 a_previous_version.data)), (.leaf (.bytes 745 a_current_version.data)), (.leaf (.uint (.nominal 140 64) a_epoch.val))] :=
+  Eq.trans rfl rfl
+
+@[l4_simp] theorem kids_Fork_fold (b_previous_version : List UInt8) (b_current_version : List UInt8) (n_epoch : Nat) :
+    (DV.cont 713 [(.leaf (.bytes 745 b_previous_version)), (.leaf (.bytes 745 b_current_version)), (.leaf (.uint (.nominal 140 64) n_epoch))] : DV) =
+      DV.cont 713 (kids_Fork { previous_version := (⟨b_previous_version⟩ : Version), current_version := (⟨b_current_version⟩ : Version), epoch := (⟨n_epoch⟩ : Epoch) }) :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_Fork_set_0 (x : Fork) (b : List UInt8) :
@@ -1093,6 +1198,11 @@ theorem kids_DepositData_mk (a_pubkey : BLSPubkey) (a_withdrawal_credentials : B
       [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.bytes 505 a_withdrawal_credentials.data)), (.leaf (.uint (.nominal 265 64) a_amount.val)), (.leaf (.bytes 747 a_signature.data))] :=
   Eq.trans rfl rfl
 
+@[l4_simp] theorem kids_DepositData_fold (b_pubkey : List UInt8) (b_withdrawal_credentials : List UInt8) (n_amount : Nat) (b_signature : List UInt8) :
+    (DV.cont 772 [(.leaf (.bytes 656 b_pubkey)), (.leaf (.bytes 505 b_withdrawal_credentials)), (.leaf (.uint (.nominal 265 64) n_amount)), (.leaf (.bytes 747 b_signature))] : DV) =
+      DV.cont 772 (kids_DepositData { pubkey := (⟨b_pubkey⟩ : BLSPubkey), withdrawal_credentials := (⟨b_withdrawal_credentials⟩ : Bytes32), amount := (⟨n_amount⟩ : Gwei), signature := (⟨b_signature⟩ : BLSSignature) }) :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_DepositData_set_0 (x : DepositData) (b : List UInt8) :
     (kids_DepositData x).set 0 (.leaf (.bytes 656 b)) = kids_DepositData { x with pubkey := (⟨b⟩ : BLSPubkey) } :=
   Eq.trans rfl rfl
@@ -1121,6 +1231,11 @@ def kids_VoluntaryExit (x : VoluntaryExit) : List DV :=
 theorem kids_VoluntaryExit_mk (a_epoch : Epoch) (a_validator_index : ValidatorIndex) :
     kids_VoluntaryExit { epoch := a_epoch, validator_index := a_validator_index } =
       [(.leaf (.uint (.nominal 140 64) a_epoch.val)), (.leaf (.uint (.nominal 82 64) a_validator_index.val))] :=
+  Eq.trans rfl rfl
+
+@[l4_simp] theorem kids_VoluntaryExit_fold (n_epoch : Nat) (n_validator_index : Nat) :
+    (DV.cont 774 [(.leaf (.uint (.nominal 140 64) n_epoch)), (.leaf (.uint (.nominal 82 64) n_validator_index))] : DV) =
+      DV.cont 774 (kids_VoluntaryExit { epoch := (⟨n_epoch⟩ : Epoch), validator_index := (⟨n_validator_index⟩ : ValidatorIndex) }) :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_VoluntaryExit_set_0 (x : VoluntaryExit) (n : Nat) :
@@ -1167,6 +1282,11 @@ def kids_BLSToExecutionChange (x : BLSToExecutionChange) : List DV :=
 theorem kids_BLSToExecutionChange_mk (a_validator_index : ValidatorIndex) (a_from_bls_pubkey : BLSPubkey) (a_to_execution_address : ExecutionAddress) :
     kids_BLSToExecutionChange { validator_index := a_validator_index, from_bls_pubkey := a_from_bls_pubkey, to_execution_address := a_to_execution_address } =
       [(.leaf (.uint (.nominal 82 64) a_validator_index.val)), (.leaf (.bytes 656 a_from_bls_pubkey.data)), (.leaf (.bytes 378 a_to_execution_address.data))] :=
+  Eq.trans rfl rfl
+
+@[l4_simp] theorem kids_BLSToExecutionChange_fold (n_validator_index : Nat) (b_from_bls_pubkey : List UInt8) (b_to_execution_address : List UInt8) :
+    (DV.cont 777 [(.leaf (.uint (.nominal 82 64) n_validator_index)), (.leaf (.bytes 656 b_from_bls_pubkey)), (.leaf (.bytes 378 b_to_execution_address))] : DV) =
+      DV.cont 777 (kids_BLSToExecutionChange { validator_index := (⟨n_validator_index⟩ : ValidatorIndex), from_bls_pubkey := (⟨b_from_bls_pubkey⟩ : BLSPubkey), to_execution_address := (⟨b_to_execution_address⟩ : ExecutionAddress) }) :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_BLSToExecutionChange_set_0 (x : BLSToExecutionChange) (n : Nat) :
@@ -1901,130 +2021,636 @@ def kids_SignedBeaconBlock (x : SignedBeaconBlock) : List DV :=
     (xs.map fun z => ((.leaf (.bytes 656 z.data)) : DV)).set i (.leaf (.bytes 656 b)) =
       (xs.set i (⟨b⟩ : BLSPubkey)).map fun z => ((.leaf (.bytes 656 z.data)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_0 (xs : (List BLSPubkey)) (b : List UInt8) :
+    (xs.map fun z => ((.leaf (.bytes 656 z.data)) : DV)) ++ [(.leaf (.bytes 656 b))] =
+      (xs ++ [(⟨b⟩ : BLSPubkey)]).map fun z => ((.leaf (.bytes 656 z.data)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_1 (xs : (List KZGCommitment)) (i : Nat) (b : List UInt8) :
     (xs.map fun z => ((.leaf (.bytes 765 z.data)) : DV)).set i (.leaf (.bytes 765 b)) =
       (xs.set i (⟨b⟩ : KZGCommitment)).map fun z => ((.leaf (.bytes 765 z.data)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_1 (xs : (List KZGCommitment)) (b : List UInt8) :
+    (xs.map fun z => ((.leaf (.bytes 765 z.data)) : DV)) ++ [(.leaf (.bytes 765 b))] =
+      (xs ++ [(⟨b⟩ : KZGCommitment)]).map fun z => ((.leaf (.bytes 765 z.data)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_2 (xs : (List Boolean)) (i : Nat) (b : Bool) :
     (xs.map fun z => ((.leaf (.boolean z.val)) : DV)).set i (.leaf (.boolean b)) =
       (xs.set i (⟨b⟩ : Boolean)).map fun z => ((.leaf (.boolean z.val)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_2 (xs : (List Boolean)) (b : Bool) :
+    (xs.map fun z => ((.leaf (.boolean z.val)) : DV)) ++ [(.leaf (.boolean b))] =
+      (xs ++ [(⟨b⟩ : Boolean)]).map fun z => ((.leaf (.boolean z.val)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_3 (xs : (List ValidatorIndex)) (i : Nat) (n : Nat) :
     (xs.map fun z => ((.leaf (.uint (.nominal 82 64) z.val)) : DV)).set i (.leaf (.uint (.nominal 82 64) n)) =
       (xs.set i (⟨n⟩ : ValidatorIndex)).map fun z => ((.leaf (.uint (.nominal 82 64) z.val)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_3 (xs : (List ValidatorIndex)) (n : Nat) :
+    (xs.map fun z => ((.leaf (.uint (.nominal 82 64) z.val)) : DV)) ++ [(.leaf (.uint (.nominal 82 64) n))] =
+      (xs ++ [(⟨n⟩ : ValidatorIndex)]).map fun z => ((.leaf (.uint (.nominal 82 64) z.val)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_4 (xs : (List DepositRequest)) (i : Nat) (y : DepositRequest) :
     (xs.map fun z => ((.cont 760 (kids_DepositRequest z)) : DV)).set i (.cont 760 (kids_DepositRequest y)) =
       (xs.set i y).map fun z => ((.cont 760 (kids_DepositRequest z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_4 (xs : (List DepositRequest)) (y : DepositRequest) :
+    (xs.map fun z => ((.cont 760 (kids_DepositRequest z)) : DV)) ++ [(.cont 760 (kids_DepositRequest y))] =
+      (xs ++ [y]).map fun z => ((.cont 760 (kids_DepositRequest z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_5 (xs : (List WithdrawalRequest)) (i : Nat) (y : WithdrawalRequest) :
     (xs.map fun z => ((.cont 761 (kids_WithdrawalRequest z)) : DV)).set i (.cont 761 (kids_WithdrawalRequest y)) =
       (xs.set i y).map fun z => ((.cont 761 (kids_WithdrawalRequest z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_5 (xs : (List WithdrawalRequest)) (y : WithdrawalRequest) :
+    (xs.map fun z => ((.cont 761 (kids_WithdrawalRequest z)) : DV)) ++ [(.cont 761 (kids_WithdrawalRequest y))] =
+      (xs ++ [y]).map fun z => ((.cont 761 (kids_WithdrawalRequest z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_6 (xs : (List ConsolidationRequest)) (i : Nat) (y : ConsolidationRequest) :
     (xs.map fun z => ((.cont 762 (kids_ConsolidationRequest z)) : DV)).set i (.cont 762 (kids_ConsolidationRequest y)) =
       (xs.set i y).map fun z => ((.cont 762 (kids_ConsolidationRequest z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_6 (xs : (List ConsolidationRequest)) (y : ConsolidationRequest) :
+    (xs.map fun z => ((.cont 762 (kids_ConsolidationRequest z)) : DV)) ++ [(.cont 762 (kids_ConsolidationRequest y))] =
+      (xs ++ [y]).map fun z => ((.cont 762 (kids_ConsolidationRequest z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_7 (xs : (List BuilderDepositRequest)) (i : Nat) (y : BuilderDepositRequest) :
     (xs.map fun z => ((.cont 763 (kids_BuilderDepositRequest z)) : DV)).set i (.cont 763 (kids_BuilderDepositRequest y)) =
       (xs.set i y).map fun z => ((.cont 763 (kids_BuilderDepositRequest z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_7 (xs : (List BuilderDepositRequest)) (y : BuilderDepositRequest) :
+    (xs.map fun z => ((.cont 763 (kids_BuilderDepositRequest z)) : DV)) ++ [(.cont 763 (kids_BuilderDepositRequest y))] =
+      (xs ++ [y]).map fun z => ((.cont 763 (kids_BuilderDepositRequest z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_8 (xs : (List BuilderExitRequest)) (i : Nat) (y : BuilderExitRequest) :
     (xs.map fun z => ((.cont 764 (kids_BuilderExitRequest z)) : DV)).set i (.cont 764 (kids_BuilderExitRequest y)) =
       (xs.set i y).map fun z => ((.cont 764 (kids_BuilderExitRequest z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_8 (xs : (List BuilderExitRequest)) (y : BuilderExitRequest) :
+    (xs.map fun z => ((.cont 764 (kids_BuilderExitRequest z)) : DV)) ++ [(.cont 764 (kids_BuilderExitRequest y))] =
+      (xs ++ [y]).map fun z => ((.cont 764 (kids_BuilderExitRequest z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_9 (xs : (List Root)) (i : Nat) (b : List UInt8) :
     (xs.map fun z => ((.leaf (.bytes 146 z.data)) : DV)).set i (.leaf (.bytes 146 b)) =
       (xs.set i (⟨b⟩ : Root)).map fun z => ((.leaf (.bytes 146 z.data)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_9 (xs : (List Root)) (b : List UInt8) :
+    (xs.map fun z => ((.leaf (.bytes 146 z.data)) : DV)) ++ [(.leaf (.bytes 146 b))] =
+      (xs ++ [(⟨b⟩ : Root)]).map fun z => ((.leaf (.bytes 146 z.data)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_10 (xs : (List Eth1Data)) (i : Nat) (y : Eth1Data) :
     (xs.map fun z => ((.cont 759 (kids_Eth1Data z)) : DV)).set i (.cont 759 (kids_Eth1Data y)) =
       (xs.set i y).map fun z => ((.cont 759 (kids_Eth1Data z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_10 (xs : (List Eth1Data)) (y : Eth1Data) :
+    (xs.map fun z => ((.cont 759 (kids_Eth1Data z)) : DV)) ++ [(.cont 759 (kids_Eth1Data y))] =
+      (xs ++ [y]).map fun z => ((.cont 759 (kids_Eth1Data z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_11 (xs : (List Validator)) (i : Nat) (y : Validator) :
     (xs.map fun z => ((.cont 396 (kids_Validator z)) : DV)).set i (.cont 396 (kids_Validator y)) =
       (xs.set i y).map fun z => ((.cont 396 (kids_Validator z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_11 (xs : (List Validator)) (y : Validator) :
+    (xs.map fun z => ((.cont 396 (kids_Validator z)) : DV)) ++ [(.cont 396 (kids_Validator y))] =
+      (xs ++ [y]).map fun z => ((.cont 396 (kids_Validator z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_12 (xs : (List Gwei)) (i : Nat) (n : Nat) :
     (xs.map fun z => ((.leaf (.uint (.nominal 265 64) z.val)) : DV)).set i (.leaf (.uint (.nominal 265 64) n)) =
       (xs.set i (⟨n⟩ : Gwei)).map fun z => ((.leaf (.uint (.nominal 265 64) z.val)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_12 (xs : (List Gwei)) (n : Nat) :
+    (xs.map fun z => ((.leaf (.uint (.nominal 265 64) z.val)) : DV)) ++ [(.leaf (.uint (.nominal 265 64) n))] =
+      (xs ++ [(⟨n⟩ : Gwei)]).map fun z => ((.leaf (.uint (.nominal 265 64) z.val)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_13 (xs : (List Bytes32)) (i : Nat) (b : List UInt8) :
     (xs.map fun z => ((.leaf (.bytes 505 z.data)) : DV)).set i (.leaf (.bytes 505 b)) =
       (xs.set i (⟨b⟩ : Bytes32)).map fun z => ((.leaf (.bytes 505 z.data)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_13 (xs : (List Bytes32)) (b : List UInt8) :
+    (xs.map fun z => ((.leaf (.bytes 505 z.data)) : DV)) ++ [(.leaf (.bytes 505 b))] =
+      (xs ++ [(⟨b⟩ : Bytes32)]).map fun z => ((.leaf (.bytes 505 z.data)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_14 (xs : (List ParticipationFlags)) (i : Nat) (n : Nat) :
     (xs.map fun z => ((.leaf (.uint (.nominal 20 8) z.val)) : DV)).set i (.leaf (.uint (.nominal 20 8) n)) =
       (xs.set i (⟨n⟩ : ParticipationFlags)).map fun z => ((.leaf (.uint (.nominal 20 8) z.val)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_14 (xs : (List ParticipationFlags)) (n : Nat) :
+    (xs.map fun z => ((.leaf (.uint (.nominal 20 8) z.val)) : DV)) ++ [(.leaf (.uint (.nominal 20 8) n))] =
+      (xs ++ [(⟨n⟩ : ParticipationFlags)]).map fun z => ((.leaf (.uint (.nominal 20 8) z.val)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_15 (xs : (List Uint64)) (i : Nat) (n : Nat) :
     (xs.map fun z => ((.leaf (.uint (.width 64) z.val)) : DV)).set i (.leaf (.uint (.width 64) n)) =
       (xs.set i (⟨n⟩ : Uint64)).map fun z => ((.leaf (.uint (.width 64) z.val)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_15 (xs : (List Uint64)) (n : Nat) :
+    (xs.map fun z => ((.leaf (.uint (.width 64) z.val)) : DV)) ++ [(.leaf (.uint (.width 64) n))] =
+      (xs ++ [(⟨n⟩ : Uint64)]).map fun z => ((.leaf (.uint (.width 64) z.val)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_16 (xs : (List HistoricalSummary)) (i : Nat) (y : HistoricalSummary) :
     (xs.map fun z => ((.cont 570 (kids_HistoricalSummary z)) : DV)).set i (.cont 570 (kids_HistoricalSummary y)) =
       (xs.set i y).map fun z => ((.cont 570 (kids_HistoricalSummary z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_16 (xs : (List HistoricalSummary)) (y : HistoricalSummary) :
+    (xs.map fun z => ((.cont 570 (kids_HistoricalSummary z)) : DV)) ++ [(.cont 570 (kids_HistoricalSummary y))] =
+      (xs ++ [y]).map fun z => ((.cont 570 (kids_HistoricalSummary z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_17 (xs : (List PendingDeposit)) (i : Nat) (y : PendingDeposit) :
     (xs.map fun z => ((.cont 525 (kids_PendingDeposit z)) : DV)).set i (.cont 525 (kids_PendingDeposit y)) =
       (xs.set i y).map fun z => ((.cont 525 (kids_PendingDeposit z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_17 (xs : (List PendingDeposit)) (y : PendingDeposit) :
+    (xs.map fun z => ((.cont 525 (kids_PendingDeposit z)) : DV)) ++ [(.cont 525 (kids_PendingDeposit y))] =
+      (xs ++ [y]).map fun z => ((.cont 525 (kids_PendingDeposit z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_18 (xs : (List PendingPartialWithdrawal)) (i : Nat) (y : PendingPartialWithdrawal) :
     (xs.map fun z => ((.cont 681 (kids_PendingPartialWithdrawal z)) : DV)).set i (.cont 681 (kids_PendingPartialWithdrawal y)) =
       (xs.set i y).map fun z => ((.cont 681 (kids_PendingPartialWithdrawal z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_18 (xs : (List PendingPartialWithdrawal)) (y : PendingPartialWithdrawal) :
+    (xs.map fun z => ((.cont 681 (kids_PendingPartialWithdrawal z)) : DV)) ++ [(.cont 681 (kids_PendingPartialWithdrawal y))] =
+      (xs ++ [y]).map fun z => ((.cont 681 (kids_PendingPartialWithdrawal z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_19 (xs : (List PendingConsolidation)) (i : Nat) (y : PendingConsolidation) :
     (xs.map fun z => ((.cont 523 (kids_PendingConsolidation z)) : DV)).set i (.cont 523 (kids_PendingConsolidation y)) =
       (xs.set i y).map fun z => ((.cont 523 (kids_PendingConsolidation z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_19 (xs : (List PendingConsolidation)) (y : PendingConsolidation) :
+    (xs.map fun z => ((.cont 523 (kids_PendingConsolidation z)) : DV)) ++ [(.cont 523 (kids_PendingConsolidation y))] =
+      (xs ++ [y]).map fun z => ((.cont 523 (kids_PendingConsolidation z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_20 (xs : (List Builder)) (i : Nat) (y : Builder) :
     (xs.map fun z => ((.cont 14 (kids_Builder z)) : DV)).set i (.cont 14 (kids_Builder y)) =
       (xs.set i y).map fun z => ((.cont 14 (kids_Builder z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_20 (xs : (List Builder)) (y : Builder) :
+    (xs.map fun z => ((.cont 14 (kids_Builder z)) : DV)) ++ [(.cont 14 (kids_Builder y))] =
+      (xs ++ [y]).map fun z => ((.cont 14 (kids_Builder z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_21 (xs : (List BuilderPendingPayment)) (i : Nat) (y : BuilderPendingPayment) :
     (xs.map fun z => ((.cont 509 (kids_BuilderPendingPayment z)) : DV)).set i (.cont 509 (kids_BuilderPendingPayment y)) =
       (xs.set i y).map fun z => ((.cont 509 (kids_BuilderPendingPayment z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_21 (xs : (List BuilderPendingPayment)) (y : BuilderPendingPayment) :
+    (xs.map fun z => ((.cont 509 (kids_BuilderPendingPayment z)) : DV)) ++ [(.cont 509 (kids_BuilderPendingPayment y))] =
+      (xs ++ [y]).map fun z => ((.cont 509 (kids_BuilderPendingPayment z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_22 (xs : (List BuilderPendingWithdrawal)) (i : Nat) (y : BuilderPendingWithdrawal) :
     (xs.map fun z => ((.cont 67 (kids_BuilderPendingWithdrawal z)) : DV)).set i (.cont 67 (kids_BuilderPendingWithdrawal y)) =
       (xs.set i y).map fun z => ((.cont 67 (kids_BuilderPendingWithdrawal z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_22 (xs : (List BuilderPendingWithdrawal)) (y : BuilderPendingWithdrawal) :
+    (xs.map fun z => ((.cont 67 (kids_BuilderPendingWithdrawal z)) : DV)) ++ [(.cont 67 (kids_BuilderPendingWithdrawal y))] =
+      (xs ++ [y]).map fun z => ((.cont 67 (kids_BuilderPendingWithdrawal z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_23 (xs : (List Withdrawal)) (i : Nat) (y : Withdrawal) :
     (xs.map fun z => ((.cont 297 (kids_Withdrawal z)) : DV)).set i (.cont 297 (kids_Withdrawal y)) =
       (xs.set i y).map fun z => ((.cont 297 (kids_Withdrawal z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_23 (xs : (List Withdrawal)) (y : Withdrawal) :
+    (xs.map fun z => ((.cont 297 (kids_Withdrawal z)) : DV)) ++ [(.cont 297 (kids_Withdrawal y))] =
+      (xs ++ [y]).map fun z => ((.cont 297 (kids_Withdrawal z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_24 (xs : (List (List ValidatorIndex))) (i : Nat) (ys : (List ValidatorIndex)) :
     (xs.map fun z => ((.list .vector (.uint (.nominal 82 64)) (some 16) (z.map fun z1 => (.leaf (.uint (.nominal 82 64) z1.val)))) : DV)).set i (.list .vector (.uint (.nominal 82 64)) (some 16) (ys.map fun z => (.leaf (.uint (.nominal 82 64) z.val)))) =
       (xs.set i ys).map fun z => ((.list .vector (.uint (.nominal 82 64)) (some 16) (z.map fun z1 => (.leaf (.uint (.nominal 82 64) z1.val)))) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_24 (xs : (List (List ValidatorIndex))) (ys : (List ValidatorIndex)) :
+    (xs.map fun z => ((.list .vector (.uint (.nominal 82 64)) (some 16) (z.map fun z1 => (.leaf (.uint (.nominal 82 64) z1.val)))) : DV)) ++ [(.list .vector (.uint (.nominal 82 64)) (some 16) (ys.map fun z => (.leaf (.uint (.nominal 82 64) z.val))))] =
+      (xs ++ [ys]).map fun z => ((.list .vector (.uint (.nominal 82 64)) (some 16) (z.map fun z1 => (.leaf (.uint (.nominal 82 64) z1.val)))) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_25 (xs : (List ProposerSlashing)) (i : Nat) (y : ProposerSlashing) :
     (xs.map fun z => ((.cont 768 (kids_ProposerSlashing z)) : DV)).set i (.cont 768 (kids_ProposerSlashing y)) =
       (xs.set i y).map fun z => ((.cont 768 (kids_ProposerSlashing z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_25 (xs : (List ProposerSlashing)) (y : ProposerSlashing) :
+    (xs.map fun z => ((.cont 768 (kids_ProposerSlashing z)) : DV)) ++ [(.cont 768 (kids_ProposerSlashing y))] =
+      (xs ++ [y]).map fun z => ((.cont 768 (kids_ProposerSlashing z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_26 (xs : (List AttesterSlashing)) (i : Nat) (y : AttesterSlashing) :
     (xs.map fun z => ((.cont 769 (kids_AttesterSlashing z)) : DV)).set i (.cont 769 (kids_AttesterSlashing y)) =
       (xs.set i y).map fun z => ((.cont 769 (kids_AttesterSlashing z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_26 (xs : (List AttesterSlashing)) (y : AttesterSlashing) :
+    (xs.map fun z => ((.cont 769 (kids_AttesterSlashing z)) : DV)) ++ [(.cont 769 (kids_AttesterSlashing y))] =
+      (xs ++ [y]).map fun z => ((.cont 769 (kids_AttesterSlashing z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_27 (xs : (List Attestation)) (i : Nat) (y : Attestation) :
     (xs.map fun z => ((.cont 770 (kids_Attestation z)) : DV)).set i (.cont 770 (kids_Attestation y)) =
       (xs.set i y).map fun z => ((.cont 770 (kids_Attestation z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_27 (xs : (List Attestation)) (y : Attestation) :
+    (xs.map fun z => ((.cont 770 (kids_Attestation z)) : DV)) ++ [(.cont 770 (kids_Attestation y))] =
+      (xs ++ [y]).map fun z => ((.cont 770 (kids_Attestation z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_28 (xs : (List Deposit)) (i : Nat) (y : Deposit) :
     (xs.map fun z => ((.cont 773 (kids_Deposit z)) : DV)).set i (.cont 773 (kids_Deposit y)) =
       (xs.set i y).map fun z => ((.cont 773 (kids_Deposit z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_28 (xs : (List Deposit)) (y : Deposit) :
+    (xs.map fun z => ((.cont 773 (kids_Deposit z)) : DV)) ++ [(.cont 773 (kids_Deposit y))] =
+      (xs ++ [y]).map fun z => ((.cont 773 (kids_Deposit z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_29 (xs : (List SignedVoluntaryExit)) (i : Nat) (y : SignedVoluntaryExit) :
     (xs.map fun z => ((.cont 775 (kids_SignedVoluntaryExit z)) : DV)).set i (.cont 775 (kids_SignedVoluntaryExit y)) =
       (xs.set i y).map fun z => ((.cont 775 (kids_SignedVoluntaryExit z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_29 (xs : (List SignedVoluntaryExit)) (y : SignedVoluntaryExit) :
+    (xs.map fun z => ((.cont 775 (kids_SignedVoluntaryExit z)) : DV)) ++ [(.cont 775 (kids_SignedVoluntaryExit y))] =
+      (xs ++ [y]).map fun z => ((.cont 775 (kids_SignedVoluntaryExit z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_30 (xs : (List SignedBLSToExecutionChange)) (i : Nat) (y : SignedBLSToExecutionChange) :
     (xs.map fun z => ((.cont 778 (kids_SignedBLSToExecutionChange z)) : DV)).set i (.cont 778 (kids_SignedBLSToExecutionChange y)) =
       (xs.set i y).map fun z => ((.cont 778 (kids_SignedBLSToExecutionChange z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_30 (xs : (List SignedBLSToExecutionChange)) (y : SignedBLSToExecutionChange) :
+    (xs.map fun z => ((.cont 778 (kids_SignedBLSToExecutionChange z)) : DV)) ++ [(.cont 778 (kids_SignedBLSToExecutionChange y))] =
+      (xs ++ [y]).map fun z => ((.cont 778 (kids_SignedBLSToExecutionChange z)) : DV) := by
+  rw [List.map_append]; rfl
 @[l4_simp] theorem lset_31 (xs : (List PayloadAttestation)) (i : Nat) (y : PayloadAttestation) :
     (xs.map fun z => ((.cont 780 (kids_PayloadAttestation z)) : DV)).set i (.cont 780 (kids_PayloadAttestation y)) =
       (xs.set i y).map fun z => ((.cont 780 (kids_PayloadAttestation z)) : DV) := by
   rw [List.map_set]
+@[l4_simp] theorem lapp_31 (xs : (List PayloadAttestation)) (y : PayloadAttestation) :
+    (xs.map fun z => ((.cont 780 (kids_PayloadAttestation z)) : DV)) ++ [(.cont 780 (kids_PayloadAttestation y))] =
+      (xs ++ [y]).map fun z => ((.cont 780 (kids_PayloadAttestation z)) : DV) := by
+  rw [List.map_append]; rfl
+/-! The range facts of the readable values. -/
+
+/-- The fields of a `Builder` are in range, as its decoder checks. -/
+def ok_Builder (x : Builder) : Prop :=
+  x.pubkey.data.length = 48 ∧
+  x.version.val < 2 ^ 8 ∧
+  x.execution_address.data.length = 20 ∧
+  x.balance.val < 2 ^ 64 ∧
+  x.deposit_epoch.val < 2 ^ 64 ∧
+  x.withdrawable_epoch.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `BuilderPendingWithdrawal` are in range, as its decoder checks. -/
+def ok_BuilderPendingWithdrawal (x : BuilderPendingWithdrawal) : Prop :=
+  x.fee_recipient.data.length = 20 ∧
+  x.amount.val < 2 ^ 64 ∧
+  x.builder_index.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `ForkData` are in range, as its decoder checks. -/
+def ok_ForkData (x : ForkData) : Prop :=
+  x.current_version.data.length = 4 ∧
+  x.genesis_validators_root.data.length = 32 ∧
+  True
+
+/-- The fields of a `SigningData` are in range, as its decoder checks. -/
+def ok_SigningData (x : SigningData) : Prop :=
+  x.object_root.data.length = 32 ∧
+  x.domain.data.length = 32 ∧
+  True
+
+/-- The fields of a `Withdrawal` are in range, as its decoder checks. -/
+def ok_Withdrawal (x : Withdrawal) : Prop :=
+  x.index.val < 2 ^ 64 ∧
+  x.validator_index.val < 2 ^ 64 ∧
+  x.address.data.length = 20 ∧
+  x.amount.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `Checkpoint` are in range, as its decoder checks. -/
+def ok_Checkpoint (x : Checkpoint) : Prop :=
+  x.epoch.val < 2 ^ 64 ∧
+  x.root.data.length = 32 ∧
+  True
+
+/-- The fields of a `PayloadAttestationData` are in range, as its decoder checks. -/
+def ok_PayloadAttestationData (x : PayloadAttestationData) : Prop :=
+  x.beacon_block_root.data.length = 32 ∧
+  x.slot.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `SyncCommittee` are in range, as its decoder checks. -/
+def ok_SyncCommittee (x : SyncCommittee) : Prop :=
+  (∀ y0 ∈ x.pubkeys, y0.data.length = 48) ∧
+  x.aggregate_pubkey.data.length = 48 ∧
+  True
+
+/-- The fields of a `Validator` are in range, as its decoder checks. -/
+def ok_Validator (x : Validator) : Prop :=
+  x.pubkey.data.length = 48 ∧
+  x.withdrawal_credentials.data.length = 32 ∧
+  x.effective_balance.val < 2 ^ 64 ∧
+  x.activation_eligibility_epoch.val < 2 ^ 64 ∧
+  x.activation_epoch.val < 2 ^ 64 ∧
+  x.exit_epoch.val < 2 ^ 64 ∧
+  x.withdrawable_epoch.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `DepositMessage` are in range, as its decoder checks. -/
+def ok_DepositMessage (x : DepositMessage) : Prop :=
+  x.pubkey.data.length = 48 ∧
+  x.withdrawal_credentials.data.length = 32 ∧
+  x.amount.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `PendingDeposit` are in range, as its decoder checks. -/
+def ok_PendingDeposit (x : PendingDeposit) : Prop :=
+  x.pubkey.data.length = 48 ∧
+  x.withdrawal_credentials.data.length = 32 ∧
+  x.amount.val < 2 ^ 64 ∧
+  x.signature.data.length = 96 ∧
+  x.slot.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `BeaconBlockHeader` are in range, as its decoder checks. -/
+def ok_BeaconBlockHeader (x : BeaconBlockHeader) : Prop :=
+  x.slot.val < 2 ^ 64 ∧
+  x.proposer_index.val < 2 ^ 64 ∧
+  x.parent_root.data.length = 32 ∧
+  x.state_root.data.length = 32 ∧
+  x.body_root.data.length = 32 ∧
+  True
+
+/-- The fields of a `BuilderPendingPayment` are in range, as its decoder checks. -/
+def ok_BuilderPendingPayment (x : BuilderPendingPayment) : Prop :=
+  x.weight.val < 2 ^ 64 ∧
+  ok_BuilderPendingWithdrawal x.withdrawal ∧
+  x.proposer_index.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `PendingConsolidation` are in range, as its decoder checks. -/
+def ok_PendingConsolidation (x : PendingConsolidation) : Prop :=
+  x.source_index.val < 2 ^ 64 ∧
+  x.target_index.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `Eth1Data` are in range, as its decoder checks. -/
+def ok_Eth1Data (x : Eth1Data) : Prop :=
+  x.deposit_root.data.length = 32 ∧
+  x.deposit_count.val < 2 ^ 64 ∧
+  x.block_hash.data.length = 32 ∧
+  True
+
+/-- The fields of a `HistoricalSummary` are in range, as its decoder checks. -/
+def ok_HistoricalSummary (x : HistoricalSummary) : Prop :=
+  x.block_summary_root.data.length = 32 ∧
+  x.state_summary_root.data.length = 32 ∧
+  True
+
+/-- The fields of a `DepositRequest` are in range, as its decoder checks. -/
+def ok_DepositRequest (x : DepositRequest) : Prop :=
+  x.pubkey.data.length = 48 ∧
+  x.withdrawal_credentials.data.length = 32 ∧
+  x.amount.val < 2 ^ 64 ∧
+  x.signature.data.length = 96 ∧
+  x.index.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `WithdrawalRequest` are in range, as its decoder checks. -/
+def ok_WithdrawalRequest (x : WithdrawalRequest) : Prop :=
+  x.source_address.data.length = 20 ∧
+  x.validator_pubkey.data.length = 48 ∧
+  x.amount.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `ConsolidationRequest` are in range, as its decoder checks. -/
+def ok_ConsolidationRequest (x : ConsolidationRequest) : Prop :=
+  x.source_address.data.length = 20 ∧
+  x.source_pubkey.data.length = 48 ∧
+  x.target_pubkey.data.length = 48 ∧
+  True
+
+/-- The fields of a `BuilderDepositRequest` are in range, as its decoder checks. -/
+def ok_BuilderDepositRequest (x : BuilderDepositRequest) : Prop :=
+  x.pubkey.data.length = 48 ∧
+  x.withdrawal_credentials.data.length = 32 ∧
+  x.amount.val < 2 ^ 64 ∧
+  x.signature.data.length = 96 ∧
+  True
+
+/-- The fields of a `BuilderExitRequest` are in range, as its decoder checks. -/
+def ok_BuilderExitRequest (x : BuilderExitRequest) : Prop :=
+  x.source_address.data.length = 20 ∧
+  x.pubkey.data.length = 48 ∧
+  True
+
+/-- The fields of a `PendingPartialWithdrawal` are in range, as its decoder checks. -/
+def ok_PendingPartialWithdrawal (x : PendingPartialWithdrawal) : Prop :=
+  x.validator_index.val < 2 ^ 64 ∧
+  x.amount.val < 2 ^ 64 ∧
+  x.withdrawable_epoch.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `Fork` are in range, as its decoder checks. -/
+def ok_Fork (x : Fork) : Prop :=
+  x.previous_version.data.length = 4 ∧
+  x.current_version.data.length = 4 ∧
+  x.epoch.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `ExecutionPayloadBid` are in range, as its decoder checks. -/
+def ok_ExecutionPayloadBid (x : ExecutionPayloadBid) : Prop :=
+  x.parent_block_hash.data.length = 32 ∧
+  x.parent_block_root.data.length = 32 ∧
+  x.block_hash.data.length = 32 ∧
+  x.prev_randao.data.length = 32 ∧
+  x.fee_recipient.data.length = 20 ∧
+  x.gas_limit.val < 2 ^ 64 ∧
+  x.builder_index.val < 2 ^ 64 ∧
+  x.slot.val < 2 ^ 64 ∧
+  x.value.val < 2 ^ 64 ∧
+  x.execution_payment.val < 2 ^ 64 ∧
+  (∀ y0 ∈ x.blob_kzg_commitments, y0.data.length = 48) ∧
+  x.execution_requests_root.data.length = 32 ∧
+  True
+
+/-- The fields of a `SignedBeaconBlockHeader` are in range, as its decoder checks. -/
+def ok_SignedBeaconBlockHeader (x : SignedBeaconBlockHeader) : Prop :=
+  ok_BeaconBlockHeader x.message ∧
+  x.signature.data.length = 96 ∧
+  True
+
+/-- The fields of a `DepositData` are in range, as its decoder checks. -/
+def ok_DepositData (x : DepositData) : Prop :=
+  x.pubkey.data.length = 48 ∧
+  x.withdrawal_credentials.data.length = 32 ∧
+  x.amount.val < 2 ^ 64 ∧
+  x.signature.data.length = 96 ∧
+  True
+
+/-- The fields of a `VoluntaryExit` are in range, as its decoder checks. -/
+def ok_VoluntaryExit (x : VoluntaryExit) : Prop :=
+  x.epoch.val < 2 ^ 64 ∧
+  x.validator_index.val < 2 ^ 64 ∧
+  True
+
+/-- The fields of a `SyncAggregate` are in range, as its decoder checks. -/
+def ok_SyncAggregate (x : SyncAggregate) : Prop :=
+  x.sync_committee_signature.data.length = 96 ∧
+  True
+
+/-- The fields of a `BLSToExecutionChange` are in range, as its decoder checks. -/
+def ok_BLSToExecutionChange (x : BLSToExecutionChange) : Prop :=
+  x.validator_index.val < 2 ^ 64 ∧
+  x.from_bls_pubkey.data.length = 48 ∧
+  x.to_execution_address.data.length = 20 ∧
+  True
+
+/-- The fields of a `SignedExecutionPayloadBid` are in range, as its decoder checks. -/
+def ok_SignedExecutionPayloadBid (x : SignedExecutionPayloadBid) : Prop :=
+  ok_ExecutionPayloadBid x.message ∧
+  x.signature.data.length = 96 ∧
+  True
+
+/-- The fields of a `PayloadAttestation` are in range, as its decoder checks. -/
+def ok_PayloadAttestation (x : PayloadAttestation) : Prop :=
+  ok_PayloadAttestationData x.data ∧
+  x.signature.data.length = 96 ∧
+  True
+
+/-- The fields of a `AttestationData` are in range, as its decoder checks. -/
+def ok_AttestationData (x : AttestationData) : Prop :=
+  x.slot.val < 2 ^ 64 ∧
+  x.index.val < 2 ^ 64 ∧
+  x.beacon_block_root.data.length = 32 ∧
+  ok_Checkpoint x.source ∧
+  ok_Checkpoint x.target ∧
+  True
+
+/-- The fields of a `IndexedPayloadAttestation` are in range, as its decoder checks. -/
+def ok_IndexedPayloadAttestation (x : IndexedPayloadAttestation) : Prop :=
+  (∀ y0 ∈ x.attesting_indices, y0.val < 2 ^ 64) ∧
+  ok_PayloadAttestationData x.data ∧
+  x.signature.data.length = 96 ∧
+  True
+
+/-- The fields of a `ExecutionRequests` are in range, as its decoder checks. -/
+def ok_ExecutionRequests (x : ExecutionRequests) : Prop :=
+  (∀ y0 ∈ x.deposits, ok_DepositRequest y0) ∧
+  (∀ y0 ∈ x.withdrawals, ok_WithdrawalRequest y0) ∧
+  (∀ y0 ∈ x.consolidations, ok_ConsolidationRequest y0) ∧
+  (∀ y0 ∈ x.builder_deposits, ok_BuilderDepositRequest y0) ∧
+  (∀ y0 ∈ x.builder_exits, ok_BuilderExitRequest y0) ∧
+  True
+
+/-- The fields of a `BeaconState` are in range, as its decoder checks. -/
+def ok_BeaconState (x : BeaconState) : Prop :=
+  x.genesis_time.val < 2 ^ 64 ∧
+  x.genesis_validators_root.data.length = 32 ∧
+  x.slot.val < 2 ^ 64 ∧
+  ok_Fork x.fork ∧
+  ok_BeaconBlockHeader x.latest_block_header ∧
+  (∀ y0 ∈ x.block_roots, y0.data.length = 32) ∧
+  (∀ y0 ∈ x.state_roots, y0.data.length = 32) ∧
+  (∀ y0 ∈ x.historical_roots, y0.data.length = 32) ∧
+  ok_Eth1Data x.eth1_data ∧
+  (∀ y0 ∈ x.eth1_data_votes, ok_Eth1Data y0) ∧
+  x.eth1_deposit_index.val < 2 ^ 64 ∧
+  (∀ y0 ∈ x.validators, ok_Validator y0) ∧
+  (∀ y0 ∈ x.balances, y0.val < 2 ^ 64) ∧
+  (∀ y0 ∈ x.randao_mixes, y0.data.length = 32) ∧
+  (∀ y0 ∈ x.slashings, y0.val < 2 ^ 64) ∧
+  (∀ y0 ∈ x.previous_epoch_participation, y0.val < 2 ^ 8) ∧
+  (∀ y0 ∈ x.current_epoch_participation, y0.val < 2 ^ 8) ∧
+  ok_Checkpoint x.previous_justified_checkpoint ∧
+  ok_Checkpoint x.current_justified_checkpoint ∧
+  ok_Checkpoint x.finalized_checkpoint ∧
+  (∀ y0 ∈ x.inactivity_scores, y0.val < 2 ^ 64) ∧
+  ok_SyncCommittee x.current_sync_committee ∧
+  ok_SyncCommittee x.next_sync_committee ∧
+  x.latest_block_hash.data.length = 32 ∧
+  x.next_withdrawal_index.val < 2 ^ 64 ∧
+  x.next_withdrawal_validator_index.val < 2 ^ 64 ∧
+  (∀ y0 ∈ x.historical_summaries, ok_HistoricalSummary y0) ∧
+  x.deposit_requests_start_index.val < 2 ^ 64 ∧
+  x.deposit_balance_to_consume.val < 2 ^ 64 ∧
+  x.exit_balance_to_consume.val < 2 ^ 64 ∧
+  x.earliest_exit_epoch.val < 2 ^ 64 ∧
+  x.consolidation_balance_to_consume.val < 2 ^ 64 ∧
+  x.earliest_consolidation_epoch.val < 2 ^ 64 ∧
+  (∀ y0 ∈ x.pending_deposits, ok_PendingDeposit y0) ∧
+  (∀ y0 ∈ x.pending_partial_withdrawals, ok_PendingPartialWithdrawal y0) ∧
+  (∀ y0 ∈ x.pending_consolidations, ok_PendingConsolidation y0) ∧
+  (∀ y0 ∈ x.proposer_lookahead, y0.val < 2 ^ 64) ∧
+  (∀ y0 ∈ x.builders, ok_Builder y0) ∧
+  x.next_withdrawal_builder_index.val < 2 ^ 64 ∧
+  (∀ y0 ∈ x.builder_pending_payments, ok_BuilderPendingPayment y0) ∧
+  (∀ y0 ∈ x.builder_pending_withdrawals, ok_BuilderPendingWithdrawal y0) ∧
+  ok_ExecutionPayloadBid x.latest_execution_payload_bid ∧
+  (∀ y0 ∈ x.payload_expected_withdrawals, ok_Withdrawal y0) ∧
+  (∀ y0 ∈ x.ptc_window, (∀ y1 ∈ y0, y1.val < 2 ^ 64)) ∧
+  True
+
+/-- The fields of a `ProposerSlashing` are in range, as its decoder checks. -/
+def ok_ProposerSlashing (x : ProposerSlashing) : Prop :=
+  ok_SignedBeaconBlockHeader x.signed_header_1 ∧
+  ok_SignedBeaconBlockHeader x.signed_header_2 ∧
+  True
+
+/-- The fields of a `Attestation` are in range, as its decoder checks. -/
+def ok_Attestation (x : Attestation) : Prop :=
+  ok_AttestationData x.data ∧
+  x.signature.data.length = 96 ∧
+  True
+
+/-- The fields of a `Deposit` are in range, as its decoder checks. -/
+def ok_Deposit (x : Deposit) : Prop :=
+  (∀ y0 ∈ x.proof, y0.data.length = 32) ∧
+  ok_DepositData x.data ∧
+  True
+
+/-- The fields of a `SignedVoluntaryExit` are in range, as its decoder checks. -/
+def ok_SignedVoluntaryExit (x : SignedVoluntaryExit) : Prop :=
+  ok_VoluntaryExit x.message ∧
+  x.signature.data.length = 96 ∧
+  True
+
+/-- The fields of a `SignedBLSToExecutionChange` are in range, as its decoder checks. -/
+def ok_SignedBLSToExecutionChange (x : SignedBLSToExecutionChange) : Prop :=
+  ok_BLSToExecutionChange x.message ∧
+  x.signature.data.length = 96 ∧
+  True
+
+/-- The fields of a `IndexedAttestation` are in range, as its decoder checks. -/
+def ok_IndexedAttestation (x : IndexedAttestation) : Prop :=
+  (∀ y0 ∈ x.attesting_indices, y0.val < 2 ^ 64) ∧
+  ok_AttestationData x.data ∧
+  x.signature.data.length = 96 ∧
+  True
+
+/-- The fields of a `AttesterSlashing` are in range, as its decoder checks. -/
+def ok_AttesterSlashing (x : AttesterSlashing) : Prop :=
+  ok_IndexedAttestation x.attestation_1 ∧
+  ok_IndexedAttestation x.attestation_2 ∧
+  True
+
+/-- The fields of a `BeaconBlockBody` are in range, as its decoder checks. -/
+def ok_BeaconBlockBody (x : BeaconBlockBody) : Prop :=
+  x.randao_reveal.data.length = 96 ∧
+  ok_Eth1Data x.eth1_data ∧
+  x.graffiti.data.length = 32 ∧
+  (∀ y0 ∈ x.proposer_slashings, ok_ProposerSlashing y0) ∧
+  (∀ y0 ∈ x.attester_slashings, ok_AttesterSlashing y0) ∧
+  (∀ y0 ∈ x.attestations, ok_Attestation y0) ∧
+  (∀ y0 ∈ x.deposits, ok_Deposit y0) ∧
+  (∀ y0 ∈ x.voluntary_exits, ok_SignedVoluntaryExit y0) ∧
+  ok_SyncAggregate x.sync_aggregate ∧
+  (∀ y0 ∈ x.bls_to_execution_changes, ok_SignedBLSToExecutionChange y0) ∧
+  ok_SignedExecutionPayloadBid x.signed_execution_payload_bid ∧
+  (∀ y0 ∈ x.payload_attestations, ok_PayloadAttestation y0) ∧
+  ok_ExecutionRequests x.parent_execution_requests ∧
+  True
+
+/-- The fields of a `BeaconBlock` are in range, as its decoder checks. -/
+def ok_BeaconBlock (x : BeaconBlock) : Prop :=
+  x.slot.val < 2 ^ 64 ∧
+  x.proposer_index.val < 2 ^ 64 ∧
+  x.parent_root.data.length = 32 ∧
+  x.state_root.data.length = 32 ∧
+  ok_BeaconBlockBody x.body ∧
+  True
+
+/-- The fields of a `SignedBeaconBlock` are in range, as its decoder checks. -/
+def ok_SignedBeaconBlock (x : SignedBeaconBlock) : Prop :=
+  ok_BeaconBlock x.message ∧
+  x.signature.data.length = 96 ∧
+  True
+
 /-! The decoded tree of a readable value, from its decoder. -/
 
 set_option maxHeartbeats 1000000 in
@@ -2067,6 +2693,14 @@ theorem bridge_Builder {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Bui
     rw [List.getElem?_eq_none (by simp only [kids_Builder_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_Builder {h : Heap} {v : Value} {x : Builder} (hd : dec_Builder h v = some x) : ok_Builder x := by
+  simp only [dec_Builder, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, y5, ⟨w5, hw5, hy5⟩, rfl⟩ := hd
+  unfold ok_Builder
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), (by have := GenBridge.uintT_ok hy1; simpa only [uv_Uint8, ub_Uint8] using this), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_ExecutionAddress, bl_ExecutionAddress] using this), (by have := GenBridge.uintT_ok hy3; simpa only [uv_Gwei, ub_Gwei] using this), (by have := GenBridge.uintT_ok hy4; simpa only [uv_Epoch, ub_Epoch] using this), (by have := GenBridge.uintT_ok hy5; simpa only [uv_Epoch, ub_Epoch] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_BuilderPendingWithdrawal {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BuilderPendingWithdrawal}
     (hd : dec_BuilderPendingWithdrawal h v = some x) : GenBridge.DecTo h v (.cont 67 (kids_BuilderPendingWithdrawal x)) := by
   simp only [dec_BuilderPendingWithdrawal, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2094,6 +2728,14 @@ theorem bridge_BuilderPendingWithdrawal {h : Heap} (hc : GenBridge.ContWF h) {v 
     rw [List.getElem?_eq_none (by simp only [kids_BuilderPendingWithdrawal_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_BuilderPendingWithdrawal {h : Heap} {v : Value} {x : BuilderPendingWithdrawal} (hd : dec_BuilderPendingWithdrawal h v = some x) : ok_BuilderPendingWithdrawal x := by
+  simp only [dec_BuilderPendingWithdrawal, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  unfold ok_BuilderPendingWithdrawal
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_ExecutionAddress, bl_ExecutionAddress] using this), (by have := GenBridge.uintT_ok hy1; simpa only [uv_Gwei, ub_Gwei] using this), (by have := GenBridge.uintT_ok hy2; simpa only [uv_BuilderIndex, ub_BuilderIndex] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_ForkData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : ForkData}
     (hd : dec_ForkData h v = some x) : GenBridge.DecTo h v (.cont 158 (kids_ForkData x)) := by
   simp only [dec_ForkData, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2117,6 +2759,14 @@ theorem bridge_ForkData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Fo
     rw [List.getElem?_eq_none (by simp only [kids_ForkData_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_ForkData {h : Heap} {v : Value} {x : ForkData} (hd : dec_ForkData h v = some x) : ok_ForkData x := by
+  simp only [dec_ForkData, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_ForkData
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_Version, bl_Version] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Root, bl_Root] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_SigningData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SigningData}
     (hd : dec_SigningData h v = some x) : GenBridge.DecTo h v (.cont 194 (kids_SigningData x)) := by
   simp only [dec_SigningData, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2138,6 +2788,14 @@ theorem bridge_SigningData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x :
     exact (GenBridge.bytesT_dec hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_SigningData_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_SigningData {h : Heap} {v : Value} {x : SigningData} (hd : dec_SigningData h v = some x) : ok_SigningData x := by
+  simp only [dec_SigningData, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_SigningData
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_Root, bl_Root] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Domain, bl_Domain] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_Withdrawal {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Withdrawal}
@@ -2171,6 +2829,14 @@ theorem bridge_Withdrawal {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : 
     rw [List.getElem?_eq_none (by simp only [kids_Withdrawal_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_Withdrawal {h : Heap} {v : Value} {x : Withdrawal} (hd : dec_Withdrawal h v = some x) : ok_Withdrawal x := by
+  simp only [dec_Withdrawal, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, rfl⟩ := hd
+  unfold ok_Withdrawal
+  exact ⟨(by have := GenBridge.uintT_ok hy0; simpa only [uv_WithdrawalIndex, ub_WithdrawalIndex] using this), (by have := GenBridge.uintT_ok hy1; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_ExecutionAddress, bl_ExecutionAddress] using this), (by have := GenBridge.uintT_ok hy3; simpa only [uv_Gwei, ub_Gwei] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_Checkpoint {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Checkpoint}
     (hd : dec_Checkpoint h v = some x) : GenBridge.DecTo h v (.cont 741 (kids_Checkpoint x)) := by
   simp only [dec_Checkpoint, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2192,6 +2858,14 @@ theorem bridge_Checkpoint {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : 
     exact (GenBridge.bytesT_dec hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_Checkpoint_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_Checkpoint {h : Heap} {v : Value} {x : Checkpoint} (hd : dec_Checkpoint h v = some x) : ok_Checkpoint x := by
+  simp only [dec_Checkpoint, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_Checkpoint
+  exact ⟨(by have := GenBridge.uintT_ok hy0; simpa only [uv_Epoch, ub_Epoch] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Root, bl_Root] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_PayloadAttestationData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : PayloadAttestationData}
@@ -2225,6 +2899,14 @@ theorem bridge_PayloadAttestationData {h : Heap} (hc : GenBridge.ContWF h) {v : 
     rw [List.getElem?_eq_none (by simp only [kids_PayloadAttestationData_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_PayloadAttestationData {h : Heap} {v : Value} {x : PayloadAttestationData} (hd : dec_PayloadAttestationData h v = some x) : ok_PayloadAttestationData x := by
+  simp only [dec_PayloadAttestationData, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, rfl⟩ := hd
+  unfold ok_PayloadAttestationData
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_Root, bl_Root] using this), (by have := GenBridge.uintT_ok hy1; simpa only [uv_Slot, ub_Slot] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_SyncCommittee {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SyncCommittee}
     (hd : dec_SyncCommittee h v = some x) : GenBridge.DecTo h v (.cont 366 (kids_SyncCommittee x)) := by
   simp only [dec_SyncCommittee, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2246,6 +2928,14 @@ theorem bridge_SyncCommittee {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x
     exact (GenBridge.bytesT_dec hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_SyncCommittee_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_SyncCommittee {h : Heap} {v : Value} {x : SyncCommittee} (hd : dec_SyncCommittee h v = some x) : ok_SyncCommittee x := by
+  simp only [dec_SyncCommittee, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_SyncCommittee
+  exact ⟨(GenBridge.listT_ok hy0 (fun _ _ he0 => (by have := GenBridge.bytesT_ok he0; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this))), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_Validator {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Validator}
@@ -2295,6 +2985,14 @@ theorem bridge_Validator {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : V
     rw [List.getElem?_eq_none (by simp only [kids_Validator_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_Validator {h : Heap} {v : Value} {x : Validator} (hd : dec_Validator h v = some x) : ok_Validator x := by
+  simp only [dec_Validator, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, y5, ⟨w5, hw5, hy5⟩, y6, ⟨w6, hw6, hy6⟩, y7, ⟨w7, hw7, hy7⟩, rfl⟩ := hd
+  unfold ok_Validator
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Bytes32, bl_Bytes32] using this), (by have := GenBridge.uintT_ok hy2; simpa only [uv_Gwei, ub_Gwei] using this), (by have := GenBridge.uintT_ok hy4; simpa only [uv_Epoch, ub_Epoch] using this), (by have := GenBridge.uintT_ok hy5; simpa only [uv_Epoch, ub_Epoch] using this), (by have := GenBridge.uintT_ok hy6; simpa only [uv_Epoch, ub_Epoch] using this), (by have := GenBridge.uintT_ok hy7; simpa only [uv_Epoch, ub_Epoch] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_DepositMessage {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : DepositMessage}
     (hd : dec_DepositMessage h v = some x) : GenBridge.DecTo h v (.cont 444 (kids_DepositMessage x)) := by
   simp only [dec_DepositMessage, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2320,6 +3018,14 @@ theorem bridge_DepositMessage {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {
     exact (GenBridge.uintT_dec hy2)
   | _ + 3, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_DepositMessage_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_DepositMessage {h : Heap} {v : Value} {x : DepositMessage} (hd : dec_DepositMessage h v = some x) : ok_DepositMessage x := by
+  simp only [dec_DepositMessage, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  unfold ok_DepositMessage
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Bytes32, bl_Bytes32] using this), (by have := GenBridge.uintT_ok hy2; simpa only [uv_Gwei, ub_Gwei] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_PendingDeposit {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : PendingDeposit}
@@ -2357,6 +3063,14 @@ theorem bridge_PendingDeposit {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {
     rw [List.getElem?_eq_none (by simp only [kids_PendingDeposit_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_PendingDeposit {h : Heap} {v : Value} {x : PendingDeposit} (hd : dec_PendingDeposit h v = some x) : ok_PendingDeposit x := by
+  simp only [dec_PendingDeposit, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, rfl⟩ := hd
+  unfold ok_PendingDeposit
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Bytes32, bl_Bytes32] using this), (by have := GenBridge.uintT_ok hy2; simpa only [uv_Gwei, ub_Gwei] using this), (by have := GenBridge.bytesT_ok hy3; simpa only [bd_BLSSignature, bl_BLSSignature] using this), (by have := GenBridge.uintT_ok hy4; simpa only [uv_Slot, ub_Slot] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_BeaconBlockHeader {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BeaconBlockHeader}
     (hd : dec_BeaconBlockHeader h v = some x) : GenBridge.DecTo h v (.cont 497 (kids_BeaconBlockHeader x)) := by
   simp only [dec_BeaconBlockHeader, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2392,6 +3106,14 @@ theorem bridge_BeaconBlockHeader {h : Heap} (hc : GenBridge.ContWF h) {v : Value
     rw [List.getElem?_eq_none (by simp only [kids_BeaconBlockHeader_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_BeaconBlockHeader {h : Heap} {v : Value} {x : BeaconBlockHeader} (hd : dec_BeaconBlockHeader h v = some x) : ok_BeaconBlockHeader x := by
+  simp only [dec_BeaconBlockHeader, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, rfl⟩ := hd
+  unfold ok_BeaconBlockHeader
+  exact ⟨(by have := GenBridge.uintT_ok hy0; simpa only [uv_Slot, ub_Slot] using this), (by have := GenBridge.uintT_ok hy1; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_Root, bl_Root] using this), (by have := GenBridge.bytesT_ok hy3; simpa only [bd_Root, bl_Root] using this), (by have := GenBridge.bytesT_ok hy4; simpa only [bd_Root, bl_Root] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_BuilderPendingPayment {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BuilderPendingPayment}
     (hd : dec_BuilderPendingPayment h v = some x) : GenBridge.DecTo h v (.cont 509 (kids_BuilderPendingPayment x)) := by
   simp only [dec_BuilderPendingPayment, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2419,6 +3141,14 @@ theorem bridge_BuilderPendingPayment {h : Heap} (hc : GenBridge.ContWF h) {v : V
     rw [List.getElem?_eq_none (by simp only [kids_BuilderPendingPayment_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_BuilderPendingPayment {h : Heap} {v : Value} {x : BuilderPendingPayment} (hd : dec_BuilderPendingPayment h v = some x) : ok_BuilderPendingPayment x := by
+  simp only [dec_BuilderPendingPayment, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  unfold ok_BuilderPendingPayment
+  exact ⟨(by have := GenBridge.uintT_ok hy0; simpa only [uv_Gwei, ub_Gwei] using this), (okb_BuilderPendingWithdrawal hy1), (by have := GenBridge.uintT_ok hy2; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_PendingConsolidation {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : PendingConsolidation}
     (hd : dec_PendingConsolidation h v = some x) : GenBridge.DecTo h v (.cont 523 (kids_PendingConsolidation x)) := by
   simp only [dec_PendingConsolidation, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2440,6 +3170,14 @@ theorem bridge_PendingConsolidation {h : Heap} (hc : GenBridge.ContWF h) {v : Va
     exact (GenBridge.uintT_dec hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_PendingConsolidation_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_PendingConsolidation {h : Heap} {v : Value} {x : PendingConsolidation} (hd : dec_PendingConsolidation h v = some x) : ok_PendingConsolidation x := by
+  simp only [dec_PendingConsolidation, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_PendingConsolidation
+  exact ⟨(by have := GenBridge.uintT_ok hy0; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this), (by have := GenBridge.uintT_ok hy1; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_Eth1Data {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Eth1Data}
@@ -2469,6 +3207,14 @@ theorem bridge_Eth1Data {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Et
     rw [List.getElem?_eq_none (by simp only [kids_Eth1Data_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_Eth1Data {h : Heap} {v : Value} {x : Eth1Data} (hd : dec_Eth1Data h v = some x) : ok_Eth1Data x := by
+  simp only [dec_Eth1Data, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  unfold ok_Eth1Data
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_Root, bl_Root] using this), (by have := GenBridge.uintT_ok hy1; simpa only [uv_Uint64, ub_Uint64] using this), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_Hash32, bl_Hash32] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_HistoricalSummary {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : HistoricalSummary}
     (hd : dec_HistoricalSummary h v = some x) : GenBridge.DecTo h v (.cont 570 (kids_HistoricalSummary x)) := by
   simp only [dec_HistoricalSummary, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2490,6 +3236,14 @@ theorem bridge_HistoricalSummary {h : Heap} (hc : GenBridge.ContWF h) {v : Value
     exact (GenBridge.bytesT_dec hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_HistoricalSummary_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_HistoricalSummary {h : Heap} {v : Value} {x : HistoricalSummary} (hd : dec_HistoricalSummary h v = some x) : ok_HistoricalSummary x := by
+  simp only [dec_HistoricalSummary, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_HistoricalSummary
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_Root, bl_Root] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Root, bl_Root] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_DepositRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : DepositRequest}
@@ -2527,6 +3281,14 @@ theorem bridge_DepositRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {
     rw [List.getElem?_eq_none (by simp only [kids_DepositRequest_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_DepositRequest {h : Heap} {v : Value} {x : DepositRequest} (hd : dec_DepositRequest h v = some x) : ok_DepositRequest x := by
+  simp only [dec_DepositRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, rfl⟩ := hd
+  unfold ok_DepositRequest
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Bytes32, bl_Bytes32] using this), (by have := GenBridge.uintT_ok hy2; simpa only [uv_Gwei, ub_Gwei] using this), (by have := GenBridge.bytesT_ok hy3; simpa only [bd_BLSSignature, bl_BLSSignature] using this), (by have := GenBridge.uintT_ok hy4; simpa only [uv_Uint64, ub_Uint64] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_WithdrawalRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : WithdrawalRequest}
     (hd : dec_WithdrawalRequest h v = some x) : GenBridge.DecTo h v (.cont 761 (kids_WithdrawalRequest x)) := by
   simp only [dec_WithdrawalRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2554,6 +3316,14 @@ theorem bridge_WithdrawalRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Value
     rw [List.getElem?_eq_none (by simp only [kids_WithdrawalRequest_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_WithdrawalRequest {h : Heap} {v : Value} {x : WithdrawalRequest} (hd : dec_WithdrawalRequest h v = some x) : ok_WithdrawalRequest x := by
+  simp only [dec_WithdrawalRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  unfold ok_WithdrawalRequest
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_ExecutionAddress, bl_ExecutionAddress] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), (by have := GenBridge.uintT_ok hy2; simpa only [uv_Gwei, ub_Gwei] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_ConsolidationRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : ConsolidationRequest}
     (hd : dec_ConsolidationRequest h v = some x) : GenBridge.DecTo h v (.cont 762 (kids_ConsolidationRequest x)) := by
   simp only [dec_ConsolidationRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2579,6 +3349,14 @@ theorem bridge_ConsolidationRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Va
     exact (GenBridge.bytesT_dec hy2)
   | _ + 3, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_ConsolidationRequest_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_ConsolidationRequest {h : Heap} {v : Value} {x : ConsolidationRequest} (hd : dec_ConsolidationRequest h v = some x) : ok_ConsolidationRequest x := by
+  simp only [dec_ConsolidationRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  unfold ok_ConsolidationRequest
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_ExecutionAddress, bl_ExecutionAddress] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_BuilderDepositRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BuilderDepositRequest}
@@ -2612,6 +3390,14 @@ theorem bridge_BuilderDepositRequest {h : Heap} (hc : GenBridge.ContWF h) {v : V
     rw [List.getElem?_eq_none (by simp only [kids_BuilderDepositRequest_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_BuilderDepositRequest {h : Heap} {v : Value} {x : BuilderDepositRequest} (hd : dec_BuilderDepositRequest h v = some x) : ok_BuilderDepositRequest x := by
+  simp only [dec_BuilderDepositRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, rfl⟩ := hd
+  unfold ok_BuilderDepositRequest
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Bytes32, bl_Bytes32] using this), (by have := GenBridge.uintT_ok hy2; simpa only [uv_Gwei, ub_Gwei] using this), (by have := GenBridge.bytesT_ok hy3; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_BuilderExitRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BuilderExitRequest}
     (hd : dec_BuilderExitRequest h v = some x) : GenBridge.DecTo h v (.cont 764 (kids_BuilderExitRequest x)) := by
   simp only [dec_BuilderExitRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2633,6 +3419,14 @@ theorem bridge_BuilderExitRequest {h : Heap} (hc : GenBridge.ContWF h) {v : Valu
     exact (GenBridge.bytesT_dec hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_BuilderExitRequest_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_BuilderExitRequest {h : Heap} {v : Value} {x : BuilderExitRequest} (hd : dec_BuilderExitRequest h v = some x) : ok_BuilderExitRequest x := by
+  simp only [dec_BuilderExitRequest, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_BuilderExitRequest
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_ExecutionAddress, bl_ExecutionAddress] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_PendingPartialWithdrawal {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : PendingPartialWithdrawal}
@@ -2662,6 +3456,14 @@ theorem bridge_PendingPartialWithdrawal {h : Heap} (hc : GenBridge.ContWF h) {v 
     rw [List.getElem?_eq_none (by simp only [kids_PendingPartialWithdrawal_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_PendingPartialWithdrawal {h : Heap} {v : Value} {x : PendingPartialWithdrawal} (hd : dec_PendingPartialWithdrawal h v = some x) : ok_PendingPartialWithdrawal x := by
+  simp only [dec_PendingPartialWithdrawal, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  unfold ok_PendingPartialWithdrawal
+  exact ⟨(by have := GenBridge.uintT_ok hy0; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this), (by have := GenBridge.uintT_ok hy1; simpa only [uv_Gwei, ub_Gwei] using this), (by have := GenBridge.uintT_ok hy2; simpa only [uv_Epoch, ub_Epoch] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_Fork {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Fork}
     (hd : dec_Fork h v = some x) : GenBridge.DecTo h v (.cont 713 (kids_Fork x)) := by
   simp only [dec_Fork, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2687,6 +3489,14 @@ theorem bridge_Fork {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Fork}
     exact (GenBridge.uintT_dec hy2)
   | _ + 3, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_Fork_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_Fork {h : Heap} {v : Value} {x : Fork} (hd : dec_Fork h v = some x) : ok_Fork x := by
+  simp only [dec_Fork, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  unfold ok_Fork
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_Version, bl_Version] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Version, bl_Version] using this), (by have := GenBridge.uintT_ok hy2; simpa only [uv_Epoch, ub_Epoch] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_ExecutionPayloadBid {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : ExecutionPayloadBid}
@@ -2752,6 +3562,14 @@ theorem bridge_ExecutionPayloadBid {h : Heap} (hc : GenBridge.ContWF h) {v : Val
     rw [List.getElem?_eq_none (by simp only [kids_ExecutionPayloadBid_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_ExecutionPayloadBid {h : Heap} {v : Value} {x : ExecutionPayloadBid} (hd : dec_ExecutionPayloadBid h v = some x) : ok_ExecutionPayloadBid x := by
+  simp only [dec_ExecutionPayloadBid, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, y5, ⟨w5, hw5, hy5⟩, y6, ⟨w6, hw6, hy6⟩, y7, ⟨w7, hw7, hy7⟩, y8, ⟨w8, hw8, hy8⟩, y9, ⟨w9, hw9, hy9⟩, y10, ⟨w10, hw10, hy10⟩, y11, ⟨w11, hw11, hy11⟩, rfl⟩ := hd
+  unfold ok_ExecutionPayloadBid
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_Hash32, bl_Hash32] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Root, bl_Root] using this), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_Hash32, bl_Hash32] using this), (by have := GenBridge.bytesT_ok hy3; simpa only [bd_Bytes32, bl_Bytes32] using this), (by have := GenBridge.bytesT_ok hy4; simpa only [bd_ExecutionAddress, bl_ExecutionAddress] using this), (by have := GenBridge.uintT_ok hy5; simpa only [uv_Uint64, ub_Uint64] using this), (by have := GenBridge.uintT_ok hy6; simpa only [uv_BuilderIndex, ub_BuilderIndex] using this), (by have := GenBridge.uintT_ok hy7; simpa only [uv_Slot, ub_Slot] using this), (by have := GenBridge.uintT_ok hy8; simpa only [uv_Gwei, ub_Gwei] using this), (by have := GenBridge.uintT_ok hy9; simpa only [uv_Gwei, ub_Gwei] using this), (GenBridge.listT_ok hy10 (fun _ _ he0 => (by have := GenBridge.bytesT_ok he0; simpa only [bd_KZGCommitment, bl_KZGCommitment] using this))), (by have := GenBridge.bytesT_ok hy11; simpa only [bd_Root, bl_Root] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_SignedBeaconBlockHeader {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SignedBeaconBlockHeader}
     (hd : dec_SignedBeaconBlockHeader h v = some x) : GenBridge.DecTo h v (.cont 767 (kids_SignedBeaconBlockHeader x)) := by
   simp only [dec_SignedBeaconBlockHeader, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2773,6 +3591,14 @@ theorem bridge_SignedBeaconBlockHeader {h : Heap} (hc : GenBridge.ContWF h) {v :
     exact (GenBridge.bytesT_dec hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_SignedBeaconBlockHeader_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_SignedBeaconBlockHeader {h : Heap} {v : Value} {x : SignedBeaconBlockHeader} (hd : dec_SignedBeaconBlockHeader h v = some x) : ok_SignedBeaconBlockHeader x := by
+  simp only [dec_SignedBeaconBlockHeader, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_SignedBeaconBlockHeader
+  exact ⟨(okb_BeaconBlockHeader hy0), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_DepositData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : DepositData}
@@ -2806,6 +3632,14 @@ theorem bridge_DepositData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x :
     rw [List.getElem?_eq_none (by simp only [kids_DepositData_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_DepositData {h : Heap} {v : Value} {x : DepositData} (hd : dec_DepositData h v = some x) : ok_DepositData x := by
+  simp only [dec_DepositData, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, rfl⟩ := hd
+  unfold ok_DepositData
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Bytes32, bl_Bytes32] using this), (by have := GenBridge.uintT_ok hy2; simpa only [uv_Gwei, ub_Gwei] using this), (by have := GenBridge.bytesT_ok hy3; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_VoluntaryExit {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : VoluntaryExit}
     (hd : dec_VoluntaryExit h v = some x) : GenBridge.DecTo h v (.cont 774 (kids_VoluntaryExit x)) := by
   simp only [dec_VoluntaryExit, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2829,6 +3663,14 @@ theorem bridge_VoluntaryExit {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x
     rw [List.getElem?_eq_none (by simp only [kids_VoluntaryExit_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_VoluntaryExit {h : Heap} {v : Value} {x : VoluntaryExit} (hd : dec_VoluntaryExit h v = some x) : ok_VoluntaryExit x := by
+  simp only [dec_VoluntaryExit, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_VoluntaryExit
+  exact ⟨(by have := GenBridge.uintT_ok hy0; simpa only [uv_Epoch, ub_Epoch] using this), (by have := GenBridge.uintT_ok hy1; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_SyncAggregate {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SyncAggregate}
     (hd : dec_SyncAggregate h v = some x) : GenBridge.DecTo h v (.cont 776 (kids_SyncAggregate x)) := by
   simp only [dec_SyncAggregate, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2850,6 +3692,14 @@ theorem bridge_SyncAggregate {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x
     exact (GenBridge.bytesT_dec hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_SyncAggregate_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_SyncAggregate {h : Heap} {v : Value} {x : SyncAggregate} (hd : dec_SyncAggregate h v = some x) : ok_SyncAggregate x := by
+  simp only [dec_SyncAggregate, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_SyncAggregate
+  exact ⟨(by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_BLSToExecutionChange {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BLSToExecutionChange}
@@ -2879,6 +3729,14 @@ theorem bridge_BLSToExecutionChange {h : Heap} (hc : GenBridge.ContWF h) {v : Va
     rw [List.getElem?_eq_none (by simp only [kids_BLSToExecutionChange_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_BLSToExecutionChange {h : Heap} {v : Value} {x : BLSToExecutionChange} (hd : dec_BLSToExecutionChange h v = some x) : ok_BLSToExecutionChange x := by
+  simp only [dec_BLSToExecutionChange, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  unfold ok_BLSToExecutionChange
+  exact ⟨(by have := GenBridge.uintT_ok hy0; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSPubkey, bl_BLSPubkey] using this), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_ExecutionAddress, bl_ExecutionAddress] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_SignedExecutionPayloadBid {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SignedExecutionPayloadBid}
     (hd : dec_SignedExecutionPayloadBid h v = some x) : GenBridge.DecTo h v (.cont 779 (kids_SignedExecutionPayloadBid x)) := by
   simp only [dec_SignedExecutionPayloadBid, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2900,6 +3758,14 @@ theorem bridge_SignedExecutionPayloadBid {h : Heap} (hc : GenBridge.ContWF h) {v
     exact (GenBridge.bytesT_dec hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_SignedExecutionPayloadBid_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_SignedExecutionPayloadBid {h : Heap} {v : Value} {x : SignedExecutionPayloadBid} (hd : dec_SignedExecutionPayloadBid h v = some x) : ok_SignedExecutionPayloadBid x := by
+  simp only [dec_SignedExecutionPayloadBid, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_SignedExecutionPayloadBid
+  exact ⟨(okb_ExecutionPayloadBid hy0), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_PayloadAttestation {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : PayloadAttestation}
@@ -2927,6 +3793,14 @@ theorem bridge_PayloadAttestation {h : Heap} (hc : GenBridge.ContWF h) {v : Valu
     exact (GenBridge.bytesT_dec hy2)
   | _ + 3, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_PayloadAttestation_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_PayloadAttestation {h : Heap} {v : Value} {x : PayloadAttestation} (hd : dec_PayloadAttestation h v = some x) : ok_PayloadAttestation x := by
+  simp only [dec_PayloadAttestation, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  unfold ok_PayloadAttestation
+  exact ⟨(okb_PayloadAttestationData hy1), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_AttestationData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : AttestationData}
@@ -2964,6 +3838,14 @@ theorem bridge_AttestationData {h : Heap} (hc : GenBridge.ContWF h) {v : Value} 
     rw [List.getElem?_eq_none (by simp only [kids_AttestationData_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_AttestationData {h : Heap} {v : Value} {x : AttestationData} (hd : dec_AttestationData h v = some x) : ok_AttestationData x := by
+  simp only [dec_AttestationData, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, rfl⟩ := hd
+  unfold ok_AttestationData
+  exact ⟨(by have := GenBridge.uintT_ok hy0; simpa only [uv_Slot, ub_Slot] using this), (by have := GenBridge.uintT_ok hy1; simpa only [uv_CommitteeIndex, ub_CommitteeIndex] using this), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_Root, bl_Root] using this), (okb_Checkpoint hy3), (okb_Checkpoint hy4), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_IndexedPayloadAttestation {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : IndexedPayloadAttestation}
     (hd : dec_IndexedPayloadAttestation h v = some x) : GenBridge.DecTo h v (.cont 357 (kids_IndexedPayloadAttestation x)) := by
   simp only [dec_IndexedPayloadAttestation, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -2989,6 +3871,14 @@ theorem bridge_IndexedPayloadAttestation {h : Heap} (hc : GenBridge.ContWF h) {v
     exact (GenBridge.bytesT_dec hy2)
   | _ + 3, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_IndexedPayloadAttestation_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_IndexedPayloadAttestation {h : Heap} {v : Value} {x : IndexedPayloadAttestation} (hd : dec_IndexedPayloadAttestation h v = some x) : ok_IndexedPayloadAttestation x := by
+  simp only [dec_IndexedPayloadAttestation, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  unfold ok_IndexedPayloadAttestation
+  exact ⟨(GenBridge.listT_ok hy0 (fun _ _ he0 => (by have := GenBridge.uintT_ok he0; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this))), (okb_PayloadAttestationData hy1), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_ExecutionRequests {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : ExecutionRequests}
@@ -3024,6 +3914,14 @@ theorem bridge_ExecutionRequests {h : Heap} (hc : GenBridge.ContWF h) {v : Value
     exact (GenBridge.listT_dec hy4 (fun _ _ he' => (bridge_BuilderExitRequest hc he')))
   | _ + 5, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_ExecutionRequests_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_ExecutionRequests {h : Heap} {v : Value} {x : ExecutionRequests} (hd : dec_ExecutionRequests h v = some x) : ok_ExecutionRequests x := by
+  simp only [dec_ExecutionRequests, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, rfl⟩ := hd
+  unfold ok_ExecutionRequests
+  exact ⟨(GenBridge.listT_ok hy0 (fun _ _ he0 => (okb_DepositRequest he0))), (GenBridge.listT_ok hy1 (fun _ _ he0 => (okb_WithdrawalRequest he0))), (GenBridge.listT_ok hy2 (fun _ _ he0 => (okb_ConsolidationRequest he0))), (GenBridge.listT_ok hy3 (fun _ _ he0 => (okb_BuilderDepositRequest he0))), (GenBridge.listT_ok hy4 (fun _ _ he0 => (okb_BuilderExitRequest he0))), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_BeaconState {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BeaconState}
@@ -3225,6 +4123,14 @@ theorem bridge_BeaconState {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x :
     rw [List.getElem?_eq_none (by simp only [kids_BeaconState_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_BeaconState {h : Heap} {v : Value} {x : BeaconState} (hd : dec_BeaconState h v = some x) : ok_BeaconState x := by
+  simp only [dec_BeaconState, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, y5, ⟨w5, hw5, hy5⟩, y6, ⟨w6, hw6, hy6⟩, y7, ⟨w7, hw7, hy7⟩, y8, ⟨w8, hw8, hy8⟩, y9, ⟨w9, hw9, hy9⟩, y10, ⟨w10, hw10, hy10⟩, y11, ⟨w11, hw11, hy11⟩, y12, ⟨w12, hw12, hy12⟩, y13, ⟨w13, hw13, hy13⟩, y14, ⟨w14, hw14, hy14⟩, y15, ⟨w15, hw15, hy15⟩, y16, ⟨w16, hw16, hy16⟩, y17, ⟨w17, hw17, hy17⟩, y18, ⟨w18, hw18, hy18⟩, y19, ⟨w19, hw19, hy19⟩, y20, ⟨w20, hw20, hy20⟩, y21, ⟨w21, hw21, hy21⟩, y22, ⟨w22, hw22, hy22⟩, y23, ⟨w23, hw23, hy23⟩, y24, ⟨w24, hw24, hy24⟩, y25, ⟨w25, hw25, hy25⟩, y26, ⟨w26, hw26, hy26⟩, y27, ⟨w27, hw27, hy27⟩, y28, ⟨w28, hw28, hy28⟩, y29, ⟨w29, hw29, hy29⟩, y30, ⟨w30, hw30, hy30⟩, y31, ⟨w31, hw31, hy31⟩, y32, ⟨w32, hw32, hy32⟩, y33, ⟨w33, hw33, hy33⟩, y34, ⟨w34, hw34, hy34⟩, y35, ⟨w35, hw35, hy35⟩, y36, ⟨w36, hw36, hy36⟩, y37, ⟨w37, hw37, hy37⟩, y38, ⟨w38, hw38, hy38⟩, y39, ⟨w39, hw39, hy39⟩, y40, ⟨w40, hw40, hy40⟩, y41, ⟨w41, hw41, hy41⟩, y42, ⟨w42, hw42, hy42⟩, y43, ⟨w43, hw43, hy43⟩, y44, ⟨w44, hw44, hy44⟩, y45, ⟨w45, hw45, hy45⟩, rfl⟩ := hd
+  unfold ok_BeaconState
+  exact ⟨(by have := GenBridge.uintT_ok hy0; simpa only [uv_Uint64, ub_Uint64] using this), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_Root, bl_Root] using this), (by have := GenBridge.uintT_ok hy2; simpa only [uv_Slot, ub_Slot] using this), (okb_Fork hy3), (okb_BeaconBlockHeader hy4), (GenBridge.listT_ok hy5 (fun _ _ he0 => (by have := GenBridge.bytesT_ok he0; simpa only [bd_Root, bl_Root] using this))), (GenBridge.listT_ok hy6 (fun _ _ he0 => (by have := GenBridge.bytesT_ok he0; simpa only [bd_Root, bl_Root] using this))), (GenBridge.listT_ok hy7 (fun _ _ he0 => (by have := GenBridge.bytesT_ok he0; simpa only [bd_Root, bl_Root] using this))), (okb_Eth1Data hy8), (GenBridge.listT_ok hy9 (fun _ _ he0 => (okb_Eth1Data he0))), (by have := GenBridge.uintT_ok hy10; simpa only [uv_Uint64, ub_Uint64] using this), (GenBridge.listT_ok hy11 (fun _ _ he0 => (okb_Validator he0))), (GenBridge.listT_ok hy12 (fun _ _ he0 => (by have := GenBridge.uintT_ok he0; simpa only [uv_Gwei, ub_Gwei] using this))), (GenBridge.listT_ok hy13 (fun _ _ he0 => (by have := GenBridge.bytesT_ok he0; simpa only [bd_Bytes32, bl_Bytes32] using this))), (GenBridge.listT_ok hy14 (fun _ _ he0 => (by have := GenBridge.uintT_ok he0; simpa only [uv_Gwei, ub_Gwei] using this))), (GenBridge.listT_ok hy15 (fun _ _ he0 => (by have := GenBridge.uintT_ok he0; simpa only [uv_ParticipationFlags, ub_ParticipationFlags] using this))), (GenBridge.listT_ok hy16 (fun _ _ he0 => (by have := GenBridge.uintT_ok he0; simpa only [uv_ParticipationFlags, ub_ParticipationFlags] using this))), (okb_Checkpoint hy18), (okb_Checkpoint hy19), (okb_Checkpoint hy20), (GenBridge.listT_ok hy21 (fun _ _ he0 => (by have := GenBridge.uintT_ok he0; simpa only [uv_Uint64, ub_Uint64] using this))), (okb_SyncCommittee hy22), (okb_SyncCommittee hy23), (by have := GenBridge.bytesT_ok hy24; simpa only [bd_Hash32, bl_Hash32] using this), (by have := GenBridge.uintT_ok hy25; simpa only [uv_WithdrawalIndex, ub_WithdrawalIndex] using this), (by have := GenBridge.uintT_ok hy26; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this), (GenBridge.listT_ok hy27 (fun _ _ he0 => (okb_HistoricalSummary he0))), (by have := GenBridge.uintT_ok hy28; simpa only [uv_Uint64, ub_Uint64] using this), (by have := GenBridge.uintT_ok hy29; simpa only [uv_Gwei, ub_Gwei] using this), (by have := GenBridge.uintT_ok hy30; simpa only [uv_Gwei, ub_Gwei] using this), (by have := GenBridge.uintT_ok hy31; simpa only [uv_Epoch, ub_Epoch] using this), (by have := GenBridge.uintT_ok hy32; simpa only [uv_Gwei, ub_Gwei] using this), (by have := GenBridge.uintT_ok hy33; simpa only [uv_Epoch, ub_Epoch] using this), (GenBridge.listT_ok hy34 (fun _ _ he0 => (okb_PendingDeposit he0))), (GenBridge.listT_ok hy35 (fun _ _ he0 => (okb_PendingPartialWithdrawal he0))), (GenBridge.listT_ok hy36 (fun _ _ he0 => (okb_PendingConsolidation he0))), (GenBridge.listT_ok hy37 (fun _ _ he0 => (by have := GenBridge.uintT_ok he0; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this))), (GenBridge.listT_ok hy38 (fun _ _ he0 => (okb_Builder he0))), (by have := GenBridge.uintT_ok hy39; simpa only [uv_BuilderIndex, ub_BuilderIndex] using this), (GenBridge.listT_ok hy41 (fun _ _ he0 => (okb_BuilderPendingPayment he0))), (GenBridge.listT_ok hy42 (fun _ _ he0 => (okb_BuilderPendingWithdrawal he0))), (okb_ExecutionPayloadBid hy43), (GenBridge.listT_ok hy44 (fun _ _ he0 => (okb_Withdrawal he0))), (GenBridge.listT_ok hy45 (fun _ _ he0 => (GenBridge.listT_ok he0 (fun _ _ he1 => (by have := GenBridge.uintT_ok he1; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this))))), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_ProposerSlashing {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : ProposerSlashing}
     (hd : dec_ProposerSlashing h v = some x) : GenBridge.DecTo h v (.cont 768 (kids_ProposerSlashing x)) := by
   simp only [dec_ProposerSlashing, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -3246,6 +4152,14 @@ theorem bridge_ProposerSlashing {h : Heap} (hc : GenBridge.ContWF h) {v : Value}
     exact (bridge_SignedBeaconBlockHeader hc hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_ProposerSlashing_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_ProposerSlashing {h : Heap} {v : Value} {x : ProposerSlashing} (hd : dec_ProposerSlashing h v = some x) : ok_ProposerSlashing x := by
+  simp only [dec_ProposerSlashing, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_ProposerSlashing
+  exact ⟨(okb_SignedBeaconBlockHeader hy0), (okb_SignedBeaconBlockHeader hy1), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_Attestation {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Attestation}
@@ -3279,6 +4193,14 @@ theorem bridge_Attestation {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x :
     rw [List.getElem?_eq_none (by simp only [kids_Attestation_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_Attestation {h : Heap} {v : Value} {x : Attestation} (hd : dec_Attestation h v = some x) : ok_Attestation x := by
+  simp only [dec_Attestation, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, rfl⟩ := hd
+  unfold ok_Attestation
+  exact ⟨(okb_AttestationData hy1), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_Deposit {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Deposit}
     (hd : dec_Deposit h v = some x) : GenBridge.DecTo h v (.cont 773 (kids_Deposit x)) := by
   simp only [dec_Deposit, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -3300,6 +4222,14 @@ theorem bridge_Deposit {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : Dep
     exact (bridge_DepositData hc hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_Deposit_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_Deposit {h : Heap} {v : Value} {x : Deposit} (hd : dec_Deposit h v = some x) : ok_Deposit x := by
+  simp only [dec_Deposit, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_Deposit
+  exact ⟨(GenBridge.listT_ok hy0 (fun _ _ he0 => (by have := GenBridge.bytesT_ok he0; simpa only [bd_Bytes32, bl_Bytes32] using this))), (okb_DepositData hy1), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_SignedVoluntaryExit {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SignedVoluntaryExit}
@@ -3325,6 +4255,14 @@ theorem bridge_SignedVoluntaryExit {h : Heap} (hc : GenBridge.ContWF h) {v : Val
     rw [List.getElem?_eq_none (by simp only [kids_SignedVoluntaryExit_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_SignedVoluntaryExit {h : Heap} {v : Value} {x : SignedVoluntaryExit} (hd : dec_SignedVoluntaryExit h v = some x) : ok_SignedVoluntaryExit x := by
+  simp only [dec_SignedVoluntaryExit, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_SignedVoluntaryExit
+  exact ⟨(okb_VoluntaryExit hy0), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_SignedBLSToExecutionChange {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SignedBLSToExecutionChange}
     (hd : dec_SignedBLSToExecutionChange h v = some x) : GenBridge.DecTo h v (.cont 778 (kids_SignedBLSToExecutionChange x)) := by
   simp only [dec_SignedBLSToExecutionChange, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -3346,6 +4284,14 @@ theorem bridge_SignedBLSToExecutionChange {h : Heap} (hc : GenBridge.ContWF h) {
     exact (GenBridge.bytesT_dec hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_SignedBLSToExecutionChange_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_SignedBLSToExecutionChange {h : Heap} {v : Value} {x : SignedBLSToExecutionChange} (hd : dec_SignedBLSToExecutionChange h v = some x) : ok_SignedBLSToExecutionChange x := by
+  simp only [dec_SignedBLSToExecutionChange, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_SignedBLSToExecutionChange
+  exact ⟨(okb_BLSToExecutionChange hy0), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_IndexedAttestation {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : IndexedAttestation}
@@ -3375,6 +4321,14 @@ theorem bridge_IndexedAttestation {h : Heap} (hc : GenBridge.ContWF h) {v : Valu
     rw [List.getElem?_eq_none (by simp only [kids_IndexedAttestation_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_IndexedAttestation {h : Heap} {v : Value} {x : IndexedAttestation} (hd : dec_IndexedAttestation h v = some x) : ok_IndexedAttestation x := by
+  simp only [dec_IndexedAttestation, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, rfl⟩ := hd
+  unfold ok_IndexedAttestation
+  exact ⟨(GenBridge.listT_ok hy0 (fun _ _ he0 => (by have := GenBridge.uintT_ok he0; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this))), (okb_AttestationData hy1), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_AttesterSlashing {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : AttesterSlashing}
     (hd : dec_AttesterSlashing h v = some x) : GenBridge.DecTo h v (.cont 769 (kids_AttesterSlashing x)) := by
   simp only [dec_AttesterSlashing, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -3396,6 +4350,14 @@ theorem bridge_AttesterSlashing {h : Heap} (hc : GenBridge.ContWF h) {v : Value}
     exact (bridge_IndexedAttestation hc hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_AttesterSlashing_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_AttesterSlashing {h : Heap} {v : Value} {x : AttesterSlashing} (hd : dec_AttesterSlashing h v = some x) : ok_AttesterSlashing x := by
+  simp only [dec_AttesterSlashing, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_AttesterSlashing
+  exact ⟨(okb_IndexedAttestation hy0), (okb_IndexedAttestation hy1), trivial⟩
 
 set_option maxHeartbeats 1000000 in
 theorem bridge_BeaconBlockBody {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BeaconBlockBody}
@@ -3465,6 +4427,14 @@ theorem bridge_BeaconBlockBody {h : Heap} (hc : GenBridge.ContWF h) {v : Value} 
     rw [List.getElem?_eq_none (by simp only [kids_BeaconBlockBody_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_BeaconBlockBody {h : Heap} {v : Value} {x : BeaconBlockBody} (hd : dec_BeaconBlockBody h v = some x) : ok_BeaconBlockBody x := by
+  simp only [dec_BeaconBlockBody, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, y5, ⟨w5, hw5, hy5⟩, y6, ⟨w6, hw6, hy6⟩, y7, ⟨w7, hw7, hy7⟩, y8, ⟨w8, hw8, hy8⟩, y9, ⟨w9, hw9, hy9⟩, y10, ⟨w10, hw10, hy10⟩, y11, ⟨w11, hw11, hy11⟩, y12, ⟨w12, hw12, hy12⟩, rfl⟩ := hd
+  unfold ok_BeaconBlockBody
+  exact ⟨(by have := GenBridge.bytesT_ok hy0; simpa only [bd_BLSSignature, bl_BLSSignature] using this), (okb_Eth1Data hy1), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_Bytes32, bl_Bytes32] using this), (GenBridge.listT_ok hy3 (fun _ _ he0 => (okb_ProposerSlashing he0))), (GenBridge.listT_ok hy4 (fun _ _ he0 => (okb_AttesterSlashing he0))), (GenBridge.listT_ok hy5 (fun _ _ he0 => (okb_Attestation he0))), (GenBridge.listT_ok hy6 (fun _ _ he0 => (okb_Deposit he0))), (GenBridge.listT_ok hy7 (fun _ _ he0 => (okb_SignedVoluntaryExit he0))), (okb_SyncAggregate hy8), (GenBridge.listT_ok hy9 (fun _ _ he0 => (okb_SignedBLSToExecutionChange he0))), (okb_SignedExecutionPayloadBid hy10), (GenBridge.listT_ok hy11 (fun _ _ he0 => (okb_PayloadAttestation he0))), (okb_ExecutionRequests hy12), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_BeaconBlock {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : BeaconBlock}
     (hd : dec_BeaconBlock h v = some x) : GenBridge.DecTo h v (.cont 782 (kids_BeaconBlock x)) := by
   simp only [dec_BeaconBlock, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -3500,6 +4470,14 @@ theorem bridge_BeaconBlock {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x :
     rw [List.getElem?_eq_none (by simp only [kids_BeaconBlock_len]; omega)] at hd; cases hd
 
 set_option maxHeartbeats 1000000 in
+theorem okb_BeaconBlock {h : Heap} {v : Value} {x : BeaconBlock} (hd : dec_BeaconBlock h v = some x) : ok_BeaconBlock x := by
+  simp only [dec_BeaconBlock, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, y2, ⟨w2, hw2, hy2⟩, y3, ⟨w3, hw3, hy3⟩, y4, ⟨w4, hw4, hy4⟩, rfl⟩ := hd
+  unfold ok_BeaconBlock
+  exact ⟨(by have := GenBridge.uintT_ok hy0; simpa only [uv_Slot, ub_Slot] using this), (by have := GenBridge.uintT_ok hy1; simpa only [uv_ValidatorIndex, ub_ValidatorIndex] using this), (by have := GenBridge.bytesT_ok hy2; simpa only [bd_Root, bl_Root] using this), (by have := GenBridge.bytesT_ok hy3; simpa only [bd_Root, bl_Root] using this), (okb_BeaconBlockBody hy4), trivial⟩
+
+set_option maxHeartbeats 1000000 in
 theorem bridge_SignedBeaconBlock {h : Heap} (hc : GenBridge.ContWF h) {v : Value} {x : SignedBeaconBlock}
     (hd : dec_SignedBeaconBlock h v = some x) : GenBridge.DecTo h v (.cont 783 (kids_SignedBeaconBlock x)) := by
   simp only [dec_SignedBeaconBlock, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
@@ -3521,6 +4499,14 @@ theorem bridge_SignedBeaconBlock {h : Heap} (hc : GenBridge.ContWF h) {v : Value
     exact (GenBridge.bytesT_dec hy1)
   | _ + 2, _, hd =>
     rw [List.getElem?_eq_none (by simp only [kids_SignedBeaconBlock_len]; omega)] at hd; cases hd
+
+set_option maxHeartbeats 1000000 in
+theorem okb_SignedBeaconBlock {h : Heap} {v : Value} {x : SignedBeaconBlock} (hd : dec_SignedBeaconBlock h v = some x) : ok_SignedBeaconBlock x := by
+  simp only [dec_SignedBeaconBlock, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at hd
+  obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
+  unfold ok_SignedBeaconBlock
+  exact ⟨(okb_BeaconBlock hy0), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
 
 
 end SpecLean.Layer4.Gen
