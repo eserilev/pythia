@@ -1053,8 +1053,22 @@ elab "rd_call" "[" ls:ident,* "]" : tactic => withMainContext do
       -- The readable call of the goal: the same head constant.
       let rdh ← instantiateMVars rd
       let some fc := rdh.getAppFn.constName? | throwError "rd_call: no readable head"
-      let some rg := findClosed t (fun x => x.isAppOf fc && x.getAppNumArgs == rdh.getAppNumArgs)
-        | throwError "rd_call: no readable call"
+      -- The readable call: in the goal, or already split into a fact `call = result` (the
+      -- readable side can run the call earlier than the interpreter does).
+      let mut rgFact : Option (Lean.Expr × Lean.Expr) := none
+      let rg ← match findClosed t (fun x => x.isAppOf fc && x.getAppNumArgs == rdh.getAppNumArgs) with
+        | some rg => pure rg
+        | none => do
+          let mut found := none
+          for d in ← getLCtx do
+            if d.isImplementationDetail then continue
+            let ty ← instantiateMVars d.type
+            let some (_, l, _) := ty.eq? | continue
+            unless l.isAppOf fc && l.getAppNumArgs == rdh.getAppNumArgs do continue
+            found := some (l, d.toExpr)
+          let some (l, pf) := found | throwError "rd_call: no readable call"
+          rgFact := some (l, pf)
+          pure l
       unless ← withTransparency .default (isDefEq rdh rg) do
         throwError "rd_call: the readable call does not match"
       -- The hypotheses: from the context, or the caller's footprint.
@@ -1065,6 +1079,9 @@ elab "rd_call" "[" ls:ident,* "]" : tactic => withMainContext do
           for d in ← getLCtx do
             if d.userName == `gfp then
               m.mvarId!.assign d.toExpr
+          -- In a loop theorem there is no caller footprint: any one does.
+          unless ← m.mvarId!.isAssigned do
+            m.mvarId!.assign (← mkAppOptM ``List.nil #[mkConst ``SpecLean.Encode.FPat])
           continue
         if (← isClass? ty).isSome then
           m.mvarId!.assign (← synthInstance ty)
@@ -1101,6 +1118,11 @@ elab "rd_call" "[" ls:ident,* "]" : tactic => withMainContext do
       let rc := mkIdent `rcall
       let rdc := mkIdent `rdcall
       let mut gs := [g1]
+      -- A readable call that a fact settles: the fact rewrites it in `hcall`.
+      if let some (_, pfE) := rgFact then
+        let pfS ← Term.exprToSyntax pfE
+        let rwT ← `(tactic| rw [$pfS:term] at $hc:ident)
+        gs ← gs.flatMapM fun sg => evalTacticAt rwT sg
       let steps : List (TSyntax `tactic) := [
         ← `(tactic| generalize $css:term = $rc:ident at $hc:ident ⊢),
         ← `(tactic| generalize $rgs:term = $rdc:ident at $hc:ident ⊢),

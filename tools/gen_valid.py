@@ -621,14 +621,24 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
         text, names, bounds = "", [], []
         for k, ((p, s), (binders, rty)) in enumerate(zip(loops, defs), 1):
             for x in ast.walk(s):
-                if isinstance(x, (ast.Return, ast.Break, ast.Continue)):
+                if isinstance(x, (ast.Break, ast.Continue)):
                     raise Unsupported("loop exit")
+            # A `return` in the loop: the readable loop gives `some r` and stops.
+            early = any(isinstance(x, ast.Return) and x.value is not None for x in ast.walk(s))
+            if any(isinstance(x, ast.Return) and x.value is None for x in ast.walk(s)):
+                raise Unsupported("loop exit")
             loop = f"{fname}.loop{k}"
+            enum = False
             if isinstance(s, ast.For):
                 it = s.iter
+                if isinstance(it, ast.Call) and isinstance(it.func, ast.Name) and \
+                        it.func.id == "enumerate" and len(it.args) == 1:
+                    enum, it = True, it.args[0]
+                tgt_ok = (isinstance(s.target, ast.Name) if not enum else
+                          isinstance(s.target, ast.Tuple) and len(s.target.elts) == 2 and
+                          all(isinstance(e, ast.Name) for e in s.target.elts))
                 if not (jj is not None and isinstance(it, ast.Attribute) and
-                        isinstance(it.value, ast.Name) and it.value.id == pnames[jj] and
-                        isinstance(s.target, ast.Name)):
+                        isinstance(it.value, ast.Name) and it.value.id == pnames[jj] and tgt_ok):
                     raise Unsupported("loop source")
                 fields = [f for f, _ in sig.params[jj][1][1]._FIELD_TYPES]
                 ni = next(i for i, (b, ty) in enumerate(binders) if b == "i_")
@@ -636,7 +646,7 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
             else:
                 cap = [(b, ty) for b, ty in binders if not b.endswith("_in")]
                 carry = binders[len(cap):]
-            if any(b not in pnames for b, _ in cap) or not carry:
+            if any(b not in pnames for b, _ in cap) or (not carry and not early):
                 raise Unsupported("loop: captured local")
             carried = []
             for b, ty in carry:
@@ -653,21 +663,44 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
             relb = " ".join(f"(r{j} : Nat)" if j == jj else f"(x{j} : Nat)" for j in capj)
             rela = " ".join(f"r{j}" if j == jj else f"x{j}" for j in capj)
             n = len(carried)
-            res = [rd_fn.Fn.proj(None, "acc", i, n) if n > 1 else "acc" for i in range(n)]
+            # With an early `return`, the carried values are the second part of the result.
+            base = "(acc).2" if early else "acc"
+            res = [rd_fn.Fn.proj(None, base, i, n) if n > 1 else base for i in range(n)]
             accs = [f"acc{i}" for i in range(n)]
+
+            # The globals that the function reads (functions and constants): no local has their
+            # name, so a lookup in the loop or after it goes to the globals.
+            fn_locals = set(pnames) | {x.id for x in ast.walk(tree)
+                                       if isinstance(x, ast.Name) and isinstance(x.ctx, ast.Store)}
+            if not hasattr(self, "scope_ids"):
+                self.scope_ids = set(re.findall(r"^abbrev «([^»]+)» : Name :=",
+                                                (ROOT / "SpecLean/Gen/Scope.lean").read_text(),
+                                                re.M))
+            gl = sorted({x.id for x in ast.walk(tree) if isinstance(x, ast.Name) and
+                         isinstance(x.ctx, ast.Load) and x.id not in fn_locals and
+                         x.id in self.scope_ids})
 
             def facts(L, vals):
                 cf = [f"{L} Scope.Id.«{x}» = some (.uint {ut} ({a}).val)"
                       for (x, _, ut, _), a in zip(carried, vals)]
                 cf += [f"({a}).val < 2 ^ {w}" for (_, _, _, w), a in zip(carried, vals)]
                 pf = [f"{L} Scope.Id.«{pnames[j]}» = some {args[j][1]}" for j in capj]
-                return pf + cf
+                gf = [f"{L} Scope.Id.«{x}» = none" for x in gl]
+                return pf + cf + gf
             rty_rel = rty
+            normal = " ∧ ".join(["h' = h"] + (["(acc).1 = none"] if early else []) +
+                                facts("L'", res))
+            if early:
+                e_ret, _ = self.expect(sig.ret, "r")
+                ret_case = (f"\n  | .ok (.ret v, _, h'), .ok acc => h' = h ∧ ∃ r, (acc).1 = some r ∧ "
+                            f"({e_ret})")
+            else:
+                ret_case = ""
             text += f"""
 /-- An iteration of the loop {k} of `{name}`: the heap stays, and the locals hold the readable
 values. -/
 def {rel} (h : Heap) {relb} : Res (Outcome × Locals × Heap) → SpecM {rty_rel} → Prop
-  | .ok (.normal, L', h'), .ok acc => h' = h ∧ {" ∧ ".join(facts("L'", res))}
+  | .ok (.normal, L', h'), .ok acc => {normal}{ret_case}
   | .error e, .error f => e ≠ .outOfFuel ∧ e.fail = f
   | _, _ => False
 
@@ -695,7 +728,7 @@ attribute [local irreducible] {rel}
             steps = f"""rd_step
       repeat' (first | rd_ih | {call}(rd_items; try rd_step) |
         (rd_split <;> (try rd_step) <;> (try simp only [{rel}] at ⊢)))
-      all_goals (first | rd_finish | (simp only [{rel}]; simp [*]) | omega)"""
+      all_goals (first | rd_finish | (simp only [{rel}]; simp [*] <;> rd_finish) | omega)"""
             head = f"""
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 8192 in
@@ -705,7 +738,7 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
                 bounds.append(ln)
                 text += head + f""" (t : Target) (it : Expr) (body : List Stmt)
     (hfor : Scope.fn_{name}.body[{p}]? = some (.forStmt l t it body)) (src : IterSrc)
-    (hsrc : ∀ i, iterItem h src i = .ok (follow h (.ref r{jj}) [{fields.index(it.attr)}, i])) :
+    (hsrc : ∀ i, iterItem h src i = .ok {"((follow h (.ref r" + str(jj) + ") [" + str(fields.index(it.attr)) + ", i]).map (enumItem i))" if enum else "(follow h (.ref r" + str(jj) + ") [" + str(fields.index(it.attr)) + ", i])"}) :
     ∀ m i {accb} (L : Locals), {" → ".join(facts("L", accs))} → {ln} - i ≤ m →
       {rel} h {rela} (execFor (Scope.env sha) (m + {fuel}) L h t src i body)
         ({loop} {rargs} {ln} i {" ".join(accs)}) := by
@@ -718,7 +751,7 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
     intro i {" ".join(accs)} L {" ".join(hl)} hn
     rw [execFor, {loop}, hsrc, dif_neg (show ¬ i < {ln} by omega)]
     {dec("    ")}
-    simp (disch := omega) only [List.getElem?_eq_none]
+    try simp (disch := omega) only [List.getElem?_eq_none, Option.map_none]
     all_goals (simp only [{rel}]; simp [*])
   | succ m ih =>
     replace ih := Hide.mk ih

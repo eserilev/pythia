@@ -766,3 +766,7 @@ elab "rd_struct_eq" : tactic => withMainContext do
 end SpecLean.Validation.Tactic
 
 macro_rules | `(tactic| rd_frame) => `(tactic| ((repeat' (first | rd_chain | rd_struct_eq | with_reducible apply And.intro)); done))
+
+/-- An error class written out on one side and named on the other. -/
+macro_rules | `(tactic| rd_finish) => `(tactic| (exact rfl))
+macro_rules | `(tactic| rd_finish) => `(tactic| (simp only [SpecLean.SpecError.fail]; done))
