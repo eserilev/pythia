@@ -14,6 +14,8 @@ open SpecLean SpecLean.Encode SpecLean.Layer4 SpecLean.Rd SpecLean.Rd.Gen SpecLe
 attribute [local instance high] LibModel.toLibValues
 attribute [local instance] Cfg.default
 
+variable [Spec]
+
 set_option linter.unusedSimpArgs false
 set_option linter.unusedSectionVars false
 
@@ -33,7 +35,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (add_flag_den sha m a_flags a_flag_index) k
 
 set_option maxHeartbeats 1000000 in
-theorem add_flag_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_flags : Nat) (a_flag_index : Int)  :
+theorem add_flag_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_flags : Nat) (a_flag_index : Int)  :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp [] h [(.uint (.nominal 20 8) a_flags), (.int a_flag_index)] (fun (x : ParticipationFlags) _ v => v = (.uint (.nominal 20 8) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«add_flag» [(.uint (.nominal 20 8) a_flags), (.int a_flag_index)] h) (add_flag ⟨a_flags⟩ a_flag_index) := by
@@ -41,7 +44,7 @@ theorem add_flag_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
   have hden := add_flag_den sha 0 a_flags a_flag_index
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_pending_balance_to_withdraw_for_builder_loop1_swap (B : Name → Option DRes) (it v : DRes) :
@@ -173,7 +176,8 @@ theorem get_pending_balance_to_withdraw_for_builder_fcall (sha : Oracle) (a_stat
   exact get_pending_balance_to_withdraw_for_builder_call sha m a_state a_builder_index k
 
 set_option maxHeartbeats 1000000 in
-theorem get_pending_balance_to_withdraw_for_builder_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_pending_balance_to_withdraw_for_builder_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, a_state.builder_pending_withdrawals.length + a_state.builder_pending_payments.length + 16 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_pending_balance_to_withdraw_for_builder» [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] h) (get_pending_balance_to_withdraw_for_builder a_state ⟨a_builder_index⟩) := by
@@ -181,15 +185,16 @@ theorem get_pending_balance_to_withdraw_for_builder_l4 (sha : Oracle) (gfp : Foo
   have hden := get_pending_balance_to_withdraw_for_builder_den sha 0 a_state a_builder_index
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_pending_balance_to_withdraw_for_builder_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, a_state.builder_pending_withdrawals.length + a_state.builder_pending_payments.length + 16 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_pending_balance_to_withdraw_for_builder» [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] h) (get_pending_balance_to_withdraw_for_builder a_state ⟨a_builder_index⟩) :=
-  get_pending_balance_to_withdraw_for_builder_l4 sha gfp h hwf a_state a_builder_index r_state (bridge_BeaconState hc hy_state)
+  get_pending_balance_to_withdraw_for_builder_l4 sha gfp h hwf hh a_state a_builder_index r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem can_builder_cover_bid_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_builder_index : Nat) (a_bid_amount : Nat) :
@@ -219,7 +224,8 @@ theorem can_builder_cover_bid_fcall (sha : Oracle) (a_state : BeaconState) (a_bu
   exact can_builder_cover_bid_call sha m a_state a_builder_index a_bid_amount k
 
 set_option maxHeartbeats 1000000 in
-theorem can_builder_cover_bid_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_builder_index : Nat) (a_bid_amount : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem can_builder_cover_bid_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_builder_index : Nat) (a_bid_amount : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, a_state.builder_pending_withdrawals.length + a_state.builder_pending_payments.length + 27 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index), (.uint (.nominal 265 64) a_bid_amount)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«can_builder_cover_bid» [(.ref r_state), (.uint (.nominal 199 64) a_builder_index), (.uint (.nominal 265 64) a_bid_amount)] h) (can_builder_cover_bid a_state ⟨a_builder_index⟩ ⟨a_bid_amount⟩) := by
@@ -227,15 +233,16 @@ theorem can_builder_cover_bid_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hw
   have hden := can_builder_cover_bid_den sha 0 a_state a_builder_index a_bid_amount
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem can_builder_cover_bid_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_builder_index : Nat) (a_bid_amount : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, a_state.builder_pending_withdrawals.length + a_state.builder_pending_payments.length + 27 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index), (.uint (.nominal 265 64) a_bid_amount)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«can_builder_cover_bid» [(.ref r_state), (.uint (.nominal 199 64) a_builder_index), (.uint (.nominal 265 64) a_bid_amount)] h) (can_builder_cover_bid a_state ⟨a_builder_index⟩ ⟨a_bid_amount⟩) :=
-  can_builder_cover_bid_l4 sha gfp h hwf a_state a_builder_index a_bid_amount r_state (bridge_BeaconState hc hy_state)
+  can_builder_cover_bid_l4 sha gfp h hwf hh a_state a_builder_index a_bid_amount r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem compute_activation_exit_epoch_den (sha : Oracle) (m : Nat) (a_epoch : Nat) :
@@ -253,7 +260,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (compute_activation_exit_epoch_den sha m a_epoch) k
 
 set_option maxHeartbeats 1000000 in
-theorem compute_activation_exit_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_epoch : Nat)  :
+theorem compute_activation_exit_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_epoch : Nat)  :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp [] h [(.uint (.nominal 140 64) a_epoch)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«compute_activation_exit_epoch» [(.uint (.nominal 140 64) a_epoch)] h) (compute_activation_exit_epoch ⟨a_epoch⟩) := by
@@ -261,7 +269,7 @@ theorem compute_activation_exit_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : H
   have hden := compute_activation_exit_epoch_den sha 0 a_epoch
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem compute_epoch_at_slot_den (sha : Oracle) (m : Nat) (a_slot : Nat) :
@@ -279,7 +287,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (compute_epoch_at_slot_den sha m a_slot) k
 
 set_option maxHeartbeats 1000000 in
-theorem compute_epoch_at_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_slot : Nat)  :
+theorem compute_epoch_at_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_slot : Nat)  :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.uint (.nominal 196 64) a_slot)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«compute_epoch_at_slot» [(.uint (.nominal 196 64) a_slot)] h) (compute_epoch_at_slot ⟨a_slot⟩) := by
@@ -287,7 +296,7 @@ theorem compute_epoch_at_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hw
   have hden := compute_epoch_at_slot_den sha 0 a_slot
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem compute_start_slot_at_epoch_den (sha : Oracle) (m : Nat) (a_epoch : Nat) :
@@ -305,7 +314,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (compute_start_slot_at_epoch_den sha m a_epoch) k
 
 set_option maxHeartbeats 1000000 in
-theorem compute_start_slot_at_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_epoch : Nat)  :
+theorem compute_start_slot_at_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_epoch : Nat)  :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.uint (.nominal 140 64) a_epoch)] (fun (x : Slot) _ v => v = (.uint (.nominal 196 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«compute_start_slot_at_epoch» [(.uint (.nominal 140 64) a_epoch)] h) (compute_start_slot_at_epoch ⟨a_epoch⟩) := by
@@ -313,7 +323,7 @@ theorem compute_start_slot_at_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Hea
   have hden := compute_start_slot_at_epoch_den sha 0 a_epoch
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem convert_builder_index_to_validator_index_den (sha : Oracle) (m : Nat) (a_builder_index : Nat) :
@@ -331,7 +341,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (convert_builder_index_to_validator_index_den sha m a_builder_index) k
 
 set_option maxHeartbeats 1000000 in
-theorem convert_builder_index_to_validator_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_builder_index : Nat)  :
+theorem convert_builder_index_to_validator_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_builder_index : Nat)  :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.uint (.nominal 199 64) a_builder_index)] (fun (x : ValidatorIndex) _ v => v = (.uint (.nominal 82 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«convert_builder_index_to_validator_index» [(.uint (.nominal 199 64) a_builder_index)] h) (convert_builder_index_to_validator_index ⟨a_builder_index⟩) := by
@@ -339,7 +350,7 @@ theorem convert_builder_index_to_validator_index_l4 (sha : Oracle) (gfp : Footpr
   have hden := convert_builder_index_to_validator_index_den sha 0 a_builder_index
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem convert_validator_index_to_builder_index_den (sha : Oracle) (m : Nat) (a_validator_index : Nat) :
@@ -357,7 +368,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (convert_validator_index_to_builder_index_den sha m a_validator_index) k
 
 set_option maxHeartbeats 1000000 in
-theorem convert_validator_index_to_builder_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator_index : Nat)  :
+theorem convert_validator_index_to_builder_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_validator_index : Nat)  :
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp [] h [(.uint (.nominal 82 64) a_validator_index)] (fun (x : BuilderIndex) _ v => v = (.uint (.nominal 199 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«convert_validator_index_to_builder_index» [(.uint (.nominal 82 64) a_validator_index)] h) (convert_validator_index_to_builder_index ⟨a_validator_index⟩) := by
@@ -365,7 +377,7 @@ theorem convert_validator_index_to_builder_index_l4 (sha : Oracle) (gfp : Footpr
   have hden := convert_validator_index_to_builder_index_den sha 0 a_validator_index
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
@@ -383,7 +395,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (saturating_sub_den sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
-theorem saturating_sub_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_a : Nat) (a_b : Int)  :
+theorem saturating_sub_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_a : Nat) (a_b : Int)  :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp [] h [(.uint (.width 64) a_a), (.int a_b)] (fun (x : Uint64) _ v => v = (.uint (.width 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«saturating_sub» [(.uint (.width 64) a_a), (.int a_b)] h) (saturating_sub ⟨a_a⟩ a_b) := by
@@ -391,22 +404,7 @@ theorem saturating_sub_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : Hea
   have hden := saturating_sub_den sha 0 a_a a_b
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
-
-set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_BuilderIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.uint (.nominal 199 64) a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.uint (.nominal 199 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
-  rw [s_fn]
-  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
-  all_goals l4_close
-
-set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_BuilderIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
-    Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.uint (.nominal 199 64) a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.uint (.nominal 199 64) a_b))])) :=
-  bind_call (saturating_sub_den_BuilderIndex_i sha m a_a a_b) k
+    hwf hh (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_BuilderIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
@@ -439,19 +437,19 @@ set_option maxHeartbeats 1000000 in
   bind_call (saturating_sub_den_CommitteeIndex sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
+theorem saturating_sub_den_BuilderIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.uint (.nominal 199 64) a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.uint (.nominal 199 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
   rw [s_fn]
   l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
   all_goals l4_close
 
 set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
+@[l4_simp] theorem saturating_sub_call_BuilderIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
     Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) :=
-  bind_call (saturating_sub_den_CommitteeIndex_i sha m a_a a_b) k
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.uint (.nominal 199 64) a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 199 64) x.val), [(.leaf (.uint (.nominal 199 64) a_a)), (.leaf (.uint (.nominal 199 64) a_b))])) :=
+  bind_call (saturating_sub_den_BuilderIndex_i sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_Epoch (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
@@ -469,19 +467,19 @@ set_option maxHeartbeats 1000000 in
   bind_call (saturating_sub_den_Epoch sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_Epoch_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
+theorem saturating_sub_den_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
   rw [s_fn]
   l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
   all_goals l4_close
 
 set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_Epoch_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
+@[l4_simp] theorem saturating_sub_call_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
     Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))])) :=
-  bind_call (saturating_sub_den_Epoch_i sha m a_a a_b) k
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) :=
+  bind_call (saturating_sub_den_CommitteeIndex_i sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_Gwei (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
@@ -499,49 +497,19 @@ set_option maxHeartbeats 1000000 in
   bind_call (saturating_sub_den_Gwei sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_Slot_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
+theorem saturating_sub_den_Epoch_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
   rw [s_fn]
   l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
   all_goals l4_close
 
 set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_Slot_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
+@[l4_simp] theorem saturating_sub_call_Epoch_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
     Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))])) :=
-  bind_call (saturating_sub_den_Slot_i sha m a_a a_b) k
-
-set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
-  rw [s_fn]
-  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
-  all_goals l4_close
-
-set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
-    Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) :=
-  bind_call (saturating_sub_den_Slot sha m a_a a_b) k
-
-set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_Gwei_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 265 64) x.val), [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
-  rw [s_fn]
-  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
-  all_goals l4_close
-
-set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_Gwei_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
-    Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))])) :=
-  bind_call (saturating_sub_den_Gwei_i sha m a_a a_b) k
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))])) :=
+  bind_call (saturating_sub_den_Epoch_i sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_ValidatorIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
@@ -559,19 +527,49 @@ set_option maxHeartbeats 1000000 in
   bind_call (saturating_sub_den_ValidatorIndex sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_WithdrawalIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 748 64) x.val), [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
+theorem saturating_sub_den_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
   rw [s_fn]
   l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
   all_goals l4_close
 
 set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_WithdrawalIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
+@[l4_simp] theorem saturating_sub_call_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
     Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 748 64) x.val), [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))])) :=
-  bind_call (saturating_sub_den_WithdrawalIndex sha m a_a a_b) k
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) :=
+  bind_call (saturating_sub_den_Slot sha m a_a a_b) k
+
+set_option maxHeartbeats 1000000 in
+theorem saturating_sub_den_Slot_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
+  rw [s_fn]
+  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
+  all_goals l4_close
+
+set_option maxHeartbeats 1000000 in
+@[l4_simp] theorem saturating_sub_call_Slot_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.uint (.nominal 196 64) a_b))])) :=
+  bind_call (saturating_sub_den_Slot_i sha m a_a a_b) k
+
+set_option maxHeartbeats 1000000 in
+theorem saturating_sub_den_Gwei_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 265 64) x.val), [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
+  rw [s_fn]
+  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
+  all_goals l4_close
+
+set_option maxHeartbeats 1000000 in
+@[l4_simp] theorem saturating_sub_call_Gwei_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))])) :=
+  bind_call (saturating_sub_den_Gwei_i sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_WithdrawalIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
@@ -602,6 +600,21 @@ set_option maxHeartbeats 1000000 in
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.uint (.nominal 82 64) a_b))]) k) =
       callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 82 64) x.val), [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.uint (.nominal 82 64) a_b))])) :=
   bind_call (saturating_sub_den_ValidatorIndex_i sha m a_a a_b) k
+
+set_option maxHeartbeats 1000000 in
+theorem saturating_sub_den_WithdrawalIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 748 64) x.val), [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
+  rw [s_fn]
+  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
+  all_goals l4_close
+
+set_option maxHeartbeats 1000000 in
+@[l4_simp] theorem saturating_sub_call_WithdrawalIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 748 64) x.val), [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))])) :=
+  bind_call (saturating_sub_den_WithdrawalIndex sha m a_a a_b) k
 -- variants
 
 set_option maxHeartbeats 1000000 in
@@ -620,7 +633,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (decrease_balance_den sha m a_state a_index a_delta) k
 
 set_option maxHeartbeats 1000000 in
-theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fpsGen 89)) :
+theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fpsGen 89)) :
     ∀ fuel, 21 ≤ fuel →
       ResultMatches gfp (fpsGen 89) h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«decrease_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] h) (decrease_balance a_state ⟨a_index⟩ ⟨a_delta⟩) := by
@@ -628,15 +642,16 @@ theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : H
   have hden := decrease_balance_den sha 0 a_state a_index a_delta
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
 
 set_option maxHeartbeats 1000000 in
 theorem decrease_balance_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fpsGen 89)) :
     ∀ fuel, 21 ≤ fuel →
       ResultMatches gfp (fpsGen 89) h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«decrease_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] h) (decrease_balance a_state ⟨a_index⟩ ⟨a_delta⟩) :=
-  decrease_balance_l4 sha gfp h hwf a_state a_index a_delta r_state (bridge_BeaconState hc hy_state) hw
+  decrease_balance_l4 sha gfp h hwf hh a_state a_index a_delta r_state (bridge_BeaconState hc hy_state) hw
 
 set_option maxHeartbeats 1000000 in
 theorem is_active_validator_den (sha : Oracle) (m : Nat) (a_validator : Validator) (a_epoch : Nat) :
@@ -654,7 +669,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_active_validator_den sha m a_validator a_epoch) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_active_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (a_epoch : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+theorem is_active_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_validator : Validator) (a_epoch : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 140 64) a_epoch)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_active_validator» [(.ref r_validator), (.uint (.nominal 140 64) a_epoch)] h) (is_active_validator a_validator ⟨a_epoch⟩) := by
@@ -662,15 +678,16 @@ theorem is_active_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf 
   have hden := is_active_validator_den sha 0 a_validator a_epoch
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem is_active_validator_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_validator : Validator) (a_epoch : Nat) (r_validator : Nat) (hy_validator : dec_Validator h (.ref r_validator) = some a_validator) :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 140 64) a_epoch)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_active_validator» [(.ref r_validator), (.uint (.nominal 140 64) a_epoch)] h) (is_active_validator a_validator ⟨a_epoch⟩) :=
-  is_active_validator_l4 sha gfp h hwf a_validator a_epoch r_validator (bridge_Validator hc hy_validator)
+  is_active_validator_l4 sha gfp h hwf hh a_validator a_epoch r_validator (bridge_Validator hc hy_validator)
 
 set_option maxHeartbeats 1000000 in
 theorem get_active_validator_indices_items (sha : Oracle) (a_state : BeaconState) (a_epoch : Nat) :
@@ -748,7 +765,8 @@ theorem get_active_validator_indices_fcall (sha : Oracle) (a_state : BeaconState
   exact get_active_validator_indices_call sha m a_state a_epoch k
 
 set_option maxHeartbeats 1000000 in
-theorem get_active_validator_indices_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_active_validator_indices_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, a_state.validators.length + 29 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] (fun (x : (List ValidatorIndex)) h' v => ∃ n, dec h' n v = some (.list .pyList .any none (x.map fun y => DV.leaf (.uint (.nominal 82 64) y.val))))
         (interp (Scope.env sha) fuel Scope.Id.«get_active_validator_indices» [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] h) (get_active_validator_indices a_state ⟨a_epoch⟩) := by
@@ -756,15 +774,16 @@ theorem get_active_validator_indices_l4 (sha : Oracle) (gfp : Footprint) (h : He
   have hden := get_active_validator_indices_den sha 0 a_state a_epoch
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_active_validator_indices_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, a_state.validators.length + 29 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] (fun (x : (List ValidatorIndex)) h' v => ∃ n, dec h' n v = some (.list .pyList .any none (x.map fun y => DV.leaf (.uint (.nominal 82 64) y.val))))
         (interp (Scope.env sha) fuel Scope.Id.«get_active_validator_indices» [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] h) (get_active_validator_indices a_state ⟨a_epoch⟩) :=
-  get_active_validator_indices_l4 sha gfp h hwf a_state a_epoch r_state (bridge_BeaconState hc hy_state)
+  get_active_validator_indices_l4 sha gfp h hwf hh a_state a_epoch r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem get_beacon_proposer_index_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
@@ -782,7 +801,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (get_beacon_proposer_index_den sha m a_state) k
 
 set_option maxHeartbeats 1000000 in
-theorem get_beacon_proposer_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_beacon_proposer_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : ValidatorIndex) _ v => v = (.uint (.nominal 82 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_beacon_proposer_index» [(.ref r_state)] h) (get_beacon_proposer_index a_state) := by
@@ -790,15 +810,16 @@ theorem get_beacon_proposer_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap)
   have hden := get_beacon_proposer_index_den sha 0 a_state
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_beacon_proposer_index_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : ValidatorIndex) _ v => v = (.uint (.nominal 82 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_beacon_proposer_index» [(.ref r_state)] h) (get_beacon_proposer_index a_state) :=
-  get_beacon_proposer_index_l4 sha gfp h hwf a_state r_state (bridge_BeaconState hc hy_state)
+  get_beacon_proposer_index_l4 sha gfp h hwf hh a_state r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem get_block_root_at_slot_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_slot : Nat) :
@@ -816,7 +837,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (get_block_root_at_slot_den sha m a_state a_slot) k
 
 set_option maxHeartbeats 1000000 in
-theorem get_block_root_at_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_slot : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_block_root_at_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_slot : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 196 64) a_slot)] (fun (x : Root) _ v => v = (.bytes 146 x.data))
         (interp (Scope.env sha) fuel Scope.Id.«get_block_root_at_slot» [(.ref r_state), (.uint (.nominal 196 64) a_slot)] h) (get_block_root_at_slot a_state ⟨a_slot⟩) := by
@@ -824,15 +846,16 @@ theorem get_block_root_at_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (h
   have hden := get_block_root_at_slot_den sha 0 a_state a_slot
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_block_root_at_slot_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_slot : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 196 64) a_slot)] (fun (x : Root) _ v => v = (.bytes 146 x.data))
         (interp (Scope.env sha) fuel Scope.Id.«get_block_root_at_slot» [(.ref r_state), (.uint (.nominal 196 64) a_slot)] h) (get_block_root_at_slot a_state ⟨a_slot⟩) :=
-  get_block_root_at_slot_l4 sha gfp h hwf a_state a_slot r_state (bridge_BeaconState hc hy_state)
+  get_block_root_at_slot_l4 sha gfp h hwf hh a_state a_slot r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem get_block_root_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_epoch : Nat) :
@@ -850,7 +873,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (get_block_root_den sha m a_state a_epoch) k
 
 set_option maxHeartbeats 1000000 in
-theorem get_block_root_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_block_root_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, 23 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] (fun (x : Root) _ v => v = (.bytes 146 x.data))
         (interp (Scope.env sha) fuel Scope.Id.«get_block_root» [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] h) (get_block_root a_state ⟨a_epoch⟩) := by
@@ -858,15 +882,16 @@ theorem get_block_root_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : Hea
   have hden := get_block_root_den sha 0 a_state a_epoch
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_block_root_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, 23 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] (fun (x : Root) _ v => v = (.bytes 146 x.data))
         (interp (Scope.env sha) fuel Scope.Id.«get_block_root» [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] h) (get_block_root a_state ⟨a_epoch⟩) :=
-  get_block_root_l4 sha gfp h hwf a_state a_epoch r_state (bridge_BeaconState hc hy_state)
+  get_block_root_l4 sha gfp h hwf hh a_state a_epoch r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem get_committee_count_per_slot_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_epoch : Nat) :
@@ -896,7 +921,8 @@ theorem get_committee_count_per_slot_fcall (sha : Oracle) (a_state : BeaconState
   exact get_committee_count_per_slot_call sha m a_state a_epoch k
 
 set_option maxHeartbeats 1000000 in
-theorem get_committee_count_per_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_committee_count_per_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, a_state.validators.length + 50 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] (fun (x : Uint64) _ v => v = (.uint (.width 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_committee_count_per_slot» [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] h) (get_committee_count_per_slot a_state ⟨a_epoch⟩) := by
@@ -904,15 +930,16 @@ theorem get_committee_count_per_slot_l4 (sha : Oracle) (gfp : Footprint) (h : He
   have hden := get_committee_count_per_slot_den sha 0 a_state a_epoch
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_committee_count_per_slot_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, a_state.validators.length + 50 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] (fun (x : Uint64) _ v => v = (.uint (.width 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_committee_count_per_slot» [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] h) (get_committee_count_per_slot a_state ⟨a_epoch⟩) :=
-  get_committee_count_per_slot_l4 sha gfp h hwf a_state a_epoch r_state (bridge_BeaconState hc hy_state)
+  get_committee_count_per_slot_l4 sha gfp h hwf hh a_state a_epoch r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem get_committee_indices_items (sha : Oracle) (a_committee_bits : List Boolean) :
@@ -990,7 +1017,8 @@ theorem get_committee_indices_fcall (sha : Oracle) (a_committee_bits : List Bool
   exact get_committee_indices_call sha m a_committee_bits k
 
 set_option maxHeartbeats 1000000 in
-theorem get_committee_indices_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_committee_bits : List Boolean) (r_committee_bits : Nat) (hr_committee_bits : ∃ n, dec h n (.ref r_committee_bits) = some (.list .pyList .any none (a_committee_bits.map fun z => (.leaf (.boolean z.val))))) :
+theorem get_committee_indices_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_committee_bits : List Boolean) (r_committee_bits : Nat) (hr_committee_bits : ∃ n, dec h n (.ref r_committee_bits) = some (.list .pyList .any none (a_committee_bits.map fun z => (.leaf (.boolean z.val))))) :
     ∀ fuel, a_committee_bits.length + 17 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_committee_bits)] (fun (x : (List CommitteeIndex)) h' v => ∃ n, dec h' n v = some (.list .pyList .any none (x.map fun y => DV.leaf (.uint (.nominal 170 64) y.val))))
         (interp (Scope.env sha) fuel Scope.Id.«get_committee_indices» [(.ref r_committee_bits)] h) (get_committee_indices a_committee_bits) := by
@@ -998,7 +1026,7 @@ theorem get_committee_indices_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hw
   have hden := get_committee_indices_den sha 0 a_committee_bits
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_committee_bits (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_committee_bits (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_current_epoch_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
@@ -1016,7 +1044,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (get_current_epoch_den sha m a_state) k
 
 set_option maxHeartbeats 1000000 in
-theorem get_current_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_current_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, 22 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_current_epoch» [(.ref r_state)] h) (get_current_epoch a_state) := by
@@ -1024,15 +1053,16 @@ theorem get_current_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
   have hden := get_current_epoch_den sha 0 a_state
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_current_epoch_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, 22 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_current_epoch» [(.ref r_state)] h) (get_current_epoch a_state) :=
-  get_current_epoch_l4 sha gfp h hwf a_state r_state (bridge_BeaconState hc hy_state)
+  get_current_epoch_l4 sha gfp h hwf hh a_state r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem get_previous_epoch_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
@@ -1050,7 +1080,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (get_previous_epoch_den sha m a_state) k
 
 set_option maxHeartbeats 1000000 in
-theorem get_previous_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_previous_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, 35 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_previous_epoch» [(.ref r_state)] h) (get_previous_epoch a_state) := by
@@ -1058,15 +1089,16 @@ theorem get_previous_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf :
   have hden := get_previous_epoch_den sha 0 a_state
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_previous_epoch_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, 35 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_previous_epoch» [(.ref r_state)] h) (get_previous_epoch a_state) :=
-  get_previous_epoch_l4 sha gfp h hwf a_state r_state (bridge_BeaconState hc hy_state)
+  get_previous_epoch_l4 sha gfp h hwf hh a_state r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem get_eligible_validator_indices_items_swap_311_23 (L : Name → Option DRes) (a b : DRes) :
@@ -1154,7 +1186,8 @@ theorem get_eligible_validator_indices_fcall (sha : Oracle) (a_state : BeaconSta
   exact get_eligible_validator_indices_call sha m a_state k
 
 set_option maxHeartbeats 1000000 in
-theorem get_eligible_validator_indices_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_eligible_validator_indices_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, a_state.validators.length + 56 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : (List ValidatorIndex)) h' v => ∃ n, dec h' n v = some (.list .pyList .any none (x.map fun y => DV.leaf (.uint (.nominal 82 64) y.val))))
         (interp (Scope.env sha) fuel Scope.Id.«get_eligible_validator_indices» [(.ref r_state)] h) (get_eligible_validator_indices a_state) := by
@@ -1162,15 +1195,16 @@ theorem get_eligible_validator_indices_l4 (sha : Oracle) (gfp : Footprint) (h : 
   have hden := get_eligible_validator_indices_den sha 0 a_state
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_eligible_validator_indices_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, a_state.validators.length + 56 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : (List ValidatorIndex)) h' v => ∃ n, dec h' n v = some (.list .pyList .any none (x.map fun y => DV.leaf (.uint (.nominal 82 64) y.val))))
         (interp (Scope.env sha) fuel Scope.Id.«get_eligible_validator_indices» [(.ref r_state)] h) (get_eligible_validator_indices a_state) :=
-  get_eligible_validator_indices_l4 sha gfp h hwf a_state r_state (bridge_BeaconState hc hy_state)
+  get_eligible_validator_indices_l4 sha gfp h hwf hh a_state r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem get_finality_delay_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
@@ -1188,7 +1222,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (get_finality_delay_den sha m a_state) k
 
 set_option maxHeartbeats 1000000 in
-theorem get_finality_delay_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_finality_delay_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, 47 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_finality_delay» [(.ref r_state)] h) (get_finality_delay a_state) := by
@@ -1196,15 +1231,16 @@ theorem get_finality_delay_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf :
   have hden := get_finality_delay_den sha 0 a_state
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_finality_delay_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, 47 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Epoch) _ v => v = (.uint (.nominal 140 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_finality_delay» [(.ref r_state)] h) (get_finality_delay a_state) :=
-  get_finality_delay_l4 sha gfp h hwf a_state r_state (bridge_BeaconState hc hy_state)
+  get_finality_delay_l4 sha gfp h hwf hh a_state r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem get_index_for_new_validator_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
@@ -1222,7 +1258,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (get_index_for_new_validator_den sha m a_state) k
 
 set_option maxHeartbeats 1000000 in
-theorem get_index_for_new_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_index_for_new_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, 12 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : ValidatorIndex) _ v => v = (.uint (.nominal 82 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_index_for_new_validator» [(.ref r_state)] h) (get_index_for_new_validator a_state) := by
@@ -1230,15 +1267,16 @@ theorem get_index_for_new_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Hea
   have hden := get_index_for_new_validator_den sha 0 a_state
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_index_for_new_validator_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, 12 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : ValidatorIndex) _ v => v = (.uint (.nominal 82 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_index_for_new_validator» [(.ref r_state)] h) (get_index_for_new_validator a_state) :=
-  get_index_for_new_validator_l4 sha gfp h hwf a_state r_state (bridge_BeaconState hc hy_state)
+  get_index_for_new_validator_l4 sha gfp h hwf hh a_state r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem is_compounding_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_withdrawal_credentials : List UInt8) :
@@ -1256,7 +1294,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_compounding_withdrawal_credential_den sha m a_withdrawal_credentials) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_compounding_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_withdrawal_credentials : List UInt8)  :
+theorem is_compounding_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_withdrawal_credentials : List UInt8)  :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.bytes 505 a_withdrawal_credentials)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_compounding_withdrawal_credential» [(.bytes 505 a_withdrawal_credentials)] h) (is_compounding_withdrawal_credential ⟨a_withdrawal_credentials⟩) := by
@@ -1264,7 +1303,7 @@ theorem is_compounding_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint)
   have hden := is_compounding_withdrawal_credential_den sha 0 a_withdrawal_credentials
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem has_compounding_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_validator : Validator) :
@@ -1282,7 +1321,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (has_compounding_withdrawal_credential_den sha m a_validator) k
 
 set_option maxHeartbeats 1000000 in
-theorem has_compounding_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+theorem has_compounding_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
     ∀ fuel, 22 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«has_compounding_withdrawal_credential» [(.ref r_validator)] h) (has_compounding_withdrawal_credential a_validator) := by
@@ -1290,15 +1330,16 @@ theorem has_compounding_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint
   have hden := has_compounding_withdrawal_credential_den sha 0 a_validator
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem has_compounding_withdrawal_credential_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_validator : Validator) (r_validator : Nat) (hy_validator : dec_Validator h (.ref r_validator) = some a_validator) :
     ∀ fuel, 22 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«has_compounding_withdrawal_credential» [(.ref r_validator)] h) (has_compounding_withdrawal_credential a_validator) :=
-  has_compounding_withdrawal_credential_l4 sha gfp h hwf a_validator r_validator (bridge_Validator hc hy_validator)
+  has_compounding_withdrawal_credential_l4 sha gfp h hwf hh a_validator r_validator (bridge_Validator hc hy_validator)
 
 set_option maxHeartbeats 1000000 in
 theorem get_max_effective_balance_den (sha : Oracle) (m : Nat) (a_validator : Validator) :
@@ -1316,7 +1357,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (get_max_effective_balance_den sha m a_validator) k
 
 set_option maxHeartbeats 1000000 in
-theorem get_max_effective_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+theorem get_max_effective_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
     ∀ fuel, 32 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_max_effective_balance» [(.ref r_validator)] h) (get_max_effective_balance a_validator) := by
@@ -1324,15 +1366,16 @@ theorem get_max_effective_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap)
   have hden := get_max_effective_balance_den sha 0 a_validator
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_max_effective_balance_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_validator : Validator) (r_validator : Nat) (hy_validator : dec_Validator h (.ref r_validator) = some a_validator) :
     ∀ fuel, 32 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_max_effective_balance» [(.ref r_validator)] h) (get_max_effective_balance a_validator) :=
-  get_max_effective_balance_l4 sha gfp h hwf a_validator r_validator (bridge_Validator hc hy_validator)
+  get_max_effective_balance_l4 sha gfp h hwf hh a_validator r_validator (bridge_Validator hc hy_validator)
 
 set_option maxHeartbeats 1000000 in
 theorem get_pending_balance_to_withdraw_loop1_swap (B : Name → Option DRes) (it v : DRes) :
@@ -1413,7 +1456,8 @@ theorem get_pending_balance_to_withdraw_fcall (sha : Oracle) (a_state : BeaconSt
   exact get_pending_balance_to_withdraw_call sha m a_state a_validator_index k
 
 set_option maxHeartbeats 1000000 in
-theorem get_pending_balance_to_withdraw_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_validator_index : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_pending_balance_to_withdraw_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_validator_index : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, a_state.pending_partial_withdrawals.length + 15 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 82 64) a_validator_index)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_pending_balance_to_withdraw» [(.ref r_state), (.uint (.nominal 82 64) a_validator_index)] h) (get_pending_balance_to_withdraw a_state ⟨a_validator_index⟩) := by
@@ -1421,15 +1465,16 @@ theorem get_pending_balance_to_withdraw_l4 (sha : Oracle) (gfp : Footprint) (h :
   have hden := get_pending_balance_to_withdraw_den sha 0 a_state a_validator_index
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_pending_balance_to_withdraw_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_validator_index : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, a_state.pending_partial_withdrawals.length + 15 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 82 64) a_validator_index)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_pending_balance_to_withdraw» [(.ref r_state), (.uint (.nominal 82 64) a_validator_index)] h) (get_pending_balance_to_withdraw a_state ⟨a_validator_index⟩) :=
-  get_pending_balance_to_withdraw_l4 sha gfp h hwf a_state a_validator_index r_state (bridge_BeaconState hc hy_state)
+  get_pending_balance_to_withdraw_l4 sha gfp h hwf hh a_state a_validator_index r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem get_randao_mix_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_epoch : Nat) :
@@ -1447,7 +1492,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (get_randao_mix_den sha m a_state a_epoch) k
 
 set_option maxHeartbeats 1000000 in
-theorem get_randao_mix_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem get_randao_mix_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] (fun (x : Bytes32) _ v => v = (.bytes 505 x.data))
         (interp (Scope.env sha) fuel Scope.Id.«get_randao_mix» [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] h) (get_randao_mix a_state ⟨a_epoch⟩) := by
@@ -1455,15 +1501,16 @@ theorem get_randao_mix_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : Hea
   have hden := get_randao_mix_den sha 0 a_state a_epoch
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem get_randao_mix_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_epoch : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] (fun (x : Bytes32) _ v => v = (.bytes 505 x.data))
         (interp (Scope.env sha) fuel Scope.Id.«get_randao_mix» [(.ref r_state), (.uint (.nominal 140 64) a_epoch)] h) (get_randao_mix a_state ⟨a_epoch⟩) :=
-  get_randao_mix_l4 sha gfp h hwf a_state a_epoch r_state (bridge_BeaconState hc hy_state)
+  get_randao_mix_l4 sha gfp h hwf hh a_state a_epoch r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem has_eth1_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_validator : Validator) :
@@ -1481,7 +1528,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (has_eth1_withdrawal_credential_den sha m a_validator) k
 
 set_option maxHeartbeats 1000000 in
-theorem has_eth1_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+theorem has_eth1_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«has_eth1_withdrawal_credential» [(.ref r_validator)] h) (has_eth1_withdrawal_credential a_validator) := by
@@ -1489,15 +1537,16 @@ theorem has_eth1_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : 
   have hden := has_eth1_withdrawal_credential_den sha 0 a_validator
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem has_eth1_withdrawal_credential_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_validator : Validator) (r_validator : Nat) (hy_validator : dec_Validator h (.ref r_validator) = some a_validator) :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«has_eth1_withdrawal_credential» [(.ref r_validator)] h) (has_eth1_withdrawal_credential a_validator) :=
-  has_eth1_withdrawal_credential_l4 sha gfp h hwf a_validator r_validator (bridge_Validator hc hy_validator)
+  has_eth1_withdrawal_credential_l4 sha gfp h hwf hh a_validator r_validator (bridge_Validator hc hy_validator)
 
 set_option maxHeartbeats 1000000 in
 theorem has_execution_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_validator : Validator) :
@@ -1515,7 +1564,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (has_execution_withdrawal_credential_den sha m a_validator) k
 
 set_option maxHeartbeats 1000000 in
-theorem has_execution_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+theorem has_execution_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
     ∀ fuel, 34 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«has_execution_withdrawal_credential» [(.ref r_validator)] h) (has_execution_withdrawal_credential a_validator) := by
@@ -1523,15 +1573,16 @@ theorem has_execution_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) 
   have hden := has_execution_withdrawal_credential_den sha 0 a_validator
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem has_execution_withdrawal_credential_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_validator : Validator) (r_validator : Nat) (hy_validator : dec_Validator h (.ref r_validator) = some a_validator) :
     ∀ fuel, 34 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«has_execution_withdrawal_credential» [(.ref r_validator)] h) (has_execution_withdrawal_credential a_validator) :=
-  has_execution_withdrawal_credential_l4 sha gfp h hwf a_validator r_validator (bridge_Validator hc hy_validator)
+  has_execution_withdrawal_credential_l4 sha gfp h hwf hh a_validator r_validator (bridge_Validator hc hy_validator)
 
 set_option maxHeartbeats 1000000 in
 theorem has_flag_den (sha : Oracle) (m : Nat) (a_flags : Nat) (a_flag_index : Int) :
@@ -1549,7 +1600,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (has_flag_den sha m a_flags a_flag_index) k
 
 set_option maxHeartbeats 1000000 in
-theorem has_flag_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_flags : Nat) (a_flag_index : Int)  :
+theorem has_flag_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_flags : Nat) (a_flag_index : Int)  :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp [] h [(.uint (.nominal 20 8) a_flags), (.int a_flag_index)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«has_flag» [(.uint (.nominal 20 8) a_flags), (.int a_flag_index)] h) (has_flag ⟨a_flags⟩ a_flag_index) := by
@@ -1557,7 +1609,7 @@ theorem has_flag_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
   have hden := has_flag_den sha 0 a_flags a_flag_index
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem increase_balance_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) :
@@ -1575,7 +1627,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (increase_balance_den sha m a_state a_index a_delta) k
 
 set_option maxHeartbeats 1000000 in
-theorem increase_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fpsGen 83)) :
+theorem increase_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fpsGen 83)) :
     ∀ fuel, 8 ≤ fuel →
       ResultMatches gfp (fpsGen 83) h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«increase_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] h) (increase_balance a_state ⟨a_index⟩ ⟨a_delta⟩) := by
@@ -1583,15 +1636,16 @@ theorem increase_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : H
   have hden := increase_balance_den sha 0 a_state a_index a_delta
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
 
 set_option maxHeartbeats 1000000 in
 theorem increase_balance_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fpsGen 83)) :
     ∀ fuel, 8 ≤ fuel →
       ResultMatches gfp (fpsGen 83) h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«increase_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] h) (increase_balance a_state ⟨a_index⟩ ⟨a_delta⟩) :=
-  increase_balance_l4 sha gfp h hwf a_state a_index a_delta r_state (bridge_BeaconState hc hy_state) hw
+  increase_balance_l4 sha gfp h hwf hh a_state a_index a_delta r_state (bridge_BeaconState hc hy_state) hw
 
 set_option maxHeartbeats 1000000 in
 theorem initiate_builder_exit_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_builder_index : Nat) :
@@ -1609,7 +1663,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (initiate_builder_exit_den sha m a_state a_builder_index) k
 
 set_option maxHeartbeats 1000000 in
-theorem initiate_builder_exit_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fpsGen 413)) :
+theorem initiate_builder_exit_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fpsGen 413)) :
     ∀ fuel, 33 ≤ fuel →
       ResultMatches gfp (fpsGen 413) h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«initiate_builder_exit» [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] h) (initiate_builder_exit a_state ⟨a_builder_index⟩) := by
@@ -1617,15 +1672,16 @@ theorem initiate_builder_exit_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hw
   have hden := initiate_builder_exit_den sha 0 a_state a_builder_index
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
 
 set_option maxHeartbeats 1000000 in
 theorem initiate_builder_exit_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (hw : WTree h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fpsGen 413)) :
     ∀ fuel, 33 ≤ fuel →
       ResultMatches gfp (fpsGen 413) h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«initiate_builder_exit» [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] h) (initiate_builder_exit a_state ⟨a_builder_index⟩) :=
-  initiate_builder_exit_l4 sha gfp h hwf a_state a_builder_index r_state (bridge_BeaconState hc hy_state) hw
+  initiate_builder_exit_l4 sha gfp h hwf hh a_state a_builder_index r_state (bridge_BeaconState hc hy_state) hw
 
 set_option maxHeartbeats 1000000 in
 theorem is_active_builder_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_builder_index : Nat) :
@@ -1643,7 +1699,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_active_builder_den sha m a_state a_builder_index) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_active_builder_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem is_active_builder_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_active_builder» [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] h) (is_active_builder a_state ⟨a_builder_index⟩) := by
@@ -1651,15 +1708,16 @@ theorem is_active_builder_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
   have hden := is_active_builder_den sha 0 a_state a_builder_index
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem is_active_builder_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_active_builder» [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] h) (is_active_builder a_state ⟨a_builder_index⟩) :=
-  is_active_builder_l4 sha gfp h hwf a_state a_builder_index r_state (bridge_BeaconState hc hy_state)
+  is_active_builder_l4 sha gfp h hwf hh a_state a_builder_index r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem is_attestation_same_slot_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_data : AttestationData) :
@@ -1677,7 +1735,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_attestation_same_slot_den sha m a_state a_data) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_attestation_same_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_data : AttestationData) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_data : Nat) (hr_data : ∃ n, dec h n (.ref r_data) = some (.cont 750 (kids_AttestationData a_data))) :
+theorem is_attestation_same_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_data : AttestationData) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_data : Nat) (hr_data : ∃ n, dec h n (.ref r_data) = some (.cont 750 (kids_AttestationData a_data))) :
     ∀ fuel, 21 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.ref r_data)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_attestation_same_slot» [(.ref r_state), (.ref r_data)] h) (is_attestation_same_slot a_state a_data) := by
@@ -1685,15 +1744,16 @@ theorem is_attestation_same_slot_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) 
   have hden := is_attestation_same_slot_den sha 0 a_state a_data
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons hr_data (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons hr_data (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem is_attestation_same_slot_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_data : AttestationData) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (r_data : Nat) (hy_data : dec_AttestationData h (.ref r_data) = some a_data) :
     ∀ fuel, 21 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.ref r_data)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_attestation_same_slot» [(.ref r_state), (.ref r_data)] h) (is_attestation_same_slot a_state a_data) :=
-  is_attestation_same_slot_l4 sha gfp h hwf a_state a_data r_state (bridge_BeaconState hc hy_state) r_data (bridge_AttestationData hc hy_data)
+  is_attestation_same_slot_l4 sha gfp h hwf hh a_state a_data r_state (bridge_BeaconState hc hy_state) r_data (bridge_AttestationData hc hy_data)
 
 set_option maxHeartbeats 1000000 in
 theorem is_builder_index_den (sha : Oracle) (m : Nat) (a_validator_index : Nat) :
@@ -1711,7 +1771,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_builder_index_den sha m a_validator_index) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_builder_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator_index : Nat)  :
+theorem is_builder_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_validator_index : Nat)  :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp [] h [(.uint (.nominal 82 64) a_validator_index)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_builder_index» [(.uint (.nominal 82 64) a_validator_index)] h) (is_builder_index ⟨a_validator_index⟩) := by
@@ -1719,7 +1780,7 @@ theorem is_builder_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : H
   have hden := is_builder_index_den sha 0 a_validator_index
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem is_builder_withdrawal_credential_den (sha : Oracle) (m : Nat) (a_withdrawal_credentials : List UInt8) :
@@ -1737,7 +1798,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_builder_withdrawal_credential_den sha m a_withdrawal_credentials) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_builder_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_withdrawal_credentials : List UInt8)  :
+theorem is_builder_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_withdrawal_credentials : List UInt8)  :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.bytes 505 a_withdrawal_credentials)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_builder_withdrawal_credential» [(.bytes 505 a_withdrawal_credentials)] h) (is_builder_withdrawal_credential ⟨a_withdrawal_credentials⟩) := by
@@ -1745,7 +1807,7 @@ theorem is_builder_withdrawal_credential_l4 (sha : Oracle) (gfp : Footprint) (h 
   have hden := is_builder_withdrawal_credential_den sha 0 a_withdrawal_credentials
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem is_eligible_for_activation_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_validator : Validator) :
@@ -1763,7 +1825,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_eligible_for_activation_den sha m a_state a_validator) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_eligible_for_activation_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_validator : Validator) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+theorem is_eligible_for_activation_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_validator : Validator) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_eligible_for_activation» [(.ref r_state), (.ref r_validator)] h) (is_eligible_for_activation a_state a_validator) := by
@@ -1771,15 +1834,16 @@ theorem is_eligible_for_activation_l4 (sha : Oracle) (gfp : Footprint) (h : Heap
   have hden := is_eligible_for_activation_den sha 0 a_state a_validator
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem is_eligible_for_activation_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_validator : Validator) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (r_validator : Nat) (hy_validator : dec_Validator h (.ref r_validator) = some a_validator) :
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_eligible_for_activation» [(.ref r_state), (.ref r_validator)] h) (is_eligible_for_activation a_state a_validator) :=
-  is_eligible_for_activation_l4 sha gfp h hwf a_state a_validator r_state (bridge_BeaconState hc hy_state) r_validator (bridge_Validator hc hy_validator)
+  is_eligible_for_activation_l4 sha gfp h hwf hh a_state a_validator r_state (bridge_BeaconState hc hy_state) r_validator (bridge_Validator hc hy_validator)
 
 set_option maxHeartbeats 1000000 in
 theorem is_eligible_for_activation_queue_den (sha : Oracle) (m : Nat) (a_validator : Validator) :
@@ -1797,7 +1861,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_eligible_for_activation_queue_den sha m a_validator) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_eligible_for_activation_queue_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+theorem is_eligible_for_activation_queue_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_validator : Validator) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_eligible_for_activation_queue» [(.ref r_validator)] h) (is_eligible_for_activation_queue a_validator) := by
@@ -1805,15 +1870,16 @@ theorem is_eligible_for_activation_queue_l4 (sha : Oracle) (gfp : Footprint) (h 
   have hden := is_eligible_for_activation_queue_den sha 0 a_validator
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem is_eligible_for_activation_queue_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_validator : Validator) (r_validator : Nat) (hy_validator : dec_Validator h (.ref r_validator) = some a_validator) :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_eligible_for_activation_queue» [(.ref r_validator)] h) (is_eligible_for_activation_queue a_validator) :=
-  is_eligible_for_activation_queue_l4 sha gfp h hwf a_validator r_validator (bridge_Validator hc hy_validator)
+  is_eligible_for_activation_queue_l4 sha gfp h hwf hh a_validator r_validator (bridge_Validator hc hy_validator)
 
 set_option maxHeartbeats 1000000 in
 theorem is_eligible_for_partial_withdrawals_den (sha : Oracle) (m : Nat) (a_validator : Validator) (a_balance : Nat) :
@@ -1831,7 +1897,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_eligible_for_partial_withdrawals_den sha m a_validator a_balance) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_eligible_for_partial_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (a_balance : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+theorem is_eligible_for_partial_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_validator : Validator) (a_balance : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 265 64) a_balance)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_eligible_for_partial_withdrawals» [(.ref r_validator), (.uint (.nominal 265 64) a_balance)] h) (is_eligible_for_partial_withdrawals a_validator ⟨a_balance⟩) := by
@@ -1839,15 +1906,16 @@ theorem is_eligible_for_partial_withdrawals_l4 (sha : Oracle) (gfp : Footprint) 
   have hden := is_eligible_for_partial_withdrawals_den sha 0 a_validator a_balance
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem is_eligible_for_partial_withdrawals_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_validator : Validator) (a_balance : Nat) (r_validator : Nat) (hy_validator : dec_Validator h (.ref r_validator) = some a_validator) :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 265 64) a_balance)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_eligible_for_partial_withdrawals» [(.ref r_validator), (.uint (.nominal 265 64) a_balance)] h) (is_eligible_for_partial_withdrawals a_validator ⟨a_balance⟩) :=
-  is_eligible_for_partial_withdrawals_l4 sha gfp h hwf a_validator a_balance r_validator (bridge_Validator hc hy_validator)
+  is_eligible_for_partial_withdrawals_l4 sha gfp h hwf hh a_validator a_balance r_validator (bridge_Validator hc hy_validator)
 
 set_option maxHeartbeats 1000000 in
 theorem is_fully_withdrawable_validator_den (sha : Oracle) (m : Nat) (a_validator : Validator) (a_balance : Nat) (a_epoch : Nat) :
@@ -1865,7 +1933,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_fully_withdrawable_validator_den sha m a_validator a_balance a_epoch) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_fully_withdrawable_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (a_balance : Nat) (a_epoch : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+theorem is_fully_withdrawable_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_validator : Validator) (a_balance : Nat) (a_epoch : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
     ∀ fuel, 46 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 265 64) a_balance), (.uint (.nominal 140 64) a_epoch)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_fully_withdrawable_validator» [(.ref r_validator), (.uint (.nominal 265 64) a_balance), (.uint (.nominal 140 64) a_epoch)] h) (is_fully_withdrawable_validator a_validator ⟨a_balance⟩ ⟨a_epoch⟩) := by
@@ -1873,15 +1942,16 @@ theorem is_fully_withdrawable_validator_l4 (sha : Oracle) (gfp : Footprint) (h :
   have hden := is_fully_withdrawable_validator_den sha 0 a_validator a_balance a_epoch
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h)))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem is_fully_withdrawable_validator_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_validator : Validator) (a_balance : Nat) (a_epoch : Nat) (r_validator : Nat) (hy_validator : dec_Validator h (.ref r_validator) = some a_validator) :
     ∀ fuel, 46 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 265 64) a_balance), (.uint (.nominal 140 64) a_epoch)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_fully_withdrawable_validator» [(.ref r_validator), (.uint (.nominal 265 64) a_balance), (.uint (.nominal 140 64) a_epoch)] h) (is_fully_withdrawable_validator a_validator ⟨a_balance⟩ ⟨a_epoch⟩) :=
-  is_fully_withdrawable_validator_l4 sha gfp h hwf a_validator a_balance a_epoch r_validator (bridge_Validator hc hy_validator)
+  is_fully_withdrawable_validator_l4 sha gfp h hwf hh a_validator a_balance a_epoch r_validator (bridge_Validator hc hy_validator)
 
 set_option maxHeartbeats 1000000 in
 theorem is_in_inactivity_leak_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
@@ -1899,7 +1969,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_in_inactivity_leak_den sha m a_state) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_in_inactivity_leak_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+theorem is_in_inactivity_leak_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, 59 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_in_inactivity_leak» [(.ref r_state)] h) (is_in_inactivity_leak a_state) := by
@@ -1907,15 +1978,16 @@ theorem is_in_inactivity_leak_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hw
   have hden := is_in_inactivity_leak_den sha 0 a_state
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem is_in_inactivity_leak_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
     ∀ fuel, 59 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_in_inactivity_leak» [(.ref r_state)] h) (is_in_inactivity_leak a_state) :=
-  is_in_inactivity_leak_l4 sha gfp h hwf a_state r_state (bridge_BeaconState hc hy_state)
+  is_in_inactivity_leak_l4 sha gfp h hwf hh a_state r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
 theorem is_partially_withdrawable_validator_den (sha : Oracle) (m : Nat) (a_validator : Validator) (a_balance : Nat) :
@@ -1933,7 +2005,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_partially_withdrawable_validator_den sha m a_validator a_balance) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_partially_withdrawable_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (a_balance : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+theorem is_partially_withdrawable_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_validator : Validator) (a_balance : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
     ∀ fuel, 46 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 265 64) a_balance)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_partially_withdrawable_validator» [(.ref r_validator), (.uint (.nominal 265 64) a_balance)] h) (is_partially_withdrawable_validator a_validator ⟨a_balance⟩) := by
@@ -1941,15 +2014,16 @@ theorem is_partially_withdrawable_validator_l4 (sha : Oracle) (gfp : Footprint) 
   have hden := is_partially_withdrawable_validator_den sha 0 a_validator a_balance
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem is_partially_withdrawable_validator_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_validator : Validator) (a_balance : Nat) (r_validator : Nat) (hy_validator : dec_Validator h (.ref r_validator) = some a_validator) :
     ∀ fuel, 46 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 265 64) a_balance)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_partially_withdrawable_validator» [(.ref r_validator), (.uint (.nominal 265 64) a_balance)] h) (is_partially_withdrawable_validator a_validator ⟨a_balance⟩) :=
-  is_partially_withdrawable_validator_l4 sha gfp h hwf a_validator a_balance r_validator (bridge_Validator hc hy_validator)
+  is_partially_withdrawable_validator_l4 sha gfp h hwf hh a_validator a_balance r_validator (bridge_Validator hc hy_validator)
 
 set_option maxHeartbeats 1000000 in
 theorem is_slashable_validator_den (sha : Oracle) (m : Nat) (a_validator : Validator) (a_epoch : Nat) :
@@ -1967,7 +2041,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (is_slashable_validator_den sha m a_validator a_epoch) k
 
 set_option maxHeartbeats 1000000 in
-theorem is_slashable_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_validator : Validator) (a_epoch : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
+theorem is_slashable_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_validator : Validator) (a_epoch : Nat) (r_validator : Nat) (hr_validator : ∃ n, dec h n (.ref r_validator) = some (.cont 396 (kids_Validator a_validator))) :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 140 64) a_epoch)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_slashable_validator» [(.ref r_validator), (.uint (.nominal 140 64) a_epoch)] h) (is_slashable_validator a_validator ⟨a_epoch⟩) := by
@@ -1975,15 +2050,16 @@ theorem is_slashable_validator_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (h
   have hden := is_slashable_validator_den sha 0 a_validator a_epoch
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
+    hwf hh (GenWrap.decArgs_cons hr_validator (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
 theorem is_slashable_validator_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_validator : Validator) (a_epoch : Nat) (r_validator : Nat) (hy_validator : dec_Validator h (.ref r_validator) = some a_validator) :
     ∀ fuel, 10 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_validator), (.uint (.nominal 140 64) a_epoch)] (fun (x : Bool) _ v => v = (.bool x))
         (interp (Scope.env sha) fuel Scope.Id.«is_slashable_validator» [(.ref r_validator), (.uint (.nominal 140 64) a_epoch)] h) (is_slashable_validator a_validator ⟨a_epoch⟩) :=
-  is_slashable_validator_l4 sha gfp h hwf a_validator a_epoch r_validator (bridge_Validator hc hy_validator)
+  is_slashable_validator_l4 sha gfp h hwf hh a_validator a_epoch r_validator (bridge_Validator hc hy_validator)
 
 set_option maxHeartbeats 1000000 in
 theorem process_deposit_request_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_deposit_request : DepositRequest) (hok_deposit_request : ok_DepositRequest a_deposit_request) :
@@ -2002,7 +2078,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (process_deposit_request_den sha m a_state hok_state a_deposit_request hok_deposit_request) k
 
 set_option maxHeartbeats 1000000 in
-theorem process_deposit_request_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_deposit_request : DepositRequest) (hok_deposit_request : ok_DepositRequest a_deposit_request) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_deposit_request : Nat) (hr_deposit_request : ∃ n, dec h n (.ref r_deposit_request) = some (.cont 760 (kids_DepositRequest a_deposit_request))) (hw : WTree h [(.ref r_state), (.ref r_deposit_request)] (fpsGen 54)) :
+theorem process_deposit_request_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_deposit_request : DepositRequest) (hok_deposit_request : ok_DepositRequest a_deposit_request) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_deposit_request : Nat) (hr_deposit_request : ∃ n, dec h n (.ref r_deposit_request) = some (.cont 760 (kids_DepositRequest a_deposit_request))) (hw : WTree h [(.ref r_state), (.ref r_deposit_request)] (fpsGen 54)) :
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp (fpsGen 54) h [(.ref r_state), (.ref r_deposit_request)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«process_deposit_request» [(.ref r_state), (.ref r_deposit_request)] h) (process_deposit_request a_state a_deposit_request) := by
@@ -2010,15 +2087,16 @@ theorem process_deposit_request_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (
   have hden := process_deposit_request_den sha 0 a_state hok_state a_deposit_request hok_deposit_request
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons hr_deposit_request (GenWrap.decArgs_nil h))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons hr_deposit_request (GenWrap.decArgs_nil h))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
 
 set_option maxHeartbeats 1000000 in
 theorem process_deposit_request_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_deposit_request : DepositRequest) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (r_deposit_request : Nat) (hy_deposit_request : dec_DepositRequest h (.ref r_deposit_request) = some a_deposit_request) (hw : WTree h [(.ref r_state), (.ref r_deposit_request)] (fpsGen 54)) :
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp (fpsGen 54) h [(.ref r_state), (.ref r_deposit_request)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«process_deposit_request» [(.ref r_state), (.ref r_deposit_request)] h) (process_deposit_request a_state a_deposit_request) :=
-  process_deposit_request_l4 sha gfp h hwf a_state (okb_BeaconState hy_state) a_deposit_request (okb_DepositRequest hy_deposit_request) r_state (bridge_BeaconState hc hy_state) r_deposit_request (bridge_DepositRequest hc hy_deposit_request) hw
+  process_deposit_request_l4 sha gfp h hwf hh a_state (okb_BeaconState hy_state) a_deposit_request (okb_DepositRequest hy_deposit_request) r_state (bridge_BeaconState hc hy_state) r_deposit_request (bridge_DepositRequest hc hy_deposit_request) hw
 
 set_option maxHeartbeats 1000000 in
 theorem process_slashings_reset_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
@@ -2036,7 +2114,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (process_slashings_reset_den sha m a_state) k
 
 set_option maxHeartbeats 1000000 in
-theorem process_slashings_reset_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state)] (fpsGen 541)) :
+theorem process_slashings_reset_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state)] (fpsGen 541)) :
     ∀ fuel, 33 ≤ fuel →
       ResultMatches gfp (fpsGen 541) h [(.ref r_state)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«process_slashings_reset» [(.ref r_state)] h) (process_slashings_reset a_state) := by
@@ -2044,15 +2123,16 @@ theorem process_slashings_reset_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (
   have hden := process_slashings_reset_den sha 0 a_state
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_nil h)) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
 
 set_option maxHeartbeats 1000000 in
 theorem process_slashings_reset_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (hw : WTree h [(.ref r_state)] (fpsGen 541)) :
     ∀ fuel, 33 ≤ fuel →
       ResultMatches gfp (fpsGen 541) h [(.ref r_state)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«process_slashings_reset» [(.ref r_state)] h) (process_slashings_reset a_state) :=
-  process_slashings_reset_l4 sha gfp h hwf a_state r_state (bridge_BeaconState hc hy_state) hw
+  process_slashings_reset_l4 sha gfp h hwf hh a_state r_state (bridge_BeaconState hc hy_state) hw
 
 set_option maxHeartbeats 1000000 in
 theorem queue_excess_active_balance_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) :
@@ -2071,7 +2151,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (queue_excess_active_balance_den sha m a_state hok_state a_index hok_index) k
 
 set_option maxHeartbeats 1000000 in
-theorem queue_excess_active_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index)] (fpsGen 690)) :
+theorem queue_excess_active_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index)] (fpsGen 690)) :
     ∀ fuel, 12 ≤ fuel →
       ResultMatches gfp (fpsGen 690) h [(.ref r_state), (.uint (.nominal 82 64) a_index)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«queue_excess_active_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index)] h) (queue_excess_active_balance a_state ⟨a_index⟩) := by
@@ -2079,15 +2160,16 @@ theorem queue_excess_active_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Hea
   have hden := queue_excess_active_balance_den sha 0 a_state hok_state a_index hok_index
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
 
 set_option maxHeartbeats 1000000 in
 theorem queue_excess_active_balance_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index)] (fpsGen 690)) :
     ∀ fuel, 12 ≤ fuel →
       ResultMatches gfp (fpsGen 690) h [(.ref r_state), (.uint (.nominal 82 64) a_index)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«queue_excess_active_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index)] h) (queue_excess_active_balance a_state ⟨a_index⟩) :=
-  queue_excess_active_balance_l4 sha gfp h hwf a_state (okb_BeaconState hy_state) a_index hok_index r_state (bridge_BeaconState hc hy_state) hw
+  queue_excess_active_balance_l4 sha gfp h hwf hh a_state (okb_BeaconState hy_state) a_index hok_index r_state (bridge_BeaconState hc hy_state) hw
 
 set_option maxHeartbeats 1000000 in
 theorem update_next_withdrawal_builder_index_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_processed_builders_sweep_count : Nat) :
@@ -2105,7 +2187,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (update_next_withdrawal_builder_index_den sha m a_state a_processed_builders_sweep_count) k
 
 set_option maxHeartbeats 1000000 in
-theorem update_next_withdrawal_builder_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_processed_builders_sweep_count : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] (fpsGen 687)) :
+theorem update_next_withdrawal_builder_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_processed_builders_sweep_count : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] (fpsGen 687)) :
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp (fpsGen 687) h [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«update_next_withdrawal_builder_index» [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] h) (update_next_withdrawal_builder_index a_state ⟨a_processed_builders_sweep_count⟩) := by
@@ -2113,15 +2196,16 @@ theorem update_next_withdrawal_builder_index_l4 (sha : Oracle) (gfp : Footprint)
   have hden := update_next_withdrawal_builder_index_den sha 0 a_state a_processed_builders_sweep_count
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons (GenWrap.dec_leaf rfl) (GenWrap.decArgs_nil h))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
 
 set_option maxHeartbeats 1000000 in
 theorem update_next_withdrawal_builder_index_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha))
     (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_processed_builders_sweep_count : Nat) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (hw : WTree h [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] (fpsGen 687)) :
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp (fpsGen 687) h [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«update_next_withdrawal_builder_index» [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] h) (update_next_withdrawal_builder_index a_state ⟨a_processed_builders_sweep_count⟩) :=
-  update_next_withdrawal_builder_index_l4 sha gfp h hwf a_state a_processed_builders_sweep_count r_state (bridge_BeaconState hc hy_state) hw
+  update_next_withdrawal_builder_index_l4 sha gfp h hwf hh a_state a_processed_builders_sweep_count r_state (bridge_BeaconState hc hy_state) hw
 
 set_option maxHeartbeats 1000000 in
 theorem update_next_withdrawal_builder_index_den_BuilderIndex (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_processed_builders_sweep_count : Nat) :
@@ -2155,7 +2239,8 @@ set_option maxHeartbeats 1000000 in
   bind_call (update_next_withdrawal_index_den sha m a_state a_withdrawals) k
 
 set_option maxHeartbeats 1000000 in
-theorem update_next_withdrawal_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (a_state : BeaconState) (a_withdrawals : List Withdrawal) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_withdrawals : Nat) (hr_withdrawals : ∃ n, dec h n (.ref r_withdrawals) = some (.list .pyList .any none (a_withdrawals.map fun z => (.cont 297 (kids_Withdrawal z))))) (hw : WTree h [(.ref r_state), (.ref r_withdrawals)] (fpsGen 683)) :
+theorem update_next_withdrawal_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (a_withdrawals : List Withdrawal) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_withdrawals : Nat) (hr_withdrawals : ∃ n, dec h n (.ref r_withdrawals) = some (.list .pyList .any none (a_withdrawals.map fun z => (.cont 297 (kids_Withdrawal z))))) (hw : WTree h [(.ref r_state), (.ref r_withdrawals)] (fpsGen 683)) :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp (fpsGen 683) h [(.ref r_state), (.ref r_withdrawals)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«update_next_withdrawal_index» [(.ref r_state), (.ref r_withdrawals)] h) (update_next_withdrawal_index a_state a_withdrawals) := by
@@ -2163,6 +2248,6 @@ theorem update_next_withdrawal_index_l4 (sha : Oracle) (gfp : Footprint) (h : He
   have hden := update_next_withdrawal_index_den sha 0 a_state a_withdrawals
   simp only [Nat.add_zero, Nat.zero_add] at hden
   exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])
-    hwf (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons hr_withdrawals (GenWrap.decArgs_nil h))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
+    hwf hh (GenWrap.decArgs_cons hr_state (GenWrap.decArgs_cons hr_withdrawals (GenWrap.decArgs_nil h))) hw hden (fun x h' v hx => ⟨hx.1.1, GenWrap.decArgs_get hx.2 0 rfl rfl⟩))
 
 end SpecLean.Layer4.Gen

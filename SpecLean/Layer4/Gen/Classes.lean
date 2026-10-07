@@ -15,6 +15,8 @@ open SpecLean SpecLean.Encode SpecLean.Layer4 SpecLean.Rd SpecLean.Rd.Gen SpecLe
 attribute [local instance high] LibModel.toLibValues
 attribute [local instance] Cfg.default
 
+variable [Spec]
+
 set_option linter.unusedSimpArgs false
 set_option linter.unusedSectionVars false
 
@@ -4507,6 +4509,1706 @@ theorem okb_SignedBeaconBlock {h : Heap} {v : Value} {x : SignedBeaconBlock} (hd
   obtain ⟨fs, hfs, y0, ⟨w0, hw0, hy0⟩, y1, ⟨w1, hw1, hy1⟩, rfl⟩ := hd
   unfold ok_SignedBeaconBlock
   exact ⟨(okb_BeaconBlock hy0), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_Builder (x : Builder) : GenBridge.EncDec (enc_Builder x) (.cont 14 (kids_Builder x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Builder_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Builder_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Builder_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Builder_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 4, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Builder_4, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 5, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Builder_5, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 6, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Builder_len]; omega)] at hd; cases hd
+
+theorem htr_call_Builder {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : Builder) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 14 (kids_Builder x))) K) =
+      callK (htr enc_Builder x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_Builder x (encDec_Builder x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_BuilderPendingWithdrawal (x : BuilderPendingWithdrawal) : GenBridge.EncDec (enc_BuilderPendingWithdrawal x) (.cont 67 (kids_BuilderPendingWithdrawal x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BuilderPendingWithdrawal_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BuilderPendingWithdrawal_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BuilderPendingWithdrawal_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BuilderPendingWithdrawal_len]; omega)] at hd; cases hd
+
+theorem htr_call_BuilderPendingWithdrawal {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : BuilderPendingWithdrawal) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 67 (kids_BuilderPendingWithdrawal x))) K) =
+      callK (htr enc_BuilderPendingWithdrawal x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_BuilderPendingWithdrawal x (encDec_BuilderPendingWithdrawal x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_ForkData (x : ForkData) : GenBridge.EncDec (enc_ForkData x) (.cont 158 (kids_ForkData x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ForkData_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ForkData_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_ForkData_len]; omega)] at hd; cases hd
+
+theorem htr_call_ForkData {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : ForkData) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 158 (kids_ForkData x))) K) =
+      callK (htr enc_ForkData x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_ForkData x (encDec_ForkData x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_SigningData (x : SigningData) : GenBridge.EncDec (enc_SigningData x) (.cont 194 (kids_SigningData x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SigningData_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SigningData_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SigningData_len]; omega)] at hd; cases hd
+
+theorem htr_call_SigningData {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : SigningData) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 194 (kids_SigningData x))) K) =
+      callK (htr enc_SigningData x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_SigningData x (encDec_SigningData x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_Withdrawal (x : Withdrawal) : GenBridge.EncDec (enc_Withdrawal x) (.cont 297 (kids_Withdrawal x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Withdrawal_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Withdrawal_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Withdrawal_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Withdrawal_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 4, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Withdrawal_len]; omega)] at hd; cases hd
+
+theorem htr_call_Withdrawal {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : Withdrawal) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 297 (kids_Withdrawal x))) K) =
+      callK (htr enc_Withdrawal x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_Withdrawal x (encDec_Withdrawal x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_Checkpoint (x : Checkpoint) : GenBridge.EncDec (enc_Checkpoint x) (.cont 741 (kids_Checkpoint x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Checkpoint_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Checkpoint_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Checkpoint_len]; omega)] at hd; cases hd
+
+theorem htr_call_Checkpoint {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : Checkpoint) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 741 (kids_Checkpoint x))) K) =
+      callK (htr enc_Checkpoint x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_Checkpoint x (encDec_Checkpoint x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_PayloadAttestationData (x : PayloadAttestationData) : GenBridge.EncDec (enc_PayloadAttestationData x) (.cont 753 (kids_PayloadAttestationData x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PayloadAttestationData_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PayloadAttestationData_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PayloadAttestationData_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PayloadAttestationData_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 4, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_PayloadAttestationData_len]; omega)] at hd; cases hd
+
+theorem htr_call_PayloadAttestationData {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : PayloadAttestationData) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 753 (kids_PayloadAttestationData x))) K) =
+      callK (htr enc_PayloadAttestationData x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_PayloadAttestationData x (encDec_PayloadAttestationData x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_SyncCommittee (x : SyncCommittee) : GenBridge.EncDec (enc_SyncCommittee x) (.cont 366 (kids_SyncCommittee x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SyncCommittee_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.pubkeys)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SyncCommittee_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SyncCommittee_len]; omega)] at hd; cases hd
+
+theorem htr_call_SyncCommittee {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : SyncCommittee) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 366 (kids_SyncCommittee x))) K) =
+      callK (htr enc_SyncCommittee x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_SyncCommittee x (encDec_SyncCommittee x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_Validator (x : Validator) : GenBridge.EncDec (enc_Validator x) (.cont 396 (kids_Validator x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Validator_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Validator_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Validator_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Validator_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 4, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Validator_4, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 5, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Validator_5, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 6, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Validator_6, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 7, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Validator_7, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 8, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Validator_len]; omega)] at hd; cases hd
+
+theorem htr_call_Validator {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : Validator) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 396 (kids_Validator x))) K) =
+      callK (htr enc_Validator x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_Validator x (encDec_Validator x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_DepositMessage (x : DepositMessage) : GenBridge.EncDec (enc_DepositMessage x) (.cont 444 (kids_DepositMessage x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_DepositMessage_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_DepositMessage_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_DepositMessage_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_DepositMessage_len]; omega)] at hd; cases hd
+
+theorem htr_call_DepositMessage {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : DepositMessage) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 444 (kids_DepositMessage x))) K) =
+      callK (htr enc_DepositMessage x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_DepositMessage x (encDec_DepositMessage x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_PendingDeposit (x : PendingDeposit) : GenBridge.EncDec (enc_PendingDeposit x) (.cont 525 (kids_PendingDeposit x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PendingDeposit_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PendingDeposit_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PendingDeposit_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PendingDeposit_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 4, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PendingDeposit_4, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 5, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_PendingDeposit_len]; omega)] at hd; cases hd
+
+theorem htr_call_PendingDeposit {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : PendingDeposit) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 525 (kids_PendingDeposit x))) K) =
+      callK (htr enc_PendingDeposit x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_PendingDeposit x (encDec_PendingDeposit x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_BeaconBlockHeader (x : BeaconBlockHeader) : GenBridge.EncDec (enc_BeaconBlockHeader x) (.cont 497 (kids_BeaconBlockHeader x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockHeader_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockHeader_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockHeader_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockHeader_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 4, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockHeader_4, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 5, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BeaconBlockHeader_len]; omega)] at hd; cases hd
+
+theorem htr_call_BeaconBlockHeader {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : BeaconBlockHeader) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 497 (kids_BeaconBlockHeader x))) K) =
+      callK (htr enc_BeaconBlockHeader x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_BeaconBlockHeader x (encDec_BeaconBlockHeader x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_BuilderPendingPayment (x : BuilderPendingPayment) : GenBridge.EncDec (enc_BuilderPendingPayment x) (.cont 509 (kids_BuilderPendingPayment x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BuilderPendingPayment_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BuilderPendingPayment_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_BuilderPendingWithdrawal x.withdrawal)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BuilderPendingPayment_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BuilderPendingPayment_len]; omega)] at hd; cases hd
+
+theorem htr_call_BuilderPendingPayment {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : BuilderPendingPayment) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 509 (kids_BuilderPendingPayment x))) K) =
+      callK (htr enc_BuilderPendingPayment x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_BuilderPendingPayment x (encDec_BuilderPendingPayment x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_PendingConsolidation (x : PendingConsolidation) : GenBridge.EncDec (enc_PendingConsolidation x) (.cont 523 (kids_PendingConsolidation x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PendingConsolidation_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PendingConsolidation_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_PendingConsolidation_len]; omega)] at hd; cases hd
+
+theorem htr_call_PendingConsolidation {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : PendingConsolidation) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 523 (kids_PendingConsolidation x))) K) =
+      callK (htr enc_PendingConsolidation x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_PendingConsolidation x (encDec_PendingConsolidation x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_Eth1Data (x : Eth1Data) : GenBridge.EncDec (enc_Eth1Data x) (.cont 759 (kids_Eth1Data x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Eth1Data_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Eth1Data_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Eth1Data_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Eth1Data_len]; omega)] at hd; cases hd
+
+theorem htr_call_Eth1Data {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : Eth1Data) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 759 (kids_Eth1Data x))) K) =
+      callK (htr enc_Eth1Data x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_Eth1Data x (encDec_Eth1Data x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_HistoricalSummary (x : HistoricalSummary) : GenBridge.EncDec (enc_HistoricalSummary x) (.cont 570 (kids_HistoricalSummary x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_HistoricalSummary_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_HistoricalSummary_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_HistoricalSummary_len]; omega)] at hd; cases hd
+
+theorem htr_call_HistoricalSummary {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : HistoricalSummary) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 570 (kids_HistoricalSummary x))) K) =
+      callK (htr enc_HistoricalSummary x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_HistoricalSummary x (encDec_HistoricalSummary x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_DepositRequest (x : DepositRequest) : GenBridge.EncDec (enc_DepositRequest x) (.cont 760 (kids_DepositRequest x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_DepositRequest_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_DepositRequest_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_DepositRequest_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_DepositRequest_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 4, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_DepositRequest_4, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 5, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_DepositRequest_len]; omega)] at hd; cases hd
+
+theorem htr_call_DepositRequest {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : DepositRequest) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 760 (kids_DepositRequest x))) K) =
+      callK (htr enc_DepositRequest x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_DepositRequest x (encDec_DepositRequest x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_WithdrawalRequest (x : WithdrawalRequest) : GenBridge.EncDec (enc_WithdrawalRequest x) (.cont 761 (kids_WithdrawalRequest x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_WithdrawalRequest_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_WithdrawalRequest_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_WithdrawalRequest_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_WithdrawalRequest_len]; omega)] at hd; cases hd
+
+theorem htr_call_WithdrawalRequest {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : WithdrawalRequest) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 761 (kids_WithdrawalRequest x))) K) =
+      callK (htr enc_WithdrawalRequest x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_WithdrawalRequest x (encDec_WithdrawalRequest x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_ConsolidationRequest (x : ConsolidationRequest) : GenBridge.EncDec (enc_ConsolidationRequest x) (.cont 762 (kids_ConsolidationRequest x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ConsolidationRequest_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ConsolidationRequest_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ConsolidationRequest_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_ConsolidationRequest_len]; omega)] at hd; cases hd
+
+theorem htr_call_ConsolidationRequest {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : ConsolidationRequest) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 762 (kids_ConsolidationRequest x))) K) =
+      callK (htr enc_ConsolidationRequest x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_ConsolidationRequest x (encDec_ConsolidationRequest x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_BuilderDepositRequest (x : BuilderDepositRequest) : GenBridge.EncDec (enc_BuilderDepositRequest x) (.cont 763 (kids_BuilderDepositRequest x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BuilderDepositRequest_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BuilderDepositRequest_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BuilderDepositRequest_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BuilderDepositRequest_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 4, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BuilderDepositRequest_len]; omega)] at hd; cases hd
+
+theorem htr_call_BuilderDepositRequest {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : BuilderDepositRequest) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 763 (kids_BuilderDepositRequest x))) K) =
+      callK (htr enc_BuilderDepositRequest x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_BuilderDepositRequest x (encDec_BuilderDepositRequest x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_BuilderExitRequest (x : BuilderExitRequest) : GenBridge.EncDec (enc_BuilderExitRequest x) (.cont 764 (kids_BuilderExitRequest x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BuilderExitRequest_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BuilderExitRequest_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BuilderExitRequest_len]; omega)] at hd; cases hd
+
+theorem htr_call_BuilderExitRequest {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : BuilderExitRequest) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 764 (kids_BuilderExitRequest x))) K) =
+      callK (htr enc_BuilderExitRequest x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_BuilderExitRequest x (encDec_BuilderExitRequest x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_PendingPartialWithdrawal (x : PendingPartialWithdrawal) : GenBridge.EncDec (enc_PendingPartialWithdrawal x) (.cont 681 (kids_PendingPartialWithdrawal x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PendingPartialWithdrawal_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PendingPartialWithdrawal_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PendingPartialWithdrawal_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_PendingPartialWithdrawal_len]; omega)] at hd; cases hd
+
+theorem htr_call_PendingPartialWithdrawal {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : PendingPartialWithdrawal) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 681 (kids_PendingPartialWithdrawal x))) K) =
+      callK (htr enc_PendingPartialWithdrawal x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_PendingPartialWithdrawal x (encDec_PendingPartialWithdrawal x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_Fork (x : Fork) : GenBridge.EncDec (enc_Fork x) (.cont 713 (kids_Fork x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Fork_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Fork_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Fork_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Fork_len]; omega)] at hd; cases hd
+
+theorem htr_call_Fork {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : Fork) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 713 (kids_Fork x))) K) =
+      callK (htr enc_Fork x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_Fork x (encDec_Fork x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_ExecutionPayloadBid (x : ExecutionPayloadBid) : GenBridge.EncDec (enc_ExecutionPayloadBid x) (.cont 732 (kids_ExecutionPayloadBid x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionPayloadBid_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionPayloadBid_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionPayloadBid_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionPayloadBid_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 4, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionPayloadBid_4, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 5, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionPayloadBid_5, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 6, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionPayloadBid_6, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 7, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionPayloadBid_7, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 8, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionPayloadBid_8, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 9, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionPayloadBid_9, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 10, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionPayloadBid_10, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.blob_kzg_commitments)
+  | 11, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionPayloadBid_11, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 12, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_ExecutionPayloadBid_len]; omega)] at hd; cases hd
+
+theorem htr_call_ExecutionPayloadBid {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : ExecutionPayloadBid) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 732 (kids_ExecutionPayloadBid x))) K) =
+      callK (htr enc_ExecutionPayloadBid x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_ExecutionPayloadBid x (encDec_ExecutionPayloadBid x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_SignedBeaconBlockHeader (x : SignedBeaconBlockHeader) : GenBridge.EncDec (enc_SignedBeaconBlockHeader x) (.cont 767 (kids_SignedBeaconBlockHeader x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SignedBeaconBlockHeader_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_BeaconBlockHeader x.message)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SignedBeaconBlockHeader_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SignedBeaconBlockHeader_len]; omega)] at hd; cases hd
+
+theorem htr_call_SignedBeaconBlockHeader {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : SignedBeaconBlockHeader) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 767 (kids_SignedBeaconBlockHeader x))) K) =
+      callK (htr enc_SignedBeaconBlockHeader x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_SignedBeaconBlockHeader x (encDec_SignedBeaconBlockHeader x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_DepositData (x : DepositData) : GenBridge.EncDec (enc_DepositData x) (.cont 772 (kids_DepositData x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_DepositData_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_DepositData_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_DepositData_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_DepositData_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 4, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_DepositData_len]; omega)] at hd; cases hd
+
+theorem htr_call_DepositData {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : DepositData) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 772 (kids_DepositData x))) K) =
+      callK (htr enc_DepositData x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_DepositData x (encDec_DepositData x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_VoluntaryExit (x : VoluntaryExit) : GenBridge.EncDec (enc_VoluntaryExit x) (.cont 774 (kids_VoluntaryExit x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_VoluntaryExit_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_VoluntaryExit_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_VoluntaryExit_len]; omega)] at hd; cases hd
+
+theorem htr_call_VoluntaryExit {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : VoluntaryExit) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 774 (kids_VoluntaryExit x))) K) =
+      callK (htr enc_VoluntaryExit x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_VoluntaryExit x (encDec_VoluntaryExit x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_SyncAggregate (x : SyncAggregate) : GenBridge.EncDec (enc_SyncAggregate x) (.cont 776 (kids_SyncAggregate x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SyncAggregate_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.sync_committee_bits)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SyncAggregate_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SyncAggregate_len]; omega)] at hd; cases hd
+
+theorem htr_call_SyncAggregate {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : SyncAggregate) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 776 (kids_SyncAggregate x))) K) =
+      callK (htr enc_SyncAggregate x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_SyncAggregate x (encDec_SyncAggregate x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_BLSToExecutionChange (x : BLSToExecutionChange) : GenBridge.EncDec (enc_BLSToExecutionChange x) (.cont 777 (kids_BLSToExecutionChange x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BLSToExecutionChange_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BLSToExecutionChange_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BLSToExecutionChange_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BLSToExecutionChange_len]; omega)] at hd; cases hd
+
+theorem htr_call_BLSToExecutionChange {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : BLSToExecutionChange) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 777 (kids_BLSToExecutionChange x))) K) =
+      callK (htr enc_BLSToExecutionChange x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_BLSToExecutionChange x (encDec_BLSToExecutionChange x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_SignedExecutionPayloadBid (x : SignedExecutionPayloadBid) : GenBridge.EncDec (enc_SignedExecutionPayloadBid x) (.cont 779 (kids_SignedExecutionPayloadBid x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SignedExecutionPayloadBid_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_ExecutionPayloadBid x.message)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SignedExecutionPayloadBid_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SignedExecutionPayloadBid_len]; omega)] at hd; cases hd
+
+theorem htr_call_SignedExecutionPayloadBid {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : SignedExecutionPayloadBid) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 779 (kids_SignedExecutionPayloadBid x))) K) =
+      callK (htr enc_SignedExecutionPayloadBid x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_SignedExecutionPayloadBid x (encDec_SignedExecutionPayloadBid x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_PayloadAttestation (x : PayloadAttestation) : GenBridge.EncDec (enc_PayloadAttestation x) (.cont 780 (kids_PayloadAttestation x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PayloadAttestation_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.aggregation_bits)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PayloadAttestation_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_PayloadAttestationData x.data)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_PayloadAttestation_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_PayloadAttestation_len]; omega)] at hd; cases hd
+
+theorem htr_call_PayloadAttestation {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : PayloadAttestation) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 780 (kids_PayloadAttestation x))) K) =
+      callK (htr enc_PayloadAttestation x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_PayloadAttestation x (encDec_PayloadAttestation x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_AttestationData (x : AttestationData) : GenBridge.EncDec (enc_AttestationData x) (.cont 750 (kids_AttestationData x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_AttestationData_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_AttestationData_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_AttestationData_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_AttestationData_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_Checkpoint x.source)
+  | 4, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_AttestationData_4, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_Checkpoint x.target)
+  | _ + 5, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_AttestationData_len]; omega)] at hd; cases hd
+
+theorem htr_call_AttestationData {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : AttestationData) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 750 (kids_AttestationData x))) K) =
+      callK (htr enc_AttestationData x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_AttestationData x (encDec_AttestationData x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_IndexedPayloadAttestation (x : IndexedPayloadAttestation) : GenBridge.EncDec (enc_IndexedPayloadAttestation x) (.cont 357 (kids_IndexedPayloadAttestation x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_IndexedPayloadAttestation_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.attesting_indices)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_IndexedPayloadAttestation_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_PayloadAttestationData x.data)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_IndexedPayloadAttestation_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_IndexedPayloadAttestation_len]; omega)] at hd; cases hd
+
+theorem htr_call_IndexedPayloadAttestation {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : IndexedPayloadAttestation) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 357 (kids_IndexedPayloadAttestation x))) K) =
+      callK (htr enc_IndexedPayloadAttestation x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_IndexedPayloadAttestation x (encDec_IndexedPayloadAttestation x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_ExecutionRequests (x : ExecutionRequests) : GenBridge.EncDec (enc_ExecutionRequests x) (.cont 597 (kids_ExecutionRequests x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionRequests_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_DepositRequest y0)) x.deposits)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionRequests_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_WithdrawalRequest y0)) x.withdrawals)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionRequests_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_ConsolidationRequest y0)) x.consolidations)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionRequests_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_BuilderDepositRequest y0)) x.builder_deposits)
+  | 4, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ExecutionRequests_4, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_BuilderExitRequest y0)) x.builder_exits)
+  | _ + 5, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_ExecutionRequests_len]; omega)] at hd; cases hd
+
+theorem htr_call_ExecutionRequests {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : ExecutionRequests) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 597 (kids_ExecutionRequests x))) K) =
+      callK (htr enc_ExecutionRequests x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_ExecutionRequests x (encDec_ExecutionRequests x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_BeaconState (x : BeaconState) : GenBridge.EncDec (enc_BeaconState x) (.cont 733 (kids_BeaconState x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_Fork x.fork)
+  | 4, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_4, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_BeaconBlockHeader x.latest_block_header)
+  | 5, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_5, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.block_roots)
+  | 6, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_6, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.state_roots)
+  | 7, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_7, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.historical_roots)
+  | 8, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_8, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_Eth1Data x.eth1_data)
+  | 9, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_9, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_Eth1Data y0)) x.eth1_data_votes)
+  | 10, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_10, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 11, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_11, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_Validator y0)) x.validators)
+  | 12, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_12, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.balances)
+  | 13, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_13, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.randao_mixes)
+  | 14, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_14, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.slashings)
+  | 15, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_15, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.previous_epoch_participation)
+  | 16, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_16, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.current_epoch_participation)
+  | 17, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_17, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.justification_bits)
+  | 18, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_18, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_Checkpoint x.previous_justified_checkpoint)
+  | 19, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_19, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_Checkpoint x.current_justified_checkpoint)
+  | 20, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_20, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_Checkpoint x.finalized_checkpoint)
+  | 21, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_21, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.inactivity_scores)
+  | 22, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_22, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_SyncCommittee x.current_sync_committee)
+  | 23, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_23, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_SyncCommittee x.next_sync_committee)
+  | 24, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_24, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 25, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_25, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 26, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_26, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 27, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_27, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_HistoricalSummary y0)) x.historical_summaries)
+  | 28, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_28, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 29, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_29, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 30, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_30, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 31, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_31, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 32, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_32, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 33, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_33, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 34, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_34, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_PendingDeposit y0)) x.pending_deposits)
+  | 35, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_35, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_PendingPartialWithdrawal y0)) x.pending_partial_withdrawals)
+  | 36, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_36, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_PendingConsolidation y0)) x.pending_consolidations)
+  | 37, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_37, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.proposer_lookahead)
+  | 38, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_38, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_Builder y0)) x.builders)
+  | 39, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_39, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 40, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_40, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.execution_payload_availability)
+  | 41, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_41, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_BuilderPendingPayment y0)) x.builder_pending_payments)
+  | 42, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_42, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_BuilderPendingWithdrawal y0)) x.builder_pending_withdrawals)
+  | 43, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_43, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_ExecutionPayloadBid x.latest_execution_payload_bid)
+  | 44, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_44, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_Withdrawal y0)) x.payload_expected_withdrawals)
+  | 45, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconState_45, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_list (fun y1 => (GenBridge.encDec_flat rfl)) y0)) x.ptc_window)
+  | _ + 46, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BeaconState_len]; omega)] at hd; cases hd
+
+theorem htr_call_BeaconState {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : BeaconState) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 733 (kids_BeaconState x))) K) =
+      callK (htr enc_BeaconState x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_BeaconState x (encDec_BeaconState x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_ProposerSlashing (x : ProposerSlashing) : GenBridge.EncDec (enc_ProposerSlashing x) (.cont 768 (kids_ProposerSlashing x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ProposerSlashing_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_SignedBeaconBlockHeader x.signed_header_1)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_ProposerSlashing_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_SignedBeaconBlockHeader x.signed_header_2)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_ProposerSlashing_len]; omega)] at hd; cases hd
+
+theorem htr_call_ProposerSlashing {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : ProposerSlashing) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 768 (kids_ProposerSlashing x))) K) =
+      callK (htr enc_ProposerSlashing x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_ProposerSlashing x (encDec_ProposerSlashing x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_Attestation (x : Attestation) : GenBridge.EncDec (enc_Attestation x) (.cont 770 (kids_Attestation x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Attestation_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.aggregation_bits)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Attestation_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_AttestationData x.data)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Attestation_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Attestation_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.committee_bits)
+  | _ + 4, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Attestation_len]; omega)] at hd; cases hd
+
+theorem htr_call_Attestation {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : Attestation) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 770 (kids_Attestation x))) K) =
+      callK (htr enc_Attestation x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_Attestation x (encDec_Attestation x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_Deposit (x : Deposit) : GenBridge.EncDec (enc_Deposit x) (.cont 773 (kids_Deposit x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Deposit_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.proof)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_Deposit_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_DepositData x.data)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_Deposit_len]; omega)] at hd; cases hd
+
+theorem htr_call_Deposit {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : Deposit) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 773 (kids_Deposit x))) K) =
+      callK (htr enc_Deposit x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_Deposit x (encDec_Deposit x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_SignedVoluntaryExit (x : SignedVoluntaryExit) : GenBridge.EncDec (enc_SignedVoluntaryExit x) (.cont 775 (kids_SignedVoluntaryExit x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SignedVoluntaryExit_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_VoluntaryExit x.message)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SignedVoluntaryExit_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SignedVoluntaryExit_len]; omega)] at hd; cases hd
+
+theorem htr_call_SignedVoluntaryExit {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : SignedVoluntaryExit) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 775 (kids_SignedVoluntaryExit x))) K) =
+      callK (htr enc_SignedVoluntaryExit x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_SignedVoluntaryExit x (encDec_SignedVoluntaryExit x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_SignedBLSToExecutionChange (x : SignedBLSToExecutionChange) : GenBridge.EncDec (enc_SignedBLSToExecutionChange x) (.cont 778 (kids_SignedBLSToExecutionChange x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SignedBLSToExecutionChange_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_BLSToExecutionChange x.message)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SignedBLSToExecutionChange_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SignedBLSToExecutionChange_len]; omega)] at hd; cases hd
+
+theorem htr_call_SignedBLSToExecutionChange {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : SignedBLSToExecutionChange) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 778 (kids_SignedBLSToExecutionChange x))) K) =
+      callK (htr enc_SignedBLSToExecutionChange x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_SignedBLSToExecutionChange x (encDec_SignedBLSToExecutionChange x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_IndexedAttestation (x : IndexedAttestation) : GenBridge.EncDec (enc_IndexedAttestation x) (.cont 350 (kids_IndexedAttestation x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_IndexedAttestation_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (GenBridge.encDec_flat rfl)) x.attesting_indices)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_IndexedAttestation_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_AttestationData x.data)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_IndexedAttestation_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 3, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_IndexedAttestation_len]; omega)] at hd; cases hd
+
+theorem htr_call_IndexedAttestation {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : IndexedAttestation) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 350 (kids_IndexedAttestation x))) K) =
+      callK (htr enc_IndexedAttestation x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_IndexedAttestation x (encDec_IndexedAttestation x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_AttesterSlashing (x : AttesterSlashing) : GenBridge.EncDec (enc_AttesterSlashing x) (.cont 769 (kids_AttesterSlashing x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_AttesterSlashing_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_IndexedAttestation x.attestation_1)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_AttesterSlashing_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_IndexedAttestation x.attestation_2)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_AttesterSlashing_len]; omega)] at hd; cases hd
+
+theorem htr_call_AttesterSlashing {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : AttesterSlashing) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 769 (kids_AttesterSlashing x))) K) =
+      callK (htr enc_AttesterSlashing x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_AttesterSlashing x (encDec_AttesterSlashing x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_BeaconBlockBody (x : BeaconBlockBody) : GenBridge.EncDec (enc_BeaconBlockBody x) (.cont 781 (kids_BeaconBlockBody x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_Eth1Data x.eth1_data)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_ProposerSlashing y0)) x.proposer_slashings)
+  | 4, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_4, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_AttesterSlashing y0)) x.attester_slashings)
+  | 5, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_5, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_Attestation y0)) x.attestations)
+  | 6, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_6, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_Deposit y0)) x.deposits)
+  | 7, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_7, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_SignedVoluntaryExit y0)) x.voluntary_exits)
+  | 8, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_8, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_SyncAggregate x.sync_aggregate)
+  | 9, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_9, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_SignedBLSToExecutionChange y0)) x.bls_to_execution_changes)
+  | 10, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_10, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_SignedExecutionPayloadBid x.signed_execution_payload_bid)
+  | 11, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_11, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_list (fun y0 => (encDec_PayloadAttestation y0)) x.payload_attestations)
+  | 12, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlockBody_12, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_ExecutionRequests x.parent_execution_requests)
+  | _ + 13, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BeaconBlockBody_len]; omega)] at hd; cases hd
+
+theorem htr_call_BeaconBlockBody {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : BeaconBlockBody) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 781 (kids_BeaconBlockBody x))) K) =
+      callK (htr enc_BeaconBlockBody x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_BeaconBlockBody x (encDec_BeaconBlockBody x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_BeaconBlock (x : BeaconBlock) : GenBridge.EncDec (enc_BeaconBlock x) (.cont 782 (kids_BeaconBlock x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlock_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlock_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 2, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlock_2, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 3, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlock_3, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | 4, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_BeaconBlock_4, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_BeaconBlockBody x.body)
+  | _ + 5, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_BeaconBlock_len]; omega)] at hd; cases hd
+
+theorem htr_call_BeaconBlock {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : BeaconBlock) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 782 (kids_BeaconBlock x))) K) =
+      callK (htr enc_BeaconBlock x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_BeaconBlock x (encDec_BeaconBlock x)) K
+
+set_option maxHeartbeats 1000000 in
+theorem encDec_SignedBeaconBlock (x : SignedBeaconBlock) : GenBridge.EncDec (enc_SignedBeaconBlock x) (.cont 783 (kids_SignedBeaconBlock x)) := by
+  show GenBridge.EncDec (encContainer _ _) _
+  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_
+  match i, hg, hd with
+  | 0, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SignedBeaconBlock_0, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (encDec_BeaconBlock x.message)
+  | 1, hg, hd =>
+    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg
+    simp only [kids_SignedBeaconBlock_1, Option.some.injEq] at hd
+    subst hg; subst hd
+    exact (GenBridge.encDec_flat rfl)
+  | _ + 2, _, hd =>
+    rw [List.getElem?_eq_none (by simp only [kids_SignedBeaconBlock_len]; omega)] at hd; cases hd
+
+theorem htr_call_SignedBeaconBlock {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : SignedBeaconBlock) {γ : Type}
+    (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont 783 (kids_SignedBeaconBlock x))) K) =
+      callK (htr enc_SignedBeaconBlock x) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  bind_call (GenBridge.htr_den ho enc_SignedBeaconBlock x (encDec_SignedBeaconBlock x)) K
 
 
 end SpecLean.Layer4.Gen

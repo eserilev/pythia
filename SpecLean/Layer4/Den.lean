@@ -85,6 +85,26 @@ def allVals : List DRes → Option (List Value)
   | .val v :: rs => (allVals rs).map (v :: ·)
   | _ => none
 
+/-! ## A decoded tree as a heap value -/
+
+mutual
+/-- A new heap object for each node of a tree, children first. -/
+def encDV : DV → Heap → Value × Heap
+  | .leaf v, h => (v, h)
+  | .cont ty ds, h =>
+    let r := encDVs ds h
+    (.ref r.2.next, (r.2.alloc (.container ty r.1)).2)
+  | .list k e l ds, h =>
+    let r := encDVs ds h
+    (.ref r.2.next, (r.2.alloc (.list k e l r.1)).2)
+def encDVs : List DV → Heap → List Value × Heap
+  | [], h => ([], h)
+  | d :: ds, h =>
+    let r := encDV d h
+    let rs := encDVs ds r.2
+    (r.1 :: rs.1, rs.2)
+end
+
 /-! ## The parts at one fuel -/
 
 /-- A loop over the list at place `(k, p)`, read live at each item; `enum` for `enumerate`. -/
@@ -194,9 +214,14 @@ def dSum (kd : ListKind) (el : SszTy) (ds : List DV) : DM DRes :=
   | some xs => DM.bind (lift (xs.foldlM (binopVal .add) (.int 0))) fun w => if Flat w then .ok (.val w) else none
   | none => none
 
-/-- `min`, `max` of two or more flat values, `len` of a list, and `sum` of a list of flat
-values. -/
-def dBuiltin (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
+/-- `hash_tree_root` of a tree: the oracle on the tree as a new heap value. -/
+def dHtr (env : Env) (d : DV) : DM DRes :=
+  DM.bind (lift (env.hashTreeRoot (encDV d Heap.empty).2 (encDV d Heap.empty).1)) fun r =>
+    .ok (.val (.bytes env.nm.root r))
+
+/-- `min`, `max` of two or more flat values, `len` of a list, `sum` of a list of flat
+values, and `hash_tree_root` of an object. -/
+def dBuiltin (env : Env) (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
   match b with
   | .min | .max =>
     match allVals rs with
@@ -219,6 +244,14 @@ def dBuiltin (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
       | _ => none
     | [.tree (.list kd el _ ds)] => dSum kd el ds
     | _ => none
+  | .hashTreeRoot =>
+    match rs with
+    | [.place k p] =>
+      match s.deref k p with
+      | some d => dHtr env d
+      | none => none
+    | [.tree d] => dHtr env d
+    | _ => none
   | _ => none
 
 /-- A call that writes nothing. `fn` is the callee body at the fuel of the call. -/
@@ -237,7 +270,7 @@ def dCallRO (env : Env) (fps : Name → Footprint)
       | none => none
     else none
   | some (.type t) => dCtor env t rs
-  | some (.builtin b) => dBuiltin s b rs
+  | some (.builtin b) => dBuiltin env s b rs
   | _ => none
 
 /-- A call at statement level: it may write through its one place argument. -/
@@ -269,6 +302,7 @@ def callable (env : Env) (g : Name) : Bool :=
   match env.globals.lookup g with
   | some (.fn _) | some (.type _) => true
   | some (.builtin .min) | some (.builtin .max) | some (.builtin .len) => true
+  | some (.builtin .sum) | some (.builtin .hashTreeRoot) => true
   | _ => false
 
 /-- Bind the loop target at fuel `n`, as `assignTarget n`. -/

@@ -342,6 +342,8 @@ open SpecLean SpecLean.Encode SpecLean.Layer4 SpecLean.Rd SpecLean.Rd.Gen SpecLe
 attribute [local instance high] LibModel.toLibValues
 attribute [local instance] Cfg.default
 
+variable [Spec]
+
 set_option linter.unusedSimpArgs false
 set_option linter.unusedSectionVars false
 """
@@ -449,6 +451,14 @@ def classes_file(m):
             m.okb.add(n)
         except Unsupported:
             pass
+    for n in m.rep_order:
+        if ("def enc_%s : Enc %s := fun x =>" % (n, n)) not in m.rd:
+            continue
+        try:
+            out.append("set_option maxHeartbeats 1000000 in\n" + encdec_theorem(m, n))
+            m.encdec.add(n)
+        except Unsupported:
+            pass
     out.append("\nend SpecLean.Layer4.Gen\n")
     return "\n".join(out)
 
@@ -471,6 +481,50 @@ def bridge_field(m, ssz, rt, hy):
         he = "he" + "'" * d
         return "(GenBridge.listT_dec %s (fun _ _ %s => %s))" % (hy, he, bridge_field(m, mm.group(2), mr.group(1), he))
     raise Unsupported("bridge field")
+
+
+def encdec_field(m, ssz, rt, t, depth=0):
+    """A proof of `EncDec` of the encoder of a field or an element `t`, or Unsupported."""
+    ssz, rt = strip_parens(ssz), strip_parens(rt)
+    if re.fullmatch(r"\.uint (.*)", ssz) and rt in m.uint:
+        return "(GenBridge.encDec_flat rfl)"
+    if ssz == ".boolean" and rt == "Boolean":
+        return "(GenBridge.encDec_flat rfl)"
+    if re.fullmatch(r"\.bytes (\d+) \d+", ssz) and rt in m.bytes:
+        return "(GenBridge.encDec_flat rfl)"
+    if re.fullmatch(r"\.container (\d+)", ssz) and rt in m.reps:
+        if rt not in m.encdec:
+            raise Unsupported("encdec of " + rt)
+        return "(encDec_%s %s)" % (rt, t)
+    mm = re.fullmatch(r"\.list (\.\w+) (\(.*\)|\.\w+) (none|\(some \d+\))", ssz)
+    mr = re.fullmatch(r"List (.*)", rt)
+    if mm and mr:
+        y = "y%d" % depth
+        return "(GenBridge.encDec_list (fun %s => %s) %s)" % (y, encdec_field(m, mm.group(2), mr.group(1), y, depth + 1), t)
+    raise Unsupported("encdec field")
+
+
+def encdec_theorem(m, n):
+    fs = m.containers[n]
+    K = len(fs)
+    cases = []
+    for i, (fn, ssz, rt) in enumerate(fs):
+        cases.append("  | %d, hg, hd =>\n    simp only [List.getElem?_cons_succ, List.getElem?_cons_zero, Option.some.injEq] at hg\n"
+                     "    simp only [kids_%s_%d, Option.some.injEq] at hd\n    subst hg; subst hd\n    exact %s"
+                     % (i, n, i, encdec_field(m, ssz, rt, "x.%s" % fn)))
+    return ("theorem encDec_%s (x : %s) : GenBridge.EncDec (enc_%s x) (.cont %d (kids_%s x)) := by\n"
+            "  show GenBridge.EncDec (encContainer _ _) _\n"
+            "  refine GenBridge.encDec_container (by rfl) fun i g d hg hd => ?_\n"
+            "  match i, hg, hd with\n%s\n"
+            "  | _ + %d, _, hd =>\n"
+            "    rw [List.getElem?_eq_none (by simp only [kids_%s_len]; omega)] at hd; cases hd\n\n"
+            "theorem htr_call_%s {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (x : %s) {γ : Type}\n"
+            "    (K : DRes → DM γ) :\n"
+            "    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) (.cont %d (kids_%s x))) K) =\n"
+            "      callK (htr enc_%s x) fun r =>\n"
+            "        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=\n"
+            "  bind_call (GenBridge.htr_den ho enc_%s x (encDec_%s x)) K\n"
+            % (n, n, n, m.cid[n], n, "\n".join(cases), K, n, n, n, m.cid[n], n, n, n, n))
 
 
 def ok_fact(m, ssz, rt, t, depth=0):
@@ -561,6 +615,7 @@ def build_reps(m):
     m.reps, m.rep_order = {}, []
     m.bridged = set()
     m.okb = set()
+    m.encdec = set()
     todo = dict(m.containers)
     while True:
         done = False
@@ -1104,6 +1159,18 @@ def callee_lens(m, name, params):
     return out
 
 
+HTR = {}
+
+
+def uses_htr(m, name):
+    """`name` or a callee hashes an object with the oracle."""
+    if name not in HTR:
+        HTR[name] = False
+        body = m.bodies.get(name, "")
+        HTR[name] = bool(re.search(r"\bhtr(Obj)? ", body)) or any(uses_htr(m, c) for c in m.callees(name))
+    return HTR[name]
+
+
 def hok_binder(m, pn, pt):
     """The range hypothesis of parameter `pn : pt` in `ok` mode, or None."""
     if pt in m.reps:
@@ -1162,6 +1229,9 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
         rs_out = None
     lps = loops(m, name, params, roots, rds) if not sub else []
     cps = comps(m, name, params, roots, rds) if not sub else []
+    if uses_htr(m, name):
+        bs.insert(0, "(ho : Validation.HtrBridge.OracleHtr sha)")
+        xs.insert(0, "ho")
     if sub and any(ctor(st)[0] == "forStmt" for st in f["body"][1]):
         raise Unsupported("variant with a loop")
     tag = ("_" + sub if sub else "") + ("_i" if isub else "")
@@ -1178,6 +1248,9 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
     rs_out = rs_out or rs
     fp = "(fpsGen %d)" % f["id"] if w else "[]"
     unf = ["Scope.fn_" + name, name, "fpsGen", "fpAll"] + m.consts_of(name)
+    if uses_htr(m, name):
+        unf += ["htr_call_%s ho" % c for c in sorted(set(re.findall(r"\bhtr enc_(\w+)", m.bodies.get(name, ""))))]
+        unf += ["%s_call (ho := ho)" % c for c in m.callees(name) if uses_htr(m, c)]
     if rt in m.reps and ("theorem kids_%s_mk" % rt) in classes_file_cache(m):
         unf.append("kids_%s_mk" % rt)
     loopstep = ""
@@ -1204,7 +1277,7 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
             "      callK (%s %s) fun x => Option.map (Except.mapError SpecError.fail) (k (%s, %s)) :=\n"
             "  bind_call (%s_den%s sha m %s) k\n"
             % (name, tag, " ".join(bs), LENS, D, fp, name, rs, name, " ".join(rds), enc, rs_out, name, tag, " ".join(xs)))
-    if LENS:
+    if LENS or uses_htr(m, name):
         call = call.replace("@[l4_simp] theorem", "theorem")
         call += ("\ntheorem %s_fcall%s (sha : Oracle) %s (n : Nat) (hn : %s%d ≤ n) {γ : Type}\n"
                  "    (k : DRes × List DV → DM γ) :\n"
@@ -1258,7 +1331,8 @@ def wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS=""):
         V = enc[len("DRes.val "):]
         E = "(fun (x : %s) _ v => v = %s)" % (m.sigs[name][1], V)
         hE = "(fun x h' v hx => hx.1.1)"
-    return ("theorem %s_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) %s %s%s :\n"
+    return ("theorem %s_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)\n"
+            "    (hh : Examples2.HtrDec (Scope.env sha)) %s %s%s :\n"
             "    ∀ fuel, %s%d ≤ fuel →\n"
             "      ResultMatches gfp %s h %s %s\n"
             "        (interp (Scope.env sha) fuel Scope.Id.«%s» %s h) (%s %s) := by\n"
@@ -1266,7 +1340,7 @@ def wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS=""):
             "  have hden := %s_den sha 0 %s\n"
             "  simp only [Nat.add_zero, Nat.zero_add] at hden\n"
             "  exact GenWrap.l4_mono hf (GenWrap.l4_wrap (by simp only [env_globals, Validation.Tactic.lookup_lit])\n"
-            "    hwf %s %s hden %s)\n"
+            "    hwf hh %s %s hden %s)\n"
             % (name, " ".join(bs), " ".join(hyps), hw, LENS, D, fp, VS, E, name, VS, name, " ".join(rds),
                name, " ".join(xs), hdec, hwt, hE)) + bridged_wrapper(m, name, params, bs, rds, xs, vs, hw, LENS, D, fp,
                                                                     VS, E, f)
@@ -1290,11 +1364,12 @@ def bridged_wrapper(m, name, params, bs, rds, xs, vs, hw, LENS, D, fp, VS, E, f)
                     for pn, pt in conts)
     args = " ".join("r_%s (bridge_%s hc hy_%s)" % (pn, pt, pn) for pn, pt in conts)
     return ("\ntheorem %s_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)\n"
+            "    (hh : Examples2.HtrDec (Scope.env sha))\n"
             "    (hc : GenBridge.ContWF h) %s %s%s :\n"
             "    ∀ fuel, %s%d ≤ fuel →\n"
             "      ResultMatches gfp %s h %s %s\n"
             "        (interp (Scope.env sha) fuel Scope.Id.«%s» %s h) (%s %s) :=\n"
-            "  %s_l4 sha gfp h hwf %s %s%s\n"
+            "  %s_l4 sha gfp h hwf hh %s %s%s\n"
             % (name, " ".join(bs), hyps, hw, LENS, D, fp, VS, E, name, VS, name, " ".join(rds),
                name, " ".join(xs), args, " hw" if hw else ""))
 

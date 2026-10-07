@@ -1,4 +1,4 @@
-import SpecLean.Layer4.CallRule
+import SpecLean.Layer4.EncDV
 import SpecLean.Layer4.Steps
 
 /-!
@@ -41,6 +41,12 @@ structure LibFlat (env : Env) : Prop where
       (coerceWith env false h e v).bind fun x =>
         (Ssz.checkLength k l (xs.length + 1)).bind fun _ =>
           .ok (.none, x.2.set a (.list k e l (xs ++ [x.1])))
+  /-- `hash_tree_root` is the oracle of the environment. -/
+  htr : ∀ h v, LibModel.builtin env h .hashTreeRoot [v] [] =
+    some (do pure (.bytes env.nm.root (← env.hashTreeRoot h v), h))
+  /-- The oracle reads only the decoded content of a value. -/
+  htrDec : ∀ h v h' v' n n' d, dec h n v = some d → dec h' n' v' = some d →
+    env.hashTreeRoot h v = env.hashTreeRoot h' v'
   /-- A container of class `ty` is an item of type `container ty` as it is. -/
   coerceCont : ∀ h b ty fs, h.objs b = some (.container ty fs) →
     coerceWith env false h (.container ty) (.ref b) = .ok (.ref b, h)
@@ -515,6 +521,22 @@ theorem dSum_sound {env : Env} (hlf : LibFlat env) {lo : Nat} {h : Heap} {vs : L
     · simp [hv, DM.ok] at hd2; subst hd2; exact ⟨Ext_refl _, trivial, rfl, hv⟩
     · simp [hv] at hd2
 
+/-- `hash_tree_root` of a value that decodes to `d`. -/
+theorem dHtr_sound {env : Env} (hlf : LibFlat env) {lo : Nat} {h : Heap} {vs : List Value}
+    {w : Value} {n : Nat} {d : DV} (hn : dec h n w = some d) {r : Res DRes} (hd : dHtr env d = some r) :
+    GOK lo h vs r (applyBuiltin env h .hashTreeRoot [w] []) := by
+  obtain ⟨-, -, n', hd'⟩ := encDV_spec d Heap.empty (dec_leafFlat n w d hn)
+  have he := hlf.htrDec h w _ _ n n' d hn hd'
+  unfold dHtr at hd
+  simp only [applyBuiltin, hlf.htr h w, he]
+  rcases bind_case hd with ⟨err, hl, rfl⟩ | ⟨b, hl, hd2⟩
+  · obtain ⟨hr, hne⟩ := lift_some hl
+    rw [← hr]; exact ⟨rfl, hne err hr.symm⟩
+  · obtain ⟨hr, -⟩ := lift_some hl
+    rw [← hr]
+    simp [DM.ok] at hd2; subst hd2
+    exact ⟨Ext_refl _, trivial, rfl, rfl⟩
+
 theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) {m : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L (m + 1) ((den env fps (m + 1)).expr fp s))
@@ -623,10 +645,10 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
           have hnf : b ≠ .filter := by rintro rfl; simp [dBuiltin] at hd2
           have hns : b ≠ .sorted := by rintro rfl; simp [dBuiltin] at hd2
           rw [callValue_builtin _ _ _ hg hnf hns]
-          have minmax : ∀ (isMin : Bool), dBuiltin s (if isMin then .min else .max) rs = some r →
+          have minmax : ∀ (isMin : Bool), dBuiltin env s (if isMin then .min else .max) rs = some r →
               GOK h0.next h2 vs r (applyBuiltin env h2 (if isMin then .min else .max) ws []) := by
             intro isMin hd3
-            have hb : dBuiltin s (if isMin then .min else .max) rs = (match allVals rs with
+            have hb : dBuiltin env s (if isMin then .min else .max) rs = (match allVals rs with
                 | some (x :: y :: ys) => DM.bind (lift (pickBest (!isMin) x (y :: ys))) fun w =>
                     if Flat w then DM.ok (DRes.val w) else none
                 | _ => none) := by
@@ -686,6 +708,22 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
                 have hlen := ((mapM_some_iff xs ds).mp hm).1
                 simp [applyBuiltin, hlf.builtin h2 .len _ [] (by simp), ho, hlen]
                 exact ⟨Ext_refl _, trivial, rfl, rfl⟩
+            | [.val _], _, _, hd2 => simp at hd2
+            | [], _, _, hd2 => simp at hd2
+            | _ :: _ :: _, _, _, hd2 => simp at hd2
+          case hashTreeRoot =>
+            simp only [dBuiltin] at hd2
+            match rs, ws, hrel, hd2 with
+            | [.place k p], [w], ⟨⟨a, hw, hat⟩, _⟩, hd2 =>
+              subst hw
+              simp only at hd2
+              cases hdr : s.deref k p with
+              | none => simp [hdr] at hd2
+              | some dd =>
+                rw [hdr] at hd2
+                obtain ⟨nn, hn⟩ := deref_dec hI2.i.r hat hdr
+                exact dHtr_sound hlf hn hd2
+            | [.tree d], [w], ⟨⟨⟨nn, hn⟩, _⟩, _⟩, hd2 => exact dHtr_sound hlf hn hd2
             | [.val _], _, _, hd2 => simp at hd2
             | [], _, _, hd2 => simp at hd2
             | _ :: _ :: _, _, _, hd2 => simp at hd2

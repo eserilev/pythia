@@ -116,8 +116,8 @@ theorem mod_gw (a : Nat) :
 /-- The new effective balance. -/
 def newEb (b M : Nat) : Nat := if M < b - b % 1000000000 then M else b - b % 1000000000
 
-theorem min_gw (s : DSt) (v M : Nat) :
-    dBuiltin s .min [.val (.uint gwTy v), .val (.uint gwTy M)] =
+theorem min_gw (env : Env) (s : DSt) (v M : Nat) :
+    dBuiltin env s .min [.val (.uint gwTy v), .val (.uint gwTy M)] =
       some (.ok (.val (.uint gwTy (if M < v then M else v)))) := by
   have hl : @cmpVal LibModel.toLibValues .lt (.uint gwTy M) (.uint gwTy v) = .ok (decide (M < v)) := by
     show (do let _ ← resolveUint gwTy gwTy; pure (cmpInt .lt (M : Int) v) : Res Bool) = _
@@ -1044,6 +1044,7 @@ theorem process_effective_balance_updates_denote (sha : Oracle) (m : Nat) (ds : 
 /-- SPEC 9.2 for `process_effective_balance_updates`: a loop over a live list, with a write
 through the loop variable. -/
 theorem process_effective_balance_updates_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : HtrDec (Scope.env sha))
     (r0 n : Nat) (ds : List DV) (kV : ListKind) (lV : Option Nat) (kB : ListKind) (lB : Option Nat)
     (st : BeaconState) (hd : dec h n (.ref r0) = some (.cont Scope.Id.«BeaconState» ds))
     (hv : ds[11]? = some (.list kV (.container Scope.Id.«Validator») lV (st.validators.map Examples.vdv)))
@@ -1070,7 +1071,7 @@ theorem process_effective_balance_updates_l4 (sha : Oracle) (gfp : Footprint) (h
       match k, hv, hd' with
       | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
       | _ + 1, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _)) gfp pebuFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp pebuFp
       (f := Scope.Id.«process_effective_balance_updates»)
       (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
     rw [hden] at hm

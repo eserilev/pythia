@@ -210,4 +210,174 @@ theorem cont_of_fields {h : Heap} {a : Nat} {ty : Name} {fs : List Value} {ds : 
     DecTo h (.ref a) (.cont ty ds) :=
   cont_dec ho (mapM_of_fields fs ds hl hall)
 
+/-! ## `hash_tree_root`: the oracle on the decoded content -/
+
+open Validation.HtrBridge in
+/-- Two values that decode to one tree have the same content. -/
+theorem Bis_of_dec : ∀ (m : Nat) {h h' : Heap} {v v' : Value} {n n' : Nat} {d : DV},
+    dec h n v = some d → dec h' n' v' = some d → Bis m h v h' v'
+  | m, h, h', v, v', n, n', .leaf u, e1, e2 => by
+    obtain ⟨rfl, hu⟩ := dec_leaf e1
+    obtain ⟨rfl, -⟩ := dec_leaf e2
+    exact Bis_self_scalar m h h' (flat_nonref hu)
+  | m, h, h', v, v', n, n', .cont ty ds, e1, e2 => by
+    obtain ⟨a, k, fs, rfl, rfl, ho, hm⟩ := dec_cont e1
+    obtain ⟨a', k', fs', rfl, rfl, ho', hm'⟩ := dec_cont e2
+    cases m with
+    | zero => simp [Bis]
+    | succ m =>
+      obtain ⟨hl, hp⟩ := (mapM_some_iff fs ds).mp hm
+      obtain ⟨hl', hp'⟩ := (mapM_some_iff fs' ds).mp hm'
+      simp only [Bis, ho, ho']
+      refine ⟨by simp, by omega, fun i x x' hx hx' => ?_⟩
+      have h1 := hp i x hx
+      have h2 := hp' i x' hx'
+      cases hdi : ds[i]? with
+      | none =>
+        have := (List.getElem?_eq_some_iff.mp hx).1
+        rw [List.getElem?_eq_none_iff] at hdi; omega
+      | some di => rw [hdi] at h1 h2; exact Bis_of_dec m h1 h2
+  | m, h, h', v, v', n, n', .list k el l ds, e1, e2 => by
+    obtain ⟨a, j, xs, rfl, rfl, ho, hm⟩ := dec_list e1
+    obtain ⟨a', j', xs', rfl, rfl, ho', hm'⟩ := dec_list e2
+    cases m with
+    | zero => simp [Bis]
+    | succ m =>
+      obtain ⟨hl, hp⟩ := (mapM_some_iff xs ds).mp hm
+      obtain ⟨hl', hp'⟩ := (mapM_some_iff xs' ds).mp hm'
+      simp only [Bis, ho, ho']
+      refine ⟨by simp, by simp, by simp, by omega, fun i x x' hx hx' => ?_⟩
+      have h1 := hp i x hx
+      have h2 := hp' i x' hx'
+      cases hdi : ds[i]? with
+      | none =>
+        have := (List.getElem?_eq_some_iff.mp hx).1
+        rw [List.getElem?_eq_none_iff] at hdi; omega
+      | some di => rw [hdi] at h1 h2; exact Bis_of_dec m h1 h2
+where
+  mapM_get_none {f : Value → Option DV} {xs : List Value} {ds : List DV} (hm : xs.mapM f = some ds)
+      {i : Nat} {x : Value} (hx : xs[i]? = some x) : f x = ds[i]? :=
+    ((mapM_some_iff xs ds).mp hm).2 i x hx
+
+/-- An oracle that reads only the content of a value reads only its decoded tree. -/
+theorem htrDec_of_ext {sha : Oracle}
+    (hx : ∀ h v h' v', Validation.HtrBridge.Bis 64 h v h' v' → sha.hashTreeRoot h v = sha.hashTreeRoot h' v') :
+    Examples2.HtrDec (Scope.env sha) :=
+  fun h v h' v' _ _ _ e1 e2 => hx h v h' v' (Bis_of_dec 64 e1 e2)
+
+/-- An encoder that adds objects and gives a value that decodes to `d`. -/
+def EncDec (f : Heap → Value × Heap) (d : DV) : Prop :=
+  ∀ h0, Ext h0 (f h0).2 ∧ Below (f h0).2 (f h0).1 ∧ ∃ n, dec (f h0).2 n (f h0).1 = some d
+
+theorem encDec_flat {v : Value} (hv : Flat v = true) : EncDec (fun h => (v, h)) (.leaf v) :=
+  fun h0 => ⟨Ext_refl h0, fun q a e => absurd e (fun e' => follow_nonref_ref (flat_nonref hv) e'),
+    0, dec_flat hv 0⟩
+
+/-- The fold of `encContainer` and `encList`. -/
+def encFold (gs : List (Heap → Value × Heap)) (acc : List Value) (h : Heap) : List Value × Heap :=
+  gs.foldl (fun (acc : List Value × Heap) f =>
+    let (v, h1) := f acc.2
+    (acc.1 ++ [v], h1)) (acc, h)
+
+theorem encFold_cons (g : Heap → Value × Heap) (gs : List (Heap → Value × Heap)) (acc : List Value)
+    (h : Heap) : encFold (g :: gs) acc h = encFold gs (acc ++ [(g h).1]) (g h).2 := rfl
+
+theorem encContainer_eq (ty : Name) (fs : List (Heap → Value × Heap)) (h : Heap) :
+    encContainer ty fs h =
+      (.ref (encFold fs [] h).2.next, ((encFold fs [] h).2.alloc (.container ty (encFold fs [] h).1)).2) := rfl
+
+theorem encList_eq {α : Type} (k : ListKind) (e : SszTy) (l : Option Nat) (f : Enc α) (xs : List α)
+    (h : Heap) :
+    encList k e l f xs h =
+      (.ref (encFold (xs.map f) [] h).2.next,
+        ((encFold (xs.map f) [] h).2.alloc (.list k e l (encFold (xs.map f) [] h).1)).2) := by
+  unfold encList encFold; rw [List.foldl_map]; rfl
+
+/-- The items of an encoder fold, one encoder per item. -/
+theorem fold_spec : ∀ (gs : List (Heap → Value × Heap)) (ds : List DV), gs.length = ds.length →
+    (∀ (i : Nat) g d, gs[i]? = some g → ds[i]? = some d → EncDec g d) →
+    ∀ (acc : List Value) (h : Heap),
+      Ext h (encFold gs acc h).2 ∧ (∀ v ∈ acc, Below h v → Below (encFold gs acc h).2 v) ∧
+        ∃ vs n, (encFold gs acc h).1 = acc ++ vs ∧
+          (∀ v ∈ vs, Below (encFold gs acc h).2 v) ∧ vs.mapM (dec (encFold gs acc h).2 n) = some ds
+  | [], [], _, _, acc, h => ⟨Ext_refl h, fun _ _ hb => hb, [], 0, by simp [encFold], by simp, rfl⟩
+  | [], _ :: _, hl, _, _, _ => by simp at hl
+  | _ :: _, [], hl, _, _, _ => by simp at hl
+  | g :: gs, d :: ds, hl, hall, acc, h => by
+    obtain ⟨e1, hb1, n1, hd1⟩ := hall 0 g d rfl rfl h
+    obtain ⟨e2, hacc, vs, n2, hr, hbv, hm⟩ := fold_spec gs ds (by simpa using hl)
+      (fun i g' d' hg hd => hall (i + 1) g' d' (by simpa using hg) (by simpa using hd))
+      (acc ++ [(g h).1]) (g h).2
+    rw [encFold_cons]
+    refine ⟨Ext_trans e1 e2, fun v hv hb => ?_, (g h).1 :: vs, max n1 n2, ?_, ?_, ?_⟩
+    · exact hacc v (by simp [hv]) (fun q a ea => Nat.lt_of_lt_of_le (hb q a ((follow_Ext e1 q hb a).mp ea)) e1.1)
+    · rw [hr]; simp
+    · intro v hv
+      simp only [List.mem_cons] at hv
+      rcases hv with rfl | hv
+      · exact hacc _ (by simp) hb1
+      · exact hbv v hv
+    · simp only [List.mapM_cons]
+      rw [dec_ext e2 hb1, dec_mono' hd1 (Nat.le_max_left _ _), mapM_dec_mono hm (Nat.le_max_right _ _)]
+      rfl
+
+theorem encDec_node {gs : List (Heap → Value × Heap)} {ds : List DV} (hl : gs.length = ds.length)
+    (hall : ∀ (i : Nat) g d, gs[i]? = some g → ds[i]? = some d → EncDec g d) (h0 : Heap)
+    (o : List Value → HeapObj) (ho : ∀ vs, okids (some (o vs)) = some vs) (d : List DV → DV)
+    (hdo : ∀ (h : Heap) (a n : Nat) vs, h.objs a = some (o vs) → vs.mapM (dec h n) = some ds →
+      dec h (n + 1) (.ref a) = some (d ds)) :
+    Ext h0 ((encFold gs [] h0).2.alloc (o (encFold gs [] h0).1)).2 ∧
+      Below ((encFold gs [] h0).2.alloc (o (encFold gs [] h0).1)).2 (.ref (encFold gs [] h0).2.next) ∧
+      ∃ n, dec ((encFold gs [] h0).2.alloc (o (encFold gs [] h0).1)).2 n (.ref (encFold gs [] h0).2.next) =
+        some (d ds) := by
+  obtain ⟨e1, -, vs, n, hr, hbv, hm⟩ := fold_spec gs ds hl hall [] h0
+  simp only [List.nil_append] at hr
+  rw [hr]
+  obtain ⟨e2, hb2, hm2⟩ := node_spec hbv (o vs) (ho vs)
+  refine ⟨Ext_trans e1 e2, hb2, n + 1, hdo _ _ n vs (by simp [Heap.alloc]) ?_⟩
+  rw [hm2]; exact hm
+
+theorem encDec_container {ty : Name} {fs : List (Heap → Value × Heap)} {ds : List DV}
+    (hl : fs.length = ds.length)
+    (hall : ∀ (i : Nat) g d, fs[i]? = some g → ds[i]? = some d → EncDec g d) :
+    EncDec (encContainer ty fs) (.cont ty ds) := by
+  intro h0
+  rw [encContainer_eq]
+  exact encDec_node hl hall h0 (.container ty) (fun _ => rfl) (.cont ty)
+    (fun h a n vs ho hm => by simp [dec_ref_succ, ho, hm])
+
+theorem encDec_list {α : Type} {k : ListKind} {e : SszTy} {l : Option Nat} {f : Enc α}
+    {g : α → DV} (hf : ∀ x, EncDec (f x) (g x)) (xs : List α) :
+    EncDec (encList k e l f xs) (.list k e l (xs.map g)) := by
+  intro h0
+  rw [encList_eq]
+  refine encDec_node (by simp) (fun i g' d hg hd => ?_) h0 (.list k e l) (fun _ => rfl) (.list k e l)
+    (fun h a n vs ho hm => by simp [dec_ref_succ, ho, hm])
+  simp only [List.getElem?_map, Option.map_eq_some_iff] at hg hd
+  obtain ⟨x, hx, rfl⟩ := hg
+  obtain ⟨x', hx', rfl⟩ := hd
+  rw [hx] at hx'; cases hx'
+  exact hf x
+
+/-- `hash_tree_root` of a tree in the denotation is the readable `htr` of a value that encodes
+to it. -/
+theorem htr_den [Spec] {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) {α : Type} (enc : Enc α)
+    (x : α) {d : DV} (hE : EncDec (enc x) d) :
+    Option.map (Except.mapError SpecError.fail) (dHtr (Scope.env sha) d) =
+      some ((fun r => DRes.val (.bytes (Scope.env sha).nm.root r)) <$> htr enc x) := by
+  obtain ⟨-, -, n, hn⟩ := hE Heap.empty
+  obtain ⟨-, -, n', hn'⟩ := encDV_spec d Heap.empty (dec_leafFlat n _ d hn)
+  have heq : sha.hashTreeRoot (encDV d Heap.empty).2 (encDV d Heap.empty).1 =
+      sha.hashTreeRoot (enc x Heap.empty).2 (enc x Heap.empty).1 :=
+    ho.ext _ _ _ _ (Bis_of_dec 64 hn' hn)
+  unfold dHtr htr htrObj
+  show Option.map _ (DM.bind (lift (sha.hashTreeRoot _ _)) _) = _
+  rw [heq, ho.same]
+  have hno := ho.noOof (enc x Heap.empty).2 (enc x Heap.empty).1
+  cases hr : sha.hashTreeRoot (enc x Heap.empty).2 (enc x Heap.empty).1 with
+  | ok r => simp [hr, lift, DM.bind, DM.ok, erase, Except.mapError]
+  | error e =>
+    have : e ≠ .outOfFuel := fun he => hno (by rw [hr, he])
+    simp [hr, lift, DM.bind, erase, Except.mapError, this]
+
 end SpecLean.Layer4.GenBridge

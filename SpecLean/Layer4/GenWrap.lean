@@ -16,7 +16,7 @@ attribute [local instance high] LibModel.toLibValues
 
 theorem l4_wrap {sha : Oracle} {fps : Name → Footprint} {gfp fp : Footprint} {fid : Name}
     {d : FunctionDef} (hg : (Scope.env sha).globals.lookup fid = some (.fn d)) {h : Heap}
-    (hwf : HeapWF h) {vs : List Value} {roots : List DV} (hdec : DecArgs h vs roots)
+    (hwf : HeapWF h) (hh : Examples2.HtrDec (Scope.env sha)) {vs : List Value} {roots : List DV} (hdec : DecArgs h vs roots)
     (hw : WTree h vs fp) {n : Nat} {α : Type} {r : SpecM α} {g : α → DRes × List DV}
     (hden : ((den (Scope.env sha) fps n).fn fp d roots).map (Except.mapError SpecError.fail) =
       some (g <$> r))
@@ -27,7 +27,7 @@ theorem l4_wrap {sha : Oracle} {fps : Name → Footprint} {gfp fp : Footprint} {
   | none => rw [hd] at hden; cases hden
   | some r0 =>
     rw [hd] at hden
-    have hm := denote_sound_calls (Scope.env sha) fps (Examples2.libFlat_ssz _ (Examples2.nmOK_scope _)) gfp fp hg hdec hw hwf hd
+    have hm := denote_sound_calls (Scope.env sha) fps (Examples2.libFlat_ssz _ (Examples2.nmOK_scope _) hh) gfp fp hg hdec hw hwf hd
     simp only [Option.map_some, Option.some.injEq] at hden
     rw [hden] at hm
     exact Examples.resultMatches_map hE hm
