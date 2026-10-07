@@ -568,11 +568,15 @@ theorem f_valid : ∀ heap vs args, DecodesArgs heap vs args → WTree heap vs (
   - Fresh addresses: `heap.next ≤ heap'.next`, and `HeapWF heap → HeapWF heap'`, where `HeapWF`
     says that every address at or above `next` is free. ("Every new address was free" is always
     true, so it says nothing.)
-  - NoNewPaths over the global footprint `FP`: no old object gains a path. For each argument,
-    a map `φ` sends each path of `heap'` to an old object (below `heap.next`) to a path of
-    `heap` to the same object. The map is one to one, and a path that matches a pattern of `FP`
-    goes to a path that matches the same pattern. So an old object has at most as many paths
-    after the run as before. New objects are free here: `FreshOnce` covers them.
+  - NoNewPaths over the global footprint `FP`: no old object at an `FP` path gains a path;
+    sharing outside `FP` is free. The rule covers each old object (below `heap.next`) that
+    `heap'` has at a path matching the steps of an `FP` pattern (`AtPat`). For each argument, a
+    map `φ` sends each path of `heap'` to such an object to a path of `heap` to the same object.
+    The map is one to one, and a path that matches a pattern of `FP` goes to a path that matches
+    the same pattern. So such an object has at most as many paths after the run as before. An
+    object at no pattern path may gain paths: `state.eth1_data_votes.append(body.eth1_data)`
+    shares an `Eth1Data`, which no function writes in place. New objects are free here:
+    `FreshOnce` covers them, also only at `FP` paths.
 
     An earlier rule, `Reach`, kept each path fixed: every `ref` at a path of `heap'` was at the
     same path in `heap`, or was fresh. That is false for a list slice or a pop, which moves old
