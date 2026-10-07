@@ -39,7 +39,7 @@ theorem decrease_balance_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Beaco
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_decrease_balance, decrease_balance, Scope.env, Scope.knownNames, *]
   rd_step
-  repeat' (first | rd_call [saturating_sub_p0i_run, saturating_sub_run, saturating_sub_p0_run] | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [saturating_sub_run, saturating_sub_p0i_run, saturating_sub_p0_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -222,7 +222,7 @@ theorem get_previous_epoch_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Bea
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_previous_epoch, get_previous_epoch, Scope.env, Scope.knownNames, enc_Epoch, encUint, encBytesN, *]
   rd_step
-  repeat' (first | rd_call [get_current_epoch_run, saturating_sub_p0i_run, saturating_sub_run, saturating_sub_p0_run] | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [get_current_epoch_run, saturating_sub_run, saturating_sub_p0i_run, saturating_sub_p0_run] | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in

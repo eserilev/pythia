@@ -771,6 +771,23 @@ The interpreter defines the meaning of the spec, so it gets the heaviest tests.
    check, swapping evaluation order, or copying on assignment, must each make a test in steps 1 to
    3 fail.
 
+### 11.1 The quick regression
+
+One command runs the checks that a change to the interpreter, the library model or the readable
+prelude must keep green:
+
+```sh
+tools/regress.sh                 # build, probes, constructs, difftest, corpus, hazard tests
+tools/regress.sh --ef CASES_DIR  # also the EF minimal cases, with the sharing check and the
+                                 # readable Lean
+```
+
+It prints one line per check and exits with status 1 when a check fails. `SPECS` names the
+consensus-specs checkout with the pyspec environment (default `../consensus-specs-safe`).
+`CASES_DIR` holds the `.case` files from `tools/ef_cases.py`. Each process runs under an 8 GB
+memory cap, and the EF cases run on 8 parallel runners. The quick checks take a few minutes; the
+EF cases take about 30 minutes.
+
 ## 12. Risks and open questions
 
 - Proof performance. Symbolic execution of `interp` on large functions, such as

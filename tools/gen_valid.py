@@ -38,6 +38,7 @@ HEADER = """import SpecLean.Validation.Gen.Local
 
 # The calls tier: the first round uses the leaves, a later round also the calls proved so far.
 CALLS_HEADER = """import SpecLean.Validation.Gen.Leaves
+import SpecLean.Validation.HtrForkData
 """
 
 CALLS_NEXT_HEADER = """import SpecLean.Validation.Gen.Calls
@@ -45,6 +46,7 @@ CALLS_NEXT_HEADER = """import SpecLean.Validation.Gen.Calls
 
 # The loops tier: the first round uses the calls, a later round also the loops proved so far.
 LOOPS_HEADER = """import SpecLean.Validation.Gen.Calls
+import SpecLean.Validation.HtrForkData
 import SpecLean.Validation.LoopTactic
 import SpecLean.Validation.CompTactic
 """
@@ -54,6 +56,11 @@ LOOPS_OPEN = ("\nopen SpecLean.Validation (LoopEnd IterK for_rule for_live_rule 
               "\n-- As `ResultMatches`: `whnf` of an item would evaluate a range check in unary.\n"
               "attribute [local irreducible] SpecLean.Validation.ItemRel "
               "SpecLean.Validation.CompOut\n")
+
+# The hand-proved theorems of `hash_tree_root` callees (SPEC 8), and their oracle hypothesis.
+HTR_FILE = "SpecLean/Validation/HtrForkData.lean"
+HTR_OPEN = ("\nopen SpecLean.Validation.HtrBridge (OracleHtr compute_fork_data_root_run "
+            "compute_signing_root_run)\n")
 
 LOOPS_NEXT_HEADER = """import SpecLean.Validation.Gen.Loops
 """
@@ -481,12 +488,14 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
         if not calls:
             raise Unsupported("bounded callee: no call")
         for call in calls:
+            # The terms of one call, each as often as the bound has it; across calls, the most.
+            mine = []
             for j, field in terms:
                 if j >= len(call.args):
                     raise Unsupported("bounded callee: argument")
-                term = self.len_bound(name, call.args[j], field)
-                if term not in out:
-                    out.append(term)
+                mine.append(self.len_bound(name, call.args[j], field))
+            for term in set(mine):
+                out += [term] * (mine.count(term) - out.count(term))
         return out
 
     def len_bound(self, name, arg, field=None):
@@ -742,18 +751,48 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         return text, names, bounds, jj
 
     def theorem(self, name, sig, tree, callees=(), fuel=64, poly=None, tie=False, extra=(),
-                wf=False, alloc=False):
+                wf=False, alloc=False, inst=None, ho=False, given=None):
         """The `_run` theorem at fuel `k + fuel` and the `_valid` theorem of SPEC 9.2. A call to
         a callee in `callees` uses the callee's `_run` theorem (`rd_call`).
 
         `poly = j`: the uint argument `j` has any class of its width, and the result has that
         class. Python keeps the class of an argument through arithmetic, so a caller can pass a
         `Gwei` to a `Uint64` parameter and get a `Gwei` back (`saturating_sub`)."""
+        if inst is not None:
+            # A generic uint parameter: one theorem for each class (`inst`), at its call sites.
+            def fix(t):
+                return ("uint", inst) if t[0] == "utvar" else t
+            sig = rd_fn.Sig(sig.name, [(pn, fix(t)) for pn, t in sig.params], sig.defaults,
+                            fix(sig.ret), sig.mutated, [])
         if any(t[0] in ("tvar", "utvar") for _, t in sig.params):
             raise Unsupported("generic")
         if any(sig.params[j][1][0] != "container" for j in sig.mutated):
             raise Unsupported("mutates a list argument")
-        args = [self.arg(j, t) for j, (_, t) in enumerate(sig.params)]
+        if given is not None:
+            # Optional arguments: a call passes the first `given` of them; the rest take the
+            # default `None`, so the interpreter gets fewer arguments and the readable `none`.
+            opts = [j for j, (_, t) in enumerate(sig.params) if t[0] == "option"]
+            args = []
+            for j, (_, t) in enumerate(sig.params):
+                if t[0] != "option":
+                    args.append(self.arg(j, t))
+                elif opts.index(j) < given:
+                    a = self.arg(j, t[1])
+                    args.append((a[0], a[1], f"(some {a[2]})", a[3]))
+                else:
+                    args.append(("", None, "none", ""))
+            sig = rd_fn.Sig(sig.name, [(pn, t[1] if t[0] == "option" else t)
+                                       for pn, t in sig.params], sig.defaults, sig.ret,
+                            sig.mutated, sig.generic)
+        else:
+            args = [self.arg(j, t) for j, (_, t) in enumerate(sig.params)]
+        if ho:
+            # A callee that hashes: the byte vector arguments have their lengths.
+            for j, (_, t) in enumerate(sig.params):
+                if t[0] == "bytesN" and args[j][0]:
+                    a = args[j]
+                    args[j] = (f"{a[0]} (hl{j} : x{j}.length = {t[1].LENGTH})", a[1], a[2],
+                               f"{a[3]} hl{j}")
         if poly is not None:
             t = sig.params[poly][1]
             if t[0] != "uint" or sig.ret[0] != "uint" or sig.mutated:
@@ -823,7 +862,7 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             # A callee whose fuel depends on its input: its bound, in the caller's arguments.
             fuel = f"{' + '.join(extra)} + {fuel}"
             bounded = True
-        binders = " ".join(a[0] for a in args)
+        binders = " ".join(a[0] for a in args if a[0])
         decs, hys = [], []
         for j, (_, t) in enumerate(sig.params):
             if t[0] == "container":
@@ -840,7 +879,7 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
                    f"rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', "
                    f"exists_eq_right] at {' '.join(hys)}\n  " +
                     (f"rd_split_keep x{jj}\n" if bounded and jj is not None else "rd_split_hyps\n"))
-        vs = "[" + ", ".join(a[1] for a in args) + "]"
+        vs = "[" + ", ".join(a[1] for a in args if a[1] is not None) + "]"
         rargs = " ".join(a[2] for a in args)
         hw = (f" (hw : WTree h {vs} {fp}) (hwf : HeapWF h) (haw : ArgsWF h {vs})"
               if sig.mutated else "")
@@ -851,6 +890,8 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         if wfb:
             # The comprehension rule starts from `CContract.refl`; a callee may need the same.
             hw += f" (hwf : HeapWF h) (haw : ArgsWF h {vs})"
+        if ho:
+            hw += " (ho : OracleHtr sha)"
         sl = sorted(self.slices(name))
         hw += "".join(f" (hgfp{f} : ∀ pat ∈ gfp, ∀ j j' rest, Matches pat.steps ({f} :: j :: rest) → "
                       f"Matches pat.steps ({f} :: j' :: rest))" for f in sl)
@@ -866,10 +907,11 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         split = (f"  rcases t{poly} with _ | ⟨_, _⟩ <;> simp only [UintTy.bits] at ht{poly} <;> "
                  f"subst ht{poly}\n" if poly is not None else "")
         if poly is None:
-            name_run, name_valid = f"{name}_run", f"{name}_valid"
-        names = (" ".join(a[3] for a in args) + (" hw hwf haw" if sig.mutated else "") +
+            isfx = f"_p{self.n.cls(inst)}" if inst is not None else ""
+            name_run, name_valid = f"{name}{isfx}_run", f"{name}{isfx}_valid"
+        names = (" ".join(a[3] for a in args if a[3]) + (" hw hwf haw" if sig.mutated else "") +
                  (" hsub" if sig.mutated and lnames else "") +
-                 (" hwf haw" if wfb else "") +
+                 (" hwf haw" if wfb else "") + (" ho" if ho else "") +
                  "".join(f" hgfp{f}" for f in sl))
         alts = ([f"rd_loop [{', '.join(lnames)}]"] if lnames else []) + (
             [f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"] if callees else [])
@@ -1050,6 +1092,8 @@ def main():
     global PRELUDE
     if args.tier == "loops" or args.emit:
         PRELUDE += LOOPS_OPEN
+    if args.tier != "leaves" or args.emit:
+        PRELUDE += HTR_OPEN
     decs_all = [f"dec_{names.cls(c)}" for c in b.order
                 if T.is_uint_cls(c) or T.is_bytesn_cls(c) or T.is_container_cls(c)]
     PRELUDE += "\nattribute [local rd_dec] " + " ".join(decs_all) + "\n"
@@ -1060,11 +1104,15 @@ def main():
     if args.emit:
         n = args.emit
         # The callees with a theorem, and their fuel, as the tiers see them.
-        fl, bf, wfn, hq = {}, {}, {}, {}
-        for f in ["Leaves", "Calls", "Loops"]:
-            gp = gen_dir / f"{f}.lean"
+        fl, bf, wfn, hq, hon = {}, {}, {}, {}, {}
+        for f in ["Leaves", "Calls", "Loops", "HTR"]:
+            gp = ROOT / HTR_FILE if f == "HTR" else gen_dir / f"{f}.lean"
             if gp.exists():
-                txt = gp.read_text()
+                txt = gp.read_text().replace("_run (ho : OracleHtr sha) (gfp", "_run (gfp")
+                for m in re.finditer(r"^theorem (\w+)_run \(gfp(.*?):= by", gp.read_text(),
+                                     re.M | re.S):
+                    hon[m[1]] = "(ho : OracleHtr sha)" in m[2]
+                hon.update({k: True for k in re.findall(r"^theorem (\w+)_run \(ho :", gp.read_text(), re.M)})
                 fl.update(run_fuels(txt))
                 bf.update(bound_fuels(txt))
                 for m in re.finditer(r"^theorem (\w+)_run \(gfp(.*?):= by", txt, re.M | re.S):
@@ -1081,7 +1129,8 @@ def main():
                          64 + max((bf[c][0] if c in bf else fl.get(c, 64) for c in cs),
                                   default=0),
                          extra=extra, wf=any(wfn.get(c) for c in cs),
-                         alloc=any(not hq.get(c, True) for c in cs))
+                         alloc=any(not hq.get(c, True) for c in cs),
+                         ho=any(hon.get(c) for c in cs))
         Path(args.out).write_text(LOOPS_HEADER + PRELUDE + text + FOOTER)
         return
     base = {"leaves": "SpecLean.Validation.Gen.Local", "calls": "SpecLean.Validation.Gen.Leaves",
@@ -1104,7 +1153,7 @@ def main():
                             "loops": LOOPS_HEADER}[args.tier]
     fuel = {n: 64 for n in (have if args.tier != "leaves" else ())}
     # The callees whose fuel depends on their input, and the callees that need `HeapWF`.
-    bfuel, wfneed, heq = {}, {}, {}
+    bfuel, wfneed, heq, honeed = {}, {}, {}, {}
     for f in ["Leaves", "Calls"] + (["Loops"] if args.tier == "loops" else []):
         gp = gen_dir / f"{f}.lean"
         if gp.exists() and f != "Loops":
@@ -1112,9 +1161,23 @@ def main():
             for m in re.finditer(r"^theorem (\w+)_run \(gfp(.*?):= by", txt, re.M | re.S):
                 wfneed[m[1]] = "(hwf : HeapWF h)" in m[2]
                 heq[m[1]] = "h' = h)" in m[2] or "(hw : WTree" in m[2]
+                honeed[m[1]] = "(ho : OracleHtr sha)" in m[2]
+    if args.tier != "leaves":
+        htxt = (ROOT / HTR_FILE).read_text()
+        for m in re.finditer(r"^theorem (\w+)_run \(ho : OracleHtr sha\)(.*?):= by", htxt,
+                             re.M | re.S):
+            wfneed[m[1]] = "(hwf : HeapWF h)" in m[2]
+            heq[m[1]] = "h' = h)" in m[2]
+            honeed[m[1]] = True
+        fuel.update(run_fuels(htxt))
     if args.tier == "loops":
         # The fuel of each theorem of the calls tier.
         fuel.update(run_fuels((gen_dir / "Calls.lean").read_text()))
+    # A generic function has one theorem per class (`f_pSlot`): a caller sees `f` with their fuel.
+    for k in list(fuel):
+        m = re.match(r"(\w+?)_p(?:[A-Z]\w*|o\d+)$", k)
+        if m and m[1] in cls:
+            fuel[m[1]] = max(fuel.get(m[1], 0), fuel[k])
     todo = list(tier)
     while todo:
         cands = {}
@@ -1127,17 +1190,41 @@ def main():
             lemmas = [k for c in callees for k in fuel if k == c or k.startswith(c + "_p")]
             extra, wf = [], any(wfneed.get(c) for c in callees)
             alloc = any(not heq.get(c, True) for c in callees)
+            hon = any(honeed.get(c) for c in callees)
+            sig = em.sigs[n]
+            nopt = sum(1 for _, t in sig.params if t[0] == "option")
+            if nopt and not any(t[0] in ("tvar", "utvar") for _, t in sig.params):
+                # Optional arguments: one theorem for each number of them that a call passes.
+                for i in range(nopt + 1):
+                    try:
+                        cands[f"{n}_po{i}"] = (
+                            g.theorem(n, sig, fns[n], lemmas, f, wf=wf, alloc=alloc, ho=hon,
+                                      given=i), f)
+                    except (Unsupported, S.Unsupported, ValueError) as e:
+                        skipped[n] = f"no statement: {e}"
+                continue
+            if any(t[0] == "utvar" for _, t in sig.params) and \
+                    not any(t[0] == "tvar" for _, t in sig.params):
+                # A generic uint function: one theorem for each uint class.
+                for c in b.order:
+                    if T.is_uint_cls(c):
+                        try:
+                            cands[f"{n}_p{names.cls(c)}"] = (
+                                g.theorem(n, sig, fns[n], lemmas, f, wf=wf, alloc=alloc, inst=c,
+                                          ho=hon), f)
+                        except (Unsupported, S.Unsupported, ValueError) as e:
+                            skipped[n] = f"no statement: {e}"
+                continue
             try:
                 for c in callees:
                     if c in bfuel:
                         lemmas.append(c + "_runF")
                         extra += g.map_bound(n, c, bfuel[c][1])
                 cands[n] = (g.theorem(n, em.sigs[n], fns[n], lemmas, f, extra=extra, wf=wf,
-                                      alloc=alloc), f)
+                                      alloc=alloc, ho=hon), f)
             except (Unsupported, S.Unsupported, ValueError) as e:
                 skipped[n] = f"no statement: {e}"
                 continue
-            sig = em.sigs[n]
             for j, (_, t) in enumerate(sig.params):
                 if t[0] == "uint" and sig.ret[0] == "uint" and not sig.mutated:
                     for tie in (False, True):
@@ -1146,7 +1233,8 @@ def main():
                                 g.theorem(n, sig, fns[n], lemmas, f, poly=j, tie=tie), f)
                         except (Unsupported, S.Unsupported, ValueError):
                             pass
-        todo = [n for n in todo if n not in cands and n not in skipped]
+        todo = [n for n in todo if n not in cands and n not in skipped and
+                not any(k.startswith(n + "_p") for k in cands)]
         if not cands:
             break
         with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
@@ -1156,6 +1244,14 @@ def main():
         failed.update({n: e for n, ok, _, e in results if not ok and n in tier})
         secs.update({n: round(t, 1) for n, _, t, _ in results})
         proved += [n for n in new if n in tier]
+        # A generic function: proved when every class instance is.
+        for n in tier:
+            inst = [k for k in cands if k.startswith(n + "_p") and n not in cands]
+            if inst and all(k in new for k in inst) and n not in proved:
+                proved.append(n)
+                failed.pop(n, None)
+                fuel[n] = max(fuel.get(k, 64) for k in inst)
+                secs[n] = round(sum(secs.get(k, 0) for k in inst), 1)
         body += "".join(cands[n][0] for n in new)
         for n in new:
             fv = run_fuels(cands[n][0]).get(n)
@@ -1167,6 +1263,7 @@ def main():
             stmt = cands[n][0].split(f"theorem {n}_run ", 1)[-1].split(":= by", 1)[0]
             wfneed[n] = "(hwf : HeapWF h)" in stmt
             heq[n] = "h' = h)" in stmt or "(hw : WTree" in stmt
+            honeed[n] = "(ho : OracleHtr sha)" in stmt
         out.write_text(f"-- Generated by tools/gen_valid.py. Do not edit.\n{file_header}{doc()}"
                        f"{PRELUDE}{body}{FOOTER}")
         if args.tier == "leaves" or not new:

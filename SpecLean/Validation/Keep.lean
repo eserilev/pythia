@@ -454,7 +454,7 @@ elab "rd_chain" : tactic => withMainContext do
 
 end SpecLean.Validation.Tactic
 
-macro_rules | `(tactic| rd_frame) => `(tactic| ((repeat' (first | rd_chain | refine ⟨?_, ?_⟩)); done))
+macro_rules | `(tactic| rd_frame) => `(tactic| ((repeat' (first | rd_chain | apply And.intro)); done))
 macro_rules | `(tactic| rd_callhyp) => `(tactic| rd_keep)
 macro_rules | `(tactic| rd_callhyp) => `(tactic| rd_argswf)
 macro_rules | `(tactic| rd_callhyp) => `(tactic| (first

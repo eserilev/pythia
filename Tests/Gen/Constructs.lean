@@ -302,6 +302,11 @@ def names : Array String := #[
   "ptc_window",
   "*",
   "hash_tree_root",
+  "bit_length",
+  "difference",
+  "items",
+  "values",
+  "keys",
   "dict"]
 
 namespace Id
@@ -600,7 +605,12 @@ abbrev «Withdrawal» : Name := 291
 abbrev «ptc_window» : Name := 292
 abbrev «*» : Name := 293
 abbrev «hash_tree_root» : Name := 294
-abbrev «dict» : Name := 295
+abbrev «bit_length» : Name := 295
+abbrev «difference» : Name := 296
+abbrev «items» : Name := 297
+abbrev «values» : Name := 298
+abbrev «keys» : Name := 299
+abbrev «dict» : Name := 300
 end Id
 
 open SpecLean
@@ -1945,7 +1955,7 @@ def globals : List (Name × Global) := [
   (20, (.const (.uint (.width 64) 10))),
   (31, (.type (.uint (.width 32)))),
   (22, (.type (.uint (.width 8)))),
-  (295, (.builtin .dict)),
+  (300, (.builtin .dict)),
   (29, (.builtin .max)),
   (18, (.builtin .range)),
   (25, (.builtin .sha256)),
@@ -2007,6 +2017,11 @@ def knownNames : KnownNames where
   get  := 87
   bytes32  := 112
   root  := 195
+  bitLength  := 295
+  difference  := 296
+  items  := 297
+  values  := 298
+  keys  := 299
 
 /-- The environment of this build. The oracle gives `sha256`, `hash_tree_root` and BLS. -/
 def env (o : Oracle) : Env :=
