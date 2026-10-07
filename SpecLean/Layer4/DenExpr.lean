@@ -29,6 +29,11 @@ structure LibFlat (env : Env) : Prop where
   /-- The library leaves `len`, `min`, `max` and `enumerate` to the core. -/
   builtin : ∀ h b args kws, (b = .len ∨ b = .min ∨ b = .max ∨ b = .enumerate) →
     LibModel.builtin env h b args kws = none
+  /-- A container from keyword arguments, all fields given and flat: a new object. -/
+  kwctor : ∀ h ty fs kvs (r : Res (List Value)), env.containers.lookup ty = some fs →
+    kvs.all (fun kv => (fs.map (·.1)).contains kv.1) = true → kwFields kvs fs = some r →
+    LibModel.construct env h (.container ty) [] kvs =
+      (fun ws => (Value.ref (h.alloc (.container ty ws)).1, (h.alloc (.container ty ws)).2)) <$> r
 
 /-- An expression result and the interpreter's: the heap only gains objects (`Ext`), and the
 values agree in the new heap. A call of a function that writes nothing can allocate. -/
@@ -261,6 +266,194 @@ theorem pickBest_heap {env : Env} (hlf : LibFlat env) (h : Heap) (isMin : Bool) 
   · simp [applyBuiltin, hlf.builtin h .min _ [] (by simp)]
 
 /-- A call that writes nothing, in an expression. -/
+theorem callValue_type_kw {env : Env} (n : Nat) {g : Name} {t : SszTy} (vs : List Value)
+    (kws : List (Name × Value)) (h : Heap) (hg : env.globals.lookup g = some (.type t)) :
+    callValue env n (.glob g) vs kws h = LibModel.construct env h t vs kws := by
+  rw [callValue.eq_def]; simp only [hg]
+
+theorem kwFields_noOof {kvs : List (Name × Value)} :
+    ∀ (fs : List (Name × SszTy)) (e : SpecError), kwFields kvs fs = some (.error e) → e ≠ .outOfFuel
+  | [], e, hk => by simp [kwFields, DM.ok] at hk
+  | (f, ft) :: fs, e, hk => by
+    simp only [kwFields] at hk
+    split at hk
+    · split at hk
+      · rcases bind_case hk with ⟨err, hl, he⟩ | ⟨w, hl, hk2⟩
+        · cases he; exact (lift_some hl).2 e (lift_some hl).1.symm
+        · split at hk2
+          · rcases bind_case hk2 with ⟨err, hl2, he⟩ | ⟨ws, hl2, hk3⟩
+            · cases he; exact kwFields_noOof fs e hl2
+            · simp [DM.ok] at hk3
+          · cases hk2
+      · cases hk
+    · cases hk
+
+theorem kwFields_flat {kvs : List (Name × Value)} :
+    ∀ (fs : List (Name × SszTy)) (ws : List Value), kwFields kvs fs = some (.ok ws) → ∀ w ∈ ws, Flat w = true
+  | [], ws, hk => by simp [kwFields, DM.ok] at hk; subst hk; simp
+  | (f, ft) :: fs, ws, hk => by
+    simp only [kwFields] at hk
+    split at hk
+    · split at hk
+      · rcases bind_case hk with ⟨err, hl, he⟩ | ⟨w, hl, hk2⟩
+        · cases he
+        · split at hk2
+          · next hw =>
+            rcases bind_case hk2 with ⟨err, hl2, he⟩ | ⟨ws', hl2, hk3⟩
+            · cases he
+            · simp [DM.ok] at hk3; subst hk3
+              intro x hx
+              simp at hx
+              rcases hx with rfl | hx
+              · exact hw
+              · exact kwFields_flat fs ws' hl2 x hx
+          · cases hk2
+      · cases hk
+    · cases hk
+
+/-- A new container of flat fields: a new tree, related to the new reference. -/
+theorem alloc_cont {lo : Nat} {h : Heap} {vs : List Value} (hb : BelowArgs h vs) (hlo : lo ≤ h.next)
+    {ty : Name} {xs : List Value} (hf : ∀ v ∈ xs, Flat v = true) :
+    GOK lo h vs (.ok (.tree (.cont ty (xs.map DV.leaf))))
+      (.ok (.ref (h.alloc (.container ty xs)).1, (h.alloc (.container ty xs)).2)) := by
+  have he := Ext_alloc h (.container ty xs)
+  have hobj : (h.alloc (.container ty xs)).2.objs h.next = some (.container ty xs) := by
+    simp [Heap.alloc]
+  have hpath : ∀ q b, follow (h.alloc (.container ty xs)).2 (.ref h.next) q = some (.ref b) →
+      b = h.next := by
+    intro q b e
+    cases q with
+    | nil => simp [follow] at e; exact e.symm
+    | cons j q =>
+      rw [follow_ref_cons, hobj] at e
+      simp only [okids, Option.bind_some] at e
+      cases hx : xs[j]? with
+      | none => simp [hx] at e
+      | some x =>
+        simp only [hx, Option.bind_some] at e
+        have hfx : Flat x = true := hf x (List.mem_of_getElem? hx)
+        exact absurd e (fun e' => follow_nonref_ref (flat_nonref hfx) e')
+  have ha : (h.alloc (.container ty xs)).1 = h.next := rfl
+  rw [ha]
+  simp only [GOK]
+  refine ⟨he, fun q b e => (hpath q b e) ▸ hlo, ⟨2, ?_⟩, fun q b e k p ep => ?_⟩
+  · rw [dec_ref_succ, hobj]
+    have : xs.mapM (dec (h.alloc (.container ty xs)).2 1) = some (xs.map DV.leaf) := by
+      rw [mapM_some_iff]
+      refine ⟨by simp, fun i x hx => ?_⟩
+      have hfx : Flat x = true := hf x (List.mem_of_getElem? hx)
+      simp [dec_flat hfx, hx]
+    simp [this]
+  · have hb' := hpath q b e
+    subst hb'
+    have hlt := at?_below hb ((at?_Skel (Skel_of_Ext he) hb k p h.next).mp ep)
+    omega
+
+def KwsOK : Res (List (Name × Value)) → Res (List Value × List (Name × Value) × Heap) → Heap → Prop
+  | .ok kvs, .ok (ws, kws, h'), h => Ext h h' ∧ ws = [] ∧ kws = kvs
+  | .error e, .error e', _ => e' = e ∧ e ≠ .outOfFuel
+  | _, _, _ => False
+
+theorem kwsOf_sound {env : Env} {fp : Footprint} {h0 : Heap} {vs : List Value} {s : DSt} {L : Locals}
+    {n : Nat} {ev : Expr → DM DRes} (hE : EvF env fp h0 vs s L n ev) :
+    ∀ (args : List Arg) (h : Heap) (r : Res (List (Name × Value))), CInv fp h0 h vs s L →
+      kwsOf ev args = some r → KwsOK r (evalArgs env n L h args) h
+  | [], h, r, _, hd => by
+    simp [kwsOf, DM.ok] at hd; subst hd
+    rw [evalArgs]; exact ⟨Ext_refl h, rfl, rfl⟩
+  | .kw k e :: as, h, r, hI, hd => by
+    simp only [kwsOf] at hd
+    rw [evalArgs]
+    rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rv, he, hd2⟩
+    · obtain ⟨hi, hne⟩ := gok_error (hE h hI e _ he)
+      simp [hi, hne, KwsOK]
+    · obtain ⟨w, h1, hi, hx1, hrel⟩ := gok_ok (hE h hI e _ he)
+      have hI1 := hI.ext hx1
+      simp only [hi, Except.bind_ok']
+      cases rv with
+      | place _ _ => cases hd2
+      | tree _ => cases hd2
+      | val v =>
+      obtain ⟨rfl, -⟩ := hrel
+      simp only at hd2
+      rcases bind_case hd2 with ⟨err, he2, rfl⟩ | ⟨rest, he2, hd3⟩
+      · have := kwsOf_sound hE as h1 _ hI1 he2
+        revert this
+        cases evalArgs env n L h1 as with
+        | error e' => rintro ⟨rfl, hne⟩; simp [hne, KwsOK]
+        | ok q => intro hx; cases hx
+      · simp [DM.ok] at hd3; subst hd3
+        have := kwsOf_sound hE as h1 _ hI1 he2
+        revert this
+        cases evalArgs env n L h1 as with
+        | error e' => intro hx; cases hx
+        | ok q =>
+          obtain ⟨ws, kws, h2⟩ := q
+          rintro ⟨hx2, rfl, rfl⟩
+          simp only [Except.bind_ok', Except.pure_ok']
+          exact ⟨Ext_trans hx1 hx2, rfl, rfl⟩
+  | .pos _ :: _, _, r, _, hd => by simp [kwsOf] at hd
+  | .starred _ :: _, _, r, _, hd => by simp [kwsOf] at hd
+
+theorem kwCall_sound {env : Env} (hlf : LibFlat env) {m : Nat}
+    {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals} {ev : Expr → DM DRes}
+    (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L (m + 1) ev)
+    {g : Name} {l l' : Line} {args : List Arg}
+    (hloc : s.loc g = none) (hc : callable env g = true) {r : Res DRes}
+    (hd : DM.bind (kwsOf ev args) (fun kvs => kwCtor env g kvs) = some r) :
+    GOK h0.next h vs r (evalExpr env (m + 2) L h (.call l (.name l' g) args)) := by
+  have hL : L g = none := by
+    have := hI.i.r.loc g; rw [hloc] at this
+    revert this; cases L g <;> simp [LRel]
+  obtain ⟨hlk, hany⟩ := callable_lookup hc hL
+  rw [evalExpr]
+  have hname : evalExpr env (m + 1) L h (.name l' g) = .ok (.glob g, h) := by
+    rw [evalExpr]; simp [hlk]
+  simp only [hname, Except.bind_ok', hany]
+  rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨kvs, he, hd2⟩
+  · have := kwsOf_sound ih args h _ hI he
+    revert this
+    cases evalArgs env (m + 1) L h args with
+    | error e' => rintro ⟨rfl, hne⟩; exact ⟨rfl, hne⟩
+    | ok q => intro hx; cases hx
+  · have := kwsOf_sound ih args h _ hI he
+    revert this
+    cases hea : evalArgs env (m + 1) L h args with
+    | error e' => intro hx; cases hx
+    | ok q =>
+      obtain ⟨ws, kws, h2⟩ := q
+      rintro ⟨hx2, rfl, rfl⟩
+      have hI2 := hI.ext hx2
+      refine gok_ext hx2 ?_
+      simp only [Except.bind_ok']
+      unfold kwCtor at hd2
+      cases hg : env.globals.lookup g with
+      | none => simp [hg] at hd2
+      | some gl =>
+      rw [hg] at hd2
+      cases gl with
+      | type t =>
+        cases t with
+        | container ty =>
+          simp only at hd2
+          rw [callValue_type_kw _ _ _ _ hg]
+          cases hfs : env.containers.lookup ty with
+          | none => simp [hfs] at hd2
+          | some fs =>
+          rw [hfs] at hd2
+          simp only at hd2
+          split at hd2
+          · next hall =>
+            rcases bind_case hd2 with ⟨err, hk, rfl⟩ | ⟨ws, hk, hd3⟩
+            · rw [hlf.kwctor h2 ty fs kws _ hfs hall hk]
+              exact ⟨rfl, kwFields_noOof fs err hk⟩
+            · rw [hlf.kwctor h2 ty fs kws _ hfs hall hk]
+              simp [DM.ok] at hd3; subst hd3
+              exact alloc_cont hI2.below hI2.i.fresh.1 (kwFields_flat fs ws hk)
+          · cases hd2
+        | _ => simp at hd2
+      | _ => simp at hd2
+
 theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) {m : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L (m + 1) ((den env fps (m + 1)).expr fp s))
@@ -1025,7 +1218,9 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
         obtain ⟨l1, l', he, hloc, hc⟩ := callHead_spec hch
         cases he
         simp only [hch] at hd
-        exact roCall_sound hlf hI ih hF hloc hc hd
+        split at hd
+        · exact kwCall_sound hlf hI ih hloc hc hd
+        · exact roCall_sound hlf hI ih hF hloc hc hd
   | unop l op a =>
     cases op with
     | not =>

@@ -287,6 +287,56 @@ def itemsStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ifs :
       | none => none
   | _ => none
 
+/-- Every argument is a keyword argument, and there is at least one. -/
+def allKw : List Arg → Bool
+  | [] => false
+  | as => as.all fun a => match a with | .kw _ _ => true | _ => false
+
+@[simp] theorem allKw_nil : allKw [] = false := Eq.trans rfl rfl
+@[simp] theorem allKw_pos (e : Expr) (as : List Arg) : allKw (.pos e :: as) = false := Eq.trans rfl rfl
+@[simp] theorem allKw_starred (e : Expr) (as : List Arg) : allKw (.starred e :: as) = false :=
+  Eq.trans rfl rfl
+
+/-- The keyword arguments, each a flat value, in order. -/
+def kwsOf (ev : Expr → DM DRes) : List Arg → DM (List (Name × Value))
+  | [] => .ok []
+  | .kw k e :: as =>
+    DM.bind (ev e) fun r =>
+      match r with
+      | .val v => DM.bind (kwsOf ev as) fun rest => .ok ((k, v) :: rest)
+      | _ => none
+  | _ => none
+
+/-- A field type whose values are flat. -/
+def flatTy : SszTy → Bool
+  | .uint _ | .boolean | .bytes _ _ => true
+  | _ => false
+
+/-- The field values of a container from its keyword arguments: every field given, of a flat
+type, with a flat value, coerced as a field. -/
+def kwFields (kvs : List (Name × Value)) : List (Name × SszTy) → DM (List Value)
+  | [] => .ok []
+  | (f, ft) :: fs =>
+    match kvs.lookup f with
+    | some v =>
+      if flatTy ft && Flat v then
+        DM.bind (lift (coerceField ft v)) fun w =>
+          if Flat w then DM.bind (kwFields kvs fs) fun ws => .ok (w :: ws) else none
+      else none
+    | none => none
+
+/-- `T(f=v, ...)` for a container class `T`: a new container of flat fields. -/
+def kwCtor (env : Env) (g : Name) (kvs : List (Name × Value)) : DM DRes :=
+  match env.globals.lookup g with
+  | some (.type (.container ty)) =>
+    match env.containers.lookup ty with
+    | some fs =>
+      if kvs.all (fun kv => (fs.map (·.1)).contains kv.1) then
+        DM.bind (kwFields kvs fs) fun ws => .ok (.tree (.cont ty (ws.map .leaf)))
+      else none
+    | none => none
+  | _ => none
+
 /-- A call expression `g(args)` to a callable global that no local hides. The interpreter looks
 the name up before it evaluates the arguments. -/
 def callHead (env : Env) (s : DSt) : Expr → Option (Name × List Arg)
@@ -343,7 +393,8 @@ def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
   | e@(.call _ _ _) =>
     match n, callHead env s e with
     | _ + 1, some (g, args) =>
-      DM.bind (argsOf (P.expr fp s) args) fun rs => dCallRO env fps P.fn s g rs
+      if allKw args then DM.bind (kwsOf (P.expr fp s) args) fun kvs => kwCtor env g kvs
+      else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallRO env fps P.fn s g rs
     | _, _ => none
   | _ => none
 
@@ -351,7 +402,9 @@ def callStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
     (s : DSt) (e : Expr) : DM (DRes × List DV) :=
   match n, callHead env s e with
   | _ + 1, some (g, args) =>
-    DM.bind (argsOf (P.expr fp s) args) fun rs => dCallW env fps P.fn fp s g rs
+    if allKw args then
+      DM.bind (DM.bind (kwsOf (P.expr fp s) args) fun kvs => kwCtor env g kvs) fun r => .ok (r, s.roots)
+    else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallW env fps P.fn fp s g rs
   | _, _ => (exprStep env fps n P fp s e).map (·.map (·, s.roots))
 
 def targetStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) :

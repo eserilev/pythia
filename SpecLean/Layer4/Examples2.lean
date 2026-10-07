@@ -41,9 +41,81 @@ theorem constructFlat_ssz (env : Env) : ConstructFlat env := by
   cases t <;> simp [ctorFlat] at hc <;> simp only [LibModel.construct, Ssz.construct] <;>
     split <;> first | rfl | exact bind_pair h _ | contradiction | (simp_all; done) | (exfalso; simp_all)
 
+theorem coerceH_flat2 (env : Env) (b : Bool) (d : Nat) (h : Heap) (t : SszTy) (v : Value)
+    (ht : ∀ ty, t ≠ .container ty) (hl : ∀ k e l, t ≠ .list k e l) (ha : t ≠ .any)
+    (hv : ∀ a, v ≠ .ref a) (hv' : ∀ xs, v ≠ .tuple xs) :
+    Ssz.coerceH env b (d + 1) h t v =
+      (fun x => (x, h)) <$> (if b then coerceField t v else coerceElem t v) := by
+  rw [Ssz.coerceH.eq_def]
+  cases t <;> first
+    | exact absurd rfl (ht _) | exact absurd rfl (hl _ _ _) | exact absurd rfl ha
+    | (cases v <;> first | exact absurd rfl (hv _) | exact absurd rfl (hv' _) |
+        (cases b <;> simp <;> rfl))
+
+/-- The fields of a container from keyword arguments, as `construct` builds them. -/
+theorem build_kw (env : Env) (h : Heap) (kvs : List (Name × Value)) :
+    ∀ (fs : List (Name × SszTy)) (r : Res (List Value)), kwFields kvs fs = some r →
+      Ssz.construct.build env h (fs.zip (fs.map fun f => kwArg kvs f.1)) = (fun ws => (ws, h)) <$> r
+  | [], r, hk => by simp [kwFields, DM.ok] at hk; subst hk; rfl
+  | (f, ft) :: fs, r, hk => by
+    simp only [kwFields] at hk
+    split at hk
+    · next v hv =>
+      split at hk
+      · next hft =>
+        simp only [Bool.and_eq_true] at hft
+        obtain ⟨hft, hfv⟩ := hft
+        have hc : Ssz.coerceH env true depthBound h ft v = (fun x => (x, h)) <$> coerceField ft v := by
+          have := coerceH_flat2 env true 63 h ft v
+            (by intro ty e; subst e; simp [flatTy] at hft) (by intro k e l e'; subst e'; simp [flatTy] at hft)
+            (by intro e; subst e; simp [flatTy] at hft) (flat_nonref hfv)
+            (by intro xs e; subst e; simp [Flat] at hfv)
+          simpa [depthBound] using this
+        have hv' : kwArg kvs f = some v := hv
+        simp only [List.map_cons, List.zip_cons_cons, Ssz.construct.build, hv', hc]
+        rcases bind_case hk with ⟨err, hl, rfl⟩ | ⟨w, hl, hk2⟩
+        · obtain ⟨hr, -⟩ := lift_some hl
+          rw [← hr]; rfl
+        · obtain ⟨hr, -⟩ := lift_some hl
+          rw [← hr]
+          split at hk2
+          · rcases bind_case hk2 with ⟨err, hl2, rfl⟩ | ⟨ws, hl2, hk3⟩
+            · simp only [show ((fun x => (x, h)) <$> (Except.ok w : Except SpecError Value)) = .ok (w, h)
+                from rfl, Except.bind_ok']
+              rw [build_kw env h kvs fs _ hl2]; rfl
+            · simp [DM.ok] at hk3; subst hk3
+              simp only [show ((fun x => (x, h)) <$> (Except.ok w : Except SpecError Value)) = .ok (w, h)
+                from rfl, Except.bind_ok']
+              rw [build_kw env h kvs fs _ hl2]; rfl
+          · cases hk2
+      · cases hk
+    · cases hk
+
+theorem kwctor_ssz (env : Env) (h : Heap) (ty : Name) (fs : List (Name × SszTy))
+    (kvs : List (Name × Value)) (r : Res (List Value)) (hfs : env.containers.lookup ty = some fs)
+    (hall : kvs.all (fun kv => (fs.map (·.1)).contains kv.1) = true) (hk : kwFields kvs fs = some r) :
+    LibModel.construct env h (.container ty) [] kvs =
+      (fun ws => (Value.ref (h.alloc (.container ty ws)).1, (h.alloc (.container ty ws)).2)) <$> r := by
+  show Ssz.construct env h (.container ty) [] kvs = _
+  have hcf : ctorFields (fs.map (·.1)) [] kvs = .ok (fs.map fun f => kwArg kvs f.1) := by
+    have hany : kvs.any (fun kv => !(fs.map (·.1)).contains kv.1) = false := by
+      simpa [List.all_eq, List.any_eq] using hall
+    simp only [ctorFields, List.length_nil, List.length_map, Nat.not_lt_zero, ↓reduceIte]
+    simp only [List.any_eq_false, Bool.not_eq_true'] at hany
+    have : (kvs.any fun x => !(fs.map (·.1)).contains x.1) = false := by
+      simpa [List.any_eq_false] using hany
+    rw [this]
+    simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq]
+    apply List.ext_getElem? ; intro i
+    simp [List.getElem?_map, List.getElem?_zipIdx]
+    cases fs[i]? <;> rfl
+  simp only [Ssz.construct, hfs, hcf, Except.bind_ok', build_kw env h kvs fs r hk]
+  cases r <;> rfl
+
 theorem libFlat_ssz (env : Env) : LibFlat env :=
   ⟨Examples.coerceFlat_ssz env, constructFlat_ssz env, fun h b args kws hb => by
-    rcases hb with rfl | rfl | rfl | rfl <;> simp [LibModel.builtin, Ssz.builtin]⟩
+    rcases hb with rfl | rfl | rfl | rfl <;> simp [LibModel.builtin, Ssz.builtin],
+   fun h ty fs kvs r hfs hall hk => kwctor_ssz env h ty fs kvs r hfs hall hk⟩
 
 -- The value rules as the denotation and the interpreter see them.
 attribute [local instance high] LibModel.toLibValues

@@ -284,6 +284,8 @@ def result(m, rt, sub=None):
     mm = re.fullmatch(r"\(?List (\w+)\)?", rt)
     if mm and mm.group(1) in m.uint:
         return "DRes.tree (.list .pyList .any none (x.map fun y => DV.leaf (.uint %s y.val)))" % m.uint_ty(mm.group(1))
+    if rt in m.reps:
+        return "DRes.tree (.cont %d (kids_%s x))" % (m.cid[rt], rt)
     raise Unsupported("result type " + rt)
 
 
@@ -353,6 +355,16 @@ def classes_file(m):
                        % (n, i, n, n, i, r))
         out.append("@[l4_simp] theorem kids_%s_len (x : %s) : (kids_%s x).length = %d :=\n  Eq.trans rfl rfl\n"
                    % (n, n, n, len(m.reps[n])))
+        fns = [fn for fn, _, _ in m.containers[n]]
+        mk_reps = [r for r in m.reps[n]]
+        if not all(r.startswith("(.leaf") for r in mk_reps):
+            fns = []
+        for fn in fns:
+            mk_reps = [re.sub(r"\bx\.%s\b" % fn, "a_%s" % fn, r) for r in mk_reps]
+        if fns:
+          out.append("theorem kids_%s_mk %s :\n    kids_%s { %s } =\n      [%s] :=\n  Eq.trans rfl rfl\n"
+                   % (n, " ".join("(a_%s : %s)" % (fn, strip_parens(rt)) for fn, _, rt in m.containers[n]), n,
+                      ", ".join("%s := a_%s" % (fn, fn) for fn in fns), ", ".join(mk_reps)))
         for i, (fn, ssz, rt) in enumerate(m.containers[n]):
             b, pat, rv = raw_of(m, ssz, rt)
             out.append("@[l4_simp] theorem kids_%s_set_%d (x : %s) %s :\n    (kids_%s x).set %d %s = kids_%s { x with %s := %s } :=\n  Eq.trans rfl rfl"
@@ -889,6 +901,15 @@ def comp_theorems(m, name, params, bs, roots, rds, xs, cps):
 
 CLOSE = "l4_dbg" if os.environ.get("L4_DBG") else "l4_close"
 
+_CF = {}
+
+
+def classes_file_cache(m):
+    if "t" not in _CF:
+        _CF["t"] = classes_file(m)
+    return _CF["t"]
+
+
 LENS_OF = {}   # function -> [(parameter position, field)]: the list lengths its fuel grows with
 
 
@@ -964,6 +985,8 @@ def candidate(m, name, proved, sub=None, isub=False):
     rs_out = rs_out or rs
     fp = "(fpsGen %d)" % f["id"] if w else "[]"
     unf = ["Scope.fn_" + name, name, "fpsGen", "fpAll"] + m.consts_of(name)
+    if rt in m.reps and ("theorem kids_%s_mk" % rt) in classes_file_cache(m):
+        unf.append("kids_%s_mk" % rt)
     loopstep = ""
     if lps or fcalls or cps:
         loopstep = ("  all_goals (repeat (first | (simp (disch := l4_disch) only [%s]) |\n"

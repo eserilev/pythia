@@ -159,7 +159,7 @@ theorem cvb_call (sha : Oracle) (fp : Footprint) (m vi : Nat) (hv : vi < 2 ^ 64)
   have hl : (Scope.env sha).globals.lookup 199 = some (.type (.uint biTy)) := by
     simp only [Scope.env, Validation.Tactic.lookup_lit]
   rw [show m + 5 = (m + 4) + 1 by omega, den_expr]
-  simp only [exprStep, hhead]
+  simp only [exprStep, hhead, allKw_pos, Bool.false_eq_true, ↓reduceIte]
   simp only [argsOf]
   rw [ha, dm_bind_ok, dm_ok, dm_bind_ok, dm_ok, dm_bind_ok]
   simp only [dCallRO, hl]
@@ -305,7 +305,7 @@ theorem e_callfn {sha : Oracle} {fp : Footprint} {s : DSt} {n : Nat} {l l' : Lin
   have hh : callHead (Scope.env sha) s (.call l (.name l' g) args) = some (g, args) := by
     simp [callHead, hloc, callable, hl]
   rw [den_expr]
-  simp only [exprStep, hh]
+  simp only [exprStep, hh, allKw_of_argsOf _ _ ha, Bool.false_eq_true, ↓reduceIte]
   rw [ha, dm_bind_ok]
   simp only [dCallRO, hl, hfp, if_true, hr, hf, dm_bind_ok, hflat]
   rfl
@@ -398,7 +398,7 @@ theorem c_sat_err (m : Nat) (hc : ACtx s ds kB lB bals kD lD bs kW lW ws) {bi : 
       (.pos (.attr 1944 (.name 1944 85) 5))]) := by
     simp [callHead, h88, callable, Scope.env, Validation.Tactic.lookup_lit]
   rw [show m + 9 = (m + 8) + 1 by omega, den_expr]
-  simp only [exprStep, hh]
+  simp only [exprStep, hh, allKw_pos, Bool.false_eq_true, ↓reduceIte]
   simp only [argsOf]
   rw [ha]
   rfl
@@ -486,7 +486,7 @@ theorem s_else (M : Nat) (hc : ACtx s ds kB lB bals kD lD bs kW lW ws) {i : Nat}
   rw [den_stmt]
   simp only [stmtStep]
   rw [show M + 15 = (M + 14) + 1 by omega, den_call]
-  simp only [callStep, hh]
+  simp only [callStep, hh, allKw_pos, Bool.false_eq_true, ↓reduceIte]
   rw [ha, dm_bind_ok]
   rw [fps89] at hcov
   have hmap : List.mapM (argRoot s) [DRes.place 0 [], .val (.uint viTy ws[i].validator_index.val),

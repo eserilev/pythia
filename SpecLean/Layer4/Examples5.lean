@@ -113,7 +113,7 @@ theorem c_vi (sha : Oracle) (fp : Footprint) (n : Nat) {s : DSt} {j : Nat} (hj :
   have hc := dCtor_eval (env := Scope.env sha) (t := .uint viTy) (rs := [.val (.int (j : Int))]) rfl rfl
     (ctor_vi_int _ _ j hj) rfl
   rw [show n + 3 = (n + 2) + 1 by omega, den_expr]
-  simp only [exprStep, hh]
+  simp only [exprStep, hh, allKw_pos, Bool.false_eq_true, ↓reduceIte]
   rw [args1 a1, dm_bind_ok]
   simp only [dCallRO, hl]
   exact hc

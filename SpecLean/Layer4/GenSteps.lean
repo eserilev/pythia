@@ -110,7 +110,8 @@ theorem s_call (l : Line) (f : Expr) (args : List Arg) :
     (den env fps (n + 2)).expr fp s (.call l f args) =
       match callHead env s (.call l f args) with
       | some (g, args) =>
-        DM.bind (argsOf ((den env fps (n + 1)).expr fp s) args) fun rs =>
+        if allKw args then DM.bind (kwsOf ((den env fps (n + 1)).expr fp s) args) fun kvs => kwCtor env g kvs
+        else DM.bind (argsOf ((den env fps (n + 1)).expr fp s) args) fun rs =>
           dCallRO env fps (den env fps (n + 1)).fn s g rs
       | none => none := by
   rw [den_expr]; show (match n + 1, callHead env s (.call l f args) with
@@ -126,7 +127,10 @@ theorem s_callStep (e : Expr) :
     (den env fps (n + 2)).call fp s e =
       match callHead env s e with
       | some (g, args) =>
-        DM.bind (argsOf ((den env fps (n + 1)).expr fp s) args) fun rs =>
+        if allKw args then
+          DM.bind (DM.bind (kwsOf ((den env fps (n + 1)).expr fp s) args) fun kvs => kwCtor env g kvs)
+            fun r => .ok (r, s.roots)
+        else DM.bind (argsOf ((den env fps (n + 1)).expr fp s) args) fun rs =>
           dCallW env fps (den env fps (n + 1)).fn fp s g rs
       | none => DM.bind ((den env fps (n + 2)).expr fp s e) fun r => .ok (r, s.roots) := by
   rw [den_call]; show (match n + 1, callHead env s e with
@@ -495,6 +499,10 @@ theorem val_ite (c : Prop) [Decidable c] (a b : Value) :
 theorem bmin_max : (Builtin.min == Builtin.max) = false := Eq.trans rfl rfl
 theorem bmax_max : (Builtin.max == Builtin.max) = true := Eq.trans rfl rfl
 
+theorem allKw_kw (k : Name) (e : Expr) (as : List Arg) :
+    allKw (.kw k e :: as) = as.all fun a => match a with | .kw _ _ => true | _ => false :=
+  Eq.trans rfl rfl
+
 theorem dmb_none {α β : Type} (f : α → DM β) : DM.bind none f = none := Eq.trans rfl rfl
 
 end push
@@ -578,6 +586,11 @@ theorem uv_negi (n : Int) : @unopVal (@LibModel.toLibValues Ssz.model) .neg (.in
 theorem iv_uint (t : UintTy) (n : Nat) : @toIndex (@LibModel.toLibValues Ssz.model) (.uint t n) = .ok n := Eq.trans rfl rfl
 theorem iv_int (n : Int) : @toIndex (@LibModel.toLibValues Ssz.model) (.int n) = .ok n := Eq.trans rfl rfl
 
+theorem cons_bool (env : Env) (h : Heap) (b : Bool) :
+    @LibModel.construct Ssz.model env h .boolean [.bool b] [] = .ok (.boolean b, h) := Eq.trans rfl rfl
+theorem cons_boolean (env : Env) (h : Heap) (b : Bool) :
+    @LibModel.construct Ssz.model env h .boolean [.boolean b] [] = .ok (.boolean b, h) := Eq.trans rfl rfl
+
 /-- A written flat value, into a uint field or element: the coercion of the field or of the
 list element. -/
 theorem dco_uint (env : Env) (b : Bool) (u : UintTy) (v : Value) (hv : ∀ a, v ≠ .ref a) :
@@ -650,10 +663,12 @@ macro_rules
       uv_ofNat, Rd.uOp, Rd.uOf, Rd.erase, Rd.uv, emap_ite, emap_ok, emap_err,
       merr_ok, merr_err, epure, ethrow, ebind_pure, SpecError.fail, callHead, callable, Option.isNone,
       Bool.and_true, Bool.true_and, Bool.and_false, Bool.false_and, Bool.not_true, Bool.not_false,
-      argsOf, dCallRO, dCallW, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
+      argsOf, dCallRO, dCallW, allKw_nil, allKw_pos, allKw_starred, allKw_kw, kwsOf, kwCtor,
+      kwFields, flatTy, Bool.and_self, List.all_cons, List.all_nil, List.contains_cons, List.contains_nil,
+      List.lookup_cons, List.lookup_nil, List.map_cons, List.map_nil, Bool.or_self, Bool.true_or, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
       Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,
       Validation.Steps.construct_uint_int, Validation.Steps.construct_uint_uint,
-      Validation.Steps.construct_uint_boolean, exm_ok, exm_err, omap_bind, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, cv_boolean, tv_bool,
+      Validation.Steps.construct_uint_boolean, cons_bool, cons_boolean, exm_ok, exm_err, omap_bind, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, cv_boolean, tv_bool,
       tv_boolean, tv_uint, tv_int, tv_none, tv_bytes, uv_neg, uv_inv, uv_negi, iv_uint, iv_int,
       pyCmp, cmpF, cmpOf, cmpInt, boolOf, List.isEmpty_cons,
       List.isEmpty_nil, dAttr, DSt.deref, subAt, DV.kids, ofChild, List.nil_append,
@@ -664,7 +679,7 @@ macro_rules
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, bmin_max, bmax_max, pickBest, flat_ite, val_ite,
-      Rd.pyMin, Rd.pyMax, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_coe, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
+      Rd.pyMin, Rd.pyMax, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, s_assign, s_annAssign, s_exprStmt,
@@ -680,10 +695,12 @@ macro_rules
       uv_ofNat, Rd.uOp, Rd.uOf, Rd.erase, Rd.uv, emap_ite, emap_ok, emap_err,
       merr_ok, merr_err, epure, ethrow, ebind_pure, SpecError.fail, callHead, callable, Option.isNone,
       Bool.and_true, Bool.true_and, Bool.and_false, Bool.false_and, Bool.not_true, Bool.not_false,
-      argsOf, dCallRO, dCallW, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
+      argsOf, dCallRO, dCallW, allKw_nil, allKw_pos, allKw_starred, allKw_kw, kwsOf, kwCtor,
+      kwFields, flatTy, Bool.and_self, List.all_cons, List.all_nil, List.contains_cons, List.contains_nil,
+      List.lookup_cons, List.lookup_nil, List.map_cons, List.map_nil, Bool.or_self, Bool.true_or, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
       Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,
       Validation.Steps.construct_uint_int, Validation.Steps.construct_uint_uint,
-      Validation.Steps.construct_uint_boolean, exm_ok, exm_err, omap_bind, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, cv_boolean, tv_bool,
+      Validation.Steps.construct_uint_boolean, cons_bool, cons_boolean, exm_ok, exm_err, omap_bind, bv_uu, bv_ui, bv_iu, bv_ii, cv_uu, cv_ui, cv_iu, cv_ii, cv_bytes, cv_boolean, tv_bool,
       tv_boolean, tv_uint, tv_int, tv_none, tv_bytes, uv_neg, uv_inv, uv_negi, iv_uint, iv_int,
       pyCmp, cmpF, cmpOf, cmpInt, boolOf, List.isEmpty_cons,
       List.isEmpty_nil, dAttr, DSt.deref, subAt, DV.kids, ofChild, List.nil_append,
@@ -694,7 +711,7 @@ macro_rules
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, bmin_max, bmax_max, pickBest, flat_ite, val_ite,
-      Rd.pyMin, Rd.pyMax, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_coe, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
+      Rd.pyMin, Rd.pyMax, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
 
 /-- The side conditions of a loop lemma: fuel, and the locals of the parameters. -/
 macro "l4_disch" : tactic => `(tactic| first

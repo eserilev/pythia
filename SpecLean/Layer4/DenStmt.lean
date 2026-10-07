@@ -392,6 +392,17 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
   split at hd
   · next m g args hch =>
     obtain ⟨l, l', rfl, hloc, hc⟩ := callHead_spec hch
+    by_cases hkw : allKw args = true
+    · rw [if_pos hkw] at hd
+      cases hx : DM.bind (kwsOf ((den env fps (m + 1)).expr fp s) args) (fun kvs => kwCtor env g kvs) with
+      | none => rw [hx] at hd; cases hd
+      | some r0 =>
+        rw [hx] at hd
+        have hr : r = r0.map (·, s.roots) := by
+          cases r0 <;> simp [DM.bind, DM.ok, Except.map] at hd ⊢ <;> exact hd.symm
+        subst hr
+        exact callOK_of_exprOK hI (kwCall_sound hlf hI ih hloc hc hx)
+    rw [if_neg hkw] at hd
     -- A call that writes nothing goes through `roCall_sound`.
     have ro : ∀ r', DM.bind (argsOf ((den env fps (m + 1)).expr fp s) args)
         (fun rs => dCallRO env fps (den env fps (m + 1)).fn s g rs) = some r' →

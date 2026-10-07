@@ -256,6 +256,11 @@ def kids_Builder (x : Builder) : List DV :=
 @[l4_simp] theorem kids_Builder_len (x : Builder) : (kids_Builder x).length = 6 :=
   Eq.trans rfl rfl
 
+theorem kids_Builder_mk (a_pubkey : BLSPubkey) (a_version : Uint8) (a_execution_address : ExecutionAddress) (a_balance : Gwei) (a_deposit_epoch : Epoch) (a_withdrawable_epoch : Epoch) :
+    kids_Builder { pubkey := a_pubkey, version := a_version, execution_address := a_execution_address, balance := a_balance, deposit_epoch := a_deposit_epoch, withdrawable_epoch := a_withdrawable_epoch } =
+      [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.uint (.width 8) a_version.val)), (.leaf (.bytes 378 a_execution_address.data)), (.leaf (.uint (.nominal 265 64) a_balance.val)), (.leaf (.uint (.nominal 140 64) a_deposit_epoch.val)), (.leaf (.uint (.nominal 140 64) a_withdrawable_epoch.val))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_Builder_set_0 (x : Builder) (b : List UInt8) :
     (kids_Builder x).set 0 (.leaf (.bytes 656 b)) = kids_Builder { x with pubkey := (⟨b⟩ : BLSPubkey) } :=
   Eq.trans rfl rfl
@@ -290,6 +295,11 @@ def kids_BuilderPendingWithdrawal (x : BuilderPendingWithdrawal) : List DV :=
 @[l4_simp] theorem kids_BuilderPendingWithdrawal_len (x : BuilderPendingWithdrawal) : (kids_BuilderPendingWithdrawal x).length = 3 :=
   Eq.trans rfl rfl
 
+theorem kids_BuilderPendingWithdrawal_mk (a_fee_recipient : ExecutionAddress) (a_amount : Gwei) (a_builder_index : BuilderIndex) :
+    kids_BuilderPendingWithdrawal { fee_recipient := a_fee_recipient, amount := a_amount, builder_index := a_builder_index } =
+      [(.leaf (.bytes 378 a_fee_recipient.data)), (.leaf (.uint (.nominal 265 64) a_amount.val)), (.leaf (.uint (.nominal 199 64) a_builder_index.val))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_BuilderPendingWithdrawal_set_0 (x : BuilderPendingWithdrawal) (b : List UInt8) :
     (kids_BuilderPendingWithdrawal x).set 0 (.leaf (.bytes 378 b)) = kids_BuilderPendingWithdrawal { x with fee_recipient := (⟨b⟩ : ExecutionAddress) } :=
   Eq.trans rfl rfl
@@ -312,6 +322,11 @@ def kids_ForkData (x : ForkData) : List DV :=
 @[l4_simp] theorem kids_ForkData_len (x : ForkData) : (kids_ForkData x).length = 2 :=
   Eq.trans rfl rfl
 
+theorem kids_ForkData_mk (a_current_version : Version) (a_genesis_validators_root : Root) :
+    kids_ForkData { current_version := a_current_version, genesis_validators_root := a_genesis_validators_root } =
+      [(.leaf (.bytes 745 a_current_version.data)), (.leaf (.bytes 146 a_genesis_validators_root.data))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_ForkData_set_0 (x : ForkData) (b : List UInt8) :
     (kids_ForkData x).set 0 (.leaf (.bytes 745 b)) = kids_ForkData { x with current_version := (⟨b⟩ : Version) } :=
   Eq.trans rfl rfl
@@ -329,6 +344,11 @@ def kids_SigningData (x : SigningData) : List DV :=
 @[l4_simp] theorem kids_SigningData_1 (x : SigningData) : (kids_SigningData x)[1]? = some (.leaf (.bytes 149 x.domain.data)) :=
   Eq.trans rfl rfl
 @[l4_simp] theorem kids_SigningData_len (x : SigningData) : (kids_SigningData x).length = 2 :=
+  Eq.trans rfl rfl
+
+theorem kids_SigningData_mk (a_object_root : Root) (a_domain : Domain) :
+    kids_SigningData { object_root := a_object_root, domain := a_domain } =
+      [(.leaf (.bytes 146 a_object_root.data)), (.leaf (.bytes 149 a_domain.data))] :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_SigningData_set_0 (x : SigningData) (b : List UInt8) :
@@ -356,6 +376,11 @@ def kids_Withdrawal (x : Withdrawal) : List DV :=
 @[l4_simp] theorem kids_Withdrawal_len (x : Withdrawal) : (kids_Withdrawal x).length = 4 :=
   Eq.trans rfl rfl
 
+theorem kids_Withdrawal_mk (a_index : WithdrawalIndex) (a_validator_index : ValidatorIndex) (a_address : ExecutionAddress) (a_amount : Gwei) :
+    kids_Withdrawal { index := a_index, validator_index := a_validator_index, address := a_address, amount := a_amount } =
+      [(.leaf (.uint (.nominal 748 64) a_index.val)), (.leaf (.uint (.nominal 82 64) a_validator_index.val)), (.leaf (.bytes 378 a_address.data)), (.leaf (.uint (.nominal 265 64) a_amount.val))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_Withdrawal_set_0 (x : Withdrawal) (n : Nat) :
     (kids_Withdrawal x).set 0 (.leaf (.uint (.nominal 748 64) n)) = kids_Withdrawal { x with index := (⟨n⟩ : WithdrawalIndex) } :=
   Eq.trans rfl rfl
@@ -381,6 +406,11 @@ def kids_Checkpoint (x : Checkpoint) : List DV :=
 @[l4_simp] theorem kids_Checkpoint_len (x : Checkpoint) : (kids_Checkpoint x).length = 2 :=
   Eq.trans rfl rfl
 
+theorem kids_Checkpoint_mk (a_epoch : Epoch) (a_root : Root) :
+    kids_Checkpoint { epoch := a_epoch, root := a_root } =
+      [(.leaf (.uint (.nominal 140 64) a_epoch.val)), (.leaf (.bytes 146 a_root.data))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_Checkpoint_set_0 (x : Checkpoint) (n : Nat) :
     (kids_Checkpoint x).set 0 (.leaf (.uint (.nominal 140 64) n)) = kids_Checkpoint { x with epoch := (⟨n⟩ : Epoch) } :=
   Eq.trans rfl rfl
@@ -404,6 +434,11 @@ def kids_PayloadAttestationData (x : PayloadAttestationData) : List DV :=
 @[l4_simp] theorem kids_PayloadAttestationData_3 (x : PayloadAttestationData) : (kids_PayloadAttestationData x)[3]? = some (.leaf (.boolean x.blob_data_available.val)) :=
   Eq.trans rfl rfl
 @[l4_simp] theorem kids_PayloadAttestationData_len (x : PayloadAttestationData) : (kids_PayloadAttestationData x).length = 4 :=
+  Eq.trans rfl rfl
+
+theorem kids_PayloadAttestationData_mk (a_beacon_block_root : Root) (a_slot : Slot) (a_payload_present : Boolean) (a_blob_data_available : Boolean) :
+    kids_PayloadAttestationData { beacon_block_root := a_beacon_block_root, slot := a_slot, payload_present := a_payload_present, blob_data_available := a_blob_data_available } =
+      [(.leaf (.bytes 146 a_beacon_block_root.data)), (.leaf (.uint (.nominal 196 64) a_slot.val)), (.leaf (.boolean a_payload_present.val)), (.leaf (.boolean a_blob_data_available.val))] :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_PayloadAttestationData_set_0 (x : PayloadAttestationData) (b : List UInt8) :
@@ -468,6 +503,11 @@ def kids_Validator (x : Validator) : List DV :=
 @[l4_simp] theorem kids_Validator_len (x : Validator) : (kids_Validator x).length = 8 :=
   Eq.trans rfl rfl
 
+theorem kids_Validator_mk (a_pubkey : BLSPubkey) (a_withdrawal_credentials : Bytes32) (a_effective_balance : Gwei) (a_slashed : Boolean) (a_activation_eligibility_epoch : Epoch) (a_activation_epoch : Epoch) (a_exit_epoch : Epoch) (a_withdrawable_epoch : Epoch) :
+    kids_Validator { pubkey := a_pubkey, withdrawal_credentials := a_withdrawal_credentials, effective_balance := a_effective_balance, slashed := a_slashed, activation_eligibility_epoch := a_activation_eligibility_epoch, activation_epoch := a_activation_epoch, exit_epoch := a_exit_epoch, withdrawable_epoch := a_withdrawable_epoch } =
+      [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.bytes 505 a_withdrawal_credentials.data)), (.leaf (.uint (.nominal 265 64) a_effective_balance.val)), (.leaf (.boolean a_slashed.val)), (.leaf (.uint (.nominal 140 64) a_activation_eligibility_epoch.val)), (.leaf (.uint (.nominal 140 64) a_activation_epoch.val)), (.leaf (.uint (.nominal 140 64) a_exit_epoch.val)), (.leaf (.uint (.nominal 140 64) a_withdrawable_epoch.val))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_Validator_set_0 (x : Validator) (b : List UInt8) :
     (kids_Validator x).set 0 (.leaf (.bytes 656 b)) = kids_Validator { x with pubkey := (⟨b⟩ : BLSPubkey) } :=
   Eq.trans rfl rfl
@@ -508,6 +548,11 @@ def kids_DepositMessage (x : DepositMessage) : List DV :=
 @[l4_simp] theorem kids_DepositMessage_len (x : DepositMessage) : (kids_DepositMessage x).length = 3 :=
   Eq.trans rfl rfl
 
+theorem kids_DepositMessage_mk (a_pubkey : BLSPubkey) (a_withdrawal_credentials : Bytes32) (a_amount : Gwei) :
+    kids_DepositMessage { pubkey := a_pubkey, withdrawal_credentials := a_withdrawal_credentials, amount := a_amount } =
+      [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.bytes 505 a_withdrawal_credentials.data)), (.leaf (.uint (.nominal 265 64) a_amount.val))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_DepositMessage_set_0 (x : DepositMessage) (b : List UInt8) :
     (kids_DepositMessage x).set 0 (.leaf (.bytes 656 b)) = kids_DepositMessage { x with pubkey := (⟨b⟩ : BLSPubkey) } :=
   Eq.trans rfl rfl
@@ -537,6 +582,11 @@ def kids_PendingDeposit (x : PendingDeposit) : List DV :=
 @[l4_simp] theorem kids_PendingDeposit_4 (x : PendingDeposit) : (kids_PendingDeposit x)[4]? = some (.leaf (.uint (.nominal 196 64) x.slot.val)) :=
   Eq.trans rfl rfl
 @[l4_simp] theorem kids_PendingDeposit_len (x : PendingDeposit) : (kids_PendingDeposit x).length = 5 :=
+  Eq.trans rfl rfl
+
+theorem kids_PendingDeposit_mk (a_pubkey : BLSPubkey) (a_withdrawal_credentials : Bytes32) (a_amount : Gwei) (a_signature : BLSSignature) (a_slot : Slot) :
+    kids_PendingDeposit { pubkey := a_pubkey, withdrawal_credentials := a_withdrawal_credentials, amount := a_amount, signature := a_signature, slot := a_slot } =
+      [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.bytes 505 a_withdrawal_credentials.data)), (.leaf (.uint (.nominal 265 64) a_amount.val)), (.leaf (.bytes 747 a_signature.data)), (.leaf (.uint (.nominal 196 64) a_slot.val))] :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_PendingDeposit_set_0 (x : PendingDeposit) (b : List UInt8) :
@@ -574,6 +624,11 @@ def kids_BeaconBlockHeader (x : BeaconBlockHeader) : List DV :=
 @[l4_simp] theorem kids_BeaconBlockHeader_4 (x : BeaconBlockHeader) : (kids_BeaconBlockHeader x)[4]? = some (.leaf (.bytes 146 x.body_root.data)) :=
   Eq.trans rfl rfl
 @[l4_simp] theorem kids_BeaconBlockHeader_len (x : BeaconBlockHeader) : (kids_BeaconBlockHeader x).length = 5 :=
+  Eq.trans rfl rfl
+
+theorem kids_BeaconBlockHeader_mk (a_slot : Slot) (a_proposer_index : ValidatorIndex) (a_parent_root : Root) (a_state_root : Root) (a_body_root : Root) :
+    kids_BeaconBlockHeader { slot := a_slot, proposer_index := a_proposer_index, parent_root := a_parent_root, state_root := a_state_root, body_root := a_body_root } =
+      [(.leaf (.uint (.nominal 196 64) a_slot.val)), (.leaf (.uint (.nominal 82 64) a_proposer_index.val)), (.leaf (.bytes 146 a_parent_root.data)), (.leaf (.bytes 146 a_state_root.data)), (.leaf (.bytes 146 a_body_root.data))] :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_BeaconBlockHeader_set_0 (x : BeaconBlockHeader) (n : Nat) :
@@ -629,6 +684,11 @@ def kids_PendingConsolidation (x : PendingConsolidation) : List DV :=
 @[l4_simp] theorem kids_PendingConsolidation_len (x : PendingConsolidation) : (kids_PendingConsolidation x).length = 2 :=
   Eq.trans rfl rfl
 
+theorem kids_PendingConsolidation_mk (a_source_index : ValidatorIndex) (a_target_index : ValidatorIndex) :
+    kids_PendingConsolidation { source_index := a_source_index, target_index := a_target_index } =
+      [(.leaf (.uint (.nominal 82 64) a_source_index.val)), (.leaf (.uint (.nominal 82 64) a_target_index.val))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_PendingConsolidation_set_0 (x : PendingConsolidation) (n : Nat) :
     (kids_PendingConsolidation x).set 0 (.leaf (.uint (.nominal 82 64) n)) = kids_PendingConsolidation { x with source_index := (⟨n⟩ : ValidatorIndex) } :=
   Eq.trans rfl rfl
@@ -651,6 +711,11 @@ def kids_Eth1Data (x : Eth1Data) : List DV :=
 @[l4_simp] theorem kids_Eth1Data_len (x : Eth1Data) : (kids_Eth1Data x).length = 3 :=
   Eq.trans rfl rfl
 
+theorem kids_Eth1Data_mk (a_deposit_root : Root) (a_deposit_count : Uint64) (a_block_hash : Hash32) :
+    kids_Eth1Data { deposit_root := a_deposit_root, deposit_count := a_deposit_count, block_hash := a_block_hash } =
+      [(.leaf (.bytes 146 a_deposit_root.data)), (.leaf (.uint (.width 64) a_deposit_count.val)), (.leaf (.bytes 758 a_block_hash.data))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_Eth1Data_set_0 (x : Eth1Data) (b : List UInt8) :
     (kids_Eth1Data x).set 0 (.leaf (.bytes 146 b)) = kids_Eth1Data { x with deposit_root := (⟨b⟩ : Root) } :=
   Eq.trans rfl rfl
@@ -671,6 +736,11 @@ def kids_HistoricalSummary (x : HistoricalSummary) : List DV :=
 @[l4_simp] theorem kids_HistoricalSummary_1 (x : HistoricalSummary) : (kids_HistoricalSummary x)[1]? = some (.leaf (.bytes 146 x.state_summary_root.data)) :=
   Eq.trans rfl rfl
 @[l4_simp] theorem kids_HistoricalSummary_len (x : HistoricalSummary) : (kids_HistoricalSummary x).length = 2 :=
+  Eq.trans rfl rfl
+
+theorem kids_HistoricalSummary_mk (a_block_summary_root : Root) (a_state_summary_root : Root) :
+    kids_HistoricalSummary { block_summary_root := a_block_summary_root, state_summary_root := a_state_summary_root } =
+      [(.leaf (.bytes 146 a_block_summary_root.data)), (.leaf (.bytes 146 a_state_summary_root.data))] :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_HistoricalSummary_set_0 (x : HistoricalSummary) (b : List UInt8) :
@@ -699,6 +769,11 @@ def kids_DepositRequest (x : DepositRequest) : List DV :=
 @[l4_simp] theorem kids_DepositRequest_4 (x : DepositRequest) : (kids_DepositRequest x)[4]? = some (.leaf (.uint (.width 64) x.index.val)) :=
   Eq.trans rfl rfl
 @[l4_simp] theorem kids_DepositRequest_len (x : DepositRequest) : (kids_DepositRequest x).length = 5 :=
+  Eq.trans rfl rfl
+
+theorem kids_DepositRequest_mk (a_pubkey : BLSPubkey) (a_withdrawal_credentials : Bytes32) (a_amount : Gwei) (a_signature : BLSSignature) (a_index : Uint64) :
+    kids_DepositRequest { pubkey := a_pubkey, withdrawal_credentials := a_withdrawal_credentials, amount := a_amount, signature := a_signature, index := a_index } =
+      [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.bytes 505 a_withdrawal_credentials.data)), (.leaf (.uint (.nominal 265 64) a_amount.val)), (.leaf (.bytes 747 a_signature.data)), (.leaf (.uint (.width 64) a_index.val))] :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_DepositRequest_set_0 (x : DepositRequest) (b : List UInt8) :
@@ -732,6 +807,11 @@ def kids_WithdrawalRequest (x : WithdrawalRequest) : List DV :=
 @[l4_simp] theorem kids_WithdrawalRequest_len (x : WithdrawalRequest) : (kids_WithdrawalRequest x).length = 3 :=
   Eq.trans rfl rfl
 
+theorem kids_WithdrawalRequest_mk (a_source_address : ExecutionAddress) (a_validator_pubkey : BLSPubkey) (a_amount : Gwei) :
+    kids_WithdrawalRequest { source_address := a_source_address, validator_pubkey := a_validator_pubkey, amount := a_amount } =
+      [(.leaf (.bytes 378 a_source_address.data)), (.leaf (.bytes 656 a_validator_pubkey.data)), (.leaf (.uint (.nominal 265 64) a_amount.val))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_WithdrawalRequest_set_0 (x : WithdrawalRequest) (b : List UInt8) :
     (kids_WithdrawalRequest x).set 0 (.leaf (.bytes 378 b)) = kids_WithdrawalRequest { x with source_address := (⟨b⟩ : ExecutionAddress) } :=
   Eq.trans rfl rfl
@@ -755,6 +835,11 @@ def kids_ConsolidationRequest (x : ConsolidationRequest) : List DV :=
 @[l4_simp] theorem kids_ConsolidationRequest_2 (x : ConsolidationRequest) : (kids_ConsolidationRequest x)[2]? = some (.leaf (.bytes 656 x.target_pubkey.data)) :=
   Eq.trans rfl rfl
 @[l4_simp] theorem kids_ConsolidationRequest_len (x : ConsolidationRequest) : (kids_ConsolidationRequest x).length = 3 :=
+  Eq.trans rfl rfl
+
+theorem kids_ConsolidationRequest_mk (a_source_address : ExecutionAddress) (a_source_pubkey : BLSPubkey) (a_target_pubkey : BLSPubkey) :
+    kids_ConsolidationRequest { source_address := a_source_address, source_pubkey := a_source_pubkey, target_pubkey := a_target_pubkey } =
+      [(.leaf (.bytes 378 a_source_address.data)), (.leaf (.bytes 656 a_source_pubkey.data)), (.leaf (.bytes 656 a_target_pubkey.data))] :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_ConsolidationRequest_set_0 (x : ConsolidationRequest) (b : List UInt8) :
@@ -785,6 +870,11 @@ def kids_BuilderDepositRequest (x : BuilderDepositRequest) : List DV :=
 @[l4_simp] theorem kids_BuilderDepositRequest_len (x : BuilderDepositRequest) : (kids_BuilderDepositRequest x).length = 4 :=
   Eq.trans rfl rfl
 
+theorem kids_BuilderDepositRequest_mk (a_pubkey : BLSPubkey) (a_withdrawal_credentials : Bytes32) (a_amount : Gwei) (a_signature : BLSSignature) :
+    kids_BuilderDepositRequest { pubkey := a_pubkey, withdrawal_credentials := a_withdrawal_credentials, amount := a_amount, signature := a_signature } =
+      [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.bytes 505 a_withdrawal_credentials.data)), (.leaf (.uint (.nominal 265 64) a_amount.val)), (.leaf (.bytes 747 a_signature.data))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_BuilderDepositRequest_set_0 (x : BuilderDepositRequest) (b : List UInt8) :
     (kids_BuilderDepositRequest x).set 0 (.leaf (.bytes 656 b)) = kids_BuilderDepositRequest { x with pubkey := (⟨b⟩ : BLSPubkey) } :=
   Eq.trans rfl rfl
@@ -810,6 +900,11 @@ def kids_BuilderExitRequest (x : BuilderExitRequest) : List DV :=
 @[l4_simp] theorem kids_BuilderExitRequest_len (x : BuilderExitRequest) : (kids_BuilderExitRequest x).length = 2 :=
   Eq.trans rfl rfl
 
+theorem kids_BuilderExitRequest_mk (a_source_address : ExecutionAddress) (a_pubkey : BLSPubkey) :
+    kids_BuilderExitRequest { source_address := a_source_address, pubkey := a_pubkey } =
+      [(.leaf (.bytes 378 a_source_address.data)), (.leaf (.bytes 656 a_pubkey.data))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_BuilderExitRequest_set_0 (x : BuilderExitRequest) (b : List UInt8) :
     (kids_BuilderExitRequest x).set 0 (.leaf (.bytes 378 b)) = kids_BuilderExitRequest { x with source_address := (⟨b⟩ : ExecutionAddress) } :=
   Eq.trans rfl rfl
@@ -830,6 +925,11 @@ def kids_PendingPartialWithdrawal (x : PendingPartialWithdrawal) : List DV :=
 @[l4_simp] theorem kids_PendingPartialWithdrawal_2 (x : PendingPartialWithdrawal) : (kids_PendingPartialWithdrawal x)[2]? = some (.leaf (.uint (.nominal 140 64) x.withdrawable_epoch.val)) :=
   Eq.trans rfl rfl
 @[l4_simp] theorem kids_PendingPartialWithdrawal_len (x : PendingPartialWithdrawal) : (kids_PendingPartialWithdrawal x).length = 3 :=
+  Eq.trans rfl rfl
+
+theorem kids_PendingPartialWithdrawal_mk (a_validator_index : ValidatorIndex) (a_amount : Gwei) (a_withdrawable_epoch : Epoch) :
+    kids_PendingPartialWithdrawal { validator_index := a_validator_index, amount := a_amount, withdrawable_epoch := a_withdrawable_epoch } =
+      [(.leaf (.uint (.nominal 82 64) a_validator_index.val)), (.leaf (.uint (.nominal 265 64) a_amount.val)), (.leaf (.uint (.nominal 140 64) a_withdrawable_epoch.val))] :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_PendingPartialWithdrawal_set_0 (x : PendingPartialWithdrawal) (n : Nat) :
@@ -855,6 +955,11 @@ def kids_Fork (x : Fork) : List DV :=
 @[l4_simp] theorem kids_Fork_2 (x : Fork) : (kids_Fork x)[2]? = some (.leaf (.uint (.nominal 140 64) x.epoch.val)) :=
   Eq.trans rfl rfl
 @[l4_simp] theorem kids_Fork_len (x : Fork) : (kids_Fork x).length = 3 :=
+  Eq.trans rfl rfl
+
+theorem kids_Fork_mk (a_previous_version : Version) (a_current_version : Version) (a_epoch : Epoch) :
+    kids_Fork { previous_version := a_previous_version, current_version := a_current_version, epoch := a_epoch } =
+      [(.leaf (.bytes 745 a_previous_version.data)), (.leaf (.bytes 745 a_current_version.data)), (.leaf (.uint (.nominal 140 64) a_epoch.val))] :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_Fork_set_0 (x : Fork) (b : List UInt8) :
@@ -983,6 +1088,11 @@ def kids_DepositData (x : DepositData) : List DV :=
 @[l4_simp] theorem kids_DepositData_len (x : DepositData) : (kids_DepositData x).length = 4 :=
   Eq.trans rfl rfl
 
+theorem kids_DepositData_mk (a_pubkey : BLSPubkey) (a_withdrawal_credentials : Bytes32) (a_amount : Gwei) (a_signature : BLSSignature) :
+    kids_DepositData { pubkey := a_pubkey, withdrawal_credentials := a_withdrawal_credentials, amount := a_amount, signature := a_signature } =
+      [(.leaf (.bytes 656 a_pubkey.data)), (.leaf (.bytes 505 a_withdrawal_credentials.data)), (.leaf (.uint (.nominal 265 64) a_amount.val)), (.leaf (.bytes 747 a_signature.data))] :=
+  Eq.trans rfl rfl
+
 @[l4_simp] theorem kids_DepositData_set_0 (x : DepositData) (b : List UInt8) :
     (kids_DepositData x).set 0 (.leaf (.bytes 656 b)) = kids_DepositData { x with pubkey := (⟨b⟩ : BLSPubkey) } :=
   Eq.trans rfl rfl
@@ -1006,6 +1116,11 @@ def kids_VoluntaryExit (x : VoluntaryExit) : List DV :=
 @[l4_simp] theorem kids_VoluntaryExit_1 (x : VoluntaryExit) : (kids_VoluntaryExit x)[1]? = some (.leaf (.uint (.nominal 82 64) x.validator_index.val)) :=
   Eq.trans rfl rfl
 @[l4_simp] theorem kids_VoluntaryExit_len (x : VoluntaryExit) : (kids_VoluntaryExit x).length = 2 :=
+  Eq.trans rfl rfl
+
+theorem kids_VoluntaryExit_mk (a_epoch : Epoch) (a_validator_index : ValidatorIndex) :
+    kids_VoluntaryExit { epoch := a_epoch, validator_index := a_validator_index } =
+      [(.leaf (.uint (.nominal 140 64) a_epoch.val)), (.leaf (.uint (.nominal 82 64) a_validator_index.val))] :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_VoluntaryExit_set_0 (x : VoluntaryExit) (n : Nat) :
@@ -1047,6 +1162,11 @@ def kids_BLSToExecutionChange (x : BLSToExecutionChange) : List DV :=
 @[l4_simp] theorem kids_BLSToExecutionChange_2 (x : BLSToExecutionChange) : (kids_BLSToExecutionChange x)[2]? = some (.leaf (.bytes 378 x.to_execution_address.data)) :=
   Eq.trans rfl rfl
 @[l4_simp] theorem kids_BLSToExecutionChange_len (x : BLSToExecutionChange) : (kids_BLSToExecutionChange x).length = 3 :=
+  Eq.trans rfl rfl
+
+theorem kids_BLSToExecutionChange_mk (a_validator_index : ValidatorIndex) (a_from_bls_pubkey : BLSPubkey) (a_to_execution_address : ExecutionAddress) :
+    kids_BLSToExecutionChange { validator_index := a_validator_index, from_bls_pubkey := a_from_bls_pubkey, to_execution_address := a_to_execution_address } =
+      [(.leaf (.uint (.nominal 82 64) a_validator_index.val)), (.leaf (.bytes 656 a_from_bls_pubkey.data)), (.leaf (.bytes 378 a_to_execution_address.data))] :=
   Eq.trans rfl rfl
 
 @[l4_simp] theorem kids_BLSToExecutionChange_set_0 (x : BLSToExecutionChange) (n : Nat) :
