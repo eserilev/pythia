@@ -1,5 +1,6 @@
 import SpecLean.Layer4.GenLemmas
 import SpecLean.Layer4.GenAttr
+import SpecLean.PrimRel
 
 /-!
 # Layer 4: one step of `den` per syntax node, as a rewrite
@@ -106,7 +107,8 @@ theorem s_comp (l : Line) (elt : Expr) (t : Target) (it : Expr) (ifs : List Expr
         DM.bind ((den env fps n).items fp s t ifs elt ls 0) fun ds =>
           .ok (.tree (.list .pyList .any none ds)) := by rw [den_expr]; rfl
 
-theorem s_call (l : Line) (f : Expr) (args : List Arg) :
+theorem s_call (l : Line) (f : Expr) (args : List Arg)
+    (hfb : fromBytesOf env s (.call l f args) = none) :
     (den env fps (n + 2)).expr fp s (.call l f args) =
       match callHead env s (.call l f args) with
       | some (g, args) =>
@@ -114,10 +116,18 @@ theorem s_call (l : Line) (f : Expr) (args : List Arg) :
         else DM.bind (argsOf ((den env fps (n + 1)).expr fp s) args) fun rs =>
           dCallRO env fps (den env fps (n + 1)).fn s g rs
       | none => none := by
-  rw [den_expr]; show (match n + 1, callHead env s (.call l f args) with
-    | _ + 1, some (g, args) => _
-    | _, _ => _) = _
-  cases callHead env s (.call l f args) <;> rfl
+  rw [den_expr]
+  cases hc : callHead env s (.call l f args) with
+  | some ga => simp only [exprStep, hc]
+  | none => cases n <;> simp [exprStep, hc, hfb]
+
+/-- `int.from_bytes(args)`. -/
+theorem s_fromBytes (l la ln : Line) (g fb : Name) (args : List Arg)
+    (hc : callHead env s (.call l (.attr la (.name ln g) fb) args) = none)
+    (hfb : fromBytesOf env s (.call l (.attr la (.name ln g) fb) args) = some args) :
+    (den env fps (n + 3)).expr fp s (.call l (.attr la (.name ln g) fb) args) =
+      DM.bind (argsOf ((den env fps (n + 2)).expr fp s) args) fun rs => dFromBytes env rs := by
+  rw [den_expr]; simp only [exprStep, hc, hfb]
 
 end expr
 
@@ -669,6 +679,8 @@ theorem getElem?_len_sub_one {α : Type} (xs : List α) (h : xs.length ≠ 0) :
   List.getElem?_eq_getElem _
 
 theorem env_root (o : Oracle) : (Scope.env o).nm.root = Scope.Id.«Root» := Eq.trans rfl rfl
+theorem env_fromBytes (o : Oracle) : (Scope.env o).nm.fromBytes = 94 := Eq.trans rfl rfl
+theorem env_little (o : Oracle) : (Scope.env o).nm.little = "little" := Eq.trans rfl rfl
 theorem env_append (o : Oracle) : (Scope.env o).nm.append = Scope.Id.«append» := Eq.trans rfl rfl
 
 end env
@@ -714,7 +726,7 @@ macro_rules
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, bmin_max, bmax_max, pickBest, flat_ite, val_ite,
-      Rd.pyMin, Rd.pyMax, env_root, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
+      Rd.pyMin, Rd.pyMax, env_root, fromBytesOf, s_fromBytes, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, Expr.call.injEq, s_append, env_append, appendItemD, appendable_list_cont, appendable_plist_cont, appendable_list_nom, appendable_plist_nom, appendable_list_bytes, appendable_plist_bytes, Ssz.checkLength, Rd.lappend, s_assign, s_annAssign, s_exprStmt,
@@ -746,7 +758,7 @@ macro_rules
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, bmin_max, bmax_max, pickBest, flat_ite, val_ite,
-      Rd.pyMin, Rd.pyMax, env_root, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
+      Rd.pyMin, Rd.pyMax, env_root, fromBytesOf, s_fromBytes, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
 
 /-- The side conditions of a loop lemma: fuel, and the locals of the parameters. -/
 macro "l4_disch" : tactic => `(tactic| first

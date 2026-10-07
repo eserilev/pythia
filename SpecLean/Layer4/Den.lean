@@ -402,6 +402,20 @@ def callHead (env : Env) (s : DSt) : Expr → Option (Name × List Arg)
     if (s.loc g).isNone && callable env g then some (g, args) else none
   | _ => none
 
+/-- `int.from_bytes(args)`: the arguments, when no local hides `int`. -/
+def fromBytesOf (env : Env) (s : DSt) : Expr → Option (List Arg)
+  | .call _ (.attr _ (.name _ g) f) args =>
+    match env.globals.lookup g with
+    | some (.builtin .int) => if (s.loc g).isNone && f == env.nm.fromBytes then some args else none
+    | _ => none
+  | _ => none
+
+/-- `int.from_bytes` of flat values. -/
+def dFromBytes (env : Env) (rs : List DRes) : DM DRes :=
+  match allVals rs with
+  | some vs => DM.bind (lift (fromBytes env vs)) fun v => if Flat v then .ok (.val v) else none
+  | none => none
+
 def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Footprint)
     (s : DSt) : Expr → DM DRes
   | .name _ x =>
@@ -453,6 +467,10 @@ def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
     | _ + 1, some (g, args) =>
       if allKw args then DM.bind (kwsOf (P.expr fp s) args) fun kvs => kwCtor env g kvs
       else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallRO env fps P.fn s g rs
+    | _ + 2, none =>
+      match fromBytesOf env s e with
+      | some args => DM.bind (argsOf (P.expr fp s) args) fun rs => dFromBytes env rs
+      | none => none
     | _, _ => none
   | _ => none
 

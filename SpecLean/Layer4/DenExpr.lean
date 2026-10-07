@@ -41,6 +41,9 @@ structure LibFlat (env : Env) : Prop where
       (coerceWith env false h e v).bind fun x =>
         (Ssz.checkLength k l (xs.length + 1)).bind fun _ =>
           .ok (.none, x.2.set a (.list k e l (xs ++ [x.1])))
+  /-- The library leaves `int.from_bytes` to the core. -/
+  fromBytesM : ∀ h g args, env.globals.lookup g = some (.builtin .int) →
+    LibModel.method env h (.glob g) env.nm.fromBytes args = none
   /-- `hash_tree_root` is the oracle of the environment. -/
   htr : ∀ h v, LibModel.builtin env h .hashTreeRoot [v] [] =
     some (do pure (.bytes env.nm.root (← env.hashTreeRoot h v), h))
@@ -536,6 +539,91 @@ theorem dHtr_sound {env : Env} (hlf : LibFlat env) {lo : Nat} {h : Heap} {vs : L
     rw [← hr]
     simp [DM.ok] at hd2; subst hd2
     exact ⟨Ext_refl _, trivial, rfl, rfl⟩
+
+theorem fromBytesOf_spec {env : Env} {s : DSt} {e : Expr} {args' : List Arg}
+    (h : fromBytesOf env s e = some args') :
+    ∃ l la ln g, e = .call l (.attr la (.name ln g) env.nm.fromBytes) args' ∧ s.loc g = none ∧
+      env.globals.lookup g = some (.builtin .int) := by
+  cases e with
+  | call l fn args =>
+    cases fn with
+    | attr la o f =>
+      cases o with
+      | name ln g =>
+        simp only [fromBytesOf] at h
+        cases hg : env.globals.lookup g with
+        | none => simp [hg] at h
+        | some gl =>
+          rw [hg] at h
+          cases gl with
+          | builtin b =>
+            cases b <;> simp only [reduceCtorEq] at h
+            case int =>
+              split at h
+              · next hc =>
+                simp only [Option.some.injEq] at h; subst h
+                simp only [Bool.and_eq_true, Option.isNone_iff_eq_none, beq_iff_eq] at hc
+                obtain ⟨hloc, rfl⟩ := hc
+                exact ⟨l, la, ln, g, rfl, hloc, hg⟩
+              · cases h
+          | _ => simp at h
+      | _ => simp [fromBytesOf] at h
+    | _ => simp [fromBytesOf] at h
+  | _ => simp [fromBytesOf] at h
+
+/-- `int.from_bytes(args)`. -/
+theorem fromBytes_sound {env : Env} (hlf : LibFlat env) {k : Nat}
+    {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals} {ev : Expr → DM DRes}
+    (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L (k + 2) ev)
+    {e : Expr} {args : List Arg} (hfb : fromBytesOf env s e = some args)
+    {r : Res DRes} (hd : DM.bind (argsOf ev args) (fun rs => dFromBytes env rs) = some r) :
+    GOK h0.next h vs r (evalExpr env (k + 3) L h e) := by
+  obtain ⟨l, l', l'', g, rfl, hloc, hg⟩ := fromBytesOf_spec hfb
+  have hL : L g = none := by
+    have := hI.i.r.loc g; rw [hloc] at this
+    revert this; cases L g <;> simp [LRel]
+  have hattr : evalExpr env (k + 2) L h (.attr l' (.name l'' g) env.nm.fromBytes) =
+      .ok (.member (.glob g) env.nm.fromBytes, h) := by
+    rw [evalExpr, evalExpr]; simp [lookupName, hL, hg, getAttr]
+  rw [evalExpr]
+  simp only [hattr, Except.bind_ok', anyAll]
+  rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨rs, he, hd2⟩
+  · have := argsOf_sound ih args h _ hI he
+    revert this
+    cases evalArgs env (k + 2) L h args with
+    | error e' => rintro ⟨rfl, hne⟩; exact ⟨rfl, hne⟩
+    | ok q => intro hx; cases hx
+  · have := argsOf_sound ih args h _ hI he
+    revert this
+    cases evalArgs env (k + 2) L h args with
+    | error e' => intro hx; cases hx
+    | ok q =>
+      obtain ⟨ws, kws, h2⟩ := q
+      rintro ⟨hx2, rfl, hrel⟩
+      simp only [Except.bind_ok']
+      refine gok_ext hx2 ?_
+      rw [callValue.eq_def]
+      simp only [List.isEmpty_nil, if_true, applyMethod, hlf.fromBytesM h2 g ws hg, hg]
+      unfold dFromBytes at hd2
+      cases hav : allVals rs with
+      | none => simp [hav] at hd2
+      | some vals =>
+        rw [hav] at hd2
+        obtain ⟨rfl, -⟩ := allVals_spec hrel hav
+        rcases bind_case hd2 with ⟨err, hl, rfl⟩ | ⟨v, hl, hd3⟩
+        · obtain ⟨hr, hne⟩ := lift_some hl
+          cases hf : fromBytes env ws with
+          | ok q => rw [hf] at hr; cases hr
+          | error e' => rw [hf] at hr; cases hr; exact ⟨rfl, hne _ (by rw [hf])⟩
+        · obtain ⟨hr, -⟩ := lift_some hl
+          cases hf : fromBytes env ws with
+          | error e' => rw [hf] at hr; cases hr
+          | ok q =>
+            rw [hf] at hr; simp only [Except.ok.injEq] at hr; subst hr
+            simp only [Except.bind_ok', Except.pure_ok']
+            by_cases hv : Flat v = true
+            · simp [hv, DM.ok] at hd3; subst hd3; exact ⟨Ext_refl _, trivial, rfl, hv⟩
+            · simp [hv] at hd3
 
 theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) {m : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
@@ -1340,7 +1428,16 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
     | zero => simp at hd
     | succ m =>
       cases hch : callHead env s (.call l fn args) with
-      | none => simp [hch] at hd
+      | none =>
+        cases m with
+        | zero => simp [hch] at hd
+        | succ k =>
+        simp only [hch] at hd
+        cases hfb : fromBytesOf env s (.call l fn args) with
+        | none => simp [hfb] at hd
+        | some args' =>
+          simp only [hfb] at hd
+          exact fromBytes_sound hlf hI ih hfb hd
       | some ga =>
         obtain ⟨g, args'⟩ := ga
         obtain ⟨l1, l', he, hloc, hc⟩ := callHead_spec hch
