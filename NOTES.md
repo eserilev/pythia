@@ -1017,3 +1017,26 @@ Lessons:
 - Order of evaluation is part of the semantics. Lazy translation changed which error came out.
 - Generated output must be deterministic, or "regenerate and diff" is not a check.
 - An agent that does not read its inbox is worse than no agent. Restart it early.
+
+Why the agents "stopped reading messages" (found 2026-10-07). An agent receives messages only when
+it ends its turn. Two agents in long turns, hours of builds and proof runs, got none of the lead's
+messages until they went idle, then all at once. One of them was restarted for this, wrongly: it
+was not broken, just busy. Rule now: every agent ends its turn after each step, at least every
+30 to 45 minutes, and starts long runs in the background.
+
+Strategy change (2026-10-07): progress was as slow as the hardest function, because a caller's
+proof uses its callee's theorem, and 22 functions waited on one shuffle function, 31 on one
+balance function. Both roads now generate conditional theorems: a caller is proved now, with each
+unproved callee's statement as a hypothesis. When the callee is proved later, the caller becomes
+fully proved automatically. Two counts from now on, conditional and full, and a ranked list of
+the functions that fail even conditionally: the real hard core.
+
+Step 6 groundwork: the Lighthouse proofs use 122 hand-written spec functions. 113 map to
+generated ones. Field names and order match exactly. The differences are mechanical: types, an
+error-class map, and 29 functions with different parameters. A prototype bridge proves
+"hand = readable" for two functions. A generator for the rest is under way.
+
+Lessons:
+- An agent can only hear you between turns. Long turns make it deaf.
+- If callers wait on callees, you are as slow as your hardest function. Prove callers modulo
+  callees.
