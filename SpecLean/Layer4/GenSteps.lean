@@ -455,6 +455,20 @@ theorem callK_congr {β γ : Type} (y : Except Fail β) {g g' : β → Option (E
   · rfl
   · exact h _
 
+/-- `callK_congr` with the result of the call in context. -/
+theorem bytesOf_ok_len' {β : Type} [Rd.BytesC β] {b : Rd.Bytes} {x : β} (h : Rd.bytesOf β b = .ok x) :
+    (Rd.BytesC.data x).length = Rd.BytesC.len β := by
+  unfold Rd.bytesOf at h
+  split at h
+  · next hl => cases h; rw [Rd.BytesC.data_ofBytes]; exact hl
+  · cases h
+
+theorem callK_congr' {β γ : Type} (y : Except Fail β) {g g' : β → Option (Except Fail γ)}
+    (h : ∀ b, y = .ok b → g b = g' b) : callK y g = callK y g' := by
+  cases y
+  · rfl
+  · exact h _ rfl
+
 /-- A call of a proved callee: the readable result decides the rest. -/
 theorem bind_call {α β γ : Type} {x : DM α} {y : Except Fail β} {enc : β → α}
     (hx : Option.map (Except.mapError SpecError.fail) x = some (enc <$> y)) (k : α → DM γ) :

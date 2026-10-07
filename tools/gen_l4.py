@@ -1189,6 +1189,28 @@ def callee_lens(m, name, params):
 
 HTR = {}
 NONE_OK = set()
+RNG = set()
+
+
+def rng_theorem(m, name):
+    """`<f>_rng`: the bytes of an ok result have the length of the result class, or None."""
+    params, rt = m.sigs[name]
+    if rt not in m.bytes:
+        return None
+    body = m.bodies.get(name, "")
+    callees = [c for c in m.callees(name) if c in RNG]
+    binders = " ".join("(%s : %s)" % (pn, paren(pt)) for pn, pt in params)
+    args = " ".join(pn for pn, _ in params)
+    closers = ["(have := bytesOf_ok_len' ‹bytesOf _ _ = _›; simpa only [l4_simp] using this)"]
+    closers += ["(apply %s_rng; assumption)" % c for c in callees]
+    return ("theorem %s_rng %s (x : %s) (h : %s %s = .ok x) : x.data.length = %d := by\n"
+            "  unfold %s at h\n"
+            "  simp only [bind, Except.bind, pure, Except.pure] at h\n"
+            "  repeat' split at h\n"
+            "  all_goals (try (cases h; done))\n"
+            "  all_goals (try (simp only [Except.ok.injEq] at h; subst h))\n"
+            "  all_goals first | %s\n"
+            % (name, binders, rt, name, args, m.bytes[rt], name, " | ".join(closers)))
 
 
 def uses_htr(m, name):
@@ -1315,10 +1337,15 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
         unf.append("kids_%s_mk" % rt)
     loopstep = ""
     if lps or fcalls or cps:
-        loopstep = ("  all_goals (repeat (first | (simp (disch := l4_disch) only [%s]) |\n"
-                    "    ((l4_bycases <;> (try l4_eval_star)))))\n  all_goals (try l4_eval)\n"
-                    % ", ".join(["%s_loop%d_call" % (name, j + 1) for j in range(len(lps))] + fcalls +
-                                ["%s_items_call" % name for _ in cps]))
+        disch = "l4_disch"
+        rngs = ["%s_rng" % c for c in m.callees(name) if c in RNG]
+        if rngs:
+            disch = "first | l4_disch | " + " | ".join("(apply %s; assumption)" % r for r in rngs)
+        loopstep = ("  all_goals (repeat (first | (simp (disch := %s) only [%s]) |\n"
+                    "    ((l4_bycases <;> (try l4_eval_star))) |\n"
+                    "    ((refine callK_congr' _ fun _ _ => ?_) <;> (try l4_eval_star))))\n  all_goals (try l4_eval)\n"
+                    % (disch, ", ".join(["%s_loop%d_call" % (name, j + 1) for j in range(len(lps))] + fcalls +
+                                ["%s_items_call" % name for _ in cps])))
     thm = ("theorem %s_den%s (sha : Oracle) (m : Nat) %s :\n"
            "    ((den (Scope.env sha) fpsGen (%sm + %d)).fn %s Scope.fn_%s %s).map (Except.mapError SpecError.fail) =\n"
            "      some ((fun x : %s => (%s, %s)) <$> %s %s) := by\n"
@@ -1538,6 +1565,7 @@ def main():
                                (GEN / "Funcs.lean").read_text(), re.S)) if (GEN / "Funcs.lean").exists() else {}
         fuel = {k: int(v) for k, v in fuel.items()}
         NONE_OK.update(re.findall(r"theorem (\w+)_fcall_none ", (GEN / "Funcs.lean").read_text()))
+        RNG.update(re.findall(r"theorem (\w+)_rng ", (GEN / "Funcs.lean").read_text()))
         for n in order(m, set(fuel)):
             try:
                 candidate(m, n, fuel)
@@ -1631,6 +1659,28 @@ def main():
                     texts[n] = retry[n][0]
                     del fails[n]
                 print("%-55s %s" % (n + " (ok)", "ok" if ok else err), flush=True)
+        # The range lemmas of the new functions with a bytes result.
+        rngc = {}
+        for n in cands:
+            if "@" in n or n not in proved or n in RNG:
+                continue
+            t = rng_theorem(m, n)
+            if t:
+                rngc[n] = t
+        if rngc:
+            (GEN / "Funcs.lean").write_text(funcs_file(m, proved, texts, total))
+            okb, outb = build("SpecLean.Layer4.Gen.Funcs")
+            if okb:
+                with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
+                    futs = {ex.submit(check, pre + t + "\nend SpecLean.Layer4.Gen\n", n + "_rng"): n
+                            for n, t in rngc.items()}
+                    for fu in concurrent.futures.as_completed(futs):
+                        n = futs[fu]
+                        ok, err = fu.result()
+                        if ok:
+                            RNG.add(n)
+                            vtexts.setdefault(n, []).append(rngc[n])
+                        print("%-55s %s" % (n + " (rng)", "ok" if ok else err), flush=True)
         for n, vs in vtexts.items():
             if n in texts and not texts[n].endswith("-- variants\n"):
                 texts[n] = texts[n] + "\n" + "\n".join(vs) + "-- variants\n"
