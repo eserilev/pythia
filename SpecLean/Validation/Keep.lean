@@ -121,6 +121,12 @@ theorem frameNil_of_frame {h h' : Heap} {vs : List Value} (hf : Frame h h' vs []
 theorem frameNil_alloc {h : Heap} {o : HeapObj} (hwf : HeapWF h) : FrameNil h (h.alloc o).2 :=
   fun x hx => objs_alloc_ne (fun e => hx (hwf x (by omega)))
 
+/-- A write to a new object keeps every old object. -/
+theorem frameNil_set_fresh {h0 h : Heap} {a : Nat} {o : HeapObj} (hf : FrameNil h0 h)
+    (hwf : HeapWF h0) (ha : h0.next ≤ a) : FrameNil h0 (h.set a o) := fun x hx => by
+  have hne : x ≠ a := fun e => hx (hwf x (by omega))
+  simp [hne, hf x hx]
+
 theorem frame_of_frameNil {h h' : Heap} {vs : List Value} {fp : Footprint} (a : FrameNil h h') :
     Frame h h' vs fp := fun x hx _ => a x hx
 
@@ -385,6 +391,29 @@ partial def proveFrameNil (g : MVarId) (depth : Nat := 16) : TacticM Bool := g.w
       if ← step hm last then return true
     restoreState s
     return false
+  if h.isAppOfArity ``SpecLean.Heap.set 3 then
+    -- A write to an address at or past the entry heap's `next`: a new object.
+    let hm := h.getArg! 0
+    let a := h.getArg! 1
+    let s ← saveState
+    try
+      let g1 ← mkFreshExprMVar (← mkAppM ``SpecLean.Validation.Keep.FrameNil #[h0, hm])
+      let gw ← mkFreshExprMVar (mkApp (mkConst ``SpecLean.Encode.HeapWF) h0)
+      let ha ← mkFreshExprMVar (← mkAppM ``LE.le #[← mkAppM ``SpecLean.Heap.next #[h0], a])
+      if (← proveFrameNil g1.mvarId! (depth - 1)) && (← proveHeapWF gw.mvarId!) then
+        let gs ← evalTacticAt (← `(tactic| first
+          | omega
+          | (simp only [SpecLean.Validation.Where.alloc_fst, SpecLean.Validation.Where.alloc_next,
+              SpecLean.Validation.Where.set_next]; done)
+          | (simp only [SpecLean.Validation.Where.alloc_fst, SpecLean.Validation.Where.alloc_next,
+              SpecLean.Validation.Where.set_next]; omega))) ha.mvarId!
+        if gs.isEmpty then
+          g.assign (← mkAppOptM ``SpecLean.Validation.Keep.frameNil_set_fresh
+            #[h0, hm, a, h.getArg! 2, g1, gw, ha])
+          return true
+    catch _ => pure ()
+    restoreState s
+    return false
   for d in ← getLCtx do
     if d.isImplementationDetail then continue
     let ty ← instantiateMVars d.type
@@ -415,6 +444,24 @@ partial def proveFreshChain (g : MVarId) (depth : Nat := 16) : TacticM Bool := g
       g.assign (← mkAppOptM ``SpecLean.Validation.Where.fresh_alloc
         #[h0, hm, (h.getArg! 2).getArg! 1, g1])
       return true
+    restoreState s
+    return false
+  if h.isAppOfArity ``SpecLean.Heap.set 3 then
+    let hm := h.getArg! 0
+    let s ← saveState
+    try
+      let g1 ← mkFreshExprMVar (← mkAppM ``SpecLean.Encode.Fresh #[h0, hm])
+      if ← proveFreshChain g1.mvarId! (depth - 1) then
+        let stx ← `(SpecLean.Validation.Where.fresh_set $(← Term.exprToSyntax g1)
+          (o := $(← Term.exprToSyntax (h.getArg! 2))) (by rd_objs))
+        let pf ← Term.withoutErrToSorry do
+          let pf ← Term.elabTermEnsuringType stx (← g.getType)
+          Term.synthesizeSyntheticMVarsNoPostponing
+          instantiateMVars pf
+        unless pf.hasSorry || pf.hasExprMVar do
+          g.assign pf
+          return true
+    catch _ => pure ()
     restoreState s
     return false
   for d in ← getLCtx do
@@ -698,3 +745,24 @@ simproc [rd_simp] maxZeroNonneg (@Max.max Int _ _ 0) := fun e => do
   return .done { expr := x, proof? := some (← mkAppM ``Int.max_eq_left #[h]) }
 
 end SpecLean.Validation.Tactic
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- Two readable structures that a new object decodes to: field by field, numbers by `omega`. -/
+elab "rd_struct_eq" : tactic => withMainContext do
+  let t ← whnfR (← instantiateMVars (← getMainTarget))
+  let some (ty, _, _) := t.eq? | throwError "rd_struct_eq: not an equation"
+  let some n := (← whnfR ty).getAppFn.constName? | throwError "rd_struct_eq: no structure"
+  unless isStructure (← getEnv) n do throwError "rd_struct_eq: no structure"
+  evalTactic (← `(tactic| (
+    congr 1 <;> first
+      | rfl
+      | (simp only [SpecLean.Rd.BytesC.ofBytes, SpecLean.Rd.UintC.ofNat]; done)
+      | (simp only [SpecLean.Rd.BytesC.ofBytes, SpecLean.Rd.UintC.ofNat]; congr 1; omega)
+      | (simp; omega))))
+
+end SpecLean.Validation.Tactic
+
+macro_rules | `(tactic| rd_frame) => `(tactic| ((repeat' (first | rd_chain | rd_struct_eq | with_reducible apply And.intro)); done))

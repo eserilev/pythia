@@ -220,6 +220,10 @@ class Gen:
             w = re.findall(r"\d+", ut)[-1]
             return (f"ListRes h h' v ({rv}.map fun x => Value.uint {ut} x.val) ∧ "
                     f"∀ x ∈ {rv}, x.val < 2 ^ {w}", [])
+        if k == "container":
+            # A new container object (SPEC 9.2): fresh, and it decodes to the readable value.
+            c = self.n.cls(t[1])
+            return (f"∃ a, v = .ref a ∧ h.next ≤ a ∧ dec_{c} h' (.ref a) = some {rv}", [])
         raise Unsupported(f"return type {k}")
 
     def fpat(self, c, steps):
@@ -795,8 +799,9 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
                             sig.mutated, sig.generic)
         else:
             args = [self.arg(j, t) for j, (_, t) in enumerate(sig.params)]
-        if ho:
-            # A callee that hashes: the byte vector arguments have their lengths.
+        if ho or sig.ret[0] == "container":
+            # A callee that hashes, or a new container that holds them: the byte vector
+            # arguments have their lengths.
             for j, (_, t) in enumerate(sig.params):
                 if t[0] == "bytesN" and args[j][0]:
                     a = args[j]
@@ -834,7 +839,8 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             # A callee that makes a new object: the heap grows, and `ResultMatches` says how.
             # A comprehension makes a new list too, also when `sum` reads it.
             comp_alloc = any(isinstance(x, ast.comprehension) for x in ast.walk(tree))
-            exp = e if ret[0] == "list" or alloc or comp_alloc else f"{e} ∧ h' = h"
+            exp = (e if ret[0] in ("list", "container") or alloc or comp_alloc
+                   else f"{e} ∧ h' = h")
         else:
             k0 = 1 if ret != T.NONE else 0
             e, encs = self.expect(ret, rd_fn.Fn.proj(None, "r", 0, len(outs)) if k0 else "r")
@@ -895,7 +901,7 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         if sig.mutated and lnames:
             # The loop rule chains the contract of the steps: the footprint is part of `gfp`.
             hw += f" (hsub : ∀ p ∈ {fp}, p ∈ gfp)"
-        wfb = (cbounds or wf) and not sig.mutated
+        wfb = (cbounds or wf or ret[0] == "container") and not sig.mutated
         if wfb:
             # The comprehension rule starts from `CContract.refl`; a callee may need the same.
             hw += f" (hwf : HeapWF h) (haw : ArgsWF h {vs})"
@@ -928,7 +934,7 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         if callees:
             # An object read after a call: the call kept it, so the fact of the entry heap holds.
             alts.append("(rd_frame_objs; try rd_step)")
-        if sig.mutated and callees:
+        if callees and (sig.mutated or ret[0] == "container"):
             # A field read that a split left open: the field index and the item from the facts.
             alts.append("(rd_fieldidx; try rd_step)")
         if alloc:
