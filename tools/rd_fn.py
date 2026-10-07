@@ -1405,6 +1405,10 @@ class Fn:
                         self.aliasing = False
                     if p is not None:
                         self.aliases[x] = (p, self.ty(v))
+                        # Python reads the place here: an index or a key that fails raises at
+                        # this line, before the statements after it. Later uses read the path.
+                        if p[0] == "p" and any(k in ("i", "d") for k, _ in p[2]):
+                            self.line(f"let _ := {self.rd(p, self.ty(v))}")
                         return
                 vt = self.ty(v)
                 cur = self.vars.get(x)

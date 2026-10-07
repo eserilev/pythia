@@ -1928,6 +1928,7 @@ def process_builder_deposit_request (state : BeaconState) (request : BuilderDepo
   else
     let builder_index := (← uOf BuilderIndex (← lindex builder_pubkeys (request).pubkey))
     i3 := (uv builder_index)
+    let _ := (← lget (state).builders i3)
     if (← (if ((uv ((← lget (state).builders i3)).withdrawable_epoch) != (uv FAR_FUTURE_EPOCH)) then (do pure ((uv ((← lget (state).builders i3)).balance) == (0 : Int))) else pure false : SpecM Bool)) then
       let epoch := (← get_current_epoch state)
       state := { state with builders := (← lset (state).builders i3 { (← lget (state).builders i3) with withdrawable_epoch := (← (uOp .add (uv epoch) (uv Cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY) : SpecM Epoch)) }) }
@@ -1990,6 +1991,7 @@ def initiate_builder_exit(state: BeaconState, builder_index: BuilderIndex) -> No
 def initiate_builder_exit (state : BeaconState) (builder_index : BuilderIndex) : SpecM BeaconState := do
   let mut state := state
   let i1 := (uv builder_index)
+  let _ := (← lget (state).builders i1)
   state := { state with builders := (← lset (state).builders i1 { (← lget (state).builders i1) with withdrawable_epoch := (← (uOp .add (uv (← get_current_epoch state)) (uv Cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY) : SpecM Epoch)) }) }
   return state
 
@@ -2009,6 +2011,7 @@ def is_active_builder(state: BeaconState, builder_index: BuilderIndex) -> bool:
 ``` -/
 def is_active_builder (state : BeaconState) (builder_index : BuilderIndex) : SpecM Bool := do
   let i1 := (uv builder_index)
+  let _ := (← lget (state).builders i1)
   return (← (if (decide ((uv ((← lget (state).builders i1)).deposit_epoch) < (uv ((state).finalized_checkpoint).epoch))) then (do pure ((uv ((← lget (state).builders i1)).withdrawable_epoch) == (uv FAR_FUTURE_EPOCH))) else pure false : SpecM Bool))
 
 
@@ -2037,6 +2040,7 @@ def process_builder_exit_request (state : BeaconState) (request : BuilderExitReq
     return state
   let builder_index := (← uOf BuilderIndex (← lindex builder_pubkeys (request).pubkey))
   let i1 := (uv builder_index)
+  let _ := (← lget (state).builders i1)
   if (!(← is_active_builder state builder_index)) then
     return state
   if ((bd ((← lget (state).builders i1)).execution_address) != (bd (request).source_address)) then
@@ -2271,6 +2275,7 @@ def is_valid_switch_to_compounding_request (state : BeaconState) (consolidation_
   if !((validator_pubkeys).contains source_pubkey) then
     return false
   let i1 := (uv (← uOf ValidatorIndex (← lindex validator_pubkeys source_pubkey)))
+  let _ := (← lget (state).validators i1)
   if ((lslice (bd ((← lget (state).validators i1)).withdrawal_credentials) (some (12 : Int)) none) != (bd (consolidation_request).source_address)) then
     return false
   if (!(← has_eth1_withdrawal_credential (← lget (state).validators i1))) then
@@ -2312,6 +2317,7 @@ def queue_excess_active_balance (state : BeaconState) (index : ValidatorIndex) :
     let i2 := (uv index)
     state := { state with balances := (← lset (state).balances i2 MIN_ACTIVATION_BALANCE) }
     i3 := (uv index)
+    let _ := (← lget (state).validators i3)
     state := { state with pending_deposits := (← lappend (state).pending_deposits { (default : PendingDeposit) with pubkey := ((← lget (state).validators i3)).pubkey, withdrawal_credentials := ((← lget (state).validators i3)).withdrawal_credentials, amount := excess_balance, signature := G2_POINT_AT_INFINITY, slot := GENESIS_SLOT } none) }
   return state
 
@@ -2327,6 +2333,7 @@ def switch_to_compounding_validator(state: BeaconState, index: ValidatorIndex) -
 def switch_to_compounding_validator (state : BeaconState) (index : ValidatorIndex) : SpecM BeaconState := do
   let mut state := state
   let i1 := (uv index)
+  let _ := (← lget (state).validators i1)
   state := { state with validators := (← lset (state).validators i1 { (← lget (state).validators i1) with withdrawal_credentials := (← bytesOf Bytes32 ((bd COMPOUNDING_WITHDRAWAL_PREFIX) ++ (lslice (bd ((← lget (state).validators i1)).withdrawal_credentials) (some (1 : Int)) none))) }) }
   let r2 ← queue_excess_active_balance state index
   state := r2
@@ -2436,7 +2443,9 @@ def process_consolidation_request (state : BeaconState) (consolidation_request :
   source_index := (← uOf ValidatorIndex (← lindex validator_pubkeys request_source_pubkey))
   let target_index := (← uOf ValidatorIndex (← lindex validator_pubkeys request_target_pubkey))
   let i2 := (uv source_index)
+  let _ := (← lget (state).validators i2)
   let i3 := (uv target_index)
+  let _ := (← lget (state).validators i3)
   let has_correct_credential := (← has_execution_withdrawal_credential (← lget (state).validators i2))
   let is_correct_source_address := ((lslice (bd ((← lget (state).validators i2)).withdrawal_credentials) (some (12 : Int)) none) == (bd (consolidation_request).source_address))
   if (!(has_correct_credential && is_correct_source_address)) then
@@ -2564,6 +2573,7 @@ def initiate_validator_exit(state: BeaconState, index: ValidatorIndex) -> None:
 def initiate_validator_exit (state : BeaconState) (index : ValidatorIndex) : SpecM BeaconState := do
   let mut state := state
   let i1 := (uv index)
+  let _ := (← lget (state).validators i1)
   if ((uv ((← lget (state).validators i1)).exit_epoch) != (uv FAR_FUTURE_EPOCH)) then
     return state
   let r2 ← compute_exit_epoch_and_update_churn state ((← lget (state).validators i1)).effective_balance
@@ -2655,6 +2665,7 @@ def process_withdrawal_request (state : BeaconState) (withdrawal_request : Withd
     return state
   let index := (← uOf ValidatorIndex (← lindex validator_pubkeys request_pubkey))
   let i1 := (uv index)
+  let _ := (← lget (state).validators i1)
   let has_correct_credential := (← has_execution_withdrawal_credential (← lget (state).validators i1))
   let is_correct_source_address := ((lslice (bd ((← lget (state).validators i1)).withdrawal_credentials) (some (12 : Int)) none) == (bd (withdrawal_request).source_address))
   if (!(has_correct_credential && is_correct_source_address)) then
@@ -3863,6 +3874,7 @@ def get_builders_sweep_withdrawals.loop1 (epoch : Epoch) (prior_withdrawals : (L
     if has_reached_limit then
       return (all_withdrawals, builder_index, has_reached_limit, processed_count, withdrawal_index, withdrawals)
     let i3 := (uv builder_index)
+    let _ := (← lget (state).builders i3)
     if (← (if (decide ((uv ((← lget (state).builders i3)).withdrawable_epoch) ≤ (uv epoch))) then (do pure (decide ((uv ((← lget (state).builders i3)).balance) > (0 : Int)))) else pure false : SpecM Bool)) then
       withdrawals := (← lappend withdrawals { (default : Withdrawal) with index := withdrawal_index, validator_index := (← convert_builder_index_to_validator_index builder_index), address := ((← lget (state).builders i3)).execution_address, amount := ((← lget (state).builders i3)).balance } none)
       withdrawal_index := (← (uOp .add (uv withdrawal_index) (1 : Int) : SpecM WithdrawalIndex))
@@ -4001,6 +4013,7 @@ def get_pending_partial_withdrawals.loop1 (epoch : Epoch) (prior_withdrawals : (
       return (all_withdrawals, balance, has_reached_limit, is_withdrawable, processed_count, validator_index, withdrawal_amount, withdrawal_index, withdrawals)
     validator_index := ((← lget (state).pending_partial_withdrawals i_')).validator_index
     let i2 := (uv validator_index)
+    let _ := (← lget (state).validators i2)
     balance := (← get_balance_after_withdrawals state validator_index all_withdrawals)
     if (← is_eligible_for_partial_withdrawals (← lget (state).validators i2) balance) then
       withdrawal_amount := (← pyMin [(← (uOp .sub (uv balance) (uv MIN_ACTIVATION_BALANCE) : SpecM Gwei)), ((← lget (state).pending_partial_withdrawals i_')).amount])
@@ -4133,6 +4146,7 @@ def get_validators_sweep_withdrawals.loop1 (epoch : Epoch) (prior_withdrawals : 
     if has_reached_limit then
       return (all_withdrawals, balance, has_reached_limit, processed_count, validator_index, withdrawal_index, withdrawals)
     let i3 := (uv validator_index)
+    let _ := (← lget (state).validators i3)
     balance := (← get_balance_after_withdrawals state validator_index all_withdrawals)
     if (← is_fully_withdrawable_validator (← lget (state).validators i3) balance epoch) then
       withdrawals := (← lappend withdrawals { (default : Withdrawal) with index := withdrawal_index, validator_index := validator_index, address := (← bytesOf ExecutionAddress (lslice (bd ((← lget (state).validators i3)).withdrawal_credentials) (some (12 : Int)) none)), amount := balance } none)
@@ -5119,6 +5133,7 @@ def slash_validator (state : BeaconState) (slashed_index : ValidatorIndex) (whis
   let r1 ← initiate_validator_exit state slashed_index
   state := r1
   let i2 := (uv slashed_index)
+  let _ := (← lget (state).validators i2)
   state := { state with validators := (← lset (state).validators i2 { (← lget (state).validators i2) with slashed := (⟨true⟩ : Boolean) }) }
   state := { state with validators := (← lset (state).validators i2 { (← lget (state).validators i2) with withdrawable_epoch := (← pyMax [((← lget (state).validators i2)).withdrawable_epoch, (← (uOp .add (uv epoch) (uv EPOCHS_PER_SLASHINGS_VECTOR) : SpecM Epoch))]) }) }
   let i3 := (uv (← (uOp .mod (uv epoch) (uv EPOCHS_PER_SLASHINGS_VECTOR) : SpecM Epoch)))
@@ -5212,6 +5227,7 @@ def process_block_header (state : BeaconState) (block : BeaconBlock) : SpecM Bea
   assert ((bd (block).parent_root) == (bd (← bytesOf Root (← htr enc_BeaconBlockHeader (state).latest_block_header))))
   state := { state with latest_block_header := { (default : BeaconBlockHeader) with slot := (block).slot, proposer_index := (block).proposer_index, parent_root := (block).parent_root, state_root := (⟨List.replicate 32 0⟩ : Root), body_root := (← bytesOf Root (← htr enc_BeaconBlockBody (block).body)) } }
   let i1 := (uv (block).proposer_index)
+  let _ := (← lget (state).validators i1)
   assert (!(((← lget (state).validators i1)).slashed).val)
   return state
 
@@ -5245,6 +5261,7 @@ def verify_execution_payload_bid_signature(
 ``` -/
 def verify_execution_payload_bid_signature (state : BeaconState) (signed_bid : SignedExecutionPayloadBid) : SpecM Bool := do
   let i1 := (uv ((signed_bid).message).builder_index)
+  let _ := (← lget (state).builders i1)
   let signing_root := (← compute_signing_root (⟨enc_ExecutionPayloadBid (signed_bid).message⟩ : SszObj) (← get_domain state DOMAIN_BEACON_BUILDER none))
   return (Spec.blsVerify (bd ((← lget (state).builders i1)).pubkey) (bd signing_root) (bd (signed_bid).signature))
 
@@ -5360,6 +5377,7 @@ def process_bls_to_execution_change (state : BeaconState) (signed_address_change
   let mut state := state
   assert (decide ((uv ((signed_address_change).message).validator_index) < (Int.ofNat ((state).validators).length)))
   let i1 := (uv ((signed_address_change).message).validator_index)
+  let _ := (← lget (state).validators i1)
   assert ((lslice (bd ((← lget (state).validators i1)).withdrawal_credentials) none (some (1 : Int))) == (bd BLS_WITHDRAWAL_PREFIX))
   assert ((lslice (bd ((← lget (state).validators i1)).withdrawal_credentials) (some (1 : Int)) none) == (lslice (bd (← bytesOf Bytes32 (Spec.sha256 (bd ((signed_address_change).message).from_bls_pubkey)))) (some (1 : Int)) none))
   let domain := (← compute_domain DOMAIN_BLS_TO_EXECUTION_CHANGE none (some (state).genesis_validators_root))
@@ -5452,6 +5470,7 @@ def process_proposer_slashing (state : BeaconState) (proposer_slashing : Propose
   assert ((uv (((proposer_slashing).signed_header_1).message).proposer_index) == (uv (((proposer_slashing).signed_header_2).message).proposer_index))
   assert (((proposer_slashing).signed_header_1).message != ((proposer_slashing).signed_header_2).message)
   let i1 := (uv (((proposer_slashing).signed_header_1).message).proposer_index)
+  let _ := (← lget (state).validators i1)
   assert (← is_slashable_validator (← lget (state).validators i1) (← get_current_epoch state))
   let xs3 := [(proposer_slashing).signed_header_1, (proposer_slashing).signed_header_2]
   let n2 := xs3.length
@@ -5507,6 +5526,7 @@ def process_voluntary_exit(state: BeaconState, signed_voluntary_exit: SignedVolu
 def process_voluntary_exit (state : BeaconState) (signed_voluntary_exit : SignedVoluntaryExit) : SpecM BeaconState := do
   let mut state := state
   let i1 := (uv ((signed_voluntary_exit).message).validator_index)
+  let _ := (← lget (state).validators i1)
   assert (← is_active_validator (← lget (state).validators i1) (← get_current_epoch state))
   assert ((uv ((← lget (state).validators i1)).exit_epoch) == (uv FAR_FUTURE_EPOCH))
   assert (decide ((uv (← get_current_epoch state)) ≥ (uv ((signed_voluntary_exit).message).epoch)))
@@ -5698,6 +5718,7 @@ def process_randao (state : BeaconState) (body : BeaconBlockBody) : SpecM Beacon
   let mut state := state
   let epoch := (← get_current_epoch state)
   let i1 := (uv (← get_beacon_proposer_index state))
+  let _ := (← lget (state).validators i1)
   let signing_root := (← compute_signing_root (⟨enc_Epoch epoch⟩ : SszObj) (← get_domain state DOMAIN_RANDAO none))
   assert (Spec.blsVerify (bd ((← lget (state).validators i1)).pubkey) (bd signing_root) (bd (body).randao_reveal))
   let mix := (← xor (← get_randao_mix state epoch) (← bytesOf Bytes32 (Spec.sha256 (bd (body).randao_reveal))))
@@ -5861,6 +5882,7 @@ def update_next_withdrawal_index (state : BeaconState) (withdrawals : (List With
   let c1 := ((Int.ofNat (withdrawals).length) != (0 : Int))
   if c1 then
     i2 := (-(1 : Int))
+    let _ := (← lget withdrawals i2)
     state := { state with next_withdrawal_index := (← (uOp .add (uv ((← lget withdrawals i2)).index) (1 : Int) : SpecM WithdrawalIndex)) }
   return state
 
@@ -6318,6 +6340,7 @@ def process_pending_consolidations.loop1 (next_epoch : Epoch) (n1 : Nat) (i_ : N
     let mut state := state_in
     let i_' : Int := i_
     let i2 := (uv ((← lget (state).pending_consolidations i_')).source_index)
+    let _ := (← lget (state).validators i2)
     if (((← lget (state).validators i2)).slashed).val then
       next_pending_consolidation := (next_pending_consolidation + (1 : Int))
       return (← process_pending_consolidations.loop1 next_epoch n1 (i_ + 1) next_pending_consolidation source_effective_balance state)
@@ -6392,6 +6415,7 @@ def process_pending_deposits.loop1 (available_for_processing : Gwei) (finalized_
     let c2 := ((validator_pubkeys).contains ((← lget (state).pending_deposits i_')).pubkey)
     if c2 then
       i3 := (uv (← uOf ValidatorIndex (← lindex validator_pubkeys ((← lget (state).pending_deposits i_')).pubkey)))
+      let _ := (← lget (state).validators i3)
       is_validator_exited := (decide ((uv ((← lget (state).validators i3)).exit_epoch) < (uv FAR_FUTURE_EPOCH)))
       is_validator_withdrawn := (decide ((uv ((← lget (state).validators i3)).withdrawable_epoch) < (uv next_epoch)))
     if is_validator_withdrawn then
@@ -6886,6 +6910,7 @@ def verify_block_signature(state: BeaconState, signed_block: SignedBeaconBlock) 
 ``` -/
 def verify_block_signature (state : BeaconState) (signed_block : SignedBeaconBlock) : SpecM Bool := do
   let i1 := (uv ((signed_block).message).proposer_index)
+  let _ := (← lget (state).validators i1)
   let signing_root := (← compute_signing_root (⟨enc_BeaconBlock (signed_block).message⟩ : SszObj) (← get_domain state DOMAIN_BEACON_PROPOSER none))
   return (Spec.blsVerify (bd ((← lget (state).validators i1)).pubkey) (bd signing_root) (bd (signed_block).signature))
 
