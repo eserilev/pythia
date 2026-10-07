@@ -460,20 +460,20 @@ macro "rd_comp_step" "[" ls:ident,* "]" : tactic => `(tactic| (
   subst hh
   have hL := hK
   first
-  | (obtain ⟨r, v, hxe, hye, hdec, hxs⟩ := SpecLean.Validation.enum_item ‹_› (by intro hc; first | cases hc.1 | cases hc.2) ‹_› hy hx
+  | (obtain ⟨r, v, hxe, hye, hdec, hxs⟩ := SpecLean.Validation.enum_item ‹_› (by intro hc; first | (cases hc.1; done) | (cases hc.2; done) | simp at hc) ‹_› hy hx
      subst hxe hye
      have hdecc := hdec
      simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def,
        Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hdec
      rd_split_hyps)
-  | (obtain ⟨v, hxe, hye, hxs⟩ := SpecLean.Validation.enum_item_map ‹_› (by intro hc; first | cases hc.1 | cases hc.2) hy hx
+  | (obtain ⟨v, hxe, hye, hxs⟩ := SpecLean.Validation.enum_item_map ‹_› (by intro hc; first | (cases hc.1; done) | (cases hc.2; done) | simp at hc) hy hx
      subst hxe hye)
-  | (have hdec := SpecLean.Validation.seq_item ‹_› (by intro hc; first | cases hc.1 | cases hc.2) ‹_› hy hx
+  | (have hdec := SpecLean.Validation.seq_item ‹_› (by intro hc; first | (cases hc.1; done) | (cases hc.2; done) | simp at hc) ‹_› hy hx
      have hdecc := hdec
      simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def,
        Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hdec
      rd_split_hyps)
-  | (have hxe := SpecLean.Validation.seq_item_map ‹_› (by intro hc; first | cases hc.1 | cases hc.2) hy hx
+  | (have hxe := SpecLean.Validation.seq_item_map ‹_› (by intro hc; first | (cases hc.1; done) | (cases hc.2; done) | simp at hc) hy hx
      subst hxe)
   | (have hxe := SpecLean.Validation.snap_item_map hy hx
      subst hxe)
@@ -684,7 +684,8 @@ over the same items. `sum_uint` relates them; both results split. -/
 elab "rd_sum" : tactic => withMainContext do
   -- A sum of a new list: read the list from the heap first.
   let t0 := (← instantiateMVars (← getMainTarget)).consumeMData
-  if (findClosed t0 (·.isAppOf ``SpecLean.allocPyList)).isSome then
+  if (findClosed t0 (·.isAppOf ``SpecLean.allocPyList)).isSome ||
+      (findClosed t0 (·.isConstOf ``SpecLean.Builtin.sum)).isSome then
     evalTactic (← `(tactic| try simp only [SpecLean.allocPyList, SpecLean.applyBuiltin,
       SpecLean.LibModel.builtin, SpecLean.Ssz.builtin, SpecLean.iterElems, SpecLean.iterBase,
       SpecLean.Validation.Where.alloc_fst, SpecLean.Validation.Where.objs_alloc_self,
