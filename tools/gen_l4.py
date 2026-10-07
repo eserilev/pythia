@@ -1200,9 +1200,12 @@ def rng_theorem(m, name):
     body = m.bodies.get(name, "")
     callees = [c for c in m.callees(name) if c in RNG]
     binders = " ".join("(%s : %s)" % (pn, paren(pt)) for pn, pt in params)
+    binders += "".join(" (hok_%s : ok_%s %s)" % (pn, pt, pn) for pn, pt in params if pt in m.reps)
     args = " ".join(pn for pn, _ in params)
+    okdefs = ", ".join("ok_" + n for n in m.rep_order)
     closers = ["(have := bytesOf_ok_len' ‹bytesOf _ _ = _›; simpa only [l4_simp] using this)"]
-    closers += ["(apply %s_rng; assumption)" % c for c in callees]
+    closers += ["(apply %s_rng <;> assumption)" % c for c in callees]
+    closers += ["(have hm := lget_mem ‹lget _ _ = _›; simp only [%s] at *; simp_all)" % okdefs]
     return ("theorem %s_rng %s (x : %s) (h : %s %s = .ok x) : x.data.length = %d := by\n"
             "  unfold %s at h\n"
             "  simp only [bind, Except.bind, pure, Except.pure] at h\n"
@@ -1363,16 +1366,21 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
     if rt in m.reps and ("theorem kids_%s_mk" % rt) in classes_file_cache(m):
         unf.append("kids_%s_mk" % rt)
     loopstep = ""
-    if lps or fcalls or cps:
+    if lps or fcalls or cps or any(c in RNG for c in m.callees(name)):
         disch = "l4_disch"
         rngs = ["%s_rng" % c for c in m.callees(name) if c in RNG]
         if rngs:
-            disch = "first | l4_disch | " + " | ".join("(apply %s; assumption)" % r for r in rngs)
+            disch = "first | l4_disch | " + " | ".join("(apply %s <;> assumption)" % r for r in rngs)
+        haves = ""
+        for c in m.callees(name):
+            if c in RNG:
+                hk = "".join(" (hok_%s := by assumption)" % pn for pn, pt in m.sigs[c][0] if pt in m.reps)
+                haves += " <;> (try have := %s_rng (h := hy)%s)" % (c, hk)
         loopstep = ("  all_goals (repeat (first | (simp (disch := %s) only [%s]) |\n"
                     "    ((l4_bycases <;> (try l4_eval_star))) |\n"
-                    "    ((refine callK_congr' _ fun _ _ => ?_) <;> (try l4_eval_star))))\n  all_goals (try l4_eval)\n"
+                    "    ((refine callK_congr' _ fun _ hy => ?_)%s <;> (try l4_eval_star))))\n  all_goals (try l4_eval)\n"
                     % (disch, ", ".join(["%s_loop%d_call" % (name, j + 1) for j in range(len(lps))] + fcalls +
-                                ["%s_items_call" % name for _ in cps])))
+                                ["%s_items_call" % name for _ in cps]), haves))
     thm = ("theorem %s_den%s (sha : Oracle) (m : Nat) %s :\n"
            "    ((den (Scope.env sha) fpsGen (%sm + %d)).fn %s Scope.fn_%s %s).map (Except.mapError SpecError.fail) =\n"
            "      some ((fun x : %s => (%s, %s)) <$> %s %s) := by\n"

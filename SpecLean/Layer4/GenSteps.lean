@@ -472,6 +472,14 @@ theorem bytesOf_ok_len' {β : Type} [Rd.BytesC β] {b : Rd.Bytes} {x : β} (h : 
   · next hl => cases h; rw [Rd.BytesC.data_ofBytes]; exact hl
   · cases h
 
+theorem lget_mem {α : Type} {xs : List α} {i : Int} {x : α} (h : Rd.lget xs i = .ok x) : x ∈ xs := by
+  unfold Rd.lget at h
+  split at h
+  · next y hy =>
+    cases h; simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at hy
+    obtain ⟨j, -, hj⟩ := hy; exact List.mem_of_getElem? hj
+  · cases h
+
 theorem callK_congr' {β γ : Type} (y : Except Fail β) {g g' : β → Option (Except Fail γ)}
     (h : ∀ b, y = .ok b → g b = g' b) : callK y g = callK y g' := by
   cases y
@@ -815,6 +823,10 @@ theorem env_containers (o : Oracle) : (Scope.env o).containers = Scope.container
 theorem env_config (o : Oracle) : (Scope.env o).config = Scope.config := Eq.trans rfl rfl
 theorem env_bytesName (o : Oracle) : (Scope.env o).bytesName = 0 := Eq.trans rfl rfl
 /-- `xs[-1]`: the index after `normIndex` or `pyIndex`. -/
+theorem fmod_natCast (a b : Nat) : (a : Int).fmod (b : Int) = ((a % b : Nat) : Int) := by
+  rw [Int.fmod_eq_emod_of_nonneg _ (by omega)]; omega
+theorem fdiv_natCast (a b : Nat) : (a : Int).fdiv (b : Int) = ((a / b : Nat) : Int) := by
+  rw [Int.fdiv_eq_ediv_of_nonneg _ (by omega)]; omega
 theorem toNat_neg1_add (n : Nat) : (-1 + (n : Int)).toNat = n - 1 := by omega
 theorem getElem?_len_sub_one {α : Type} (xs : List α) (h : xs.length ≠ 0) :
     xs[xs.length - 1]? = some (xs[xs.length - 1]'(by omega)) :=
@@ -869,7 +881,7 @@ macro_rules
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, bmin_max, bmax_max, pickBest, flat_ite, val_ite,
-      Rd.pyMin, Rd.pyMax, sum_den_v, sumU_nil, padNone, Nat.reduceAdd, Nat.reduceSub, Nat.le_refl, Nat.reduceLeDiff, List.replicate_zero, List.replicate_succ, List.append_nil, Rd.bytesOf, isVal, noneDefaults, isNoneLit, List.isEmpty_cons, List.isEmpty_nil, env_root, fromBytesOf, s_fromBytes, blsOf, s_bls, dBls, env_bls, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
+      Rd.pyMin, Rd.pyMax, fmod_natCast, fdiv_natCast, sum_den_v, sumU_nil, padNone, Nat.reduceAdd, Nat.reduceSub, Nat.le_refl, Nat.reduceLeDiff, List.replicate_zero, List.replicate_succ, List.append_nil, Rd.bytesOf, isVal, noneDefaults, isNoneLit, List.isEmpty_cons, List.isEmpty_nil, env_root, fromBytesOf, s_fromBytes, blsOf, s_bls, dBls, env_bls, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, Expr.call.injEq, s_append, env_append, appendItemD, appendable_list_cont, appendable_plist_cont, appendable_list_nom, appendable_plist_nom, appendable_list_bytes, appendable_plist_bytes, Ssz.checkLength, Rd.lappend, s_assign, s_annAssign, s_exprStmt,
@@ -901,7 +913,7 @@ macro_rules
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, bmin_max, bmax_max, pickBest, flat_ite, val_ite,
-      Rd.pyMin, Rd.pyMax, sum_den_v, sumU_nil, padNone, Nat.reduceAdd, Nat.reduceSub, Nat.le_refl, Nat.reduceLeDiff, List.replicate_zero, List.replicate_succ, List.append_nil, Rd.bytesOf, isVal, noneDefaults, isNoneLit, List.isEmpty_cons, List.isEmpty_nil, env_root, fromBytesOf, s_fromBytes, blsOf, s_bls, dBls, env_bls, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
+      Rd.pyMin, Rd.pyMax, fmod_natCast, fdiv_natCast, sum_den_v, sumU_nil, padNone, Nat.reduceAdd, Nat.reduceSub, Nat.le_refl, Nat.reduceLeDiff, List.replicate_zero, List.replicate_succ, List.append_nil, Rd.bytesOf, isVal, noneDefaults, isNoneLit, List.isEmpty_cons, List.isEmpty_nil, env_root, fromBytesOf, s_fromBytes, blsOf, s_bls, dBls, env_bls, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
 
 /-- The side conditions of a loop lemma: fuel, and the locals of the parameters. -/
 macro "l4_disch" : tactic => `(tactic| first
