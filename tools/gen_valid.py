@@ -39,6 +39,7 @@ HEADER = """import SpecLean.Validation.Gen.Local
 # The calls tier: the first round uses the leaves, a later round also the calls proved so far.
 CALLS_HEADER = """import SpecLean.Validation.Gen.Leaves
 import SpecLean.Validation.HtrForkData
+import SpecLean.Validation.CompTactic
 """
 
 CALLS_NEXT_HEADER = """import SpecLean.Validation.Gen.Calls
@@ -907,7 +908,8 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         split = (f"  rcases t{poly} with _ | ⟨_, _⟩ <;> simp only [UintTy.bits] at ht{poly} <;> "
                  f"subst ht{poly}\n" if poly is not None else "")
         if poly is None:
-            isfx = f"_p{self.n.cls(inst)}" if inst is not None else ""
+            isfx = (f"_p{self.n.cls(inst)}" if inst is not None else
+                    f"_po{given}" if given is not None else "")
             name_run, name_valid = f"{name}{isfx}_run", f"{name}{isfx}_valid"
         names = (" ".join(a[3] for a in args if a[3]) + (" hw hwf haw" if sig.mutated else "") +
                  (" hsub" if sig.mutated and lnames else "") +
