@@ -48,6 +48,13 @@ CASES = [
     ("isqrt_max_minus_1", "isqrt", dict(n=U64 - 1)),
     ("isqrt_max", "isqrt", dict(n=U64)),
     ("isqrt_int_arg", "isqrt", dict(n=17, plain_int=True)),
+    # Pending partials are (validator_index, amount, withdrawable_epoch). Prior withdrawals are
+    # (index, validator_index, amount). Validator 0 is out of range, and the balance after the
+    # prior withdrawal underflows. Python reads the validator first, so the error is an
+    # IndexError. A lazy alias read would report the underflow instead.
+    ("ppw_alias_order", "ppw", dict(vals=[], bals=[5], ppws=[(0, 1, 0)], prior=[(0, 0, 10)])),
+    ("ppw_underflow", "ppw", dict(vals=[(32 * ETH, 1)], bals=[5], ppws=[(0, 1, 0)], prior=[(0, 0, 10)])),
+    ("ppw_ok", "ppw", dict(vals=[(32 * ETH, 1)], bals=[40 * ETH], ppws=[(0, ETH, 0)], prior=[])),
 ]
 
 
@@ -93,6 +100,20 @@ def run_python(kind, a):
             n = a["n"] if a.get("plain_int") else spec.Uint64(a["n"])
             r = spec.integer_squareroot(n)
             return f"ok {type(r).__name__ if type(r) is not int else 'int'} {int(r)}"
+        if kind == "ppw":
+            state = make_state(a["vals"], a["bals"])
+            for i, amount, epoch in a["ppws"]:
+                state.pending_partial_withdrawals.append(
+                    spec.PendingPartialWithdrawal(
+                        validator_index=i, amount=amount, withdrawable_epoch=epoch
+                    )
+                )
+            prior = [
+                spec.Withdrawal(index=k, validator_index=i, amount=amount)
+                for k, i, amount in a["prior"]
+            ]
+            ws, k, c = spec.get_pending_partial_withdrawals(state, spec.WithdrawalIndex(0), prior)
+            return f"ok n={len(ws)} index={int(k)} count={int(c)}"
     except Exception as e:
         return "err " + tag(e)
 
@@ -110,6 +131,11 @@ def lean_case(name, kind, a):
         return f'  runPEB "{name}" {vals} {lean_list(a["bals"])}'
     if kind == "isqrt":
         return f'  runIsqrt "{name}" {a["n"]} {"true" if a.get("plain_int") else "false"}'
+    if kind == "ppw":
+        vals = lean_list(f"({e}, {p})" for e, p in a["vals"])
+        ppws = lean_list(f"({i}, {x}, {e})" for i, x, e in a["ppws"])
+        prior = lean_list(f"({k}, {i}, {x})" for k, i, x in a["prior"])
+        return f'  runPPW "{name}" {vals} {lean_list(a["bals"])} {ppws} {prior}'
 
 
 def main():

@@ -532,7 +532,7 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
                 if j >= len(call.args):
                     raise Unsupported("bounded callee: argument")
                 mine.append(self.len_bound(name, call.args[j], field))
-            for term in set(mine):
+            for term in dict.fromkeys(mine):
                 out += [term] * (mine.count(term) - out.count(term))
         return out
 
