@@ -308,4 +308,41 @@ theorem ite_eq_nat_of {α : Type} {n m : Nat} {a b : α} (h : n = m) :
     (if n = m then a else b) = a :=
   if_pos h
 
+
 end SpecLean.Validation.Decode
+
+namespace SpecLean.Validation
+
+open SpecLean SpecLean.Rd
+
+/-- A `Sequence` argument: a list object of any kind and limit whose element type is `e`, and
+whose items decode in order. The element type tells the iteration rule which source it is. -/
+def decListE {α : Type} (e : SszTy) (f : Dec α) : Dec (List α)
+  | h, .ref a =>
+    match h.objs a with
+    | some (.list _ e' _ xs) => if e' = e then xs.mapM (f h) else none
+    | _ => none
+  | _, _ => none
+
+@[rd_dec] theorem decListE_ref_eq_some {α : Type} (e : SszTy) (f : Rd.Dec α) (h : Heap) (a : Nat)
+    (ys : List α) : decListE e f h (.ref a) = some ys ↔
+      ∃ k l xs, h.objs a = some (.list k e l xs) ∧ xs.mapM (f h) = some ys := by
+  show (match h.objs a with
+    | some (.list _ e' _ xs) => if e' = e then xs.mapM (f h) else none
+    | _ => none) = some ys ↔ _
+  constructor
+  · intro hx
+    cases ho : h.objs a with
+    | none => rw [ho] at hx; cases hx
+    | some o =>
+      rw [ho] at hx
+      cases o with
+      | list k e' l xs =>
+        by_cases he : e' = e
+        · subst he; simp at hx; exact ⟨k, l, xs, rfl, hx⟩
+        · simp [he] at hx
+      | _ => cases hx
+  · rintro ⟨k, l, xs, ho, hm⟩
+    simp [ho, hm]
+
+end SpecLean.Validation

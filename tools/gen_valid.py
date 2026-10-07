@@ -946,7 +946,9 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         # A comprehension before the splits: a split of later code would copy its proof.
         comp = ([f"rd_comp {kf} [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"]
                 if cbounds else [])
-        step = "(first | " + " | ".join(alts + comp + (["rd_sum"] if sums else []) +
+        # An item read from a decoded list: its decode facts before a split of the read.
+        items = ["(rd_items; try rd_step)"]
+        step = "(first | " + " | ".join(alts + comp + (["rd_sum"] if sums else []) + items +
                                          ["(rd_split <;> (try rd_step))"]) + ")"
         runF = ""
         if bounded:
@@ -1089,7 +1091,7 @@ def main():
         tier = [n for n in tier if n in args.only.split(",")]
     g = Gen(b, em)
     g.cls, g.slice_memo = cls, {}
-    g.seq_elem = args.tier == "loops" or bool(args.emit)
+    g.seq_elem = True
     g.readable = (ROOT / "SpecLean/Gen/Readable.lean").read_text()
     from footprint import footprint
     ssz_names = {x for x in dir(spec) if isinstance(getattr(spec, x), type)

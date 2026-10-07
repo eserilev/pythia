@@ -49,7 +49,7 @@ theorem get_active_validator_indices_run (gfp : Footprint) (h : Heap) (r0 : Nat)
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_active_validator_indices, get_active_validator_indices, Scope.env, Scope.knownNames, compLoop, iterSource, toSeq, iterBase, *]
   rd_step
-  repeat' (first | rd_call [is_active_validator_run] | (rd_frame_objs; try rd_step) | rd_comp 128 [is_active_validator_run] | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [is_active_validator_run] | (rd_frame_objs; try rd_step) | rd_comp 128 [is_active_validator_run] | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | rd_list_end | rd_comp_err | ((try rd_frame_facts); (try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -85,7 +85,7 @@ theorem get_balance_after_withdrawals_run (gfp : Footprint) (h : Heap) (r0 : Nat
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_balance_after_withdrawals, get_balance_after_withdrawals, Scope.env, Scope.knownNames, enc_Gwei, encUint, encBytesN, compLoop, iterSource, toSeq, iterBase, *]
   rd_step
-  repeat' (first | rd_comp 64 [] | rd_sum | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_comp 64 [] | rd_sum | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | rd_list_end | rd_comp_err | ((try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -120,7 +120,7 @@ theorem get_committee_indices_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : 
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_committee_indices, get_committee_indices, Scope.env, Scope.knownNames, compLoop, iterSource, toSeq, iterBase, *]
   rd_step
-  repeat' (first | rd_comp 64 [] | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_comp 64 [] | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | rd_list_end | rd_comp_err | ((try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -155,7 +155,7 @@ theorem get_eligible_validator_indices_run (gfp : Footprint) (h : Heap) (r0 : Na
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_eligible_validator_indices, get_eligible_validator_indices, Scope.env, Scope.knownNames, compLoop, iterSource, toSeq, iterBase, *]
   rd_step
-  repeat' (first | rd_call [get_previous_epoch_run, is_active_validator_run] | (rd_frame_objs; try rd_step) | rd_comp 256 [get_previous_epoch_run, is_active_validator_run] | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [get_previous_epoch_run, is_active_validator_run] | (rd_frame_objs; try rd_step) | rd_comp 256 [get_previous_epoch_run, is_active_validator_run] | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | rd_list_end | rd_comp_err | ((try rd_frame_facts); (try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -239,7 +239,7 @@ theorem get_pending_balance_to_withdraw_run (gfp : Footprint) (h : Heap) (r0 : N
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_pending_balance_to_withdraw, get_pending_balance_to_withdraw, Scope.env, Scope.knownNames, enc_Gwei, encUint, encBytesN, *]
   rd_step
-  repeat' (first | rd_loop [get_pending_balance_to_withdraw_loop1] | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_loop [get_pending_balance_to_withdraw_loop1] | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -372,7 +372,7 @@ theorem get_pending_balance_to_withdraw_for_builder_run (gfp : Footprint) (h : H
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_pending_balance_to_withdraw_for_builder, get_pending_balance_to_withdraw_for_builder, Scope.env, Scope.knownNames, enc_Gwei, encUint, encBytesN, *]
   rd_step
-  repeat' (first | rd_loop [get_pending_balance_to_withdraw_for_builder_loop1, get_pending_balance_to_withdraw_for_builder_loop2] | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_loop [get_pending_balance_to_withdraw_for_builder_loop1, get_pending_balance_to_withdraw_for_builder_loop2] | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -407,7 +407,7 @@ theorem get_set_bit_count_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : (Lis
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_set_bit_count, get_set_bit_count, Scope.env, Scope.knownNames, enc_Uint64, encUint, encBytesN, compLoop, iterSource, toSeq, iterBase, *]
   rd_step
-  repeat' (first | rd_comp 64 [] | rd_sum | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_comp 64 [] | rd_sum | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | rd_list_end | rd_comp_err | ((try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -443,7 +443,7 @@ theorem get_total_balance_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : Beac
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_total_balance, get_total_balance, Scope.env, Scope.knownNames, EFFECTIVE_BALANCE_INCREMENT, enc_Gwei, encUint, encBytesN, compLoop, iterSource, toSeq, iterBase, *]
   rd_step
-  repeat' (first | rd_comp 64 [] | rd_sum | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_comp 64 [] | rd_sum | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | rd_list_end | rd_comp_err | ((try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -521,7 +521,7 @@ theorem integer_squareroot_run (gfp : Footprint) (h : Heap) (x0 : Nat) (k : Nat)
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_integer_squareroot, integer_squareroot, Scope.env, Scope.knownNames, UINT64_MAX, UINT64_MAX_SQRT, enc_Uint64, encUint, encBytesN]
   rd_step
-  repeat' (first | rd_loop [integer_squareroot_loop1] | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_loop [integer_squareroot_loop1] | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -638,7 +638,7 @@ theorem process_effective_balance_updates_run (gfp : Footprint) (h : Heap) (r0 :
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_process_effective_balance_updates, process_effective_balance_updates, Scope.env, Scope.knownNames, EFFECTIVE_BALANCE_INCREMENT, HYSTERESIS_DOWNWARD_MULTIPLIER, HYSTERESIS_QUOTIENT, HYSTERESIS_UPWARD_MULTIPLIER, *]
   rd_step
-  repeat' (first | rd_loop [process_effective_balance_updates_loop1] | rd_call [get_max_effective_balance_run] | (rd_frame_objs; try rd_step) | (rd_fieldidx; try rd_step) | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_loop [process_effective_balance_updates_loop1] | rd_call [get_max_effective_balance_run] | (rd_frame_objs; try rd_step) | (rd_fieldidx; try rd_step) | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_frame_facts); (try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -673,7 +673,7 @@ theorem can_builder_cover_bid_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : 
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_can_builder_cover_bid, can_builder_cover_bid, Scope.env, Scope.knownNames, MIN_DEPOSIT_AMOUNT, *]
   rd_step
-  repeat' (first | rd_call [get_pending_balance_to_withdraw_for_builder_runF] | (rd_frame_objs; try rd_step) | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [get_pending_balance_to_withdraw_for_builder_runF] | (rd_frame_objs; try rd_step) | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_frame_facts); (try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -708,7 +708,7 @@ theorem get_committee_count_per_slot_run (gfp : Footprint) (h : Heap) (r0 : Nat)
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_committee_count_per_slot, get_committee_count_per_slot, Scope.env, Scope.knownNames, MAX_COMMITTEES_PER_SLOT, SLOTS_PER_EPOCH, TARGET_COMMITTEE_SIZE, enc_Uint64, encUint, encBytesN, *]
   rd_step
-  repeat' (first | rd_call [get_active_validator_indices_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [get_active_validator_indices_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_frame_facts); (try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -743,7 +743,7 @@ theorem get_total_active_balance_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_total_active_balance, get_total_active_balance, Scope.env, Scope.knownNames, enc_Gwei, encUint, encBytesN, *]
   rd_step
-  repeat' (first | rd_call [get_current_epoch_run, get_active_validator_indices_runF, get_total_balance_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_set; try rd_step) | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [get_current_epoch_run, get_active_validator_indices_runF, get_total_balance_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_set; try rd_step) | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_frame_facts); (try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -778,7 +778,7 @@ theorem get_activation_churn_limit_run (gfp : Footprint) (h : Heap) (r0 : Nat) (
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_activation_churn_limit, get_activation_churn_limit, Scope.env, Scope.knownNames, EFFECTIVE_BALANCE_INCREMENT, Cfg.CHURN_LIMIT_QUOTIENT_GLOAS, Cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS, Cfg.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA, Cfg.default, enc_Gwei, encUint, encBytesN, *]
   rd_step
-  repeat' (first | rd_call [get_total_active_balance_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [get_total_active_balance_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_frame_facts); (try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -813,7 +813,7 @@ theorem get_builder_payment_quorum_threshold_run (gfp : Footprint) (h : Heap) (r
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_builder_payment_quorum_threshold, get_builder_payment_quorum_threshold, Scope.env, Scope.knownNames, BUILDER_PAYMENT_THRESHOLD_DENOMINATOR, BUILDER_PAYMENT_THRESHOLD_NUMERATOR, SLOTS_PER_EPOCH, enc_Gwei, encUint, encBytesN, *]
   rd_step
-  repeat' (first | rd_call [get_total_active_balance_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [get_total_active_balance_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_frame_facts); (try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -848,7 +848,7 @@ theorem get_consolidation_churn_limit_run (gfp : Footprint) (h : Heap) (r0 : Nat
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_consolidation_churn_limit, get_consolidation_churn_limit, Scope.env, Scope.knownNames, EFFECTIVE_BALANCE_INCREMENT, Cfg.CONSOLIDATION_CHURN_LIMIT_QUOTIENT, Cfg.default, enc_Gwei, encUint, encBytesN, *]
   rd_step
-  repeat' (first | rd_call [get_total_active_balance_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [get_total_active_balance_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_frame_facts); (try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
@@ -883,7 +883,7 @@ theorem get_exit_churn_limit_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : B
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_get_exit_churn_limit, get_exit_churn_limit, Scope.env, Scope.knownNames, EFFECTIVE_BALANCE_INCREMENT, Cfg.CHURN_LIMIT_QUOTIENT_GLOAS, Cfg.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA, Cfg.default, enc_Gwei, encUint, encBytesN, *]
   rd_step
-  repeat' (first | rd_call [get_total_active_balance_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [get_total_active_balance_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_frame_facts); (try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
