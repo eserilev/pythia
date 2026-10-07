@@ -264,7 +264,25 @@ def param(m, i, pn, pt, sub=None, isub=False):
         return "(%s : List UInt8)" % v, "(.leaf (.bytes 0 %s))" % v, v
     if pt in m.reps:
         return "(%s : %s)" % (v, pt), "(.cont %d (kids_%s %s))" % (m.cid[pt], pt, v), v
+    # A sequence: the caller passes a Python list.
+    mr = re.fullmatch(r"\(?List (\w+)\)?", pt)
+    if mr and elem_ssz(m, mr.group(1)):
+        inner = rep_of(m, elem_ssz(m, mr.group(1)), mr.group(1), "z")
+        return "(%s : List %s)" % (v, mr.group(1)), "(.list .pyList .any none (%s.map fun z => %s))" % (v, inner), v
     raise Unsupported("param type " + pt)
+
+
+def elem_ssz(m, rt):
+    """The SSZ type of an item of readable class `rt` in a Python list, or None."""
+    if rt in m.reps:
+        return ".container %d" % m.cid[rt]
+    if rt in m.uint and m.uint_ty(rt):
+        return ".uint %s" % m.uint_ty(rt)
+    if rt in m.bytes and m.bytes_id(rt) is not None:
+        return ".bytes %d %d" % (m.bytes_id(rt), m.bytes[rt])
+    if rt == "Boolean":
+        return ".boolean"
+    return None
 
 
 def result(m, rt, sub=None):
@@ -1028,6 +1046,11 @@ def hok_binder(m, pn, pt):
         return "(hok_%s : a_%s < 2 ^ %d)" % (pn, pn, m.uint[pt])
     if pt in m.bytes:
         return "(hok_%s : a_%s.length = %d)" % (pn, pn, m.bytes[pt])
+    mr = re.fullmatch(r"\(?List (\w+)\)?", pt)
+    if mr and elem_ssz(m, mr.group(1)):
+        f = ok_fact(m, elem_ssz(m, mr.group(1)), mr.group(1), "y")
+        if f:
+            return "(hok_%s : ∀ y ∈ a_%s, %s)" % (pn, pn, f)
     return None
 
 
@@ -1057,7 +1080,7 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
         if hb:
             bs.append(hb)
             xs.append("hok_" + pn)
-            if pt in m.reps:
+            if "ok_" in hb.split(":", 1)[1]:
                 hoks.append("hok_" + pn)
     w = writers(m).get(name)
     if w:
@@ -1132,7 +1155,7 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
            (comp_theorems(m, name, params, bs, roots, rds, xs, cps) + "\n" if cps else "") + thm + "\n" + call)
     if not sub:
         out += "\n" + wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS)
-    out = re.sub(r"^(@\[l4_simp\] )?theorem ", lambda mm: "set_option maxHeartbeats 1000000 in\n" + mm.group(0), out,
+    out = re.sub(r"^(@\[l4_simp\] )?theorem ", lambda mm: "set_option maxHeartbeats %s in\n" % os.environ.get("L4_HB", "1000000") + mm.group(0), out,
                  flags=re.M)
     return out.replace("all_goals l4_close", "all_goals " + CLOSE), D
 
