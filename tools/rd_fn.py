@@ -1405,6 +1405,10 @@ class Fn:
                         self.aliasing = False
                     if p is not None:
                         self.aliases[x] = (p, self.ty(v))
+                        # Python reads the place here: an index or a key that fails raises at
+                        # this line, before the statements after it. Later uses read the path.
+                        if p[0] == "p" and any(k in ("i", "d") for k, _ in p[2]):
+                            self.line(f"let _ := {self.rd(p, self.ty(v))}")
                         return
                 vt = self.ty(v)
                 cur = self.vars.get(x)
@@ -1514,7 +1518,7 @@ class Fn:
                 for x, t in self.hoisted.items():
                     self.vars.setdefault(x, t)
                     self.declared.add(x)
-                for x in set(al_then) | set(al_else):
+                for x in sorted(set(al_then) | set(al_else)):
                     a, b = al_then.get(x), al_else.get(x)
                     if a is not None and b is not None:
                         if a == b:

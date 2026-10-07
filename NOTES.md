@@ -952,3 +952,68 @@ Status at 14:00:
 - Plan: loop induction in the generator, then tuples, then keyword constructors.
 - Tactic: 56, with the `set(list)` commit waiting on its EF readable check. The `hash_tree_root`
   oracle and the shared primitives are done on their branches and wait for merge.
+
+### Day three (2026-10-06 evening to 2026-10-07)
+
+Counts. Tactic: 57 → 58 → 62 → 64 → 65 → 66 → 67 → 69 → 70 → 71. Layer 4: 37 → 43 → 44 → 46 → 48
+→ 49 → 52 → 53 → 54 → 56 → 57. The number that matters is the union: a function counts if either
+road proves it. For most of the day layer 4 proved nothing the tactic lacked. Its first new ones
+were `compute_signing_root` and `update_next_withdrawal_index`, then the two deposit-signature
+checks. The union is about 73 of 161. Rule since then: layer 4 prefers functions the tactic lacks.
+
+What we trust, sharpened:
+
+- sha256 joined `hash_tree_root` as an oracle on both sides, with one more fact: every digest is
+  32 bytes.
+- The plumbing cost is not hashing. The interpreter hands the oracle a heap value, the readable Lean
+  a plain value. A generated "same content" lemma for all 71 SSZ classes connects the two. The
+  first version took 20 minutes on `BeaconState`. Rewritten as one nested term, it takes 15 s.
+- BLS got the same treatment: `OracleBls`, with a lemma that the runner's BLS satisfies it.
+- `uint_to_bytes` became a trusted primitive, a one-line spec wrapper around `ssz_serialize`.
+- `==` on containers and hashing assume `Shaped`: every container has its class's field count. The
+  readable decoders do not check the count. Cleanup later: make them check it and drop the
+  assumption.
+
+A flaw in our own contract. `NoNewPaths` said that no old object may gain a path, whatever its
+class. The spec appends existing objects to lists:
+`state.eth1_data_votes.append(body.eth1_data)`, and two more like it. Python shares the object, so
+it gains a path, and these functions were unprovable on both roads, though safe. SPEC 9.4 had
+always meant "no object that a function writes may gain a path". The fix scopes the rule to
+footprint paths. A check of all 162 footprints showed that no function writes into those shared
+classes. So the spec has no sharing hazard. Our rule was just too strict.
+
+A second translator bug that only the proofs found. Python reads
+`proposer = state.validators[i]` first, then calls `get_domain`. The translator resolved the alias
+lazily and read the validator only at the `return`. If the index is out of range and a callee also
+fails, the error class differs from Python. 25 places in 24 functions had this. No EF vector hits
+the case. A new hand-built test now does, and it fails on the old code.
+
+Housekeeping that turned out to matter:
+
+- The translator was not deterministic: Python set iteration order changed the output between runs.
+  Sorted now; six hash seeds give byte-identical files.
+- Hand-written proofs refer to functions by raw numeric ids, so the generated scope file could not
+  be regenerated without breaking them. Being replaced by stable symbolic handles.
+- A one-command regression script, `tools/regress.sh`.
+
+Agents and the machine:
+
+- The tactic agent stopped receiving messages. It asked the same questions six times, and it never
+  saw merges from hours before. It was restarted as a new agent, with every decision and the state
+  of master in its first prompt. Nothing committed was lost.
+- Agents lost hours waiting for "done" notices that never came. One cause: a `pgrep` wait loop whose
+  pattern matched its own command line, so it never ended. Rule now: poll the process and its exit
+  code yourself.
+- `/home` hit 100% full once: something wrote about 300 GB and deleted it within minutes. The cause
+  is unknown. Every background command now caps its output.
+- Memory warnings came back several times. The real cause was a full 4 GB swap, plus
+  `rust-analyzer` from other Claude sessions (about 10 GB) and Firefox tabs (about 19 GB), not the
+  proofs. The Lean jobs stay under hard caps.
+
+Lessons:
+
+- Count the union, not each road. Two roads that prove the same functions are one road.
+- A contract can be wrong in the strict direction too. Too strict is as blocking as too weak.
+- Order of evaluation is part of the semantics. Lazy translation changed which error came out.
+- Generated output must be deterministic, or "regenerate and diff" is not a check.
+- An agent that does not read its inbox is worse than no agent. Restart it early.

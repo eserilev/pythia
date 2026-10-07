@@ -270,7 +270,7 @@ theorem peb_step (h0 : Heap) (Ly : PebLayout)
     getAttr_container _ hroot (fi_balances sha), hfb, getItem_list_int hoba]
   rw [peb_body_eq]
   simp only [hv]
-  have c11' : callValue (env sha) (k + 18) (.glob 11) [.ref r] [] h =
+  have c11' : callValue (env sha) (k + 18) (.glob Id.get_max_effective_balance) [.ref r] [] h =
       .ok (.uint gweiTy (Readable.get_max_effective_balance v).val, h) := c11
   have hkeep : ∀ a1 a2 a3 a4 a5 : Value, ReadsOk ((((((((L.set Id.index (.int i)).set
       Id.validator (.ref r)).set Id.balance a1).set Id.HYSTERESIS_INCREMENT a2).set

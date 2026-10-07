@@ -34,11 +34,12 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 
 HEADER = """import SpecLean.Validation.Gen.Local
+import SpecLean.Validation.SigningRoots
 """
 
 # The calls tier: the first round uses the leaves, a later round also the calls proved so far.
 CALLS_HEADER = """import SpecLean.Validation.Gen.Leaves
-import SpecLean.Validation.HtrForkData
+import SpecLean.Validation.SigningRoots
 import SpecLean.Validation.CompTactic
 """
 
@@ -47,7 +48,7 @@ CALLS_NEXT_HEADER = """import SpecLean.Validation.Gen.Calls
 
 # The loops tier: the first round uses the calls, a later round also the loops proved so far.
 LOOPS_HEADER = """import SpecLean.Validation.Gen.Calls
-import SpecLean.Validation.HtrForkData
+import SpecLean.Validation.SigningRoots
 import SpecLean.Validation.LoopTactic
 import SpecLean.Validation.CompTactic
 """
@@ -60,8 +61,20 @@ LOOPS_OPEN = ("\nopen SpecLean.Validation (LoopEnd IterK for_rule for_live_rule 
 
 # The hand-proved theorems of `hash_tree_root` callees (SPEC 8), and their oracle hypothesis.
 HTR_FILE = "SpecLean/Validation/HtrForkData.lean"
-HTR_OPEN = ("\nopen SpecLean.Validation.HtrBridge (OracleHtr compute_fork_data_root_run "
-            "compute_signing_root_run)\n")
+# The classes that the spec passes to `compute_signing_root`: a theorem for each
+# (`SigningRoots.lean`), with the content condition from the class's codec.
+SIGNED = ["AttestationData", "BeaconBlock", "BeaconBlockHeader", "BLSToExecutionChange",
+          "DepositMessage", "Epoch", "ExecutionPayloadBid", "PayloadAttestationData", "Root",
+          "VoluntaryExit"]
+HTR_OPEN = ("\nopen SpecLean.Validation.HtrBridge (OracleHtr Shaped compute_fork_data_root_run "
+            "compute_signing_root_run " + " ".join(f"signing_root_{x}" for x in SIGNED) + ")\n")
+
+# `==` on two decoded containers (`SigningRoots.lean`): the lemma and its depth below the
+# interpreter's `depthBound` (64).
+EQ_LEMMAS = {"AttestationData": ("deepEq_AttestationData", 61),
+             "Checkpoint": ("deepEq_Checkpoint", 62), "Eth1Data": ("deepEq_Eth1Data", 62)}
+HTR_OPEN += ("open SpecLean.Validation.HtrBridge (" + " ".join(v[0] for v in EQ_LEMMAS.values()) +
+             ")\n")
 
 LOOPS_NEXT_HEADER = """import SpecLean.Validation.Gen.Loops
 """
@@ -107,6 +120,18 @@ FOOTER = "\nend SpecLean.Validation.Gen\n"
 
 class Unsupported(Exception):
     pass
+
+
+
+def lemma_names(callees):
+    """The theorems that `rd_call` tries for the callees."""
+    out = []
+    for c in callees:
+        if c == "compute_signing_root":
+            out += [f"signing_root_{x}" for x in SIGNED]
+        else:
+            out.append(c if c.endswith("_runF") else c + "_run")
+    return out
 
 
 def classify(fns):
@@ -220,6 +245,10 @@ class Gen:
             w = re.findall(r"\d+", ut)[-1]
             return (f"ListRes h h' v ({rv}.map fun x => Value.uint {ut} x.val) ∧ "
                     f"∀ x ∈ {rv}, x.val < 2 ^ {w}", [])
+        if k == "container":
+            # A new container object (SPEC 9.2): fresh, and it decodes to the readable value.
+            c = self.n.cls(t[1])
+            return (f"∃ a, v = .ref a ∧ h.next ≤ a ∧ dec_{c} h' (.ref a) = some {rv}", [])
         raise Unsupported(f"return type {k}")
 
     def fpat(self, c, steps):
@@ -431,7 +460,7 @@ attribute [local irreducible] {inv} IterK
             consts = [T.ident(c) for c in sorted(gl) if c in self.b.consts]
             defs_ = ", ".join(["Scope.env", "Scope.knownNames", "assignTarget", "enumItem",
                                "execBlock"] + consts)
-            call = (f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}] | " if callees else "")
+            call = (f"rd_call [{', '.join(lemma_names(callees))}] | " if callees else "")
             loopc = f"{fname}.loop{k}"
             lam = ("fun i s => " + loopc + " " + " ".join([capa] if capa else []) + f" {nvar} i " +
                    " ".join(proj("s", i) for i in range(nc)))
@@ -503,7 +532,7 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
                 if j >= len(call.args):
                     raise Unsupported("bounded callee: argument")
                 mine.append(self.len_bound(name, call.args[j], field))
-            for term in set(mine):
+            for term in dict.fromkeys(mine):
                 out += [term] * (mine.count(term) - out.count(term))
         return out
 
@@ -617,14 +646,24 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
         text, names, bounds = "", [], []
         for k, ((p, s), (binders, rty)) in enumerate(zip(loops, defs), 1):
             for x in ast.walk(s):
-                if isinstance(x, (ast.Return, ast.Break, ast.Continue)):
+                if isinstance(x, (ast.Break, ast.Continue)):
                     raise Unsupported("loop exit")
+            # A `return` in the loop: the readable loop gives `some r` and stops.
+            early = any(isinstance(x, ast.Return) and x.value is not None for x in ast.walk(s))
+            if any(isinstance(x, ast.Return) and x.value is None for x in ast.walk(s)):
+                raise Unsupported("loop exit")
             loop = f"{fname}.loop{k}"
+            enum = False
             if isinstance(s, ast.For):
                 it = s.iter
+                if isinstance(it, ast.Call) and isinstance(it.func, ast.Name) and \
+                        it.func.id == "enumerate" and len(it.args) == 1:
+                    enum, it = True, it.args[0]
+                tgt_ok = (isinstance(s.target, ast.Name) if not enum else
+                          isinstance(s.target, ast.Tuple) and len(s.target.elts) == 2 and
+                          all(isinstance(e, ast.Name) for e in s.target.elts))
                 if not (jj is not None and isinstance(it, ast.Attribute) and
-                        isinstance(it.value, ast.Name) and it.value.id == pnames[jj] and
-                        isinstance(s.target, ast.Name)):
+                        isinstance(it.value, ast.Name) and it.value.id == pnames[jj] and tgt_ok):
                     raise Unsupported("loop source")
                 fields = [f for f, _ in sig.params[jj][1][1]._FIELD_TYPES]
                 ni = next(i for i, (b, ty) in enumerate(binders) if b == "i_")
@@ -632,7 +671,7 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
             else:
                 cap = [(b, ty) for b, ty in binders if not b.endswith("_in")]
                 carry = binders[len(cap):]
-            if any(b not in pnames for b, _ in cap) or not carry:
+            if any(b not in pnames for b, _ in cap) or (not carry and not early):
                 raise Unsupported("loop: captured local")
             carried = []
             for b, ty in carry:
@@ -649,21 +688,44 @@ theorem {name}_loop{k} (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vrefs : Lis
             relb = " ".join(f"(r{j} : Nat)" if j == jj else f"(x{j} : Nat)" for j in capj)
             rela = " ".join(f"r{j}" if j == jj else f"x{j}" for j in capj)
             n = len(carried)
-            res = [rd_fn.Fn.proj(None, "acc", i, n) if n > 1 else "acc" for i in range(n)]
+            # With an early `return`, the carried values are the second part of the result.
+            base = "(acc).2" if early else "acc"
+            res = [rd_fn.Fn.proj(None, base, i, n) if n > 1 else base for i in range(n)]
             accs = [f"acc{i}" for i in range(n)]
+
+            # The globals that the function reads (functions and constants): no local has their
+            # name, so a lookup in the loop or after it goes to the globals.
+            fn_locals = set(pnames) | {x.id for x in ast.walk(tree)
+                                       if isinstance(x, ast.Name) and isinstance(x.ctx, ast.Store)}
+            if not hasattr(self, "scope_ids"):
+                self.scope_ids = set(re.findall(r"^abbrev «([^»]+)» : Name :=",
+                                                (ROOT / "SpecLean/Gen/Scope.lean").read_text(),
+                                                re.M))
+            gl = sorted({x.id for x in ast.walk(tree) if isinstance(x, ast.Name) and
+                         isinstance(x.ctx, ast.Load) and x.id not in fn_locals and
+                         x.id in self.scope_ids})
 
             def facts(L, vals):
                 cf = [f"{L} Scope.Id.«{x}» = some (.uint {ut} ({a}).val)"
                       for (x, _, ut, _), a in zip(carried, vals)]
                 cf += [f"({a}).val < 2 ^ {w}" for (_, _, _, w), a in zip(carried, vals)]
                 pf = [f"{L} Scope.Id.«{pnames[j]}» = some {args[j][1]}" for j in capj]
-                return pf + cf
+                gf = [f"{L} Scope.Id.«{x}» = none" for x in gl]
+                return pf + cf + gf
             rty_rel = rty
+            normal = " ∧ ".join(["h' = h"] + (["(acc).1 = none"] if early else []) +
+                                facts("L'", res))
+            if early:
+                e_ret, _ = self.expect(sig.ret, "r")
+                ret_case = (f"\n  | .ok (.ret v, _, h'), .ok acc => h' = h ∧ ∃ r, (acc).1 = some r ∧ "
+                            f"({e_ret})")
+            else:
+                ret_case = ""
             text += f"""
 /-- An iteration of the loop {k} of `{name}`: the heap stays, and the locals hold the readable
 values. -/
 def {rel} (h : Heap) {relb} : Res (Outcome × Locals × Heap) → SpecM {rty_rel} → Prop
-  | .ok (.normal, L', h'), .ok acc => h' = h ∧ {" ∧ ".join(facts("L'", res))}
+  | .ok (.normal, L', h'), .ok acc => {normal}{ret_case}
   | .error e, .error f => e ≠ .outOfFuel ∧ e.fail = f
   | _, _ => False
 
@@ -687,11 +749,11 @@ attribute [local irreducible] {rel}
                         f"{ind}simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, "
                         f"stop_call_post, follow, Scope.env, Scope.knownNames, *]")
             rargs = " ".join(args[j][2] for j in capj)
-            call = (f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}] | " if callees else "")
+            call = (f"rd_call [{', '.join(lemma_names(callees))}] | " if callees else "")
             steps = f"""rd_step
       repeat' (first | rd_ih | {call}(rd_items; try rd_step) |
         (rd_split <;> (try rd_step) <;> (try simp only [{rel}] at ⊢)))
-      all_goals (first | rd_finish | (simp only [{rel}]; simp [*]) | omega)"""
+      all_goals (first | rd_finish | (simp only [{rel}]; simp [*] <;> rd_finish) | omega)"""
             head = f"""
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 8192 in
@@ -701,7 +763,7 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
                 bounds.append(ln)
                 text += head + f""" (t : Target) (it : Expr) (body : List Stmt)
     (hfor : Scope.fn_{name}.body[{p}]? = some (.forStmt l t it body)) (src : IterSrc)
-    (hsrc : ∀ i, iterItem h src i = .ok (follow h (.ref r{jj}) [{fields.index(it.attr)}, i])) :
+    (hsrc : ∀ i, iterItem h src i = .ok {"((follow h (.ref r" + str(jj) + ") [" + str(fields.index(it.attr)) + ", i]).map (enumItem i))" if enum else "(follow h (.ref r" + str(jj) + ") [" + str(fields.index(it.attr)) + ", i])"}) :
     ∀ m i {accb} (L : Locals), {" → ".join(facts("L", accs))} → {ln} - i ≤ m →
       {rel} h {rela} (execFor (Scope.env sha) (m + {fuel}) L h t src i body)
         ({loop} {rargs} {ln} i {" ".join(accs)}) := by
@@ -714,7 +776,7 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
     intro i {" ".join(accs)} L {" ".join(hl)} hn
     rw [execFor, {loop}, hsrc, dif_neg (show ¬ i < {ln} by omega)]
     {dec("    ")}
-    simp (disch := omega) only [List.getElem?_eq_none]
+    try simp (disch := omega) only [List.getElem?_eq_none, Option.map_none]
     all_goals (simp only [{rel}]; simp [*])
   | succ m ih =>
     replace ih := Hide.mk ih
@@ -795,13 +857,46 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
                             sig.mutated, sig.generic)
         else:
             args = [self.arg(j, t) for j, (_, t) in enumerate(sig.params)]
-        if ho:
-            # A callee that hashes: the byte vector arguments have their lengths.
+        # A direct call of `sha256`: the oracle is the readable one, and its digests are 32 bytes.
+        sha = any(isinstance(x, ast.Name) and x.id == "sha256" for x in ast.walk(tree))
+        ho = ho or sha
+        if ho or sig.ret[0] == "container":
+            # A callee that hashes, or a new container that holds them: the byte vector
+            # arguments have their lengths.
             for j, (_, t) in enumerate(sig.params):
                 if t[0] == "bytesN" and args[j][0]:
                     a = args[j]
                     args[j] = (f"{a[0]} (hl{j} : x{j}.length = {t[1].LENGTH})", a[1], a[2],
                                f"{a[3]} hl{j}")
+        # A call of `compute_signing_root`, here or in a callee: each container argument has the
+        # fields of its class (`Shaped`), so its root is the root of its decoded value.
+        base = [re.sub(r"_runF$", "", c) for c in callees]
+        base = [re.sub(r"_p(?:[A-Z]\w*|o\d+)$", "", c) for c in base]
+        shaped = any(isinstance(x, ast.Name) and x.id == "compute_signing_root"
+                     for x in ast.walk(tree)) or any(self.shneed.get(c) for c in base)
+        # `a == b` or `a != b` on two container arguments of a class with an equality lemma.
+        pnames0 = [pn for pn, _ in sig.params]
+        eqs = []
+        for x in ast.walk(tree):
+            if not (isinstance(x, ast.Compare) and len(x.ops) == 1 and
+                    isinstance(x.ops[0], (ast.Eq, ast.NotEq))):
+                continue
+            l, r = x.left, x.comparators[0]
+            if not (isinstance(l, ast.Name) and isinstance(r, ast.Name) and
+                    l.id in pnames0 and r.id in pnames0):
+                continue
+            j, k = pnames0.index(l.id), pnames0.index(r.id)
+            tj, tk = sig.params[j][1], sig.params[k][1]
+            if tj[0] == "container" and tk == tj and self.n.cls(tj[1]) in EQ_LEMMAS:
+                if (j, k) not in eqs:
+                    eqs.append((j, k))
+        shaped = shaped or bool(eqs)
+        if shaped:
+            for j, (_, t) in enumerate(sig.params):
+                if t[0] == "container" and args[j][0]:
+                    a = args[j]
+                    args[j] = (f"{a[0]} (hs{j} : Shaped h (.ref r{j}))", a[1], a[2],
+                               f"{a[3]} hs{j}")
         if poly is not None:
             t = sig.params[poly][1]
             if t[0] != "uint" or sig.ret[0] != "uint" or sig.mutated:
@@ -834,7 +929,8 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             # A callee that makes a new object: the heap grows, and `ResultMatches` says how.
             # A comprehension makes a new list too, also when `sum` reads it.
             comp_alloc = any(isinstance(x, ast.comprehension) for x in ast.walk(tree))
-            exp = e if ret[0] == "list" or alloc or comp_alloc else f"{e} ∧ h' = h"
+            exp = (e if ret[0] in ("list", "container") or alloc or comp_alloc
+                   else f"{e} ∧ h' = h")
         else:
             k0 = 1 if ret != T.NONE else 0
             e, encs = self.expect(ret, rd_fn.Fn.proj(None, "r", 0, len(outs)) if k0 else "r")
@@ -880,6 +976,14 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             elif t[0] in ("list", "set"):
                 hys.append(f"hy{j}")
         inv = ""
+        for j, k in eqs:
+            lem, d = EQ_LEMMAS[self.n.cls(sig.params[j][1][1])]
+            # The result stays a variable: the split of the decodes would make `==` of two
+            # structure literals, which `whnf` evaluates field by field.
+            inv += (f"  have heq{j}_{k} : deepEq 64 h (.ref r{j}) (.ref r{k}) = "
+                    f".ok (x{j} == x{k}) := {lem} {d} hy{j} hy{k} hs{j} hs{k}\n"
+                    f"  simp only [{T.ident(name)}, bne]\n"
+                    f"  generalize (x{j} == x{k}) = b{j}_{k} at heq{j}_{k} ⊢\n")
         if hys and (callees or bounded):
             # The callees need the decode facts of the arguments: keep a copy of each.
             inv += "".join(f"  have {y}c := {y}\n" for y in hys)
@@ -895,7 +999,7 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
         if sig.mutated and lnames:
             # The loop rule chains the contract of the steps: the footprint is part of `gfp`.
             hw += f" (hsub : ∀ p ∈ {fp}, p ∈ gfp)"
-        wfb = (cbounds or wf) and not sig.mutated
+        wfb = (cbounds or wf or ret[0] == "container") and not sig.mutated
         if wfb:
             # The comprehension rule starts from `CContract.refl`; a callee may need the same.
             hw += f" (hwf : HeapWF h) (haw : ArgsWF h {vs})"
@@ -910,7 +1014,7 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
                       isinstance(n.value, ast.Name) and n.value.id == "config"} |
                      {c for c in free if c in self.b.config_vars})
         defs = ([f"Scope.fn_{name}", T.ident(name), "Scope.env", "Scope.knownNames"] + consts + [f"Cfg.{c}" for c in cfg] +
-                (["Cfg.default"] if cfg else []) + encs)
+                (["Cfg.default"] if cfg else []) + encs + (["ho.sha256_len"] if sha else []))
         fname = T.ident(name)
         # A class-polymorphic argument: one proof for each of the two kinds of class.
         split = (f"  rcases t{poly} with _ | ⟨_, _⟩ <;> simp only [UintTy.bits] at ht{poly} <;> "
@@ -924,11 +1028,11 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
                  (" hwf haw" if wfb else "") + (" ho" if ho else "") +
                  "".join(f" hgfp{f}" for f in sl))
         alts = ([f"rd_loop [{', '.join(lnames)}]"] if lnames else []) + (
-            [f"rd_call [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"] if callees else [])
+            [f"rd_call [{', '.join(lemma_names(callees))}]"] if callees else [])
         if callees:
             # An object read after a call: the call kept it, so the fact of the entry heap holds.
             alts.append("(rd_frame_objs; try rd_step)")
-        if sig.mutated and callees:
+        if callees and (sig.mutated or ret[0] == "container"):
             # A field read that a split left open: the field index and the item from the facts.
             alts.append("(rd_fieldidx; try rd_step)")
         if alloc:
@@ -938,9 +1042,11 @@ theorem {name}_loop{k} (h : Heap) {bnd} (l : Nat)"""
             alts.append("(rd_set; try rd_step)")
         sums = any(isinstance(x, ast.Name) and x.id == "sum" for x in ast.walk(tree))
         # A comprehension before the splits: a split of later code would copy its proof.
-        comp = ([f"rd_comp {kf} [{', '.join((c if c.endswith('_runF') else c + '_run') for c in callees)}]"]
+        comp = ([f"rd_comp {kf} [{', '.join(lemma_names(callees))}]"]
                 if cbounds else [])
-        step = "(first | " + " | ".join(alts + comp + (["rd_sum"] if sums else []) +
+        # An item read from a decoded list: its decode facts before a split of the read.
+        items = ["(rd_items; try rd_step)"]
+        step = "(first | " + " | ".join(alts + comp + (["rd_sum"] if sums else []) + items +
                                          ["(rd_split <;> (try rd_step))"]) + ")"
         runF = ""
         if bounded:
@@ -968,7 +1074,7 @@ theorem {name_run} (gfp : Footprint) (h : Heap) {binders}{hw} (k : Nat) :
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, {", ".join(defs + (["compLoop", "iterSource", "toSeq", "iterBase"] if cbounds else []))}{", *" if hys else ""}]
   rd_step
   repeat' {step}
-  all_goals (first | rd_finish | {"rd_list_end | rd_comp_err | " if cbounds else ""}({"(try rd_frame_facts); " if callees else ""}(try rd_heap); rd_frame; done)))
+  all_goals (first | rd_finish | {"(simp [ho.sha256, ho.sha256_len]; done) | " if sha else ""}{"rd_list_end | rd_comp_err | " if cbounds else ""}({"(try rd_frame_facts); " if callees else ""}(try rd_heap); rd_frame; done)))
 
 set_option maxRecDepth 8192 in
 theorem {name_valid} (gfp : Footprint) (h : Heap) {binders}{hw} :
@@ -1029,8 +1135,8 @@ def check(name, text, workdir, header):
         # Each check runs in its own memory cap: a proof term that blows up must fail, not
         # take the machine down.
         r = subprocess.run(["systemd-run", "--user", "--scope", "-q", "-p", f"MemoryMax={MEM}",
-                            "-p", "MemorySwapMax=0", "lake", "env", "lean", str(f)], cwd=ROOT,
-                           capture_output=True, text=True, timeout=600)
+                            "-p", "MemorySwapMax=0", "lake", "env", "timeout", "600", "lean", str(f)],
+                           cwd=ROOT, capture_output=True, text=True, timeout=660)
         out = r.stdout + r.stderr
         ok = r.returncode == 0 and "error" not in out and "sorry" not in out
     except subprocess.TimeoutExpired:
@@ -1082,8 +1188,8 @@ def main():
     if args.only:
         tier = [n for n in tier if n in args.only.split(",")]
     g = Gen(b, em)
-    g.cls, g.slice_memo = cls, {}
-    g.seq_elem = args.tier == "loops" or bool(args.emit)
+    g.cls, g.slice_memo, g.shneed = cls, {}, {}
+    g.seq_elem = True
     g.readable = (ROOT / "SpecLean/Gen/Readable.lean").read_text()
     from footprint import footprint
     ssz_names = {x for x in dir(spec) if isinstance(getattr(spec, x), type)
@@ -1114,8 +1220,7 @@ def main():
     global PRELUDE
     if args.tier == "loops" or args.emit:
         PRELUDE += LOOPS_OPEN
-    if args.tier != "leaves" or args.emit:
-        PRELUDE += HTR_OPEN
+    PRELUDE += HTR_OPEN
     decs_all = [f"dec_{names.cls(c)}" for c in b.order
                 if T.is_uint_cls(c) or T.is_bytesn_cls(c) or T.is_container_cls(c)]
     PRELUDE += "\nattribute [local rd_dec] " + " ".join(decs_all) + "\n"
@@ -1142,6 +1247,24 @@ def main():
                     hq[m[1]] = "h' = h)" in m[2] or "(hw : WTree" in m[2]
         cs = cls[n]["calls"]
         lemmas = [k for c in cs for k in fl if k == c or k.startswith(c + "_p")]
+        # A function with variants: a caller sees the largest fuel of them.
+        for k in list(fl):
+            m = re.match(r"(\w+?)_p(?:[A-Z]\w*|o\d+)$", k)
+            if m and m[1] in cls:
+                fl[m[1]] = max(fl.get(m[1], 0), fl[k])
+        g.shneed = {}
+        for f in ["Leaves", "Calls", "Loops"]:
+            gp = gen_dir / f"{f}.lean"
+            if gp.exists():
+                for m in re.finditer(r"^theorem (\w+)_run \(gfp(.*?):= by", gp.read_text(),
+                                     re.M | re.S):
+                    k = re.sub(r"_p(?:[A-Z]\w*|o\d+)$", "", m[1])
+                    g.shneed[k] = g.shneed.get(k, False) or ": Shaped h" in m[2]
+        for d, comb in ((wfn, any), (hon, any), (hq, all)):
+            for k, v in list(d.items()):
+                m = re.match(r"(\w+?)_p(?:[A-Z]\w*|o\d+)$", k)
+                if m and m[1] in cls:
+                    d[m[1]] = comb([d.get(m[1], comb([])), v])
         extra = []
         for c in cs:
             if c in bf:
@@ -1154,7 +1277,9 @@ def main():
                          extra=extra, wf=any(wfn.get(c) for c in cs),
                          alloc=any(not hq.get(c, True) for c in cs),
                          ho=any(hon.get(c) for c in cs))
-        Path(args.out).write_text(LOOPS_HEADER + PRELUDE + text + FOOTER)
+        # The callees of every tier: the loops file imports the others.
+        hdr = LOOPS_NEXT_HEADER if (gen_dir / "Loops.lean").exists() else LOOPS_HEADER
+        Path(args.out).write_text(hdr + PRELUDE + text + FOOTER)
         return
     base = {"leaves": "SpecLean.Validation.Gen.Local", "calls": "SpecLean.Validation.Gen.Leaves",
             "loops": "SpecLean.Validation.Gen.Calls"}[args.tier]
@@ -1182,6 +1307,8 @@ def main():
         if gp.exists() and f != "Loops":
             txt = gp.read_text()
             for m in re.finditer(r"^theorem (\w+)_run \(gfp(.*?):= by", txt, re.M | re.S):
+                k = re.sub(r"_p(?:[A-Z]\w*|o\d+)$", "", m[1])
+                g.shneed[k] = g.shneed.get(k, False) or ": Shaped h" in m[2]
                 wfneed[m[1]] = "(hwf : HeapWF h)" in m[2]
                 heq[m[1]] = "h' = h)" in m[2] or "(hw : WTree" in m[2]
                 honeed[m[1]] = "(ho : OracleHtr sha)" in m[2]
@@ -1298,6 +1425,8 @@ def main():
             wfneed[n] = "(hwf : HeapWF h)" in stmt
             heq[n] = "h' = h)" in stmt or "(hw : WTree" in stmt
             honeed[n] = "(ho : OracleHtr sha)" in stmt
+            k = re.sub(r"_p(?:[A-Z]\w*|o\d+)$", "", n)
+            g.shneed[k] = g.shneed.get(k, False) or ": Shaped h" in stmt
         # A generic function: proved when every class instance is.
         for n in tier:
             inst = [k for k in cands if k.startswith(n + "_p") and n not in cands]

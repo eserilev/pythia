@@ -808,6 +808,11 @@ def names : Array String := #[
   "*",
   "copy",
   "get",
+  "bit_length",
+  "difference",
+  "items",
+  "values",
+  "keys",
   "dict"]
 
 namespace Id
@@ -1612,7 +1617,12 @@ abbrev «fulu.BeaconState» : Name := 797
 abbrev «*» : Name := 798
 abbrev «copy» : Name := 799
 abbrev «get» : Name := 800
-abbrev «dict» : Name := 801
+abbrev «bit_length» : Name := 801
+abbrev «difference» : Name := 802
+abbrev «items» : Name := 803
+abbrev «values» : Name := 804
+abbrev «keys» : Name := 805
+abbrev «dict» : Name := 806
 end Id
 
 open SpecLean
@@ -7104,7 +7114,7 @@ def globals : List (Name × Global) := [
   (179, (.const (.uint (.width 64) 10))),
   (187, (.type (.uint (.width 32)))),
   (181, (.type (.uint (.width 8)))),
-  (801, (.builtin .dict)),
+  (806, (.builtin .dict)),
   (194, (.type (.container 194))),
   (196, (.type (.uint (.nominal 196 64)))),
   (197, (.const (.uint (.width 64) 1099511627776))),
@@ -7282,6 +7292,11 @@ def knownNames : KnownNames where
   get  := 800
   bytes32  := 505
   root  := 146
+  bitLength  := 801
+  difference  := 802
+  items  := 803
+  values  := 804
+  keys  := 805
 
 /-- The environment of this build. The oracle gives `sha256`, `hash_tree_root` and BLS. -/
 def env (o : Oracle) : Env :=

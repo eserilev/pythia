@@ -98,7 +98,7 @@ class Emitter:
             for a in tree.args.args:
                 self.add_annotation(a.annotation)
             self.add_annotation(tree.returns)
-            for free in S.free_names(tree):
+            for free in sorted(S.free_names(tree)):
                 obj = getattr(spec, free, None)
                 if free in b.config_vars:
                     b.config[free] = getattr(spec.config, free)

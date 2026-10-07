@@ -47,7 +47,8 @@ state (section 9.4).
 
 ## 3. Pinned inputs
 
-- Spec: version 1.7.0b3, upstream commit `889a389f9`. The spec text is used unchanged. The existing
+- Spec: upstream commit `889a389f9`, which is v1.7.0-beta.2 plus 31 commits (it does not contain
+  beta.3; an earlier draft called it 1.7.0b3, which was wrong). The spec text is used unchanged. The existing
   hand-written model is at v1.7.0-beta.2. Step 6 pins one version for both.
 - SSZ library: `eth-ssz-specs` (`pyproject.toml`, `from ssz.uint import …`). Pyspec no longer uses
   remerkleable. Every value rule in section 6 comes from probes against `eth-ssz-specs`.
@@ -789,8 +790,9 @@ tools/regress.sh --ef CASES_DIR  # also the EF minimal cases, with the sharing c
 It prints one line per check and exits with status 1 when a check fails. `SPECS` names the
 consensus-specs checkout with the pyspec environment (default `../consensus-specs-safe`).
 `CASES_DIR` holds the `.case` files from `tools/ef_cases.py`. Each process runs under an 8 GB
-memory cap, and the EF cases run on 8 parallel runners. The quick checks take a few minutes; the
-EF cases take about 30 minutes.
+memory cap. The EF cases run on 4 parallel runners, and each case stops after 3600 s. Set
+`EF_JOBS` and `EF_TIMEOUT`, or pass `--jobs N` and `--timeout SECONDS`, to change them. The quick
+checks take a few minutes. The EF cases take about one hour, because one case takes about 45 minutes.
 
 ## 12. Risks and open questions
 
@@ -807,6 +809,12 @@ EF cases take about 30 minutes.
 - Fork choice. `store` holds dicts keyed by roots, and `store.blocks` and `store.block_states`
   share objects. The runner also continues after an invalid step. The first version covers the
   state transition only.
+
+- Shape assumption. The readable decoders read container fields by index and ignore extra
+  fields. So theorems that hash or compare containers assume `Shaped h v`: every container that
+  `v` reaches has exactly its class's field count. Layer 4 uses the stronger `ContWF h`, which
+  implies it. Cleanup: make the decoders check the field count, derive `Shaped` from a successful
+  decode, and drop the assumption everywhere at once.
 
 ## 13. Plan
 

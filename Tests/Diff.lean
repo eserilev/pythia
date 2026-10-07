@@ -22,3 +22,6 @@ def main : IO Unit := do
   runIsqrt "isqrt_max_minus_1" 18446744073709551614 false
   runIsqrt "isqrt_max" 18446744073709551615 false
   runIsqrt "isqrt_int_arg" 17 true
+  runPPW "ppw_alias_order" [] [5] [(0, 1, 0)] [(0, 0, 10)]
+  runPPW "ppw_underflow" [(32000000000, 1)] [5] [(0, 1, 0)] [(0, 0, 10)]
+  runPPW "ppw_ok" [(32000000000, 1)] [40000000000] [(0, 1000000000, 0)] []

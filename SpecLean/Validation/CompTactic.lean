@@ -82,37 +82,18 @@ theorem sum_uint {α : Type} [UintC α] (t : UintTy) (ht : t.bits = UintC.bits �
       simp [Except.mapError, bind, Except.bind, h3, SumRel, SpecError.fail]
 
 
+/-- A sum of `int` items: the interpreter's sum is the readable `foldl`. -/
+theorem sum_int_acc (bs : List Int) : ∀ a : Int,
+    (bs.map Value.int).foldlM (binopVal .add) (.int a) = .ok (.int (bs.foldl (· + ·) a)) := by
+  induction bs with
+  | nil => intro a; simp
+  | cons b bs ih => intro a; simp [List.foldlM_cons, intArith, Except.bind_ok', ih]
+
+theorem sum_int (bs : List Int) :
+    (bs.map Value.int).foldlM (binopVal .add) (.int 0) = .ok (.int (bs.foldl (· + ·) 0)) :=
+  sum_int_acc bs 0
+
 end SumRule
-
-/-- A `Sequence` argument: a list object of any kind and limit whose element type is `e`, and
-whose items decode in order. The element type tells the iteration rule which source it is. -/
-def decListE {α : Type} (e : SszTy) (f : Rd.Dec α) : Rd.Dec (List α)
-  | h, .ref a =>
-    match h.objs a with
-    | some (.list _ e' _ xs) => if e' = e then xs.mapM (f h) else none
-    | _ => none
-  | _, _ => none
-
-@[rd_dec] theorem decListE_ref_eq_some {α : Type} (e : SszTy) (f : Rd.Dec α) (h : Heap) (a : Nat)
-    (ys : List α) : decListE e f h (.ref a) = some ys ↔
-      ∃ k l xs, h.objs a = some (.list k e l xs) ∧ xs.mapM (f h) = some ys := by
-  show (match h.objs a with
-    | some (.list _ e' _ xs) => if e' = e then xs.mapM (f h) else none
-    | _ => none) = some ys ↔ _
-  constructor
-  · intro hx
-    cases ho : h.objs a with
-    | none => rw [ho] at hx; cases hx
-    | some o =>
-      rw [ho] at hx
-      cases o with
-      | list k e' l xs =>
-        by_cases he : e' = e
-        · subst he; simp at hx; exact ⟨k, l, xs, rfl, hx⟩
-        · simp [he] at hx
-      | _ => cases hx
-  · rintro ⟨k, l, xs, ho, hm⟩
-    simp [ho, hm]
 
 /-- A Python set of decoded items: the object is a set, and its elements decode in order. -/
 def decSetV {α : Type} (f : Rd.Dec α) : Rd.Dec (List α)
@@ -215,6 +196,11 @@ theorem keep_set {L' L : Locals} {T : List Name} (hL : KeepLocals L' L T) {n : N
   rw [Locals.set_apply, if_neg hne, hL x hx]
 
 /-- The values of a comprehension are the encodings of the readable items. -/
+theorem listRel_enc_eq {β : Type} {enc : β → Value} :
+    ∀ {vs : List Value} {bs : List β}, ListRel (fun v b => v = enc b) vs bs → vs = bs.map enc
+  | _, _, .nil => rfl
+  | _, _, .cons rfl hr => by rw [listRel_enc_eq hr]; rfl
+
 theorem listRel_enc {β : Type} {enc : β → Value} {P : β → Prop} :
     ∀ {vs : List Value} {bs : List β}, ListRel (fun v b => v = enc b ∧ P b) vs bs →
       vs = bs.map enc ∧ ∀ b ∈ bs, P b
@@ -433,10 +419,14 @@ macro "rd_item_end" : tactic => `(tactic| first
       | with_reducible refine SpecLean.Validation.itemRel_none ?_ ?_
      all_goals first
        | exact SpecLean.Validation.CContract.refl _ _ _ _ ‹_› ‹_›
-       | (refine ⟨rfl, ?_⟩
+       | (refine And.intro rfl ?_
           repeat (refine SpecLean.Validation.keep_set ?_ (by simp) _)
           assumption)
-       | (refine ⟨?_, ?_⟩ <;> first | rfl | (simp [rd_simp]; done) | omega | (simp [rd_simp]; omega))))
+       | rfl
+       | (have hinj := Option.some.inj ‹some _ = some _›
+          subst hinj
+          first | rfl | (refine And.intro rfl ?_; first | trivial | (simp [rd_simp]; done) | omega))
+       | (refine And.intro ?_ ?_ <;> first | rfl | (simp [rd_simp]; done) | omega | (simp [rd_simp]; omega))))
 
 /-- `getItem h (.ref a) i` of a list object that a fact of the context names: the item, by
 `getItem_list`. -/
@@ -615,11 +605,21 @@ elab "rd_comp" kf:num "[" ls:ident,* "]" : tactic => withMainContext do
       let ty ← instantiateMVars d.type
       unless ty.isAppOfArity ``And 2 && (ty.getArg! 0).isAppOf ``SpecLean.Validation.ListRel do
         return [g]
+      -- An item relation with a range fact (a uint) or without one (an int).
+      let rel := (ty.getArg! 0).getArg! 2
+      let withRange := match rel with
+        | .lam _ _ (.lam _ _ body _) _ => body.isAppOf ``And
+        | _ => true
+      let encT ← if withRange then
+          `(tactic| (obtain ⟨hv0, hrange⟩ := SpecLean.Validation.listRel_enc hrel
+                     subst hv0))
+        else
+          `(tactic| (have hv0 := SpecLean.Validation.listRel_enc_eq hrel
+                     subst hv0))
       evalTacticAt (← `(tactic| (
         obtain ⟨hrel, -, -, -, -, ⟨hh0, -⟩, -⟩ := $hc:ident
         subst hh0
-        obtain ⟨hv0, hrange⟩ := SpecLean.Validation.listRel_enc hrel
-        subst hv0))) g
+        $encT))) g
     out := out ++ r
   setGoals out
   -- Only the binds of the results: the next step of the caller comes from the loop of steps.
@@ -696,6 +696,12 @@ elab "rd_sum" : tactic => withMainContext do
   let some run := findClosed t (fun e => e.isAppOfArity ``List.foldlM 7 &&
       (e.getArg! 6).isAppOf ``List.map && (e.getArg! 5).isAppOfArity ``SpecLean.Value.int 1)
     | throwError "rd_sum: no sum"
+  -- A sum of `int` items: the readable `foldl` of the same list.
+  if (findClosed t (·.isAppOf ``SpecLean.Rd.sumU)).isNone then
+    evalTactic (← `(tactic| (
+      simp only [SpecLean.Validation.sum_int, Except.bind_ok', pure, Except.pure]
+      try rd_step)))
+    return
   let some rd := findClosed t (·.isAppOf ``SpecLean.Rd.sumU) | throwError "rd_sum: no readable sum"
   let runS ← Term.exprToSyntax run
   let rdS ← Term.exprToSyntax rd
