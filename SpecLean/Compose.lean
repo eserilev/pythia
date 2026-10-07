@@ -13,10 +13,11 @@ namespace SpecLean.Encode
 
 open SpecLean
 
-/-- Each new object that the arguments reach is reached by one path. -/
-def FreshOnce (h h' : Heap) (vs : List Value) : Prop :=
-  ∀ k q k' q' b, h.next ≤ b → at? h' vs k q = some (.ref b) → at? h' vs k' q' = some (.ref b) →
-    k' = k ∧ q' = q
+/-- Each new object that the arguments reach at a footprint path is reached by one path. Sharing
+of new objects at no pattern path is free, as for old ones (`NoNewPaths`). -/
+def FreshOnce (h h' : Heap) (vs : List Value) (fp : Footprint) : Prop :=
+  ∀ k q k' q' b, h.next ≤ b → AtPat h' vs fp b → at? h' vs k q = some (.ref b) →
+    at? h' vs k' q' = some (.ref b) → k' = k ∧ q' = q
 
 /-- The root objects keep their container class. -/
 def RootsKept (h h' : Heap) (vs : List Value) : Prop :=
@@ -33,36 +34,41 @@ theorem reached_old {h : Heap} {vs : List Value} (hwf : HeapWF h) (haw : ArgsWF 
 each (`FreshOnce`), and the roots keep their class. Then `WTree` carries over. -/
 theorem wtree_compose {h h' : Heap} {vs : List Value} {fp : Footprint}
     (hw : WTree h vs fp) (hwf : HeapWF h) (haw : ArgsWF h vs)
-    (hn : NoNewPaths h h' vs fp) (hf : FreshOnce h h' vs) (hk : RootsKept h h' vs) :
+    (hn : NoNewPaths h h' vs fp) (hf : FreshOnce h h' vs fp) (hk : RootsKept h h' vs) :
     WTree h' vs fp := by
   intro k pat hpat hty q hq a ha k' q' ha'
+  have hat : AtPat h' vs fp a := ⟨k, pat, hpat, q, hq, ha⟩
   by_cases hold : a < h.next
   · obtain ⟨φ, hφ⟩ := hn
-    obtain ⟨e1, hpres, hinj⟩ := hφ k q a ha hold
-    obtain ⟨e2, -, -⟩ := hφ k' q' a ha' hold
+    obtain ⟨e1, hpres, hinj⟩ := hφ k q a ha hold hat
+    obtain ⟨e2, -, -⟩ := hφ k' q' a ha' hold hat
     have := hw k pat hpat (hk k pat.ty hty) (φ k q) (hpres pat hpat hq) a e1 k' (φ k' q') e2
     obtain ⟨hkk, hq'⟩ := this
     exact ⟨hkk, hinj k' q' ha' hkk (by subst hkk; exact hq')⟩
-  · exact hf k q k' q' a (Nat.le_of_not_lt hold) ha ha'
+  · exact hf k q k' q' a (Nat.le_of_not_lt hold) hat ha ha'
 
 /-- `NoNewPaths` composes along a run whose heap only grows. -/
 theorem NoNewPaths_trans {h1 h2 h3 : Heap} {vs : List Value} {fp : Footprint} (f : Fresh h1 h2)
     (a : NoNewPaths h1 h2 vs fp) (b : NoNewPaths h2 h3 vs fp) : NoNewPaths h1 h3 vs fp := by
   obtain ⟨φ1, h1φ⟩ := a
   obtain ⟨φ2, h2φ⟩ := b
-  refine ⟨fun k q => φ1 k (φ2 k q), fun k q c e hc => ?_⟩
+  refine ⟨fun k q => φ1 k (φ2 k q), fun k q c e hc hat3 => ?_⟩
   have hc2 : c < h2.next := Nat.lt_of_lt_of_le hc f.1
-  obtain ⟨e2, p2, i2⟩ := h2φ k q c e hc2
-  obtain ⟨e1, p1, i1⟩ := h1φ k _ c e2 hc
+  have hat2 : AtPat h2 vs fp c := by
+    obtain ⟨k0, pat, hpat, q0, hm, e0⟩ := hat3
+    obtain ⟨e0', p0, -⟩ := h2φ k0 q0 c e0 hc2 ⟨k0, pat, hpat, q0, hm, e0⟩
+    exact ⟨k0, pat, hpat, _, p0 pat hpat hm, e0'⟩
+  obtain ⟨e2, p2, i2⟩ := h2φ k q c e hc2 hat3
+  obtain ⟨e1, p1, i1⟩ := h1φ k _ c e2 hc hat2
   refine ⟨e1, fun pat hp hm => p1 pat hp (p2 pat hp hm), fun k' q' e' hk heq => ?_⟩
   subst hk
-  obtain ⟨e2', -, -⟩ := h2φ k' q' c e' hc2
+  obtain ⟨e2', -, -⟩ := h2φ k' q' c e' hc2 hat3
   exact i2 k' q' e' rfl (i1 k' _ e2' rfl heq)
 
 /-- Paths kept in place: no old object gains a path. -/
 theorem noNewPaths_of_reach {h h' : Heap} {vs : List Value} {fp : Footprint}
     (hr : Reach h h' vs) : NoNewPaths h h' vs fp := by
-  refine ⟨fun _ q => q, fun k q a e hlt => ?_⟩
+  refine ⟨fun _ q => q, fun k q a e hlt _ => ?_⟩
   rcases hr k q a e with e0 | hn
   · exact ⟨e0, fun _ _ hm => hm, fun _ _ _ _ heq => heq⟩
   · exact absurd hlt (Nat.not_lt_of_le hn)

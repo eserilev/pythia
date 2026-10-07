@@ -188,7 +188,7 @@ theorem noNewPaths_moved {h : Heap} {vs : List Value} {gfp : Footprint} {k0 r0 f
     (hgfp : ∀ pat ∈ gfp, ∀ j rest, Matches pat.steps (fx :: j :: rest) →
       Matches pat.steps (fx :: σ j :: rest)) :
     NoNewPaths h (moved h r0 fx ty fs lk le ll ys) vs gfp := by
-  refine ⟨moveMap k0 fx σ, fun k q a e hlt => ?_⟩
+  refine ⟨moveMap k0 fx σ, fun k q a e hlt _ => ?_⟩
   obtain ⟨e0, hitem⟩ := moved_path hwf haw hw hk0 hr0 hfx hb hys e hlt
   refine ⟨e0, fun pat hp hm => ?_, fun k' q' e' hk hq => ?_⟩
   · match q, hm with

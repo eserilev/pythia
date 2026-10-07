@@ -25,26 +25,30 @@ open SpecLean SpecLean.Encode
 /-- `FreshOnce` composes along a run whose heap only grows: an object made by the first run has
 one path after it, and the second run gives it no new path. -/
 theorem FreshOnce_trans {h1 h2 h3 : Heap} {vs : List Value} {gfp : Footprint}
-    (f12 : Fresh h1 h2) (a : FreshOnce h1 h2 vs) (n23 : NoNewPaths h2 h3 vs gfp)
-    (b : FreshOnce h2 h3 vs) : FreshOnce h1 h3 vs := by
-  intro k q k' q' c hc e e'
+    (f12 : Fresh h1 h2) (a : FreshOnce h1 h2 vs gfp) (n23 : NoNewPaths h2 h3 vs gfp)
+    (b : FreshOnce h2 h3 vs gfp) : FreshOnce h1 h3 vs gfp := by
+  intro k q k' q' c hc hat e e'
   by_cases hold : c < h2.next
   · obtain ⟨φ, hφ⟩ := n23
-    obtain ⟨e1, -, hinj⟩ := hφ k q c e hold
-    obtain ⟨e2, -, -⟩ := hφ k' q' c e' hold
-    obtain ⟨hk, hq⟩ := a k (φ k q) k' (φ k' q') c hc e1 e2
+    have hat2 : AtPat h2 vs gfp c := by
+      obtain ⟨k0, pat, hpat, q0, hm, e0⟩ := hat
+      obtain ⟨e0', p0, -⟩ := hφ k0 q0 c e0 hold ⟨k0, pat, hpat, q0, hm, e0⟩
+      exact ⟨k0, pat, hpat, _, p0 pat hpat hm, e0'⟩
+    obtain ⟨e1, -, hinj⟩ := hφ k q c e hold hat
+    obtain ⟨e2, -, -⟩ := hφ k' q' c e' hold hat
+    obtain ⟨hk, hq⟩ := a k (φ k q) k' (φ k' q') c hc hat2 e1 e2
     exact ⟨hk, hinj k' q' e' hk hq⟩
-  · exact b k q k' q' c (Nat.le_of_not_lt hold) e e'
+  · exact b k q k' q' c (Nat.le_of_not_lt hold) hat e e'
 
 /-- The contract of SPEC 9.2 with `FreshOnce`, for runs that may make new objects. -/
 structure CContract (gfp fpf : Footprint) (vs : List Value) (h h' : Heap) : Prop where
   base : Contract gfp fpf vs h h'
-  once : FreshOnce h h' vs
+  once : FreshOnce h h' vs gfp
 
 /-- At the start of a run the arguments reach no free address, so `FreshOnce` holds. -/
 theorem CContract.refl (gfp fpf : Footprint) (vs : List Value) (h : Heap) (hwf : HeapWF h)
     (haw : ArgsWF h vs) : CContract gfp fpf vs h h :=
-  ⟨Contract.refl gfp fpf vs h, fun k q _ _ c hc e _ => absurd (hwf c hc) (haw k q c e)⟩
+  ⟨Contract.refl gfp fpf vs h, fun k q _ _ c hc _ e _ => absurd (hwf c hc) (haw k q c e)⟩
 
 theorem CContract.trans {gfp fpf : Footprint} {vs : List Value} {h1 h2 h3 : Heap}
     (hsub : ∀ p ∈ fpf, p ∈ gfp) (hwf : HeapWF h1) (a : CContract gfp fpf vs h1 h2)

@@ -162,14 +162,21 @@ def Fresh (h h' : Heap) : Prop := h.next ≤ h'.next ∧ (HeapWF h → HeapWF h'
 def Reach (h h' : Heap) (vs : List Value) : Prop :=
   ∀ k q b, at? h' vs k q = some (.ref b) → at? h vs k q = some (.ref b) ∨ h.next ≤ b
 
-/-- No old object gains a path. Each path of `h'` to an old object (below `h.next`) comes from
-a path of `h` to it from the same argument: `φ` maps the `h'`-paths to an object one to one onto
-`h`-paths to it, and keeps footprint patterns. So an old object has at most as many paths after
-as before. A moved list item keeps its one path, a dropped object has none, and two fields that
-come to hold one old object break it. The patterns matter: `WTree` speaks only of objects at a
-pattern path. -/
+/-- Object `a` is at a path from the arguments that matches the steps of a pattern of `fp`. The
+root class of the pattern does not matter here. -/
+def AtPat (h : Heap) (vs : List Value) (fp : Footprint) (a : Nat) : Prop :=
+  ∃ k, ∃ pat ∈ fp, ∃ q, Matches pat.steps q ∧ at? h vs k q = some (.ref a)
+
+/-- No old object at a footprint path gains a path. For an old object (below `h.next`) that
+`h'` has at a path matching a pattern of `fp`, each path of `h'` to it comes from a path of `h`
+to it from the same argument: `φ` maps the `h'`-paths to the object one to one onto `h`-paths to
+it, and keeps footprint patterns. So such an object has at most as many paths after as before. A
+moved list item keeps its one path, a dropped object has none, and two fields that come to hold
+one such object break it. Sharing of objects at no pattern path is free (SPEC 9.2): `WTree`
+speaks only of objects at a pattern path. -/
 def NoNewPaths (h h' : Heap) (vs : List Value) (fp : Footprint) : Prop :=
   ∃ φ : Nat → List Nat → List Nat, ∀ k q a, at? h' vs k q = some (.ref a) → a < h.next →
+    AtPat h' vs fp a →
     at? h vs k (φ k q) = some (.ref a) ∧
     (∀ pat ∈ fp, Matches pat.steps q → Matches pat.steps (φ k q)) ∧
     ∀ k' q', at? h' vs k' q' = some (.ref a) → k' = k → φ k' q' = φ k q → q' = q
