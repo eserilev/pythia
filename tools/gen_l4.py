@@ -1212,7 +1212,17 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
             raise Unsupported("callee " + c)
     bs, roots, rds, xs = [], [], [], []
     hoks = []
+    objs = []
     for i, (pn, pt) in enumerate(params):
+        if pt == "SszObj":
+            # Any SSZ object: its tree, and an encoder that decodes to it.
+            bs.append("(a_%s : SszObj) (t_%s : Name) (ds_%s : List DV) "
+                      "(he_%s : GenBridge.EncDec a_%s.enc (.cont t_%s ds_%s))" % ((pn,) * 7))
+            roots.append("(.cont t_%s ds_%s)" % (pn, pn))
+            rds.append("a_%s" % pn)
+            xs.extend(["a_" + pn, "t_" + pn, "ds_" + pn, "he_" + pn])
+            objs.append(pn)
+            continue
         b, r, a = param(m, i, pn, pt, sub, isub)
         bs.append(b)
         roots.append(r)
@@ -1251,7 +1261,14 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
             items.append(it)
     LENS = "".join(("%s.%s.length + " % (rds[k], fld)) if fld else ("%s.length + " % rds[k]) for k, fld in items)
     fcalls = ["%s_fcall" % c for c in m.callees(name) if LENS_OF.get(c) and not uses_htr(m, c)]
-    fcalls += ["%s_fcall sha ho" % c for c in m.callees(name) if uses_htr(m, c)]
+    for c in m.callees(name):
+        if not uses_htr(m, c):
+            continue
+        objcls = re.findall(r"\b%s \(⟨enc_(\w+)" % re.escape(c), m.bodies.get(name, ""))
+        if objcls:
+            fcalls += ["%s_fcall_%s sha ho" % (c, X) for X in sorted(set(objcls))]
+        else:
+            fcalls += ["%s_fcall sha ho" % c]
     if lps or cps:
         D += 6
     rs = "[%s]" % ", ".join(roots)
@@ -1261,6 +1278,8 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
     if uses_htr(m, name):
         unf += ["htr_call_%s ho" % c for c in sorted(set(re.findall(r"\bhtr enc_(\w+)", m.bodies.get(name, ""))))]
         unf += ["GenBridge.callK_htr_root ho", "GenBridge.callK_htr_len ho"]
+        unf += ["GenBridge.htr_obj_call ho a_%s he_%s" % (pn, pn) for pn in objs]
+        unf += ["GenBridge.callK_htrObj_len ho" for _ in objs[:1]]
         unf += ["ho"]
     if rt in m.reps and ("theorem kids_%s_mk" % rt) in classes_file_cache(m):
         unf.append("kids_%s_mk" % rt)
@@ -1299,6 +1318,29 @@ def candidate(m, name, proved, sub=None, isub=False, ok=False):
                  "  exact %s_call%s sha m %s k\n"
                  % (name, tag, " ".join(bs), LENS, D, fp, name, rs, name, " ".join(rds), enc, rs_out,
                     LENS, D, LENS, D, name, tag, " ".join(xs)))
+    if objs and len(objs) == 1 and (LENS or uses_htr(m, name)):
+        # The call with an object of each class: its encoder decodes to its tree.
+        pn = objs[0]
+        for X in sorted(m.encdec):
+            bsX = [b for b in bs if not b.startswith("(a_%s : SszObj)" % pn)]
+            xsX = []
+            for x in xs:
+                xsX.append({"a_" + pn: "(⟨enc_%s x_%s⟩ : SszObj)" % (X, pn), "t_" + pn: str(m.cid[X]),
+                            "ds_" + pn: "(kids_%s x_%s)" % (X, pn), "he_" + pn: "(encDec_%s x_%s)" % (X, pn)}.get(x, x))
+            bsX.insert(1, "(x_%s : %s)" % (pn, X))
+            rsX = rs.replace("(.cont t_%s ds_%s)" % (pn, pn), "(.cont %d (kids_%s x_%s))" % (m.cid[X], X, pn))
+            rdsX = " ".join(rds).replace("a_%s" % pn, "(⟨enc_%s x_%s⟩ : SszObj)" % (X, pn))
+            routX = rs_out.replace("(.cont t_%s ds_%s)" % (pn, pn), "(.cont %d (kids_%s x_%s))" % (m.cid[X], X, pn))
+            call += ("\ntheorem %s_fcall_%s (sha : Oracle) %s (n : Nat) (hn : %s%d ≤ n) {γ : Type}\n"
+                     "    (k : DRes × List DV → DM γ) :\n"
+                     "    Option.map (Except.mapError SpecError.fail)\n"
+                     "        (DM.bind ((den (Scope.env sha) fpsGen n).fn %s Scope.fn_%s %s) k) =\n"
+                     "      callK (%s %s) fun x => Option.map (Except.mapError SpecError.fail) (k (%s, %s)) :=\n"
+                     "  %s_fcall sha %s n hn k\n"
+                     % (name, X, " ".join(b for b in bsX if not b.startswith("(t_%s" % pn) and
+                                         not b.startswith("(ds_%s" % pn) and not b.startswith("(he_%s" % pn)),
+                        LENS, D, fp, name, rsX, name, rdsX, enc, routX, name,
+                        " ".join(x for x in xsX)))
     if not sub:
         LENS_OF[name] = items
     out = ((loop_theorems(m, name, params, bs, roots, rds, xs, lps) + "\n" if lps else "") +

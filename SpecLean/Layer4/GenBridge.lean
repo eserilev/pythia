@@ -407,4 +407,26 @@ theorem callK_htr_len [Spec] {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr
     have hl := ho.len _ _ r hr
     simp [hr, erase, Except.mapError, Layer4.GenSteps.callK, hl]
 
+/-- `hash_tree_root` of a tree in the denotation is the readable `htrObj` of an object whose
+encoder decodes to it. -/
+theorem htr_den_obj [Spec] {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (o : SszObj)
+    {d : DV} (hE : EncDec o.enc d) :
+    Option.map (Except.mapError SpecError.fail) (dHtr (Scope.env sha) d) =
+      some ((fun r => DRes.val (.bytes (Scope.env sha).nm.root r)) <$> htrObj o) :=
+  htr_den ho (fun (_ : Unit) => o.enc) () hE
+
+theorem htr_obj_call [Spec] {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (o : SszObj)
+    {d : DV} (hE : EncDec o.enc d) {γ : Type} (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (dHtr (Scope.env sha) d) K) =
+      Layer4.GenSteps.callK (htrObj o) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.bytes (Scope.env sha).nm.root r))) :=
+  Layer4.GenSteps.bind_call (htr_den_obj ho o hE) K
+
+/-- `htrObj` gives 32 bytes, as `htr`. -/
+theorem callK_htrObj_len [Spec] {sha : Oracle} (ho : Validation.HtrBridge.OracleHtr sha) (o : SszObj)
+    {γ : Type} (g : Bytes → Option (Except Fail γ)) (z : Option (Except Fail γ)) :
+    Layer4.GenSteps.callK (htrObj o) (fun b => if b.length = 32 then g b else z) =
+      Layer4.GenSteps.callK (htrObj o) g :=
+  callK_htr_len ho (fun (_ : Unit) => o.enc) () g z
+
 end SpecLean.Layer4.GenBridge
