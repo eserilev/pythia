@@ -670,6 +670,114 @@ theorem dco_flat (env : Env) (b : Bool) (t : SszTy) (v : Value)
   generalize (if b = true then coerceField t v else coerceElem t v) = r
   cases r <;> rfl
 
+section sumden
+open SpecLean.Rd
+
+theorem leafVals_map {α : Type} (f : α → Value) :
+    ∀ (xs : List α), leafVals (xs.map fun y => DV.leaf (f y)) = some (xs.map f)
+  | [] => rfl
+  | x :: xs => by simp [leafVals, leafVals_map f xs]
+
+theorem resolveUint_self (t : UintTy) : resolveUint t t = .ok t := by
+  cases t <;> simp [resolveUint]
+
+/-- One checked addition of uints: the interpreter and the readable Lean agree. -/
+theorem add_uint_rel {α : Type} [UintC α] (t : UintTy) (ht : t.bits = UintC.bits α) (a : Value) (acc y : α)
+    (ha : a = .uint t (UintC.val acc) ∨ (a = .int 0 ∧ UintC.val acc = 0)) :
+    PrimRel.ResRel (fun (v : Value) (r : α) => v = .uint t (UintC.val r))
+      (@binopVal (@LibModel.toLibValues Ssz.model) .add a (.uint t (UintC.val y)))
+      (uOp .add (uv acc) (uv y)) := by
+  have hb : @binopVal (@LibModel.toLibValues Ssz.model) .add a (.uint t (UintC.val y)) =
+      wrapUint t ((UintC.val acc : Int) + UintC.val y) := by
+    rcases ha with rfl | ⟨rfl, h0⟩
+    · rw [bv_uu, resolveUint_self]; rfl
+    · rw [bv_iu, h0]; simp [intArith]
+  rw [hb]
+  unfold wrapUint uOp uOf
+  by_cases hc : (0 : Int) ≤ ↑(UintC.val acc) + ↑(UintC.val y) ∧ ↑(UintC.val acc) + ↑(UintC.val y) < (2 : Int) ^ UintC.bits α
+  · have hc' : (0 : Int) ≤ ↑(UintC.val acc) + ↑(UintC.val y) ∧ ↑(UintC.val acc) + ↑(UintC.val y) < (2 : Int) ^ t.bits := by
+      rw [ht]; exact hc
+    simp [erase, intArith, uv, Except.mapError, hc, hc', PrimRel.ResRel, UintC.val_ofNat, pure, Except.pure]
+  · have hc' : ¬ ((0 : Int) ≤ ↑(UintC.val acc) + ↑(UintC.val y) ∧ ↑(UintC.val acc) + ↑(UintC.val y) < (2 : Int) ^ t.bits) := by
+      rw [ht]; exact hc
+    simp [erase, intArith, uv, Except.mapError, hc, hc', PrimRel.ResRel, SpecError.fail]
+
+theorem resRel_mono {α β : Type} {R S : α → β → Prop} {x : Res α} {y : SpecM β} (h : PrimRel.ResRel R x y)
+    (hs : ∀ a b, R a b → S a b) : PrimRel.ResRel S x y := by
+  rcases x with e | a <;> rcases y with e' | b
+  · exact h
+  · exact h.elim
+  · exact h.elim
+  · exact hs a b h
+
+theorem fold_rel {α : Type} [UintC α] (t : UintTy) (ht : t.bits = UintC.bits α) :
+    ∀ (ys : List α) (a : Value) (acc : α), (a = .uint t (UintC.val acc) ∨ (a = .int 0 ∧ UintC.val acc = 0)) →
+      PrimRel.ResRel (fun (v : Value) (r : α) => v = .uint t (UintC.val r) ∨ (ys = [] ∧ v = a ∧ r = acc))
+        ((ys.map fun y => Value.uint t (UintC.val y)).foldlM (@binopVal (@LibModel.toLibValues Ssz.model) .add) a)
+        (sumU acc ys)
+  | [], a, acc, ha => by
+    simp only [List.map_nil, List.foldlM_nil, sumU, Prim.sum]
+    show PrimRel.ResRel _ (.ok a) (.ok acc)
+    exact .inr ⟨trivial, rfl, rfl⟩
+  | y :: ys, a, acc, ha => by
+    simp only [List.map_cons, List.foldlM_cons, sumU, Prim.sum, List.foldlM_cons]
+    refine PrimRel.ResRel.bind (add_uint_rel t ht a acc y ha) fun v r hvr => ?_
+    have := fold_rel t ht ys v r (.inl hvr)
+    unfold sumU Prim.sum at this
+    refine resRel_mono this fun v' r' h => ?_
+    rcases h with h | ⟨-, rfl, rfl⟩
+    · exact .inl h
+    · exact .inl hvr
+
+/-- `sum` of the uints of a list: the readable checked sum. An empty sum is the `int` 0. -/
+theorem sum_den {α : Type} [UintC α] (t : UintTy) (ht : t.bits = UintC.bits α) (ys : List α)
+    {γ : Type} (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind (@dSum Ssz.model .pyList .any (ys.map fun y => DV.leaf (.uint t (UintC.val y)))) K) =
+      callK (sumU (UintC.ofNat 0) ys) fun r =>
+        Option.map (Except.mapError SpecError.fail)
+          (K (.val (if ys = [] then .int 0 else .uint t (UintC.val r)))) := by
+  have hr := fold_rel t ht ys (.int 0) (UintC.ofNat 0) (.inr ⟨rfl, UintC.val_ofNat 0⟩)
+  unfold dSum
+  simp only [isByteList, decide_eq_true_eq]
+  rw [if_neg (by simp), leafVals_map]
+  show Option.map _ (DM.bind (DM.bind (lift _) _) K) = _
+  revert hr
+  have hf : ((fun y => Value.uint t (UintC.val y)) : α → Value) = (fun y => Value.uint t (UintC.val y)) := rfl
+  cases hx : (ys.map fun y => Value.uint t (UintC.val y)).foldlM (@binopVal (@LibModel.toLibValues Ssz.model) .add) (.int 0) <;>
+    cases hs : sumU (UintC.ofNat 0 : α) ys <;> simp only [PrimRel.ResRel] <;> intro h
+  · obtain ⟨hne, rfl⟩ := h
+    simp [lift, hne, DM.bind, callK, Except.mapError]
+  · exact h.elim
+  · exact h.elim
+  · rename_i w r
+    have hfl : Flat w = true := by rcases h with rfl | ⟨-, rfl, -⟩ <;> rfl
+    have hw : w = (if ys = [] then .int 0 else .uint t (UintC.val r)) := by
+      rcases h with rfl | ⟨rfl, rfl, rfl⟩
+      · by_cases hy : ys = []
+        · subst hy; simp [sumU, Prim.sum] at hx
+        · simp [hy]
+      · simp
+    simp [Function.comp_def, hx, lift, DM.bind, DM.ok, callK, hfl, ← hw]
+
+theorem sumU_nil {α : Type} [UintC α] (a : α) : sumU a [] = .ok a := Eq.trans rfl rfl
+
+theorem sum_den_v {α : Type} [UintC α] (t : UintTy) (ht : t.bits = UintC.bits α) (v : α → Nat)
+    (hv : ∀ y, v y = UintC.val y) (ys : List α) {γ : Type} (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind (@dSum Ssz.model .pyList .any (ys.map fun y => DV.leaf (.uint t (v y)))) K) =
+      if ys = [] then Option.map (Except.mapError SpecError.fail) (K (.val (.int 0)))
+      else callK (sumU (UintC.ofNat 0) ys) fun r =>
+        Option.map (Except.mapError SpecError.fail) (K (.val (.uint t (UintC.val r)))) := by
+  have : v = UintC.val := funext hv
+  subst this
+  rw [sum_den t ht ys K]
+  by_cases hy : ys = []
+  · subst hy; simp [sumU, Prim.sum, callK]
+  · simp only [hy, if_false]
+
+end sumden
+
 end model
 
 section env
@@ -734,7 +842,7 @@ macro_rules
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, bmin_max, bmax_max, pickBest, flat_ite, val_ite,
-      Rd.pyMin, Rd.pyMax, padNone, Nat.reduceAdd, Nat.reduceSub, Nat.le_refl, Nat.reduceLeDiff, List.replicate_zero, List.replicate_succ, List.append_nil, Rd.bytesOf, isVal, noneDefaults, isNoneLit, List.isEmpty_cons, List.isEmpty_nil, env_root, fromBytesOf, s_fromBytes, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
+      Rd.pyMin, Rd.pyMax, sum_den_v, sumU_nil, padNone, Nat.reduceAdd, Nat.reduceSub, Nat.le_refl, Nat.reduceLeDiff, List.replicate_zero, List.replicate_succ, List.append_nil, Rd.bytesOf, isVal, noneDefaults, isNoneLit, List.isEmpty_cons, List.isEmpty_nil, env_root, fromBytesOf, s_fromBytes, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
       Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, Expr.call.injEq, s_append, env_append, appendItemD, appendable_list_cont, appendable_plist_cont, appendable_list_nom, appendable_plist_nom, appendable_list_bytes, appendable_plist_bytes, Ssz.checkLength, Rd.lappend, s_assign, s_annAssign, s_exprStmt,
@@ -766,7 +874,7 @@ macro_rules
       coversAll, coversB, genB, List.all_cons, List.all_nil, onePlace, decide_false, decide_true, Bool.false_eq_true,
       false_and, and_false, natCast_lt_zero, Int.toNat_natCast, Int.ofNat_lt, Rd.lget, Rd.lset, Rd.assert, Rd.assertBug, Rd.pyIndex, augStep,
       Rd.lslice, Rd.bd, Option.map_none, ob_some, ob_none, ob_ite, opure, setLoc_same, fite_app, dst_loc_ite, rd_bind, callK_ok, callK_err, callK_ite, callK_bind, callK_pure, Nat.zero_add, bmin_max, bmax_max, pickBest, flat_ite, val_ite,
-      Rd.pyMin, Rd.pyMax, padNone, Nat.reduceAdd, Nat.reduceSub, Nat.le_refl, Nat.reduceLeDiff, List.replicate_zero, List.replicate_succ, List.append_nil, Rd.bytesOf, isVal, noneDefaults, isNoneLit, List.isEmpty_cons, List.isEmpty_nil, env_root, fromBytesOf, s_fromBytes, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
+      Rd.pyMin, Rd.pyMax, sum_den_v, sumU_nil, padNone, Nat.reduceAdd, Nat.reduceSub, Nat.le_refl, Nat.reduceLeDiff, List.replicate_zero, List.replicate_succ, List.append_nil, Rd.bytesOf, isVal, noneDefaults, isNoneLit, List.isEmpty_cons, List.isEmpty_nil, env_root, fromBytesOf, s_fromBytes, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp] at *)
 
 /-- The side conditions of a loop lemma: fuel, and the locals of the parameters. -/
 macro "l4_disch" : tactic => `(tactic| first

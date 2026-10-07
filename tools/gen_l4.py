@@ -960,7 +960,14 @@ def comps(m, name, params, roots, rds):
     mm = re.fullmatch(r"\(\.call \d+ \(\.name \d+ (\d+)\) \[\(\.pos \(\.attr \d+ \(\.name \d+ (\d+)\) (\d+)\)\)\]\)", it)
     mp = re.fullmatch(r"\(\.call \d+ \(\.name \d+ (\d+)\) \[\(\.pos \(\.name \d+ (\d+)\)\)\]\)", it)
     enum = True
-    if mp and m.ids.get(int(mp.group(1))) == "enumerate" and int(mp.group(2)) in pids:
+    mn = re.fullmatch(r"\(\.name \d+ (\d+)\)", it)
+    if mn and int(mn.group(1)) in pids:
+        # `for x in xs` of a list parameter.
+        pk = pids.index(int(mn.group(1)))
+        if not re.fullmatch(r"\(?List (\w+)\)?", params[pk][1]):
+            raise Unsupported("comprehension iterable")
+        path, LEN, enum = [], "%s.length" % rds[pk], False
+    elif mp and m.ids.get(int(mp.group(1))) == "enumerate" and int(mp.group(2)) in pids:
         # `enumerate(xs)` of a list parameter.
         pk = pids.index(int(mp.group(2)))
         if not re.fullmatch(r"\(?List (\w+)\)?", params[pk][1]):
@@ -982,7 +989,11 @@ def comps(m, name, params, roots, rds):
             raise Unsupported("comprehension field")
         path, LEN = [fi[0]], "%s.%s.length" % (rds[pk], fn)
     rd = m.bodies[name]
+    kind = "filterMapM"
     j = rd.find(".filterMapM fun")
+    if j < 0:
+        kind = "mapM"
+        j = rd.find(".mapM fun")
     if j < 0:
         raise Unsupported("readable comprehension")
     # X: the parenthesized list before `.filterMapM`; F: the function after it.
@@ -993,7 +1004,7 @@ def comps(m, name, params, roots, rds):
             break
         i -= 1
     X = rd[i:j]
-    k = j + len(".filterMapM ")
+    k = j + len(".%s " % kind)
     depth, e = 0, k
     while e < len(rd):
         if rd[e] == "(":
@@ -1008,6 +1019,9 @@ def comps(m, name, params, roots, rds):
     rep = lambda t: re.sub(r"\b(%s)\b" % "|".join(map(re.escape, pnames)),
                            lambda mm2: "(%s)" % sub[mm2.group(1)], t)
     rt = m.sigs[name][1]
+    ms = re.search(r"sumU \(⟨0⟩ : (\w+)\) \(← \(", rd)
+    if ms:
+        rt = "List " + ms.group(1)
     mr = re.fullmatch(r"\(?List (\w+)\)?", rt)
     if not mr or mr.group(1) not in m.uint:
         raise Unsupported("comprehension result " + rt)
@@ -1036,7 +1050,7 @@ def comps(m, name, params, roots, rds):
         F = re.sub(r"\b(%s)\b" % "|".join(map(re.escape, lsub)), lambda mm4: lsub[mm4.group(1)], F)
     enc = "(DV.leaf (.uint %s y.val))" % m.uint_ty(mr.group(1))
     return [dict(tgt=tgt, ifs=ifs, elt=elt, k=pk, path=path, X=rep(X), F=F, enc=enc, et=mr.group(1), locs=locs,
-                 len=LEN, depth=depth_text(c))]
+                 len=LEN, depth=depth_text(c), enum=enum, kind=kind)]
 
 
 def depth_text(t):
@@ -1075,7 +1089,7 @@ def comp_theorems(m, name, params, bs, roots, rds, xs, cps):
             lxs += " lv_%s" % ln
         C = cp["depth"] + 6
         LEN = cp["len"]
-        ls = "⟨%d, [%s], true⟩" % (cp["k"], ", ".join(str(x) for x in cp["path"]))
+        ls = "⟨%d, [%s], %s⟩" % (cp["k"], ", ".join(str(x) for x in cp["path"]), "true" if cp["enum"] else "false")
         swaps = []
         tids = [int(t) for t in re.findall(r"\(\.name \d+ (\d+)\)", cp["tgt"])]
         for lid, ln, lt in cp["locs"]:
@@ -1090,9 +1104,9 @@ def comp_theorems(m, name, params, bs, roots, rds, xs, cps):
         lhs = ("Option.map (Except.mapError SpecError.fail)\n"
                "        (DM.bind ((den (Scope.env sha) fpsGen n).items [] (DSt.mk %s %s) %s %s\n          %s %s i) K)"
                % (rs, loc, cp["tgt"], cp["ifs"], cp["elt"], ls))
-        rhs = ("callK ((%s).drop i |>.filterMapM %s)\n"
+        rhs = ("callK ((%s).drop i |>.%s %s)\n"
                "        fun ys => Option.map (Except.mapError SpecError.fail) (K (ys.map fun y => %s))"
-               % (X, cp["F"], cp["enc"]))
+               % (X, cp["kind"], cp["F"], cp["enc"]))
         out.append(
             "theorem %s (sha : Oracle) %s%s :\n"
             "    ∀ (k i n : Nat) (B : Name → Option DRes), %s - i = k → k + %d ≤ n → %s →\n"
@@ -1107,8 +1121,8 @@ def comp_theorems(m, name, params, bs, roots, rds, xs, cps):
             "    rw [s_items]\n"
             "    simp only [itemsStep]\n"
             "    l4_eval\n"
-            "    simp (disch := (simp only [List.length_map, List.length_zipIdx]; omega)) only\n"
-            "      [List.getElem?_eq_none, List.drop_eq_nil_of_le, Option.map_none, List.filterMapM_nil]\n"
+            "    simp (disch := first | omega | (simp only [List.length_map, List.length_zipIdx]; omega)) only\n"
+            "      [List.getElem?_eq_none, List.drop_eq_nil_of_le, Option.map_none, List.filterMapM_nil, List.mapM_nil]\n"
             "    all_goals (try l4_eval [List.map_nil])\n"
             "    all_goals l4_close\n"
             "  | succ k ih =>\n"
@@ -1116,10 +1130,10 @@ def comp_theorems(m, name, params, bs, roots, rds, xs, cps):
             "    obtain ⟨n', rfl⟩ : ∃ n', n = n' + %d := ⟨n - %d, by omega⟩\n"
             "    rw [show n' + %d = (n' + %d) + 1 from rfl, s_items]\n"
             "    have hi : i < %s := by omega\n"
-            "    rw [List.drop_eq_getElem_cons (by simp only [List.length_map, List.length_zipIdx]; omega)]\n"
+            "    rw [List.drop_eq_getElem_cons (by first | omega | (simp only [List.length_map, List.length_zipIdx]; omega))]\n"
             "    simp only [itemsStep]\n"
             "    l4_eval [bindLoop, ifsOf, fpsGen, fpAll, List.getElem?_eq_getElem hi, hi, %s%s, List.getElem_map,\n"
-            "      List.getElem_zipIdx, List.filterMapM_cons, List.map_cons, List.cons_append, List.nil_append]\n"
+            "      List.getElem_zipIdx, List.filterMapM_cons, List.mapM_cons, List.map_cons, List.cons_append, List.nil_append]\n"
             "    all_goals (repeat (first | (simp (disch := l4_disch) only [ih]) |\n"
             "      ((l4_bycases <;> (try l4_eval_star))) |\n"
             "      ((refine callK_congr _ fun _ => ?_) <;> (try l4_eval_star)) |\n"
@@ -1523,6 +1537,7 @@ def main():
         fuel = dict(re.findall(r"theorem (\w+)_den \(sha : Oracle\) \(m : Nat\) .*?m \+ (\d+)\)\)\.fn",
                                (GEN / "Funcs.lean").read_text(), re.S)) if (GEN / "Funcs.lean").exists() else {}
         fuel = {k: int(v) for k, v in fuel.items()}
+        NONE_OK.update(re.findall(r"theorem (\w+)_fcall_none ", (GEN / "Funcs.lean").read_text()))
         for n in order(m, set(fuel)):
             try:
                 candidate(m, n, fuel)
