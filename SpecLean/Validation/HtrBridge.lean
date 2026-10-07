@@ -270,6 +270,8 @@ structure OracleHtr [Spec] (sha : Oracle) : Prop where
   ext : ∀ h v h' v', Bis 64 h v h' v' → sha.hashTreeRoot h v = sha.hashTreeRoot h' v'
   noOof : ∀ h v, sha.hashTreeRoot h v ≠ .error .outOfFuel
   len : ∀ h v r, sha.hashTreeRoot h v = .ok r → r.length = 32
+  /-- `sha256` is an oracle too: the readable Lean calls the interpreter's. -/
+  sha256 : sha.sha256 = Spec.sha256
 
 /-- The executable oracle `Htr.root` reads only the content of a value. -/
 theorem htrRoot_ext (H : Htr.Hasher) :
