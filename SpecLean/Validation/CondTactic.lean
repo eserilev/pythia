@@ -1,5 +1,6 @@
 import SpecLean.Validation.Keep
 import SpecLean.Validation.BlsBridge
+import SpecLean.Validation.SigningRoots
 
 /-!
 # Tactic rules of the conditional tier
@@ -75,3 +76,37 @@ end SpecLean.Validation.Tactic
 macro_rules
   | `(tactic| rd_finish) =>
     `(tactic| (rd_bls; simp only [Except.ok.injEq, reduceCtorEq] at *; first | done | (subst_vars; rfl)))
+
+namespace SpecLean.Validation.Tactic
+
+open Lean Meta Elab Tactic
+
+/-- A direct `hash_tree_root(x)` of a decoded object of class `X`: the readable `htr enc_X x`
+becomes the oracle call that the interpreter makes (`htr_codec`), so both sides split on one
+result. The decode comes from the facts and `Shaped` from `rd_shaped`. -/
+elab "rd_htr" : tactic => withMainContext do
+  let t ← instantiateMVars (← getMainTarget)
+  let some rd := findClosed t (·.isAppOf ``SpecLean.Rd.htr) | throwError "rd_htr: no htr"
+  let n := rd.getAppNumArgs
+  let enc := rd.getArg! (n - 2)
+  let x := rd.getArg! (n - 1)
+  let some encName := enc.constName? | throwError "rd_htr: no encoder"
+  let .str _ s := encName | throwError "rd_htr: no encoder"
+  unless s.startsWith "enc_" do throwError "rd_htr: no encoder"
+  let codec := mkIdent (Name.mkStr `SpecLean.Validation.HtrBridge ("codec_" ++ (s.drop 4).toString))
+  let some ir := findClosed t (·.isAppOfArity ``SpecLean.Oracle.hashTreeRoot 3)
+    | throwError "rd_htr: no oracle call"
+  let hS ← Term.exprToSyntax (ir.getArg! 1)
+  let vS ← Term.exprToSyntax (ir.getArg! 2)
+  let xS ← Term.exprToSyntax x
+  evalTactic (← `(tactic| (
+    have hhtr := SpecLean.Validation.HtrBridge.htr_codec ‹_› $codec (h := $hS) (v := $vS)
+      (x := $xS) (by first | assumption | (rd_heap; done) | (rd_heap; rfl)) (by rd_shaped)
+    rw [← hhtr])))
+
+end SpecLean.Validation.Tactic
+
+/-- After `rd_htr`, an error of the oracle: never out of fuel, and its class on both sides. -/
+macro_rules
+  | `(tactic| rd_finish) =>
+    `(tactic| (exact fun e => SpecLean.Validation.HtrBridge.OracleHtr.noOof ‹_› _ _ (e ▸ ‹_›)))

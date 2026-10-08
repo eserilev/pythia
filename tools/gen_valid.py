@@ -1281,6 +1281,11 @@ theorem {name}_loop{k}@@HYPS@@ (gfp : Footprint) (h : Heap) (r0 a : Nat) (fs vre
             elif isinstance(it, ast.Name) and it.id in pnames and \
                     sig.params[pnames.index(it.id)][1][0] in ("list", "set"):
                 bounds.append(f"x{pnames.index(it.id)}.length")
+            elif getattr(self, "stmt_only", False):
+                # Any other source (`range(n)`, a local list): `rd_comp` takes a snapshot or a live
+                # list; the bound comes from the syntax.
+                b = Bound(self, name, sig, tree).length(x.generators[0].iter)
+                bounds.append(b if b.isdigit() or b.startswith("(") else f"({b})")
             else:
                 raise Unsupported("comprehension source")
         if jj is None:
@@ -1639,7 +1644,10 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
             args = [self.arg(j, t) for j, (_, t) in enumerate(sig.params)]
         # A direct call of `sha256`: the oracle is the readable one, and its digests are 32 bytes.
         sha = any(isinstance(x, ast.Name) and x.id == "sha256" for x in ast.walk(tree))
-        ho = ho or sha
+        # A direct `hash_tree_root(x)` (conditional tier): the oracle, and `Shaped` arguments.
+        htrd = getattr(self, "stmt_only", False) and any(
+            isinstance(x, ast.Name) and x.id == "hash_tree_root" for x in ast.walk(tree))
+        ho = ho or sha or htrd
         if ho or sig.ret[0] == "container":
             # A callee that hashes, or a new container that holds them: the byte vector
             # arguments have their lengths.
@@ -1670,7 +1678,7 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
             if tj[0] == "container" and tk == tj and self.n.cls(tj[1]) in EQ_LEMMAS:
                 if (j, k) not in eqs:
                     eqs.append((j, k))
-        shaped = shaped or bool(eqs)
+        shaped = shaped or bool(eqs) or htrd
         if shaped:
             for j, (_, t) in enumerate(sig.params):
                 if t[0] == "container" and args[j][0]:
@@ -1737,7 +1745,7 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
         fp = self.footprint(name, sig) if sig.mutated else "[]"
         has_comp = any(isinstance(x, ast.comprehension) for x in ast.walk(tree))
         has_loop = any(isinstance(x, (ast.For, ast.While)) for x in ast.walk(tree))
-        cbounds, kf = [], fuel
+        cbounds, kf, comp_rlen = [], fuel, None
         try:
             if getattr(self, "need_generic", False):
                 raise Unsupported("bounded callee: argument")
@@ -1745,6 +1753,9 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
                 self.comps(name, sig)
             elif poly is None:
                 self.loops(name, sig, tree, callees, fuel)
+            elif has_loop or has_comp:
+                # A class-polymorphic variant has no loop theorems: its fuel needs the bound.
+                raise Unsupported("class-polymorphic loop")
             gen_reason = None
         except Unsupported as e:
             if not getattr(self, "stmt_only", False):
@@ -1765,7 +1776,9 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
             last = tree.body[-1] if tree.body else None
             if ret[0] == "list" and len(cbounds) == 1 and not sig.mutated and \
                     isinstance(last, ast.Return) and isinstance(last.value, ast.ListComp):
-                exp = re.sub(r"∧ (∀ .*)$", r"∧ (\1)", exp) + f" ∧ r.length ≤ {cbounds[0]}"
+                if "r.length ≤" not in exp:
+                    exp = re.sub(r"∧ (∀ .*)$", r"∧ (\1)", exp) + f" ∧ r.length ≤ {cbounds[0]}"
+                    comp_rlen = cbounds[0]
             ltext, lnames, lens, jj = "", [], [], cjj
             # Each item of a comprehension costs one unit of fuel.
             fuel = f"{' + '.join(cbounds)} + {fuel + 64}"
@@ -1837,7 +1850,7 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
         cfg = sorted({n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute) and
                       isinstance(n.value, ast.Name) and n.value.id == "config"} |
                      {c for c in free if c in self.b.config_vars})
-        defs = ([f"Scope.fn_{name}", T.ident(name), "Scope.env", "Scope.knownNames"] + consts + [f"Cfg.{c}" for c in cfg] +
+        defs = ([f"Scope.fn_{name}", f"SpecLean.Rd.Gen.{T.ident(name)}", "Scope.env", "Scope.knownNames"] + consts + [f"Cfg.{c}" for c in cfg] +
                 (["Cfg.default"] if cfg else []) + encs + (["ho.sha256_len"] if sha else []) +
                 (["hb.verify"] if hb else []))
         fname = T.ident(name)
@@ -1849,7 +1862,8 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
                     f"_p{self.n.cls(tinst)}" if tinst is not None else
                     f"_po{given}" if given is not None else "")
             name_run, name_valid = f"{name}{isfx}_run", f"{name}{isfx}_valid"
-        for part, rb in part_bounds:
+        for part, rb in part_bounds + ([("", comp_rlen)] if comp_rlen is not None and
+                                         getattr(self, "stmt_only", False) else []):
             self.rlen[name_run[:-4] + part] = rb
         names = (" ".join(a[3] for a in args if a[3]) + (" hw hwf haw" if sig.mutated else "") +
                  (" hsub" if sig.mutated and lnames else "") +
@@ -1874,6 +1888,8 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
                 if cbounds else [])
         # An item read from a decoded list: its decode facts before a split of the read.
         items = ["(rd_items; try rd_step)"]
+        if htrd:
+            items = ["(rd_htr; try rd_step)"] + items
         step = "(first | " + " | ".join(alts + comp + (["rd_sum"] if sums else []) + items +
                                          ["(rd_split <;> (try rd_step))"]) + ")"
         runF = ""
@@ -1998,7 +2014,8 @@ def read_facts(text, facts, g, oracle=False):
                 # A bound that only `Bound` reads: a caller takes the statement-only path.
                 bfuel[m[1]] = (0, None)
         rl = re.search(r"∧ r\.length ≤ (.+)\)\n\s*\(interp", m[2])
-        if rl:
+        if rl and m[1] not in g.rlen:
+            # The tiers' statements; the conditional tier records its own bounds.
             g.rlen[m[1]] = rl[1]
     pat = (r"^theorem (\w+)_run \(ho : OracleHtr sha\)(.*?):= by" if oracle else
            r"^theorem (\w+)_run \(gfp(.*?):= by")
@@ -2094,19 +2111,27 @@ def cond(args, g, cls, make, work):
     aggregate(list(fuel))
     # The statements, callees first: the fuel and facts of a caller come from its callees.
     texts, owner, skipped, stmt_text, shape = {}, {}, {}, {}, {}
-    for n in tier:
+    # The class-polymorphic variants that the tiers do not prove (`integer_squareroot` of a
+    # `Gwei`): a caller with a uint of another class needs their statements.
+    olds = sorted(n for n in cls if n in have and n in g.em.sigs and
+                  not n.startswith("upgrade_to_") and g.em.sigs[n].ret[0] == "uint" and
+                  not g.em.sigs[n].mutated and
+                  any(t[0] == "uint" for _, t in g.em.sigs[n].params))
+    olds = [n for n in topo(olds, cls)]
+    for n in olds + tier:
         miss = [c for c in cls[n]["calls"] if c not in fuel and c not in bfuel]
         if miss:
-            skipped[n] = f"callee without a statement: {miss[0]}"
+            if n in tier:
+                skipped[n] = f"callee without a statement: {miss[0]}"
             continue
         cn, sk = make(n, fuel, bfuel, wfneed, heq, honeed)
-        if sk:
+        if n not in tier:
+            cn = {k: v for k, v in cn.items() if re.search(r"_p\d+i?$", k) and
+                  k not in fuel and k not in bfuel}
+        elif sk:
             skipped[n] = sk
         for k, (t, _) in cn.items():
             so = re.match(r"-- statement only: (.*)\n", t)
-            if so and re.search(r"_p\d+i?$", k):
-                # An optional variant without a proof rule: the callers use the base theorem.
-                continue
             if so:
                 shape[k] = so[1]
             try:
@@ -2147,6 +2172,10 @@ def cond(args, g, cls, make, work):
                     bad.setdefault(k, m[0].split("error", 1)[-1][:120])
         if not bad:
             break
+        # The statements that do not elaborate, for a look at them.
+        with open(str(sp) + ".bad", "a") as fb:
+            for k in bad:
+                fb.write(f"-- {k}: {bad[k]}\n{stmt_text[k]}\n")
         gone = set(bad)
         while True:
             more = {k for k in texts if k not in gone and
@@ -2273,7 +2302,7 @@ def cond(args, g, cls, make, work):
     proved_k = {k for k, (_, ok, _, _) in results.items() if ok and k not in dropped}
     # Full: every hypothesis has its full theorem, callees first.
     full_k, full_txt = set(), ""
-    for n in tier:
+    for n in olds + tier:
         for k in sorted(k for k in proved_k if owner[k] == n):
             hs = hyps[k]
             if all(hyp_of(l, keys) in full_k for l in hs):
@@ -2289,7 +2318,8 @@ def cond(args, g, cls, make, work):
         return bool(own) and n not in skipped and all(k in ks for k in own)
     cond_ok = [n for n in tier if done(n, proved_k)]
     full_ok = [n for n in tier if done(n, full_k)]
-    body = "".join(results[k][0] for k in sorted(proved_k, key=lambda k: tier.index(owner[k])))
+    order = olds + tier
+    body = "".join(results[k][0] for k in sorted(proved_k, key=lambda k: order.index(owner[k])))
     cp = gen_dir / "Cond.lean"
     cp.write_text(f"-- Generated by tools/gen_valid.py. Do not edit.\n{COND_HEADER}"
                   f"\n/-!\n# Validation theorems: conditional\n\nGenerated by tools/gen_valid.py. "
