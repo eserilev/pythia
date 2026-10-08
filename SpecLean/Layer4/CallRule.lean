@@ -177,7 +177,7 @@ def ORel (lo : Nat) (h : Heap) (vs : List Value) : DOut → Outcome → Prop
 def CStmtOK (fp : Footprint) (h0 h : Heap) (vs : List Value) :
     Res (DOut × DSt) → Res (Outcome × Locals × Heap) → Prop
   | .ok (o, s'), .ok (o', L', h') => ORel h0.next h' vs o o' ∧ CInv fp h0 h' vs s' L' ∧ SkelL h0.next h h'
-  | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
+  | .error e, .error e' => normE e' = normE e ∧ e ≠ .outOfFuel
   | _, _ => False
 
 /-- A statement-level expression: the value, and the invariant with the new trees. -/
@@ -186,7 +186,7 @@ def CallOK (fp : Footprint) (h0 h : Heap) (vs : List Value) (s : DSt) (L : Local
   | .ok (r, rs), .ok (w, h') =>
     ERel h' vs r w ∧ TLo h0.next h' r w ∧ CInv fp h0 h' vs { s with roots := rs } L ∧
       SkelL h0.next h h'
-  | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
+  | .error e, .error e' => normE e' = normE e ∧ e ≠ .outOfFuel
   | _, _ => False
 
 /-- A statement that starts after a run that changes no old object. -/
@@ -225,7 +225,7 @@ def FnRel (fp : Footprint) (h : Heap) (vs : List Value) :
       (fp = [] → Ext h h') ∧
       ∀ kg q b kg' q', at? h' vs kg q = some (.ref b) → h.next ≤ b →
         at? h' vs kg' q' = some (.ref b) → kg' = kg ∧ q' = q
-  | .error e, .error e' => e' = e ∧ e ≠ .outOfFuel
+  | .error e, .error e' => normE e' = normE e ∧ e ≠ .outOfFuel
   | _, _ => False
 
 theorem cstmtOK_err {fp : Footprint} {h0 h : Heap} {vs : List Value} {e : SpecError}
