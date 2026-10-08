@@ -11,6 +11,10 @@ bridge theorems of the callees), and continues with the rest. Pure goals close w
 
 namespace Pythia.Bridge
 
+/-- A function of the readable Lean (minimal or mainnet). -/
+def isGenFn (n : Lean.Name) : Bool :=
+  n.getPrefix == `SpecLean.Rd.Gen || n.getPrefix == `SpecLean.Rd.GenMainnet
+
 register_option bridge.stepHeartbeats : Nat := {
   defValue := 2000000, descr := "the heartbeat budget of one bridge_run step" }
 
@@ -89,7 +93,7 @@ def irHyps : TacticM (Array FVarId) := withMainContext do
     if d.isImplementationDetail then continue
     let t := (← instantiateMVars d.type).consumeMData
     let some n := t.getAppFn.constName? | continue
-    if n.toString.startsWith "Pythia.Bridge.IR_" then out := out.push d.fvarId
+    if (n.getString!.startsWith "IR_" && (`Pythia.Bridge).isPrefixOf n) then out := out.push d.fvarId
   return out
 
 open Lean Meta in
@@ -120,7 +124,7 @@ def splitIR (depth : Nat) : TacticM Unit := withMainContext do
         let cty := cty.headBeta
         hs := hs.push { userName := `ir, type := cty, value := cpf }
         if let some n := cty.consumeMData.getAppFn.constName? then
-          if n.toString.startsWith "Pythia.Bridge.IR_" then next := (cty, cpf) :: next
+          if (n.getString!.startsWith "IR_" && (`Pythia.Bridge).isPrefixOf n) then next := (cty, cpf) :: next
     todo := next
   let g ← getMainGoal
   let (_, g') ← g.assertHypotheses hs
@@ -136,7 +140,7 @@ def specHyps : TacticM (Array Lean.Ident) := withMainContext do
     if d.isImplementationDetail then continue
     let t := (← instantiateMVars d.type).consumeMData
     if let some n := t.getAppFn.constName? then
-      if (`Pythia.Bridge).isPrefixOf n && n.toString.startsWith "Pythia.Bridge.spec_" then
+      if (`Pythia.Bridge).isPrefixOf n && n.getString!.startsWith "spec_" then
         out := out.push (mkIdent d.userName)
   return out
 
@@ -193,7 +197,7 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
           catch _ => pure [g']
         g := gs.headD g'
       catch _ => pure ()
-    else if callees && fn.getPrefix == `SpecLean.Rd.Gen then
+    else if callees && isGenFn fn then
       for h in hs do
         let s ← saveState
         try
@@ -372,7 +376,7 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
     if kb.getAppFn.constName? == some ``SpecLean.Rd.uCast then
       return #[← `(tactic| (apply sim_bind_cast; all_goals first | with_reducible rfl | decide | bridge_leaf [$hs,*]))]
     return #[]
-  if fn.getPrefix == `SpecLean.Rd.Gen then
+  if isGenFn fn then
     let mut out := #[]
     for h in hs ++ (← specHyps) do
       out := out.push (← `(tactic| (apply simI_sim; apply $h:ident; all_goals bridge_range)))
@@ -475,7 +479,7 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
     -- a readable call whose hand side is a plain value
     let aFn := a.getAppFn.constName?.getD .anonymous
     let tac2 : TacticM Unit := do
-      unless aFn.getPrefix == `SpecLean.Rd.Gen || aFn == ``SpecLean.Rd.uOp do
+      unless isGenFn aFn || aFn == ``SpecLean.Rd.uOp do
         throwError "bridge: not a call"
       evalTactic (← `(tactic| apply sim_bind_val))
       onTag `hA (← `(tactic| bridge_callee [$hs,*]))

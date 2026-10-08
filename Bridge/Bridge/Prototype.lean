@@ -1,4 +1,5 @@
 import Bridge.Sim
+import SpecLean.Gen.Readable
 
 /-!
 # Step 6 prototype: the hand-written spec equals the readable Lean

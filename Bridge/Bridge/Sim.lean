@@ -1,4 +1,4 @@
-import SpecLean.Gen.Readable
+import SpecLean.Rd.Prelude
 import Bridge.Attr
 import EpochProofs.Spec.Block.Block
 
