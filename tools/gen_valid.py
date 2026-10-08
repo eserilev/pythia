@@ -202,6 +202,25 @@ def appends_of(g, fns):
     return res
 
 
+def prod(ts):
+    """A product of bounds that `omega` reads as linear: the literals multiply out, and two or
+    more other factors go into the opaque `bigProd` (`a * b ≤ bigProd a b`)."""
+    lit, rest = 1, []
+    for t in ts:
+        if t.isdigit():
+            lit *= int(t)
+        else:
+            rest.append(t)
+    if lit == 0:
+        return "0"
+    if not rest:
+        return str(lit)
+    p = rest[0]
+    for t in rest[1:]:
+        p = f"(SpecLean.Validation.bigProd {p} {t})"
+    return p if lit == 1 else f"({lit} * {p})"
+
+
 class Bound:
     """Upper bounds of lengths and int values in the arguments of a function (`x0`, `x1.length`,
     `x0.validators.length`), from its syntax. A bound of a callee's fuel or result length, which
@@ -321,7 +340,7 @@ class Bound:
             return mult
         for added, node in sites:
             mult = [self.length(added, depth + 1)] + loops(node)
-            terms.append("(" + " * ".join(mult) + ")" if len(mult) > 1 else mult[0])
+            terms.append(prod(mult))
         for y in ast.walk(self.tree):
             if not (isinstance(y, ast.Call) and isinstance(y.func, ast.Attribute) and
                     isinstance(y.func.value, ast.Name) and y.func.value.id == x):
@@ -342,7 +361,7 @@ class Bound:
                 elif isinstance(p, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
                     mult += [self.length(g.iter, depth + 1) for g in p.generators]
                 p = parent.get(p)
-            terms.append("(" + " * ".join(mult) + ")" if len(mult) > 1 else mult[0])
+            terms.append(prod(mult))
         return "(" + " + ".join(terms) + ")"
 
     def grown(self, x):
@@ -444,7 +463,7 @@ class Bound:
         if isinstance(e, ast.BinOp) and isinstance(e.op, ast.Mult) and \
                 isinstance(e.left, (ast.List, ast.Tuple)):
             # `[x] * n`.
-            return f"({len(e.left.elts)} * {self.value(e.right, d)})"
+            return prod([str(len(e.left.elts)), self.value(e.right, d)])
         cl = self.const_len(e)
         if cl is not None:
             return cl
@@ -455,8 +474,9 @@ class Bound:
             if t is None:
                 raise Unsupported("bound: iteration source")
             if not fields:
-                if t[0] in ("list", "set", "bytes") and \
-                        (j, ()) not in self.g.appends.get(self.name, set()):
+                if t[0] in ("list", "set", "bytes"):
+                    if (j, ()) in self.g.appends.get(self.name, set()):
+                        return f"(x{j}.length + {self.g.growth(self.name, j, ())})"
                     return f"x{j}.length"
                 if t[0] == "bytesN":
                     return str(t[1].LENGTH)
@@ -468,11 +488,14 @@ class Bound:
                 return str(ft.LENGTH)
             # A list that the function or a callee appends to has no bound at entry: its
             # class's limit.
+            base = f"x{j}." + ".".join(T.ident(f) for f in fields) + ".length"
             if (j, tuple(fields)) in self.g.appends.get(self.name, set()):
-                if T.list_info(ft)[2] is None:
-                    raise Unsupported("bound: a list that grows")
-                return str(T.list_info(ft)[2])
-            return f"x{j}." + ".".join(T.ident(f) for f in fields) + ".length"
+                # A list that the function or a callee appends to: the limit of its class, or
+                # its length at entry and the items that the appends add.
+                if T.list_info(ft)[2] is not None:
+                    return str(T.list_info(ft)[2])
+                return f"({base} + {self.g.growth(self.name, j, tuple(fields))})"
+            return base
         v = self.single(e)
         if v is not None:
             try:
@@ -531,7 +554,7 @@ class Bound:
             if isinstance(e.op, ast.Add):
                 return f"({self.value(e.left, d)} + {self.value(e.right, d)})"
             if isinstance(e.op, ast.Mult):
-                return f"({self.value(e.left, d)} * {self.value(e.right, d)})"
+                return prod([self.value(e.left, d), self.value(e.right, d)])
             if isinstance(e.op, (ast.FloorDiv, ast.Mod, ast.Sub, ast.RShift, ast.BitAnd)):
                 return self.value(e.left, d)
         v = self.single(e)
@@ -722,14 +745,16 @@ class Bound:
                 raise Unsupported(f"bound: callee argument {ast.unparse(a)[:60]}{suf}")
             j2, fields = ch
             path = tuple(fields) + tuple(f.strip("«»") for f in suf.split(".")[1:-1])
-            if (j2, path) in self.g.appends.get(self.name, set()):
-                # The caller may have added items before the call: the class's limit.
+            base = f"x{j2}" + "".join("." + T.ident(f) for f in fields) + suf
+            if (j2, path) in self.g.appends.get(self.name, set()) and suf.endswith(".length"):
+                # The caller may have added items before the call: the class's limit, or the
+                # items that the appends add.
                 c = self.chain_type(j2, list(path))
                 li = T.list_info(c[1]) if c is not None and c[0] == "ssz" else None
                 if li and li[2] is not None:
                     return str(li[2])
-                raise Unsupported(f"bound: a list that grows {ast.unparse(a)[:40]}{suf}")
-            return f"x{j2}" + "".join("." + T.ident(f) for f in fields) + suf
+                return f"({base} + {self.g.growth(self.name, j2, path)})"
+            return base
         out = re.sub(r"\bx(\d+)((?:\.(?:«[^»]*»|[A-Za-z_][\w']*))*)", rep, expr)
         return out if out.isdigit() else f"({out})"
 
@@ -918,7 +943,13 @@ class Gen:
                 fields = [f for f, _ in cur._FIELD_TYPES]
                 out.append(f".exact {fields.index(st)}")
                 cur = dict(cur._FIELD_TYPES)[st]
-        return f"⟨Scope.Id.«{self.n.scope(c)}», [{', '.join(out)}]⟩"
+        li = T.list_info(c)
+        if li is not None:
+            # A list root (SPEC 9.2): the key of its kind and element type.
+            root = f"(listRoot .{li[0]} {translate.ssz_ty_term(self.b, li[1])})"
+        else:
+            root = f"Scope.Id.«{self.n.scope(c)}»"
+        return f"⟨{root}, [{', '.join(out)}]⟩"
 
     def footprint(self, name, sig):
         pats = []
@@ -1499,6 +1530,81 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
             names.append(f"{name}_loop{k}")
         return text, names, bounds, jj
 
+    def growth(self, name, j, path, depth=0):
+        """A bound on the items that a run of `name` adds to the list at `path` of argument `j`,
+        directly or through callees, in the arguments of `name`: at each site the items it adds
+        times the iterations of the loops around it."""
+        key = (name, j, path)
+        memo = self.__dict__.setdefault("growth_memo", {})
+        if key in memo:
+            if memo[key] is None:
+                raise Unsupported("bound: a list that grows in its own loop")
+            return memo[key]
+        if depth > 12:
+            raise Unsupported("bound: a list that grows")
+        memo[key] = None
+        tree = self.b.fns[name]
+        bd = Bound(self, name, self.em.sigs[name], tree)
+        parent = {}
+        for p in ast.walk(tree):
+            for ch in ast.iter_child_nodes(p):
+                parent[ch] = p
+
+        def loops(y):
+            mult, p = [], parent.get(y)
+            while p is not None:
+                if isinstance(p, ast.While):
+                    mult.append("18446744073709551616")
+                elif isinstance(p, ast.For):
+                    mult.append(bd.length(p.iter))
+                elif isinstance(p, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
+                    mult += [bd.length(g.iter) for g in p.generators]
+                p = parent.get(p)
+            return mult
+
+        def at(e):
+            ch = bd.chain(e)
+            return ch is not None and ch[0] == j and tuple(ch[1]) == path
+        terms = []
+        for x in ast.walk(tree):
+            inc = None
+            if isinstance(x, ast.Call) and isinstance(x.func, ast.Attribute) and \
+                    at(x.func.value):
+                if x.func.attr in ("append", "add", "insert"):
+                    inc = "1"
+                elif x.func.attr in ("extend", "update") and len(x.args) == 1:
+                    inc = bd.length(x.args[0])
+            elif isinstance(x, ast.Assign) and any(
+                    isinstance(t, ast.Subscript) and isinstance(t.slice, ast.Slice) and
+                    at(t.value) for t in x.targets):
+                inc = bd.length(x.value)
+            elif isinstance(x, ast.AugAssign) and at(x.target):
+                inc = bd.length(x.value)
+            elif isinstance(x, ast.Call) and isinstance(x.func, ast.Name) and \
+                    x.func.id in self.b.fns and x.func.id in self.em.sigs:
+                c = x.func.id
+                cp = [pn for pn, _ in self.em.sigs[c].params]
+                args = list(x.args) + [None] * (len(cp) - len(x.args))
+                for kw in x.keywords:
+                    if kw.arg in cp:
+                        args[cp.index(kw.arg)] = kw.value
+                parts = []
+                for jj, s in sorted(self.appends.get(c, ())):
+                    if jj >= len(args) or args[jj] is None:
+                        continue
+                    ch = bd.chain(args[jj])
+                    if ch is None or ch[0] != j or tuple(ch[1]) + s != path:
+                        continue
+                    parts.append(bd.subst(self.growth(c, jj, s, depth + 1), args))
+                if parts:
+                    inc = " + ".join(parts) if len(parts) == 1 else "(" + " + ".join(parts) + ")"
+            if inc is not None:
+                terms.append(prod([inc] + loops(x)))
+        out = "0" if not terms else terms[0] if len(terms) == 1 else \
+            "(" + " + ".join(terms) + ")"
+        memo[key] = out
+        return out
+
     def generic_bounds(self, name, sig, tree):
         """A bound on the fuel of `name` beyond its constant part, in its arguments, from its
         syntax alone: each iteration and each call costs one unit of fuel, and a body runs with
@@ -1620,9 +1726,11 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
                             fixt(sig.ret), sig.mutated, [])
         if any(t[0] in ("tvar", "utvar") for _, t in sig.params):
             raise Unsupported("generic")
-        if any(sig.params[j][1][0] != "container" for j in sig.mutated):
-            # A footprint pattern is rooted at a container (`RootTy`): the write to a list
-            # argument is outside every footprint, so a statement of it would be false.
+        if any(sig.params[j][1][0] != "container" and not (
+                getattr(self, "stmt_only", False) and sig.params[j][1][0] == "list" and
+                sig.params[j][1][2] is not None) for j in sig.mutated):
+            # A list argument that the function writes needs a list root (`listRoot`), which
+            # only the conditional tier states.
             raise Unsupported("mutates a list argument")
         if given is not None:
             # Optional arguments: a call passes the first `given` of them; the rest take the
@@ -1874,6 +1982,9 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
         if callees:
             # An object read after a call: the call kept it, so the fact of the entry heap holds.
             alts.append("(rd_frame_objs; try rd_step)")
+        if callees and getattr(self, "stmt_only", False):
+            # The same after a callee that writes: an object at no path of its footprint.
+            alts.append("(rd_frame_fp; try rd_step)")
         if callees and (sig.mutated or ret[0] == "container"):
             # A field read that a split left open: the field index and the item from the facts.
             alts.append("(rd_fieldidx; try rd_step)")
@@ -1920,7 +2031,7 @@ theorem {name_run}@@HYPS@@ (gfp : Footprint) (h : Heap) {binders}{hw} (k : Nat) 
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, {", ".join(defs + (["compLoop", "iterSource", "toSeq", "iterBase"] if cbounds else []))}{", *" if hys else ""}]
   rd_step
   repeat' {step}
-  all_goals (first | rd_finish | {"(simp [ho.sha256, ho.sha256_len]; done) | " if sha else ""}{"rd_list_end | rd_comp_err | " if cbounds else ""}({"(try rd_frame_facts); " if callees else ""}(try rd_heap); rd_frame; done)))
+  all_goals (first | rd_finish | {"(simp [ho.sha256, ho.sha256_len]; done) | " if sha else ""}{"rd_list_end | rd_comp_err | " if cbounds else ""}({"(try rd_frame_facts); " if callees else ""}(try rd_heap); rd_frame; done){" | ((try rd_heap); (try rd_frame); all_goals rd_finish)" if getattr(self, "stmt_only", False) else ""}))
 
 set_option maxRecDepth 8192 in
 theorem {name_valid}@@HYPS@@ (gfp : Footprint) (h : Heap) {binders}{hw} :
@@ -2267,6 +2378,7 @@ def cond(args, g, cls, make, work):
         def key_of(k):
             return hashlib.sha256((sfp + cands[k]).encode()).hexdigest()
         todo_c = [k for k in cands if key_of(k) not in cache]
+        limit = args.timeout
         unused = {}
         for k in cands:
             if key_of(k) in cache and len(cache[key_of(k)]) == 4:
@@ -2274,19 +2386,30 @@ def cond(args, g, cls, make, work):
                 results[k] = (cands[k], ok, sec, e)
             elif k not in todo_c:
                 todo_c.append(k)
-        with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
-            futs = {ex.submit(check, k, cands[k] + probe(k), work, COND_HEADER, True): k
-                    for k in todo_c}
-            for fu in concurrent.futures.as_completed(futs):
-                k, ok, sec, e = fu.result()
-                outp = Path(work) / f"{k}.out"
-                unused[k] = (re.findall(r"^UNUSED (\S+)$", outp.read_text(), re.M)
-                             if ok and outp.exists() else [])
-                results[k] = (cands[k], ok, round(sec, 1), e)
-                cache[key_of(k)] = (ok, round(sec, 1), e, unused[k])
-                cache_p.write_text(json.dumps(cache))
-                print(f"  {'OK' if ok else 'FAIL'} {k} ({round(sec, 1)}s)"
-                      f"{'' if ok else ': ' + e[:120]}", flush=True)
+        # A first pass with a short limit, then the checks that ran out of time again with the
+        # long one.
+        for lim in [args.timeout] + ([args.long] if args.long > args.timeout else []):
+            with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
+                futs = {ex.submit(check, k, cands[k] + probe(k), work, COND_HEADER, True, lim): k
+                        for k in todo_c}
+                for fu in concurrent.futures.as_completed(futs):
+                    k, ok, sec, e = fu.result()
+                    outp = Path(work) / f"{k}.out"
+                    unused[k] = (re.findall(r"^UNUSED (\S+)$", outp.read_text(), re.M)
+                                 if ok and outp.exists() else [])
+                    results[k] = (cands[k], ok, round(sec, 1), e)
+                    timed = not ok and sec >= lim - 2
+                    if not timed or lim == args.long:
+                        cache[key_of(k)] = (ok, round(sec, 1), e, unused[k])
+                        cache_p.write_text(json.dumps(cache))
+                    print(f"  {'OK' if ok else 'TIMEOUT' if timed else 'FAIL'} {k} ({round(sec, 1)}s)"
+                          f"{'' if ok or timed else ': ' + e[:120]}", flush=True)
+            proved_now = sum(1 for k in cands if k in results and results[k][1])
+            print(f"pass with {lim} s: {proved_now} of {len(cands)} candidates proved", flush=True)
+            todo_c = [k for k in todo_c if not results[k][1] and results[k][2] >= lim - 2]
+            if not todo_c:
+                break
+
         new_drop = {k for k, (_, ok, _, _) in results.items()
                     if not ok and re.search(r"_p\d+i?$", k) and k not in dropped}
         # A callee statement that the proof does not use leaves the theorem.
@@ -2365,7 +2488,7 @@ def cond(args, g, cls, make, work):
     print(f"candidates in {work}")
 
 
-def check(name, text, workdir, header, keep_out=False):
+def check(name, text, workdir, header, keep_out=False, limit=600):
     """Compile one candidate. Returns (name, ok, seconds, first error line)."""
     f = Path(workdir) / f"{name}.lean"
     f.write_text(header + PRELUDE + text + FOOTER)
@@ -2374,8 +2497,8 @@ def check(name, text, workdir, header, keep_out=False):
         # Each check runs in its own memory cap: a proof term that blows up must fail, not
         # take the machine down.
         r = subprocess.run(["systemd-run", "--user", "--scope", "-q", "-p", f"MemoryMax={MEM}",
-                            "-p", "MemorySwapMax=0", "lake", "env", "timeout", "600", "lean", str(f)],
-                           cwd=ROOT, capture_output=True, text=True, timeout=660)
+                            "-p", "MemorySwapMax=0", "lake", "env", "timeout", str(limit), "lean", str(f)],
+                           cwd=ROOT, capture_output=True, text=True, timeout=limit + 60)
         out = r.stdout + r.stderr
         ok = r.returncode == 0 and "error" not in out and "sorry" not in out
         if not ok or keep_out:
@@ -2393,6 +2516,10 @@ def main():
     ap.add_argument("--preset", default="minimal")
     ap.add_argument("--tier", default="leaves", choices=["leaves", "calls", "loops", "cond"])
     ap.add_argument("--only", default=None)
+    ap.add_argument("--timeout", type=int, default=120,
+                    help="cond: the seconds of a check in the first pass")
+    ap.add_argument("--long", type=int, default=600,
+                    help="cond: the seconds of a second pass over the checks that timed out (0: none)")
     ap.add_argument("--dry", action="store_true", help="cond: write the statements to --out and "
                     "stop")
     ap.add_argument("--jobs", type=int, default=2)
