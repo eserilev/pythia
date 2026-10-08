@@ -15,7 +15,7 @@ namespace SpecLean.Layer4.GenSteps
 
 open SpecLean SpecLean.Encode SpecLean.Layer4
 
-variable [LibModel]
+variable [LibModel] [ExtTab]
 
 attribute [local instance high] LibModel.toLibValues
 
@@ -103,9 +103,15 @@ theorem s_ifExp (l : Line) (c a b : Expr) :
 
 theorem s_comp (l : Line) (elt : Expr) (t : Target) (it : Expr) (ifs : List Expr) :
     (den env fps (n + 1)).expr fp s (.comp l .list elt [.mk t it ifs]) =
-      DM.bind ((den env fps n).iter fp s it) fun ls =>
-        DM.bind ((den env fps n).items fp s t ifs elt ls 0) fun ds =>
-          .ok (.tree (.list .pyList .any none ds)) := by rw [den_expr]; rfl
+      match rangeOf env s it with
+      | some args =>
+        DM.bind (argsOf ((den env fps n).sub fp s) args) fun rs => DM.bind (dRange env rs) fun xs =>
+          DM.bind ((den env fps n).ritems fp s t ifs elt xs 0) fun ds =>
+            .ok (.tree (.list .pyList .any none ds))
+      | none =>
+        DM.bind ((den env fps n).iter fp s it) fun ls =>
+          DM.bind ((den env fps n).items fp s t ifs elt ls 0) fun ds =>
+            .ok (.tree (.list .pyList .any none ds)) := by rw [den_expr]; rfl
 
 theorem s_call (l : Line) (f : Expr) (args : List Arg)
     (hfb : fromBytesOf env s (.call l f args) = none) (hbl : blsOf env s (.call l f args) = none) :
@@ -114,7 +120,7 @@ theorem s_call (l : Line) (f : Expr) (args : List Arg)
       | some (g, args) =>
         if allKw args then DM.bind (kwsOf ((den env fps (n + 1)).expr fp s) args) fun kvs => kwCtor env g kvs
         else DM.bind (argsOf ((den env fps (n + 1)).expr fp s) args) fun rs =>
-          dCallRO env fps (den env fps (n + 1)).fn s g rs
+          dCallRO env fps (n + 1) (den env fps (n + 1)).fn s g rs
       | none => none := by
   rw [den_expr]
   cases hc : callHead env s (.call l f args) with
@@ -150,7 +156,7 @@ theorem s_callStep (e : Expr) (hap : appendOf env e = none) :
           DM.bind (DM.bind (kwsOf ((den env fps (n + 1)).expr fp s) args) fun kvs => kwCtor env g kvs)
             fun r => .ok (r, s.roots)
         else DM.bind (argsOf ((den env fps (n + 1)).expr fp s) args) fun rs =>
-          dCallW env fps (den env fps (n + 1)).fn fp s g rs
+          dCallW env fps (n + 1) (den env fps (n + 1)).fn fp s g rs
       | none => DM.bind ((den env fps (n + 2)).expr fp s e) fun r => .ok (r, s.roots) := by
   rw [den_call]; unfold callStep; simp only [hap]; show (match n + 1, callHead env s e with
     | _ + 1, some (g, args) => _
@@ -864,8 +870,8 @@ macro_rules
     let extra := (extra.map (·.getElems)).getD #[]
     `(tactic| simp only [l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
-      Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, Expr.call.injEq, s_append, env_append, appendItemD, appendable_list_cont, appendable_plist_cont, appendable_list_nom, appendable_plist_nom, appendable_list_bytes, appendable_plist_bytes, Ssz.checkLength, Rd.lappend, s_assign, s_annAssign, s_exprStmt,
-      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, s_iter_enum, isEnumerate, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_whileStmt, s_tname, s_tattr,
+      Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, rangeOf, Expr.call.injEq, s_append, env_append, appendItemD, appendable_list_cont, appendable_plist_cont, appendable_list_nom, appendable_plist_nom, appendable_list_bytes, appendable_plist_bytes, Ssz.checkLength, Rd.lappend, s_assign, s_annAssign, s_exprStmt,
+      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, s_iter_enum, isEnumerate, isRange, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_whileStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
       dGlobal, env_globals, env_containers, env_config, env_bytesName,
@@ -877,7 +883,7 @@ macro_rules
       uv_ofNat, Rd.uOp, Rd.uOf, Rd.erase, Rd.uv, emap_ite, emap_ok, emap_err,
       merr_ok, merr_err, epure, ethrow, ebind_pure, SpecError.fail, callHead, callable, Option.isNone,
       Bool.and_true, Bool.true_and, Bool.and_false, Bool.false_and, Bool.not_true, Bool.not_false,
-      argsOf, dCallRO, dCallW, allKw_nil, allKw_pos, allKw_starred, allKw_kw, kwsOf, kwCtor,
+      argsOf, dCallRO, noExt_ext, dCallW, allKw_nil, allKw_pos, allKw_starred, allKw_kw, kwsOf, kwCtor,
       kwFields, flatTy, Bool.and_self, List.all_cons, List.all_nil, List.contains_cons, List.contains_nil,
       List.lookup_cons, List.lookup_nil, List.map_cons, List.map_nil, Bool.or_self, Bool.true_or, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
       Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,
@@ -896,8 +902,8 @@ macro_rules
       Rd.pyMin, Rd.pyMax, Rd.toLE, env_bytes32, env_sha256, fmod_natCast, fdiv_natCast, sum_den_v, sumU_nil, padNone, Nat.reduceAdd, Nat.reduceSub, Nat.le_refl, Nat.reduceLeDiff, List.replicate_zero, List.replicate_succ, List.append_nil, Rd.bytesOf, isVal, noneDefaults, isNoneLit, List.isEmpty_cons, List.isEmpty_nil, env_root, fromBytesOf, s_fromBytes, blsOf, s_bls, dBls, env_bls, dFromBytes, fromBytes, env_fromBytes, env_little, PrimRel.fromLE_eq_prim, bne_iff_ne, Bool.not_eq_true', beq_eq_false_iff_ne, Int.natCast_eq_zero, toNat_neg1_add, getElem?_len_sub_one, Option.map_none, Prim.pick, Id.run_bind, Id.run_pure, ite_self, List.foldl_cons, List.foldl_nil, Int.ofNat_eq_natCast, getD_ite, Option.getD_some, Option.getD_none, Rd.uCast, Rd.iOp, $extra,*])
   | `(tactic| l4_eval_star) => `(tactic| simp only [*, List.getElem?_eq_getElem, Option.some.injEq, Except.ok.injEq, Prod.mk.injEq, DRes.val.injEq, DV.leaf.injEq, l4_simp, s_name, s_int, s_bool, s_noneLit, s_attr, s_index, s_binop, s_compare,
       s_boolop, s_not, s_unop, s_slice, optOf, getSlice, sliceRange, sliceBound,
-      Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, Expr.call.injEq, s_append, env_append, appendItemD, appendable_list_cont, appendable_plist_cont, appendable_list_nom, appendable_plist_nom, appendable_list_bytes, appendable_plist_bytes, Ssz.checkLength, Rd.lappend, s_assign, s_annAssign, s_exprStmt,
-      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, s_iter_enum, isEnumerate, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_whileStmt, s_tname, s_tattr,
+      Rd.sliceBound', List.extract_eq_take_drop, s_ifExp, s_comp, s_call, s_callStep, appendOf, rangeOf, Expr.call.injEq, s_append, env_append, appendItemD, appendable_list_cont, appendable_plist_cont, appendable_list_nom, appendable_plist_nom, appendable_list_bytes, appendable_plist_bytes, Ssz.checkLength, Rd.lappend, s_assign, s_annAssign, s_exprStmt,
+      s_augAssign, s_augName, augName, s_iter_attr, s_iter_name, s_iter_enum, isEnumerate, isRange, listPlace, s_ifStmt, s_ret, s_retNone, s_assert, s_pass, s_forStmt, s_whileStmt, s_tname, s_tattr,
       s_tindex, b_nil, b_cons, initLoc, List.zipIdx_cons, List.zipIdx_nil, slot,
       List.getElem?_cons_zero, List.getElem?_cons_succ, List.length_cons, List.length_nil, setLoc,
       dGlobal, env_globals, env_containers, env_config, env_bytesName,
@@ -909,7 +915,7 @@ macro_rules
       uv_ofNat, Rd.uOp, Rd.uOf, Rd.erase, Rd.uv, emap_ite, emap_ok, emap_err,
       merr_ok, merr_err, epure, ethrow, ebind_pure, SpecError.fail, callHead, callable, Option.isNone,
       Bool.and_true, Bool.true_and, Bool.and_false, Bool.false_and, Bool.not_true, Bool.not_false,
-      argsOf, dCallRO, dCallW, allKw_nil, allKw_pos, allKw_starred, allKw_kw, kwsOf, kwCtor,
+      argsOf, dCallRO, noExt_ext, dCallW, allKw_nil, allKw_pos, allKw_starred, allKw_kw, kwsOf, kwCtor,
       kwFields, flatTy, Bool.and_self, List.all_cons, List.all_nil, List.contains_cons, List.contains_nil,
       List.lookup_cons, List.lookup_nil, List.map_cons, List.map_nil, Bool.or_self, Bool.true_or, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
       Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,

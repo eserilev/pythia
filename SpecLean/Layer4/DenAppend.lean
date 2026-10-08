@@ -296,7 +296,7 @@ theorem dec_alloc_flat {h : Heap} {ty : Name} {ws : List Value} (hf : ∀ v ∈ 
     simp [dec_flat hfx, hx]
   simp [this]
 
-variable [LibModel]
+variable [LibModel] [ExtTab]
 
 attribute [local instance high] LibModel.toLibValues
 
@@ -434,8 +434,8 @@ theorem appendStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat e
   | succ m =>
   simp only [appendStep] at hd
   rcases bind_case hd with ⟨err, he, rfl⟩ | ⟨ro, he, hd2⟩
-  · obtain ⟨hoe, hne⟩ := gok_error (hSub m rfl fp h0 h vs s L hI o _ he)
-    rw [eval_method_err hoe]; exact ⟨rfl, hne⟩
+  · obtain ⟨_, hoe, hn, hne⟩ := gok_error (hSub m rfl fp h0 h vs s L hI o _ he)
+    rw [eval_method_err hoe]; exact ⟨hn, hne⟩
   obtain ⟨ov, h1, hoe, hx1, -, hrel1⟩ := gok_ok_lo (hSub m rfl fp h0 h vs s L hI o _ he)
   have hI1 := hI.ext hx1
   cases ro with
@@ -466,8 +466,8 @@ theorem appendStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat e
   cases ha
   have hlen : ds.length = xs.length := ((mapM_some_iff xs ds).mp hm).1
   rcases bind_case hd2 with ⟨err, he2, rfl⟩ | ⟨ra, he2, hd3⟩
-  · obtain ⟨hae, hne⟩ := gok_error (hEx fp h0 h1 vs s L hI1 a _ he2)
-    rw [eval_method_arg_err hoe ho1 hae]; exact ⟨rfl, hne⟩
+  · obtain ⟨_, hae, hn, hne⟩ := gok_error (hEx fp h0 h1 vs s L hI1 a _ he2)
+    rw [eval_method_arg_err hoe ho1 hae]; exact ⟨hn, hne⟩
   obtain ⟨w, h2, hae, hx2, hlo2, hrel2⟩ := gok_ok_lo (hEx fp h0 h1 vs s L hI1 a _ he2)
   have hI2 := hI1.ext hx2
   have ho2 : h2.objs a0 = some (.list kd el lm xs) :=

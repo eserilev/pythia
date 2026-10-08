@@ -143,6 +143,8 @@ structure Sem where
   sub : Footprint → DSt → Expr → DM DRes
   /-- `execWhile`: a `while` loop, one fuel unit per test. -/
   whl : Footprint → DSt → Expr → List Stmt → DM (DOut × DSt)
+  /-- `compItems` over a snapshot of flat values (`range(...)`), one fuel unit per item. -/
+  ritems : Footprint → DSt → Target → List Expr → Expr → List Value → Nat → DM (List DV)
 
 def blockOf (stmt : DSt → Stmt → DM (DOut × DSt)) : DSt → List Stmt → DM (DOut × DSt)
   | s, [] => .ok (.normal, s)
@@ -276,12 +278,42 @@ theorem padNone_full {d : FunctionDef} {rg : List DV} (h : rg.length = d.params.
     padNone d rg = some rg := by
   unfold padNone; rw [if_pos (by omega)]; simp [h]
 
-/-- A call that writes nothing. `fn` is the callee body at the fuel of the call. -/
-def dCallRO (env : Env) (fps : Name → Footprint)
+/-- A callee taken from a statement, not from its body: the fuel its call needs and its result
+on the decoded arguments. It writes nothing. -/
+structure ExtFn where
+  bound : List DV → Nat
+  run : List DV → DM DRes
+
+/-- The callees taken from statements (`ExtOK` says that each agrees with the interpreter). -/
+class ExtTab where
+  ext : Name → Option ExtFn
+
+/-- No callee is taken from a statement. -/
+instance (priority := low) noExt : ExtTab := ⟨fun _ => none⟩
+
+@[simp] theorem noExt_ext (g : Name) : (noExt.ext g) = none := rfl
+
+variable [ExtTab]
+
+/-- A call that writes nothing. `fn` is the callee body at fuel `n`, the fuel of the call. -/
+def dCallRO (env : Env) (fps : Name → Footprint) (n : Nat)
     (fn : Footprint → FunctionDef → List DV → DM (DRes × List DV)) (s : DSt) (g : Name)
     (rs : List DRes) : DM DRes :=
   match env.globals.lookup g with
   | some (.fn d) =>
+    match ExtTab.ext g with
+    | some x =>
+      match rs.mapM (argRoot s) with
+      | some rg =>
+        if rg.length = d.params.names.length ∧ x.bound rg ≤ n then
+          DM.bind (x.run rg) fun r =>
+            match r with
+            | .val v => if Flat v then .ok (.val v) else none
+            | .tree t => .ok (.tree t)
+            | .place _ _ => none
+        else none
+      | none => none
+    | none =>
     if (fps g).isEmpty then
       match rs.mapM (argRoot s) with
       | some rg =>
@@ -299,13 +331,13 @@ def dCallRO (env : Env) (fps : Name → Footprint)
   | _ => none
 
 /-- A call at statement level: it may write through its one place argument. -/
-def dCallW (env : Env) (fps : Name → Footprint)
+def dCallW (env : Env) (fps : Name → Footprint) (n : Nat)
     (fn : Footprint → FunctionDef → List DV → DM (DRes × List DV)) (fp : Footprint) (s : DSt)
     (g : Name) (rs : List DRes) : DM (DRes × List DV) :=
   match env.globals.lookup g with
   | some (.fn d) =>
     if (fps g).isEmpty then
-      DM.bind (dCallRO env fps fn s g rs) fun r => .ok (r, s.roots)
+      DM.bind (dCallRO env fps n fn s g rs) fun r => .ok (r, s.roots)
     else
       match onePlace rs, rs.mapM (argRoot s) with
       | some (i, k, p), some rg =>
@@ -320,7 +352,7 @@ def dCallW (env : Env) (fps : Name → Footprint)
           else none
         | _, _ => none
       | _, _ => none
-  | _ => dCallRO env fps fn s g rs |>.map (·.map (·, s.roots))
+  | _ => dCallRO env fps n fn s g rs |>.map (·.map (·, s.roots))
 
 /-- A global that a call can name: a spec function or an SSZ class. -/
 def callable (env : Env) (g : Name) : Bool :=
@@ -370,6 +402,27 @@ def itemsStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ifs :
             DM.bind (P.items fp s1 t ifs elt ls (i + 1)) fun vs2 => .ok (vs1 ++ vs2)
       | none => none
   | _ => none
+
+/-- `compItems (n + 1)` of a list comprehension over a snapshot of flat values: item `i`, its
+conditions and its flat element at fuel `n`, then the rest at fuel `n`. -/
+def ritemsStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ifs : List Expr)
+    (elt : Expr) (xs : List Value) (i : Nat) : DM (List DV) :=
+  match xs[i]? with
+  | none => .ok []
+  | some x =>
+    if Flat x then
+      match bindLoop n false s t i (.val x) with
+      | some s1 =>
+        DM.bind (ifsOf (P.expr fp s1) ifs) fun keep =>
+          DM.bind (if keep then
+              DM.bind (P.expr fp s1 elt) fun r =>
+                match r with
+                | .val v => if Flat v then .ok [DV.leaf v] else none
+                | _ => none
+            else .ok []) fun vs1 =>
+            DM.bind (P.ritems fp s1 t ifs elt xs (i + 1)) fun vs2 => .ok (vs1 ++ vs2)
+      | none => none
+    else none
 
 /-- Every argument is a keyword argument, and there is at least one. -/
 def allKw : List Arg → Bool
@@ -456,6 +509,27 @@ def dFromBytes (env : Env) (rs : List DRes) : DM DRes :=
   | some vs => DM.bind (lift (fromBytes env vs)) fun v => if Flat v then .ok (.val v) else none
   | none => none
 
+def isRange (env : Env) (g : Name) : Bool :=
+  match env.globals.lookup g with
+  | some (.builtin .range) => true
+  | _ => false
+
+/-- `range(args)` with at least one argument, where no local hides `range`. -/
+def rangeOf (env : Env) (s : DSt) : Expr → Option (List Arg)
+  | .call _ (.name _ g) args =>
+    if (s.loc g).isNone && isRange env g && !args.isEmpty then some args else none
+  | _ => none
+
+/-- The items of `range` on flat values: a snapshot of flat values. -/
+def dRange (env : Env) (rs : List DRes) : DM (List Value) :=
+  match allVals rs with
+  | some vs =>
+    DM.bind (lift (applyBuiltin env Heap.empty .range vs [])) fun p =>
+      match p.1 with
+      | .tuple xs => if xs.all Flat then .ok xs else none
+      | _ => none
+  | none => none
+
 def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Footprint)
     (s : DSt) : Expr → DM DRes
   | .name _ x =>
@@ -500,13 +574,18 @@ def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
       | .val v => DM.bind (lift (truthy v)) fun t => if t then P.expr fp s a else P.expr fp s b
       | _ => none
   | .comp _ .list elt [.mk t it ifs] =>
-    DM.bind (P.iter fp s it) fun ls =>
-      DM.bind (P.items fp s t ifs elt ls 0) fun ds => .ok (.tree (.list .pyList .any none ds))
+    match rangeOf env s it with
+    | some args =>
+      DM.bind (argsOf (P.sub fp s) args) fun rs => DM.bind (dRange env rs) fun xs =>
+        DM.bind (P.ritems fp s t ifs elt xs 0) fun ds => .ok (.tree (.list .pyList .any none ds))
+    | none =>
+      DM.bind (P.iter fp s it) fun ls =>
+        DM.bind (P.items fp s t ifs elt ls 0) fun ds => .ok (.tree (.list .pyList .any none ds))
   | e@(.call _ _ _) =>
     match n, callHead env s e with
     | _ + 1, some (g, args) =>
       if allKw args then DM.bind (kwsOf (P.expr fp s) args) fun kvs => kwCtor env g kvs
-      else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallRO env fps P.fn s g rs
+      else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallRO env fps n P.fn s g rs
     | _ + 2, none =>
       match fromBytesOf env s e with
       | some args => DM.bind (argsOf (P.expr fp s) args) fun rs => dFromBytes env rs
@@ -566,7 +645,7 @@ def callStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
   | _ + 1, some (g, args) =>
     if allKw args then
       DM.bind (DM.bind (kwsOf (P.expr fp s) args) fun kvs => kwCtor env g kvs) fun r => .ok (r, s.roots)
-    else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallW env fps P.fn fp s g rs
+    else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallW env fps n P.fn fp s g rs
   | _, _ => (exprStep env fps n P fp s e).map (·.map (·, s.roots))
 
 def targetStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) :
@@ -759,7 +838,8 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
   | 0 => { expr := fun _ _ _ => none, call := fun _ _ _ => none, target := fun _ _ _ _ => none,
            stmt := fun _ _ _ => none, fn := fun _ _ _ => none, iter := fun _ _ _ => none,
            items := fun _ _ _ _ _ _ _ => none,
-           loop := fun _ _ _ _ _ _ => none, sub := fun _ _ _ => none, whl := fun _ _ _ _ => none }
+           loop := fun _ _ _ _ _ _ => none, sub := fun _ _ _ => none, whl := fun _ _ _ _ => none,
+           ritems := fun _ _ _ _ _ _ _ => none }
   | n + 1 =>
     let P := den env fps n
     { expr := exprStep env fps n P
@@ -771,7 +851,8 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
       loop := loopStep n P
       items := itemsStep n P
       sub := P.expr
-      whl := whileStep P }
+      whl := whileStep P
+      ritems := ritemsStep n P }
 
 /-! Each part one fuel up, without unfolding the others. -/
 
@@ -795,5 +876,7 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
     (den env fps (n + 1)).sub = (den env fps n).expr := rfl
 @[simp] theorem den_whl (env : Env) (fps : Name → Footprint) (n : Nat) :
     (den env fps (n + 1)).whl = whileStep (den env fps n) := rfl
+@[simp] theorem den_ritems (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).ritems = ritemsStep n (den env fps n) := rfl
 
 end SpecLean.Layer4

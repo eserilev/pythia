@@ -471,6 +471,25 @@ def classes_file(m):
             m.okb.add(n)
         except Unsupported:
             pass
+    out.append("/-! The readable value of a decoded tree. -/\n")
+    m.undv = set()
+    for n in m.rep_order:
+        try:
+            out.append(undv_text(m, n))
+            m.undv.add(n)
+        except Unsupported:
+            pass
+    OPAQUE.clear()
+    fails = {}
+    fp = ROOT / ".lake/l4_fails.json"
+    if fp.exists():
+        import json
+        fails = json.loads(fp.read_text())
+    for c, o in parse_runf(m).items():
+        # A callee that layer 4 cannot prove by itself, for a reason other than its callees.
+        if c in fails and not fails[c].startswith("callee"):
+            OPAQUE[c] = o
+    out.append(ext_text(m))
     for n in m.rep_order:
         if ("def enc_%s : Enc %s := fun x =>" % (n, n)) not in m.rd:
             continue
@@ -481,6 +500,212 @@ def classes_file(m):
             pass
     out.append("\nend SpecLean.Layer4.Gen\n")
     return "\n".join(out)
+
+
+def dec_fields(m, n):
+    """The fields of the readable decoder of `n`: (name, decoder text) each, or Unsupported."""
+    i = m.rd.find("def dec_%s : Dec %s := fun h v => do\n" % (n, n))
+    if i < 0:
+        raise Unsupported("no decoder")
+    body = m.rd[i:m.rd.index("\n\n", i)]
+    out = []
+    for k, (fn, idx, d) in enumerate(re.findall(r"^  let (\S+) ← fs\[(\d+)\]\? >>= (.+) h$", body, re.M)):
+        if int(idx) != k:
+            raise Unsupported("field order")
+        out.append((fn, d))
+    if len(out) != len(m.containers[n]):
+        raise Unsupported("decoder fields")
+    return out
+
+
+def undv_of(m, d):
+    """The decoder of a tree and its `DecOf` proof, for a readable field decoder `d`."""
+    d = d.strip()
+    if d.startswith("(") and d.endswith(")"):
+        a = split_args(d)
+        if a[0] == "decListT" and len(a) == 5:
+            u, p = undv_of(m, a[4])
+            return ("(GenBridge.undvList %s %s %s %s)" % (a[1], a[2], a[3], u),
+                    "(GenBridge.decOf_list %s _ _ _)" % p)
+        raise Unsupported("decoder " + d)
+    if d == "decBooleanV":
+        return "(GenBridge.undvLeaf decBooleanV)", "GenBridge.decOf_boolean"
+    mm = re.fullmatch(r"dec_(\w+)", d)
+    if not mm:
+        raise Unsupported("decoder " + d)
+    y = mm.group(1)
+    if y in m.reps:
+        if y not in m.undv:
+            raise Unsupported("undv of " + y)
+        return "undv_%s" % y, "decOf_%s" % y
+    if y in m.uint:
+        return "(GenBridge.undvLeaf dec_%s)" % y, "(GenBridge.decOf_uint _)"
+    if y in m.bytes:
+        return "(GenBridge.undvLeaf dec_%s)" % y, "(GenBridge.decOf_bytes _)"
+    raise Unsupported("decoder " + d)
+
+
+def undv_kid(m, d, rt, t, hok, depth=0):
+    """A proof that the tree decoder of `d` gives back `t : rt` from its tree; `hok` proves the
+    range fact of `t` (or is None)."""
+    d, rt = d.strip(), strip_parens(rt)
+    if d.startswith("("):
+        a = split_args(d)
+        mr = re.fullmatch(r"List (.*)", rt)
+        y = "y%d" % depth
+        inner = undv_kid(m, a[4], mr.group(1), y, "(%s %s hy%d)" % (hok, y, depth) if hok else None, depth + 1)
+        return "(GenBridge.undvList_map _ _ _ %s (fun %s hy%d => %s))" % (t, y, depth, inner)
+    if d == "decBooleanV":
+        return "(GenBridge.undv_boolean %s)" % t
+    y = d[len("dec_"):]
+    if y in m.reps:
+        return "(undv_kids_%s %s %s)" % (y, t, hok)
+    if y in m.uint:
+        return "(GenBridge.undv_uint _ %s %s)" % (t, hok)
+    return "(GenBridge.undv_bytes _ %s %s)" % (t, hok)
+
+
+def parse_runf(m, path="SpecLean/Validation/Gen/Loops.lean"):
+    """The tactic's `_runF` theorems that layer 4 can take as callee statements: each argument a
+    container (decoded by `dec_X`) or a uint, the result a uint or a `Bool`."""
+    txt = (ROOT / path).read_text()
+    out = {}
+    for mm in re.finditer(r"^theorem (\w+)_runF \(gfp : Footprint\) \(h : Heap\) (.*?) \(F : Nat\) \(hF : (.*?) ≤ F\) :\n"
+                          r"\s+ResultMatches gfp \[\] h \[(.*?)\] \(fun \(r : (.*?)\) h' v => (.*?)\)\n"
+                          r"\s+\(interp \(Scope\.env sha\) F Scope\.Id\.«\w+» \[.*?\] h\) \((.*?)\) := by", txt, re.M):
+        c, binders, bound, args, rt, pred, call = mm.groups()
+        if c not in m.fns or c not in m.sigs:
+            continue
+        bnames = re.findall(r"\((\w+) :", binders)
+        ok = True
+        arglist = []
+        for a in top_items(args):
+            ma = re.fullmatch(r"\(\.ref r(\d+)\)", a)
+            mu = re.fullmatch(r"\(\.uint (.*) x(\d+)\)", a)
+            if ma:
+                i = ma.group(1)
+                md = re.search(r"\(x%s : (\w+)\) \(hy%s : dec_(\w+) h \(\.ref r%s\) = some x%s\)" % (i, i, i, i), binders)
+                if not md or md.group(1) != md.group(2) or md.group(1) not in m.undv:
+                    ok = False
+                    break
+                arglist.append(("cont", md.group(1), int(i)))
+            elif mu:
+                arglist.append(("uint", mu.group(1), int(mu.group(2))))
+            else:
+                ok = False
+                break
+        if not ok:
+            continue
+        if re.match(r"v = \(enc_(\w+) r h'\)\.1 ∧ UintC\.val r < 2 \^ \d+", pred) and rt in m.uint:
+            rkind = "uint"
+        elif pred.startswith("v = .bool r") and rt == "Bool":
+            rkind = "bool"
+        else:
+            continue
+        lens = {}
+        for i, fld in re.findall(r"\bx(\d+)\.(\w+)\.length\b", bound):
+            lens[(int(i), fld)] = lens.get((int(i), fld), 0) + 1
+        mD = re.search(r"(\d+)$", bound.strip())
+        if not mD or re.sub(r"\bx\d+\.\w+\.length \+ ", "", bound.strip()) != mD.group(1):
+            continue
+        pos = {i: k for k, (_, _, i) in enumerate(arglist)}
+        out[c] = dict(args=arglist, bound=bound, rt=rt, rkind=rkind, call=call, binders=bnames,
+                      D=int(mD.group(1)),
+                      lens=[(pos[i], fld if n == 1 else "%s*%d" % (fld, n)) for (i, fld), n in lens.items()],
+                      cls=arglist[0][1] if arglist and arglist[0][0] == "cont" else None)
+    return out
+
+
+def ext_args(o):
+    """The match of an ext entry on its roots: the patterns, the scrutinees, and the conditions."""
+    rs = ["r%d" % i for i in range(len(o["args"]))]
+    scr, pat, conds = [], [], []
+    for (k, ty, i), r in zip(o["args"], rs):
+        if k == "cont":
+            scr.append("undv_%s %s" % (ty, r))
+            pat.append("some x%d" % i)
+        else:
+            scr.append("GenBridge.leafUint %s" % r)
+            pat.append("some (t%d, x%d)" % (i, i))
+            conds.append("t%d = %s" % (i, ty))
+    return rs, scr, pat, conds
+
+
+def ext_text(m):
+    """The callees taken from statements: one `ExtFn` each, and the table `extGen`."""
+    out = ["/-! The callees taken from statements (`ExtOK`). -/\n"]
+    ents = []
+    for c, o in sorted(OPAQUE.items()):
+        rs, scr, pat, conds = ext_args(o)
+        rt = o["rt"]
+        enc = ("DRes.val (.uint %s y.val)" % m.uint_ty(rt)) if o["rkind"] == "uint" else "DRes.val (.bool y)"
+        cond = " ∧ ".join(conds) if conds else "True"
+        out.append("def ext_%s : ExtFn where\n"
+                   "  bound := fun rs => match rs with\n"
+                   "    | [%s] => match %s with\n"
+                   "      | %s => %s\n"
+                   "      | %s => 0\n"
+                   "    | _ => 0\n"
+                   "  run := fun rs => match rs with\n"
+                   "    | [%s] => match %s with\n"
+                   "      | %s => if %s then GenBridge.extRes (fun y : %s => %s) (%s) else none\n"
+                   "      | %s => none\n"
+                   "    | _ => none\n"
+                   % (c, ", ".join(rs), ", ".join(scr), ", ".join(pat), o["bound"], ", ".join("_" for _ in rs),
+                      ", ".join(rs), ", ".join(scr), ", ".join(pat), cond, rt, enc, o["call"],
+                      ", ".join("_" for _ in rs)))
+        ents.append((m.fns[c]["id"], c))
+    body = "fun g => " + "".join("if g = %d then some ext_%s else " % (i, c) for i, c in ents) + "none"
+    out.append("/-- The table of the generated theorems. -/\ninstance extGen : ExtTab := ⟨%s⟩\n" % body)
+    out.append("@[l4_simp] theorem extGen_ext (g : Name) : ExtTab.ext g = (%s) g := rfl\n" % body.replace("fun g => ", "fun g : Name => ", 1))
+    return "\n".join(out)
+
+
+def undv_text(m, n):
+    fs = dec_fields(m, n)
+    us = [undv_of(m, d) for _, d in fs]
+    K = len(fs)
+    lines = ["def undv_%s : DV → Option %s\n  | .cont ty ds =>\n    if ty = %d then do" % (n, n, m.cid[n])]
+    for i, ((fn, d), (u, p)) in enumerate(zip(fs, us)):
+        lines.append("      let %s ← ds[%d]?.bind %s" % (fn, i, u))
+    lines.append("      pure { %s }\n    else none\n  | _ => none\n" % ", ".join(fn for fn, _ in fs))
+    pat = "\n".join("      obtain ⟨y%d, h%d, hu⟩ := Option.bind_eq_some_iff.mp hu" % (i, i) for i in range(K))
+    fl = ", ".join("GenBridge.field_decOf %s hm %d h%d" % (p, i, i) for i, (u, p) in enumerate(us))
+    lines.append("theorem decOf_%s : GenBridge.DecOf dec_%s undv_%s := by\n"
+                 "  intro h n v d x hd hu\n"
+                 "  cases d with\n"
+                 "  | cont ty ds =>\n"
+                 "    simp only [undv_%s] at hu\n"
+                 "    split at hu\n"
+                 "    · next hty =>\n"
+                 "      subst hty\n"
+                 "      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd\n"
+                 "      simp only [Option.bind_eq_bind] at hu\n%s\n"
+                 "      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu\n"
+                 "      simp only [dec_%s, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, %s]\n"
+                 "      try rfl\n"
+                 "    · cases hu\n"
+                 "  | _ => simp [undv_%s] at hu\n" % (n, n, n, n, pat, n, fl, n))
+    facts = []
+    for fn, ssz, rt in m.containers[n]:
+        facts.append(ok_fact(m, ssz, rt, "x.%s" % fn) is not None)
+    haves = []
+    j = 0
+    for i, ((fn, d), (u, p), (_, ssz, rt)) in enumerate(zip(fs, us, m.containers[n])):
+        hok = None
+        if facts[i]:
+            hok = "hx" + ".2" * j + ".1"
+            j += 1
+        haves.append("  have e%d : %s %s = some x.%s :=\n    %s" % (i, u, m.reps[n][i], fn,
+                                                                undv_kid(m, d, rt, "x.%s" % fn, hok)))
+    lines.append("theorem undv_kids_%s (x : %s) (hx : ok_%s x) :\n"
+                 "    undv_%s (.cont %d (kids_%s x)) = some x := by\n"
+                 "  simp only [ok_%s] at hx\n%s\n"
+                 "  simp only [undv_%s, kids_%s, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,\n"
+                 "    Option.bind_some, Option.bind_eq_bind, Option.pure_def, %s]\n"
+                 % (n, n, n, n, m.cid[n], n, n, "\n".join(haves), n, n,
+                    ", ".join("e%d" % i for i in range(K))))
+    return "\n".join(lines)
 
 
 def bridge_field(m, ssz, rt, hy):
@@ -1328,6 +1553,10 @@ def callee_lens(m, name, params):
 
 
 HTR = {}
+# Callees taken from a statement of the tactic (`ExtOK`): the class of the argument, the fuel
+# bound of the statement on the readable argument `x`, the lengths it grows with, its constant.
+OPAQUE = {}
+COND = {}   # unproved callee -> (its call statement as a hypothesis, its fuel)
 NONE_OK = set()
 RNG = set()
 
@@ -1461,8 +1690,16 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
     if f["vararg"] != "none":
         raise Unsupported("defaults")
     for c in m.callees(name):
-        if c not in proved:
+        if c not in proved and c not in COND and c not in OPAQUE:
             raise Unsupported("callee " + c)
+    proved = dict(proved)
+    for c in m.callees(name):
+        if c in OPAQUE and c not in proved:
+            proved[c] = OPAQUE[c]["D"]
+            LENS_OF[c] = OPAQUE[c]["lens"]
+    for c in m.callees(name):
+        if c not in proved:
+            proved[c] = COND[c][1]
     bs, roots, rds, xs = [], [], [], []
     hoks = []
     objs = []
@@ -1523,11 +1760,22 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
     for it in callee_lens(m, name, params):
         if it not in items:
             items.append(it)
-    LENS = "".join("bigFuel + " if k == "W" else ("%s.%s.length + " % (rds[k], fld)) if fld else ("%s.length + " % rds[k])
+    LENS = "".join("bigFuel + " if k == "W" else
+                   ("%s.%s.length + " % (rds[k], fld.split("*")[0])) * int(fld.split("*")[1]) if fld and "*" in fld else
+                   ("%s.%s.length + " % (rds[k], fld)) if fld else ("%s.length + " % rds[k])
                    for k, fld in items)
-    fcalls = ["%s_fcall" % c for c in m.callees(name) if LENS_OF.get(c) and not needs_oracle(m, c)]
+    fcalls = ["%s_fcall" % c for c in m.callees(name) if LENS_OF.get(c) and not needs_oracle(m, c)
+              and c not in COND and c not in OPAQUE]
+    hyps = []
     for c in m.callees(name):
-        if not needs_oracle(m, c):
+        if c in COND:
+            # An unproved callee: its call statement is a hypothesis.
+            hyps.append("(%s_fcall : CallHyp (%s))" % (c, COND[c][0]))
+            fcalls.append(" ".join(["%s_fcall.out" % c] + oracle_args(m, c).split()[1:]))
+    bs = bs + hyps
+    xs = xs + [h[1:h.index(" :")] for h in hyps]
+    for c in m.callees(name):
+        if not needs_oracle(m, c) or c in COND or c in OPAQUE:
             continue
         oa = oracle_args(m, c)
         objcls = re.findall(r"\b%s \(⟨enc_(\w+)" % re.escape(c), m.bodies.get(name, ""))
@@ -1553,6 +1801,12 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
         unf += ["ho", "ho.sha256"]
     if uses_bls(m, name):
         unf += ["hbv"]
+    for c in m.callees(name):
+        if c in OPAQUE:
+            unf += ["GenBridge.dbind_assoc", "GenBridge.extRes_call", "ext_" + c]
+            for a in re.findall(r"\b%s (\w+)\b" % re.escape(c), m.bodies.get(name, "")):
+                if ("hok_" + a) in xs:
+                    unf.append("undv_kids_%s a_%s hok_%s" % (OPAQUE[c]["cls"], a, a))
     if rt in m.reps and ("theorem kids_%s_mk" % rt) in classes_file_cache(m):
         unf.append("kids_%s_mk" % rt)
     loopstep = ""
@@ -1674,7 +1928,7 @@ def wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS=""):
         E = "(fun (x : %s) _ v => v = %s)" % (m.sigs[name][1], V)
         hE = "(fun x h' v hx => hx.1.1)"
     return ("theorem %s_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)\n"
-            "    (hh : Examples2.HtrDec (Scope.env sha)) %s %s%s :\n"
+            "    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) %s %s%s :\n"
             "    ∀ fuel, %s%d ≤ fuel →\n"
             "      ResultMatches gfp %s h %s %s\n"
             "        (interp (Scope.env sha) fuel Scope.Id.«%s» %s h) (%s %s) := by\n"
@@ -1706,12 +1960,12 @@ def bridged_wrapper(m, name, params, bs, rds, xs, vs, hw, LENS, D, fp, VS, E, f)
                     for pn, pt in conts)
     args = " ".join("r_%s (bridge_%s hc hy_%s)" % (pn, pt, pn) for pn, pt in conts)
     return ("\ntheorem %s_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)\n"
-            "    (hh : Examples2.HtrDec (Scope.env sha))\n"
+            "    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha))\n"
             "    (hc : GenBridge.ContWF h) %s %s%s :\n"
             "    ∀ fuel, %s%d ≤ fuel →\n"
             "      ResultMatches gfp %s h %s %s\n"
             "        (interp (Scope.env sha) fuel Scope.Id.«%s» %s h) (%s %s) :=\n"
-            "  %s_l4 sha gfp h hwf hh %s %s%s\n"
+            "  %s_l4 sha gfp h hwf hh hX %s %s%s\n"
             % (name, " ".join(bs), hyps, hw, LENS, D, fp, VS, E, name, VS, name, " ".join(rds),
                name, " ".join(xs), args, " hw" if hw else ""))
 
@@ -1766,6 +2020,177 @@ def build(target):
     return r.returncode == 0, r.stdout[-3000:] + r.stderr[-3000:]
 
 
+def call_hyp(text, name, hyps=()):
+    """The `_call` statement of `name` in its candidate text, as a hypothesis over any fuel above
+    its bound: `∀ binders (n : Nat), bound ≤ n → ∀ {γ} k, statement`. The hypothesis binders
+    `hyps` of a conditional theorem are left out."""
+    mm = re.search(r"theorem %s_call \(sha : Oracle\) \(m : Nat\) (.*?) \{γ : Type\} "
+                   r"\(k : DRes × List DV → DM γ\) :\n(.*?) :=\n" % re.escape(name), text, re.S)
+    if not mm:
+        return None
+    binders, stmt = mm.group(1), mm.group(2)
+    for h in hyps:
+        binders = binders.replace(" " + h, "").replace(h, "")
+    mf = re.search(r"\.fn (?:\[\]|\(fpsGen \d+\)) Scope\.fn_", stmt)
+    fu = re.search(r"fpsGen \((.*?m \+ \d+)\)\)\.fn", stmt)
+    if not mf or not fu:
+        return None
+    bound = fu.group(1).replace("m + ", "")
+    stmt = stmt.replace("fpsGen (%s))" % fu.group(1), "fpsGen n)")
+    return "∀ %s (n : Nat), %s ≤ n → ∀ {γ : Type} (k : DRes × List DV → DM γ),\n%s" % (
+        binders.strip(), bound, stmt.rstrip())
+
+
+CALLHYP = """/-- The call statement of an unproved callee, as a hypothesis. The wrapper keeps `simp [*]` from
+rewriting with it. -/
+structure CallHyp (P : Prop) : Prop where
+  out : P
+
+"""
+
+
+def ext_entry(m, c, o):
+    """The `ExtOK` case of the ext entry of `c`, from the tactic's `c_runF`."""
+    N = len(o["args"])
+    rs = ["r_%d" % i for i in range(N)]
+    vs = ["v_%d" % i for i in range(N)]
+    L = []
+    L.append("  · next hg =>")
+    L.append("    subst hg")
+    L.append("    simp only [Option.some.injEq] at hx; subst hx")
+    pat = "".join("⟨%s, " % r for r in rs) + "_ | ⟨_, _⟩" + "⟩" * N
+    nested = lambda xs: "_ | " + "".join("⟨%s, _ | " % x for x in xs[:-1]) + "⟨%s, _ | ⟨_, _⟩⟩" % xs[-1] + "⟩" * (len(xs) - 1)
+    L.append("    obtain ⟨%s, rfl⟩ : ∃ %s, roots = [%s] := by" % (", ".join(rs), " ".join(rs), ", ".join(rs)))
+    L.append("      rcases roots with %s <;> simp [ext_%s] at hr ⊢" % (nested(rs), c))
+    L.append("    obtain ⟨%s, rfl⟩ : ∃ %s, vs = [%s] := by" % (", ".join(vs), " ".join(vs), ", ".join(vs)))
+    L.append("      rcases vs with %s <;> simp [DecArgs] at hdec ⊢ <;> omega" % nested(vs))
+    for i in range(N):
+        L.append("    obtain ⟨k%d, hk%d⟩ := hdec.2 %d v_%d r_%d rfl rfl" % (i, i, i, i, i))
+    hus = []
+    for (k, ty, i), r, v in zip(o["args"], rs, vs):
+        if k == "cont":
+            L.append("    cases hu%d : undv_%s %s with" % (i, ty, r))
+            L.append("    | none => simp [ext_%s, %s] at hr" % (c, ", ".join(hus + ["hu%d" % i])))
+            L.append("    | some x%d =>" % i)
+            hus.append("hu%d" % i)
+            L.append("    have hy%d := decOf_%s h k%d %s %s x%d hk%d hu%d" % (i, ty, i, v, r, i, i, i))
+            L.append("    obtain ⟨r%d, rfl⟩ : ∃ a, %s = .ref a := by" % (i, v))
+            L.append("      cases %s <;> simp [dec_%s, containerFieldsT] at hy%d; exact ⟨_, rfl⟩" % (v, ty, i))
+            L.append("    have hb%d : Below h (.ref r%d) := dec_below hwf k%d _ %s hk%d" % (i, i, i, r, i))
+        else:
+            L.append("    cases hl%d : GenBridge.leafUint %s with" % (i, r))
+            L.append("    | none => simp [ext_%s, %s] at hr" % (c, ", ".join(hus + ["hl%d" % i])))
+            L.append("    | some p%d =>" % i)
+            L.append("    obtain ⟨t%d, x%d⟩ := p%d" % (i, i, i))
+            hus.append("hl%d" % i)
+            L.append("    by_cases ht%d : t%d = %s" % (i, i, ty))
+            L.append("    swap")
+            L.append("    · simp [ext_%s, %s, ht%d] at hr" % (c, ", ".join(hus), i))
+            L.append("    subst ht%d" % i)
+            L.append("    rw [GenBridge.leafUint_spec hl%d] at hk%d" % (i, i))
+            L.append("    obtain ⟨rfl, -⟩ := dec_leaf hk%d" % i)
+            L.append("    have hb%d : Below h (.uint %s x%d) := fun q a e => absurd e (fun e' => follow_nonref_ref (fun b e => by cases e) e')" % (i, ty, i))
+    L.append("    simp only [ext_%s, %s] at hr hb" % (c, ", ".join(hus)))
+    L.append("    try simp only [and_self, ↓reduceIte, true_and] at hr")
+    VS = "[%s]" % ", ".join("(.ref r%d)" % i if k == "cont" else "(.uint %s x%d)" % (ty, i) for k, ty, i in o["args"])
+    L.append("    have haw : ArgsWF h %s := by" % VS)
+    L.append("      intro kk q a ha")
+    L.append("      obtain ⟨w, hw, hf⟩ := at?_some ha")
+    L.append("      match kk, hw with")
+    for (k, ty, i) in o["args"]:
+        if k == "cont":
+            L.append("      | %d, hw => simp at hw; subst hw; exact dec_exists k%d _ r_%d hk%d q a hf" % (i, i, i, i))
+        else:
+            L.append("      | %d, hw => simp at hw; subst hw; exact absurd hf (fun e' => follow_nonref_ref (fun b e => by cases e) e')" % i)
+    L.append("      | _ + %d, hw => simp at hw" % N)
+    margs = []
+    for b in o["binders"]:
+        if b in ("hwf", "haw"):
+            margs.append(b)
+        else:
+            margs.append(b)
+    L.append("    have hm := Validation.Gen.%s_runF sha [] h %s n hb" % (c, " ".join(margs)))
+    L.append("    rw [interp, callName, callValue_glob_fn _ _ _ hd] at hm")
+    L.append("    have hba : BelowArgs h %s := by" % VS)
+    L.append("      intro kk w' hw'")
+    L.append("      match kk, hw' with")
+    for (k, ty, i) in o["args"]:
+        L.append("      | %d, hw' => simp at hw'; subst hw'; exact hb%d" % (i, i))
+    L.append("      | _ + %d, hw' => simp at hw'" % N)
+    L.append("    revert hm")
+    L.append("    cases hc : callFn (Scope.env sha) n d.params (ClosureBody.stmts d.body) Locals.empty %s [] h with" % VS)
+    L.append("    | error e' =>")
+    L.append("      cases hg : %s with" % o["call"])
+    L.append("      | ok y => intro hm; simp [ResultMatches] at hm")
+    L.append("      | error f =>")
+    L.append("        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr")
+    L.append("        rintro ⟨hne, hf⟩")
+    L.append("        refine ⟨?_, rep_ne_oof f⟩")
+    L.append("        rw [normE_of_ne hne, normE_of_ne (rep_ne_oof f), GenBridge.rep_fail, hf]")
+    L.append("    | ok q =>")
+    L.append("      obtain ⟨w, h'⟩ := q")
+    L.append("      cases hg : %s with" % o["call"])
+    L.append("      | error f => intro hm; simp [ResultMatches] at hm")
+    L.append("      | ok y =>")
+    L.append("        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr")
+    L.append("        rintro ⟨hw, hfr, hfresh, -⟩")
+    L.append("        have he : Ext h h' := ext_of_frame hfr hfresh (NoFill.callFn_noFill _ NoFill.ssz_libKeeps hc)")
+    if o["rkind"] == "uint":
+        erel = "⟨by have := hw.1; simp only [enc_%s, encUint] at this; exact this, rfl⟩" % o["rt"]
+    else:
+        erel = "⟨hw.1, rfl⟩"
+    L.append("        refine ⟨%s, trivial, ⟨rfl, fun j w' d' hw' hd' => ?_⟩," % erel)
+    L.append("          hfr, Skel_of_Ext he, fun _ => he, fun kg q b kg' q' hab hle _ => ?_⟩")
+    L.append("        · match j, hw', hd' with")
+    for (k, ty, i) in o["args"]:
+        L.append("          | %d, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k%d, by rw [dec_ext he hb%d k%d]; exact hk%d⟩" % (i, i, i, i, i))
+    L.append("          | _ + %d, hw', _ => simp at hw'" % N)
+    L.append("        · have := at?_below0 hwf hdec ((at?_Ext he hba kg q b).mp hab); omega")
+    return "\n".join(L)
+
+
+def ext_file(m, proved, texts):
+    """`extGen_ok`: each callee taken from a statement agrees with the interpreter, from the
+    tactic's `_runF` theorem; and the full theorem of each caller."""
+    ents = sorted(OPAQUE.items())
+    body = ["import SpecLean.Layer4.Gen.Funcs\nimport SpecLean.Layer4.ExtBridge\nimport SpecLean.Validation.Gen.Loops\n",
+            "/-!\n# Layer 4: the callees taken from statements\n\nGenerated by tools/gen_l4.py. Do not edit. "
+            "`extGen_ok` proves `ExtOK` of the table from the tactic's theorems; each `_l4f` theorem is then "
+            "the `_l4` theorem without the hypothesis.\n-/\n",
+            "namespace SpecLean.Layer4.Gen\n", OPEN, "open SpecLean.Layer4.ExtBridge\n"]
+    prf = ["theorem extGen_ok (sha : Oracle) : ExtOK (Scope.env sha) := by",
+           "  intro g x d hx hd n roots vs h r hdec hwf hlen hb hr",
+           "  simp only [extGen_ext] at hx"]
+    for c, o in ents:
+        prf.append("  split at hx")
+        prf.append(ext_entry(m, c, o))
+    prf.append("  · cases hx")
+    body.append("set_option maxHeartbeats 4000000 in\n" + "\n".join(prf) + "\n")
+    for n in order(m, set(proved)):
+        if not any(c in OPAQUE for c in m.callees(n)):
+            continue
+        mm = re.search(r"theorem %s_l4 \(sha : Oracle\) (.*?) :\n    (∀ fuel.*?) := by" % re.escape(n), texts.get(n, ""), re.S)
+        if not mm:
+            continue
+        bs = mm.group(1).replace(" (hX : ExtOK (Scope.env sha))", "")
+        args = " ".join(re.findall(r"\((\w+) :", bs))
+        body.append("theorem %s_l4f (sha : Oracle) %s :\n    %s :=\n  %s_l4 sha %s\n" % (
+            n, bs, mm.group(2), n, re.sub(r"\bhh\b", "hh (extGen_ok sha)", args, count=1)))
+    body.append("end SpecLean.Layer4.Gen\n")
+    return "\n".join(body)
+
+
+def cond_file(m, texts):
+    body = ["import SpecLean.Layer4.Gen.Funcs\n",
+            "/-!\n# Layer 4: the conditional theorems\n\nGenerated by tools/gen_l4.py. Do not edit. "
+            "Each theorem takes the call statement of each unproved callee as a hypothesis.\n-/\n",
+            "namespace SpecLean.Layer4.Gen\n", OPEN, CALLHYP]
+    for n in order(m, set(texts)):
+        body.append(texts[n])
+    body.append("end SpecLean.Layer4.Gen\n")
+    return "\n".join(body)
+
+
 def funcs_file(m, proved, texts, total):
     body = ["import SpecLean.Layer4.Gen.Classes\n",
             "/-!\n# Layer 4: the generated theorems\n\nGenerated by tools/gen_l4.py. Do not edit. "
@@ -1777,11 +2202,83 @@ def funcs_file(m, proved, texts, total):
     return "\n".join(body)
 
 
+def cond_pass(m, proved, fails, jobs):
+    """Conditional theorems: a function whose callees are proved, or failed only in the proof (so
+    their call statements are in the den fragment), takes those call statements as hypotheses.
+    A conditionally proved function is a hypothesis for its callers in turn."""
+    pre = "import SpecLean.Layer4.Gen.Funcs\n" + OPEN + "\nnamespace SpecLean.Layer4.Gen\n\n" + CALLHYP
+    COND.clear()
+    for c, e in fails.items():
+        if e.startswith(("unsupported", "callee")) or "@" in c:
+            continue
+        for ok in (True, False):
+            try:
+                t, d = candidate(m, c, proved, ok=ok)
+            except Unsupported:
+                continue
+            h = call_hyp(t, c)
+            if h:
+                COND[c] = (h, d)
+                break
+    ctexts, cfails = {}, {}
+    pending = [n for n, e in fails.items() if e.startswith("callee")]
+    rnd = 0
+    while pending:
+        rnd += 1
+        ready, wait = [], []
+        for n in pending:
+            cs = m.callees(n)
+            if all(c in proved or c in COND for c in cs):
+                ready.append(n)
+            elif any(c in cfails or (c in fails and c not in COND and c not in pending) for c in cs):
+                cfails[n] = "callee not proved: " + ", ".join(c for c in cs if c not in proved and c not in COND)
+            else:
+                wait.append(n)
+        if not ready:
+            for n in wait:
+                cfails[n] = "callee not proved: " + ", ".join(
+                    c for c in m.callees(n) if c not in proved and c not in COND)
+            break
+        cands = {}
+        for n in ready:
+            for ok in (False, True):
+                try:
+                    cands[(n, ok)] = candidate(m, n, proved, ok=ok)
+                except Unsupported as e:
+                    cfails[n] = "unsupported: " + str(e)
+        print("cond round %d: %d candidates" % (rnd, len(cands)), flush=True)
+        with concurrent.futures.ThreadPoolExecutor(jobs) as ex:
+            futs = {ex.submit(check, pre + t + "\nend SpecLean.Layer4.Gen\n", "%s_cond%s" % (n, "_ok" if ok else "")):
+                    (n, ok) for (n, ok), (t, _) in cands.items()}
+            res = {}
+            for fu in concurrent.futures.as_completed(futs):
+                res[futs[fu]] = fu.result()
+        for n in ready:
+            for ok in (False, True):
+                if (n, ok) not in res:
+                    continue
+                good, err = res[(n, ok)]
+                print("%-55s %s" % (n + (" (cond, ok)" if ok else " (cond)"), "ok" if good else err), flush=True)
+                if good:
+                    t, d = cands[(n, ok)]
+                    ctexts[n] = t
+                    hyps = ["(%s_fcall : CallHyp (%s))" % (c, COND[c][0]) for c in m.callees(n) if c in COND]
+                    h = call_hyp(t, n, hyps)
+                    if h:
+                        COND[n] = (h, d)
+                    cfails.pop(n, None)
+                    break
+                cfails[n] = err
+        pending = wait
+    return ctexts, cfails
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", default="")
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--show", default="", help="check one function and print the whole output")
+    ap.add_argument("--cond", action="store_true", help="only the conditional pass, after a full run")
     args = ap.parse_args()
     m = model()
     GEN.mkdir(parents=True, exist_ok=True)
@@ -1790,6 +2287,25 @@ def main():
     if not ok:
         print(out)
         sys.exit(1)
+    if args.cond:
+        import json
+        txt = (GEN / "Funcs.lean").read_text()
+        fuel = {k: int(v) for k, v in re.findall(
+            r"theorem (\w+)_den \(sha : Oracle\) \(m : Nat\) .*?m \+ (\d+)\)\)\.fn", txt, re.S)}
+        for g in m.generic:
+            mg = re.search(r"theorem %s_den_\w+ \(sha : Oracle\) \(m : Nat\) .*?m \+ (\d+)\)\)\.fn" % g, txt, re.S)
+            if mg:
+                fuel[g] = int(mg.group(1))
+        NONE_OK.update(re.findall(r"theorem (\w+)_fcall_none ", txt))
+        RNG.update(re.findall(r"theorem (\w+)_rng ", txt))
+        for n in order(m, set(fuel)):
+            try:
+                candidate(m, n, fuel)
+            except Unsupported:
+                pass
+        fails = json.loads((ROOT / ".lake/l4_fails.json").read_text())
+        report_cond(m, fuel, fails, args.jobs)
+        return
     if args.show:
         # Against the proved functions of the last run.
         fuel = dict(re.findall(r"theorem (\w+)_den \(sha : Oracle\) \(m : Nat\) .*?m \+ (\d+)\)\)\.fn",
@@ -1823,7 +2339,7 @@ def main():
         rnd += 1
         ready, wait = [], []
         for n in pending:
-            cs = [c for c in m.callees(n) if c in names]
+            cs = [c for c in m.callees(n) if c in names and c not in OPAQUE]
             if all(c in proved for c in cs):
                 ready.append(n)
             elif any(c in fails for c in cs):
@@ -1950,7 +2466,38 @@ def main():
         reasons.setdefault(k, []).append(n)
     for k, v in sorted(reasons.items(), key=lambda kv: -len(kv[1])):
         print("%3d %s" % (len(v), k))
+    (GEN / "Ext.lean").write_text(ext_file(m, proved, texts))
+    okx, outx = build("SpecLean.Layer4.Gen.Ext")
+    print("ext build %s" % ("ok" if okx else "FAILED\n" + outx[-3000:]))
+    report_cond(m, proved, fails, args.jobs)
 
+
+def report_cond(m, proved, fails, jobs):
+    ctexts, cfails = cond_pass(m, proved, fails, jobs)
+    (GEN / "Cond.lean").write_text(cond_file(m, ctexts))
+    okc, outc = build("SpecLean.Layer4.Gen.Cond")
+    print("\nconditional %d / %d, full %d / %d (cond build %s)" % (
+        len(proved) + len(ctexts), len(m.fns), len(proved), len(m.fns), "ok" if okc else "FAILED"))
+    if not okc:
+        print(outc[-3000:])
+    # What fails even conditionally, ranked by the functions it blocks.
+    done = set(proved) | set(ctexts)
+    deps = {}
+    for n in m.fns:
+        for c in m.callees(n):
+            deps.setdefault(c, set()).add(n)
+    def blocked(c, seen):
+        for d in deps.get(c, ()):
+            if d not in seen and d not in done:
+                seen.add(d)
+                blocked(d, seen)
+        return seen
+    roots = {n: (cfails.get(n) or fails.get(n, "")) for n in m.fns if n not in done and
+             not (cfails.get(n) or fails.get(n, "")).startswith("callee")}
+    rank = sorted(roots, key=lambda n: -len(blocked(n, set())))
+    print("\nfails even conditionally (callers blocked, first cause):")
+    for n in rank:
+        print("%3d %-45s %s" % (len(blocked(n, set())), n, roots[n].split("\n")[0][:90]))
 
 if __name__ == "__main__":
     main()

@@ -4859,6 +4859,2164 @@ theorem okb_SignedBeaconBlock {h : Heap} {v : Value} {x : SignedBeaconBlock} (hd
   unfold ok_SignedBeaconBlock
   exact ⟨(okb_BeaconBlock hy0), (by have := GenBridge.bytesT_ok hy1; simpa only [bd_BLSSignature, bl_BLSSignature] using this), trivial⟩
 
+/-! The readable value of a decoded tree. -/
+
+def undv_Builder : DV → Option Builder
+  | .cont ty ds =>
+    if ty = 14 then do
+      let pubkey ← ds[0]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      let version ← ds[1]?.bind (GenBridge.undvLeaf dec_Uint8)
+      let execution_address ← ds[2]?.bind (GenBridge.undvLeaf dec_ExecutionAddress)
+      let balance ← ds[3]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let deposit_epoch ← ds[4]?.bind (GenBridge.undvLeaf dec_Epoch)
+      let withdrawable_epoch ← ds[5]?.bind (GenBridge.undvLeaf dec_Epoch)
+      pure { pubkey, version, execution_address, balance, deposit_epoch, withdrawable_epoch }
+    else none
+  | _ => none
+
+theorem decOf_Builder : GenBridge.DecOf dec_Builder undv_Builder := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_Builder] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y4, h4, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y5, h5, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_Builder, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 3 h3, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 4 h4, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 5 h5]
+      try rfl
+    · cases hu
+  | _ => simp [undv_Builder] at hu
+
+theorem undv_kids_Builder (x : Builder) (hx : ok_Builder x) :
+    undv_Builder (.cont 14 (kids_Builder x)) = some x := by
+  simp only [ok_Builder] at hx
+  have e0 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.pubkey.data)) = some x.pubkey :=
+    (GenBridge.undv_bytes _ x.pubkey hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Uint8) (.leaf (.uint (.width 8) x.version.val)) = some x.version :=
+    (GenBridge.undv_uint _ x.version hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_ExecutionAddress) (.leaf (.bytes 378 x.execution_address.data)) = some x.execution_address :=
+    (GenBridge.undv_bytes _ x.execution_address hx.2.2.1)
+  have e3 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.balance.val)) = some x.balance :=
+    (GenBridge.undv_uint _ x.balance hx.2.2.2.1)
+  have e4 : (GenBridge.undvLeaf dec_Epoch) (.leaf (.uint (.nominal 140 64) x.deposit_epoch.val)) = some x.deposit_epoch :=
+    (GenBridge.undv_uint _ x.deposit_epoch hx.2.2.2.2.1)
+  have e5 : (GenBridge.undvLeaf dec_Epoch) (.leaf (.uint (.nominal 140 64) x.withdrawable_epoch.val)) = some x.withdrawable_epoch :=
+    (GenBridge.undv_uint _ x.withdrawable_epoch hx.2.2.2.2.2.1)
+  simp only [undv_Builder, kids_Builder, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3, e4, e5]
+
+def undv_BuilderPendingWithdrawal : DV → Option BuilderPendingWithdrawal
+  | .cont ty ds =>
+    if ty = 67 then do
+      let fee_recipient ← ds[0]?.bind (GenBridge.undvLeaf dec_ExecutionAddress)
+      let amount ← ds[1]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let builder_index ← ds[2]?.bind (GenBridge.undvLeaf dec_BuilderIndex)
+      pure { fee_recipient, amount, builder_index }
+    else none
+  | _ => none
+
+theorem decOf_BuilderPendingWithdrawal : GenBridge.DecOf dec_BuilderPendingWithdrawal undv_BuilderPendingWithdrawal := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_BuilderPendingWithdrawal] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_BuilderPendingWithdrawal, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 2 h2]
+      try rfl
+    · cases hu
+  | _ => simp [undv_BuilderPendingWithdrawal] at hu
+
+theorem undv_kids_BuilderPendingWithdrawal (x : BuilderPendingWithdrawal) (hx : ok_BuilderPendingWithdrawal x) :
+    undv_BuilderPendingWithdrawal (.cont 67 (kids_BuilderPendingWithdrawal x)) = some x := by
+  simp only [ok_BuilderPendingWithdrawal] at hx
+  have e0 : (GenBridge.undvLeaf dec_ExecutionAddress) (.leaf (.bytes 378 x.fee_recipient.data)) = some x.fee_recipient :=
+    (GenBridge.undv_bytes _ x.fee_recipient hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.amount.val)) = some x.amount :=
+    (GenBridge.undv_uint _ x.amount hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_BuilderIndex) (.leaf (.uint (.nominal 199 64) x.builder_index.val)) = some x.builder_index :=
+    (GenBridge.undv_uint _ x.builder_index hx.2.2.1)
+  simp only [undv_BuilderPendingWithdrawal, kids_BuilderPendingWithdrawal, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2]
+
+def undv_ForkData : DV → Option ForkData
+  | .cont ty ds =>
+    if ty = 158 then do
+      let current_version ← ds[0]?.bind (GenBridge.undvLeaf dec_Version)
+      let genesis_validators_root ← ds[1]?.bind (GenBridge.undvLeaf dec_Root)
+      pure { current_version, genesis_validators_root }
+    else none
+  | _ => none
+
+theorem decOf_ForkData : GenBridge.DecOf dec_ForkData undv_ForkData := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_ForkData] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_ForkData, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_ForkData] at hu
+
+theorem undv_kids_ForkData (x : ForkData) (hx : ok_ForkData x) :
+    undv_ForkData (.cont 158 (kids_ForkData x)) = some x := by
+  simp only [ok_ForkData] at hx
+  have e0 : (GenBridge.undvLeaf dec_Version) (.leaf (.bytes 745 x.current_version.data)) = some x.current_version :=
+    (GenBridge.undv_bytes _ x.current_version hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.genesis_validators_root.data)) = some x.genesis_validators_root :=
+    (GenBridge.undv_bytes _ x.genesis_validators_root hx.2.1)
+  simp only [undv_ForkData, kids_ForkData, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_SigningData : DV → Option SigningData
+  | .cont ty ds =>
+    if ty = 194 then do
+      let object_root ← ds[0]?.bind (GenBridge.undvLeaf dec_Root)
+      let domain ← ds[1]?.bind (GenBridge.undvLeaf dec_Domain)
+      pure { object_root, domain }
+    else none
+  | _ => none
+
+theorem decOf_SigningData : GenBridge.DecOf dec_SigningData undv_SigningData := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_SigningData] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_SigningData, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_SigningData] at hu
+
+theorem undv_kids_SigningData (x : SigningData) (hx : ok_SigningData x) :
+    undv_SigningData (.cont 194 (kids_SigningData x)) = some x := by
+  simp only [ok_SigningData] at hx
+  have e0 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.object_root.data)) = some x.object_root :=
+    (GenBridge.undv_bytes _ x.object_root hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Domain) (.leaf (.bytes 149 x.domain.data)) = some x.domain :=
+    (GenBridge.undv_bytes _ x.domain hx.2.1)
+  simp only [undv_SigningData, kids_SigningData, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_Withdrawal : DV → Option Withdrawal
+  | .cont ty ds =>
+    if ty = 297 then do
+      let index ← ds[0]?.bind (GenBridge.undvLeaf dec_WithdrawalIndex)
+      let validator_index ← ds[1]?.bind (GenBridge.undvLeaf dec_ValidatorIndex)
+      let address ← ds[2]?.bind (GenBridge.undvLeaf dec_ExecutionAddress)
+      let amount ← ds[3]?.bind (GenBridge.undvLeaf dec_Gwei)
+      pure { index, validator_index, address, amount }
+    else none
+  | _ => none
+
+theorem decOf_Withdrawal : GenBridge.DecOf dec_Withdrawal undv_Withdrawal := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_Withdrawal] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_Withdrawal, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 3 h3]
+      try rfl
+    · cases hu
+  | _ => simp [undv_Withdrawal] at hu
+
+theorem undv_kids_Withdrawal (x : Withdrawal) (hx : ok_Withdrawal x) :
+    undv_Withdrawal (.cont 297 (kids_Withdrawal x)) = some x := by
+  simp only [ok_Withdrawal] at hx
+  have e0 : (GenBridge.undvLeaf dec_WithdrawalIndex) (.leaf (.uint (.nominal 748 64) x.index.val)) = some x.index :=
+    (GenBridge.undv_uint _ x.index hx.1)
+  have e1 : (GenBridge.undvLeaf dec_ValidatorIndex) (.leaf (.uint (.nominal 82 64) x.validator_index.val)) = some x.validator_index :=
+    (GenBridge.undv_uint _ x.validator_index hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_ExecutionAddress) (.leaf (.bytes 378 x.address.data)) = some x.address :=
+    (GenBridge.undv_bytes _ x.address hx.2.2.1)
+  have e3 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.amount.val)) = some x.amount :=
+    (GenBridge.undv_uint _ x.amount hx.2.2.2.1)
+  simp only [undv_Withdrawal, kids_Withdrawal, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3]
+
+def undv_Checkpoint : DV → Option Checkpoint
+  | .cont ty ds =>
+    if ty = 741 then do
+      let epoch ← ds[0]?.bind (GenBridge.undvLeaf dec_Epoch)
+      let root ← ds[1]?.bind (GenBridge.undvLeaf dec_Root)
+      pure { epoch, root }
+    else none
+  | _ => none
+
+theorem decOf_Checkpoint : GenBridge.DecOf dec_Checkpoint undv_Checkpoint := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_Checkpoint] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_Checkpoint, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_Checkpoint] at hu
+
+theorem undv_kids_Checkpoint (x : Checkpoint) (hx : ok_Checkpoint x) :
+    undv_Checkpoint (.cont 741 (kids_Checkpoint x)) = some x := by
+  simp only [ok_Checkpoint] at hx
+  have e0 : (GenBridge.undvLeaf dec_Epoch) (.leaf (.uint (.nominal 140 64) x.epoch.val)) = some x.epoch :=
+    (GenBridge.undv_uint _ x.epoch hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.root.data)) = some x.root :=
+    (GenBridge.undv_bytes _ x.root hx.2.1)
+  simp only [undv_Checkpoint, kids_Checkpoint, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_PayloadAttestationData : DV → Option PayloadAttestationData
+  | .cont ty ds =>
+    if ty = 753 then do
+      let beacon_block_root ← ds[0]?.bind (GenBridge.undvLeaf dec_Root)
+      let slot ← ds[1]?.bind (GenBridge.undvLeaf dec_Slot)
+      let payload_present ← ds[2]?.bind (GenBridge.undvLeaf decBooleanV)
+      let blob_data_available ← ds[3]?.bind (GenBridge.undvLeaf decBooleanV)
+      pure { beacon_block_root, slot, payload_present, blob_data_available }
+    else none
+  | _ => none
+
+theorem decOf_PayloadAttestationData : GenBridge.DecOf dec_PayloadAttestationData undv_PayloadAttestationData := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_PayloadAttestationData] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_PayloadAttestationData, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 1 h1, GenBridge.field_decOf GenBridge.decOf_boolean hm 2 h2, GenBridge.field_decOf GenBridge.decOf_boolean hm 3 h3]
+      try rfl
+    · cases hu
+  | _ => simp [undv_PayloadAttestationData] at hu
+
+theorem undv_kids_PayloadAttestationData (x : PayloadAttestationData) (hx : ok_PayloadAttestationData x) :
+    undv_PayloadAttestationData (.cont 753 (kids_PayloadAttestationData x)) = some x := by
+  simp only [ok_PayloadAttestationData] at hx
+  have e0 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.beacon_block_root.data)) = some x.beacon_block_root :=
+    (GenBridge.undv_bytes _ x.beacon_block_root hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Slot) (.leaf (.uint (.nominal 196 64) x.slot.val)) = some x.slot :=
+    (GenBridge.undv_uint _ x.slot hx.2.1)
+  have e2 : (GenBridge.undvLeaf decBooleanV) (.leaf (.boolean x.payload_present.val)) = some x.payload_present :=
+    (GenBridge.undv_boolean x.payload_present)
+  have e3 : (GenBridge.undvLeaf decBooleanV) (.leaf (.boolean x.blob_data_available.val)) = some x.blob_data_available :=
+    (GenBridge.undv_boolean x.blob_data_available)
+  simp only [undv_PayloadAttestationData, kids_PayloadAttestationData, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3]
+
+def undv_SyncCommittee : DV → Option SyncCommittee
+  | .cont ty ds =>
+    if ty = 366 then do
+      let pubkeys ← ds[0]?.bind (GenBridge.undvList .vector (.bytes Scope.Id.«BLSPubkey» 48) (some 32) (GenBridge.undvLeaf dec_BLSPubkey))
+      let aggregate_pubkey ← ds[1]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      pure { pubkeys, aggregate_pubkey }
+    else none
+  | _ => none
+
+theorem decOf_SyncCommittee : GenBridge.DecOf dec_SyncCommittee undv_SyncCommittee := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_SyncCommittee] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_SyncCommittee, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_bytes _) _ _ _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_SyncCommittee] at hu
+
+theorem undv_kids_SyncCommittee (x : SyncCommittee) (hx : ok_SyncCommittee x) :
+    undv_SyncCommittee (.cont 366 (kids_SyncCommittee x)) = some x := by
+  simp only [ok_SyncCommittee] at hx
+  have e0 : (GenBridge.undvList .vector (.bytes Scope.Id.«BLSPubkey» 48) (some 32) (GenBridge.undvLeaf dec_BLSPubkey)) (.list .vector (.bytes 656 48) (some 32) (x.pubkeys.map fun z2 => (.leaf (.bytes 656 z2.data)))) = some x.pubkeys :=
+    (GenBridge.undvList_map _ _ _ x.pubkeys (fun y0 hy0 => (GenBridge.undv_bytes _ y0 (hx.1 y0 hy0))))
+  have e1 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.aggregate_pubkey.data)) = some x.aggregate_pubkey :=
+    (GenBridge.undv_bytes _ x.aggregate_pubkey hx.2.1)
+  simp only [undv_SyncCommittee, kids_SyncCommittee, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_Validator : DV → Option Validator
+  | .cont ty ds =>
+    if ty = 396 then do
+      let pubkey ← ds[0]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      let withdrawal_credentials ← ds[1]?.bind (GenBridge.undvLeaf dec_Bytes32)
+      let effective_balance ← ds[2]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let slashed ← ds[3]?.bind (GenBridge.undvLeaf decBooleanV)
+      let activation_eligibility_epoch ← ds[4]?.bind (GenBridge.undvLeaf dec_Epoch)
+      let activation_epoch ← ds[5]?.bind (GenBridge.undvLeaf dec_Epoch)
+      let exit_epoch ← ds[6]?.bind (GenBridge.undvLeaf dec_Epoch)
+      let withdrawable_epoch ← ds[7]?.bind (GenBridge.undvLeaf dec_Epoch)
+      pure { pubkey, withdrawal_credentials, effective_balance, slashed, activation_eligibility_epoch, activation_epoch, exit_epoch, withdrawable_epoch }
+    else none
+  | _ => none
+
+theorem decOf_Validator : GenBridge.DecOf dec_Validator undv_Validator := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_Validator] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y4, h4, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y5, h5, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y6, h6, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y7, h7, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_Validator, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 2 h2, GenBridge.field_decOf GenBridge.decOf_boolean hm 3 h3, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 4 h4, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 5 h5, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 6 h6, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 7 h7]
+      try rfl
+    · cases hu
+  | _ => simp [undv_Validator] at hu
+
+theorem undv_kids_Validator (x : Validator) (hx : ok_Validator x) :
+    undv_Validator (.cont 396 (kids_Validator x)) = some x := by
+  simp only [ok_Validator] at hx
+  have e0 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.pubkey.data)) = some x.pubkey :=
+    (GenBridge.undv_bytes _ x.pubkey hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Bytes32) (.leaf (.bytes 505 x.withdrawal_credentials.data)) = some x.withdrawal_credentials :=
+    (GenBridge.undv_bytes _ x.withdrawal_credentials hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.effective_balance.val)) = some x.effective_balance :=
+    (GenBridge.undv_uint _ x.effective_balance hx.2.2.1)
+  have e3 : (GenBridge.undvLeaf decBooleanV) (.leaf (.boolean x.slashed.val)) = some x.slashed :=
+    (GenBridge.undv_boolean x.slashed)
+  have e4 : (GenBridge.undvLeaf dec_Epoch) (.leaf (.uint (.nominal 140 64) x.activation_eligibility_epoch.val)) = some x.activation_eligibility_epoch :=
+    (GenBridge.undv_uint _ x.activation_eligibility_epoch hx.2.2.2.1)
+  have e5 : (GenBridge.undvLeaf dec_Epoch) (.leaf (.uint (.nominal 140 64) x.activation_epoch.val)) = some x.activation_epoch :=
+    (GenBridge.undv_uint _ x.activation_epoch hx.2.2.2.2.1)
+  have e6 : (GenBridge.undvLeaf dec_Epoch) (.leaf (.uint (.nominal 140 64) x.exit_epoch.val)) = some x.exit_epoch :=
+    (GenBridge.undv_uint _ x.exit_epoch hx.2.2.2.2.2.1)
+  have e7 : (GenBridge.undvLeaf dec_Epoch) (.leaf (.uint (.nominal 140 64) x.withdrawable_epoch.val)) = some x.withdrawable_epoch :=
+    (GenBridge.undv_uint _ x.withdrawable_epoch hx.2.2.2.2.2.2.1)
+  simp only [undv_Validator, kids_Validator, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3, e4, e5, e6, e7]
+
+def undv_DepositMessage : DV → Option DepositMessage
+  | .cont ty ds =>
+    if ty = 444 then do
+      let pubkey ← ds[0]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      let withdrawal_credentials ← ds[1]?.bind (GenBridge.undvLeaf dec_Bytes32)
+      let amount ← ds[2]?.bind (GenBridge.undvLeaf dec_Gwei)
+      pure { pubkey, withdrawal_credentials, amount }
+    else none
+  | _ => none
+
+theorem decOf_DepositMessage : GenBridge.DecOf dec_DepositMessage undv_DepositMessage := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_DepositMessage] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_DepositMessage, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 2 h2]
+      try rfl
+    · cases hu
+  | _ => simp [undv_DepositMessage] at hu
+
+theorem undv_kids_DepositMessage (x : DepositMessage) (hx : ok_DepositMessage x) :
+    undv_DepositMessage (.cont 444 (kids_DepositMessage x)) = some x := by
+  simp only [ok_DepositMessage] at hx
+  have e0 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.pubkey.data)) = some x.pubkey :=
+    (GenBridge.undv_bytes _ x.pubkey hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Bytes32) (.leaf (.bytes 505 x.withdrawal_credentials.data)) = some x.withdrawal_credentials :=
+    (GenBridge.undv_bytes _ x.withdrawal_credentials hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.amount.val)) = some x.amount :=
+    (GenBridge.undv_uint _ x.amount hx.2.2.1)
+  simp only [undv_DepositMessage, kids_DepositMessage, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2]
+
+def undv_PendingDeposit : DV → Option PendingDeposit
+  | .cont ty ds =>
+    if ty = 525 then do
+      let pubkey ← ds[0]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      let withdrawal_credentials ← ds[1]?.bind (GenBridge.undvLeaf dec_Bytes32)
+      let amount ← ds[2]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let signature ← ds[3]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      let slot ← ds[4]?.bind (GenBridge.undvLeaf dec_Slot)
+      pure { pubkey, withdrawal_credentials, amount, signature, slot }
+    else none
+  | _ => none
+
+theorem decOf_PendingDeposit : GenBridge.DecOf dec_PendingDeposit undv_PendingDeposit := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_PendingDeposit] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y4, h4, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_PendingDeposit, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 2 h2, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 3 h3, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 4 h4]
+      try rfl
+    · cases hu
+  | _ => simp [undv_PendingDeposit] at hu
+
+theorem undv_kids_PendingDeposit (x : PendingDeposit) (hx : ok_PendingDeposit x) :
+    undv_PendingDeposit (.cont 525 (kids_PendingDeposit x)) = some x := by
+  simp only [ok_PendingDeposit] at hx
+  have e0 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.pubkey.data)) = some x.pubkey :=
+    (GenBridge.undv_bytes _ x.pubkey hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Bytes32) (.leaf (.bytes 505 x.withdrawal_credentials.data)) = some x.withdrawal_credentials :=
+    (GenBridge.undv_bytes _ x.withdrawal_credentials hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.amount.val)) = some x.amount :=
+    (GenBridge.undv_uint _ x.amount hx.2.2.1)
+  have e3 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.2.2.1)
+  have e4 : (GenBridge.undvLeaf dec_Slot) (.leaf (.uint (.nominal 196 64) x.slot.val)) = some x.slot :=
+    (GenBridge.undv_uint _ x.slot hx.2.2.2.2.1)
+  simp only [undv_PendingDeposit, kids_PendingDeposit, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3, e4]
+
+def undv_BeaconBlockHeader : DV → Option BeaconBlockHeader
+  | .cont ty ds =>
+    if ty = 497 then do
+      let slot ← ds[0]?.bind (GenBridge.undvLeaf dec_Slot)
+      let proposer_index ← ds[1]?.bind (GenBridge.undvLeaf dec_ValidatorIndex)
+      let parent_root ← ds[2]?.bind (GenBridge.undvLeaf dec_Root)
+      let state_root ← ds[3]?.bind (GenBridge.undvLeaf dec_Root)
+      let body_root ← ds[4]?.bind (GenBridge.undvLeaf dec_Root)
+      pure { slot, proposer_index, parent_root, state_root, body_root }
+    else none
+  | _ => none
+
+theorem decOf_BeaconBlockHeader : GenBridge.DecOf dec_BeaconBlockHeader undv_BeaconBlockHeader := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_BeaconBlockHeader] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y4, h4, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_BeaconBlockHeader, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 3 h3, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 4 h4]
+      try rfl
+    · cases hu
+  | _ => simp [undv_BeaconBlockHeader] at hu
+
+theorem undv_kids_BeaconBlockHeader (x : BeaconBlockHeader) (hx : ok_BeaconBlockHeader x) :
+    undv_BeaconBlockHeader (.cont 497 (kids_BeaconBlockHeader x)) = some x := by
+  simp only [ok_BeaconBlockHeader] at hx
+  have e0 : (GenBridge.undvLeaf dec_Slot) (.leaf (.uint (.nominal 196 64) x.slot.val)) = some x.slot :=
+    (GenBridge.undv_uint _ x.slot hx.1)
+  have e1 : (GenBridge.undvLeaf dec_ValidatorIndex) (.leaf (.uint (.nominal 82 64) x.proposer_index.val)) = some x.proposer_index :=
+    (GenBridge.undv_uint _ x.proposer_index hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.parent_root.data)) = some x.parent_root :=
+    (GenBridge.undv_bytes _ x.parent_root hx.2.2.1)
+  have e3 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.state_root.data)) = some x.state_root :=
+    (GenBridge.undv_bytes _ x.state_root hx.2.2.2.1)
+  have e4 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.body_root.data)) = some x.body_root :=
+    (GenBridge.undv_bytes _ x.body_root hx.2.2.2.2.1)
+  simp only [undv_BeaconBlockHeader, kids_BeaconBlockHeader, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3, e4]
+
+def undv_BuilderPendingPayment : DV → Option BuilderPendingPayment
+  | .cont ty ds =>
+    if ty = 509 then do
+      let weight ← ds[0]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let withdrawal ← ds[1]?.bind undv_BuilderPendingWithdrawal
+      let proposer_index ← ds[2]?.bind (GenBridge.undvLeaf dec_ValidatorIndex)
+      pure { weight, withdrawal, proposer_index }
+    else none
+  | _ => none
+
+theorem decOf_BuilderPendingPayment : GenBridge.DecOf dec_BuilderPendingPayment undv_BuilderPendingPayment := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_BuilderPendingPayment] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_BuilderPendingPayment, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 0 h0, GenBridge.field_decOf decOf_BuilderPendingWithdrawal hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 2 h2]
+      try rfl
+    · cases hu
+  | _ => simp [undv_BuilderPendingPayment] at hu
+
+theorem undv_kids_BuilderPendingPayment (x : BuilderPendingPayment) (hx : ok_BuilderPendingPayment x) :
+    undv_BuilderPendingPayment (.cont 509 (kids_BuilderPendingPayment x)) = some x := by
+  simp only [ok_BuilderPendingPayment] at hx
+  have e0 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.weight.val)) = some x.weight :=
+    (GenBridge.undv_uint _ x.weight hx.1)
+  have e1 : undv_BuilderPendingWithdrawal (.cont 67 (kids_BuilderPendingWithdrawal x.withdrawal)) = some x.withdrawal :=
+    (undv_kids_BuilderPendingWithdrawal x.withdrawal hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_ValidatorIndex) (.leaf (.uint (.nominal 82 64) x.proposer_index.val)) = some x.proposer_index :=
+    (GenBridge.undv_uint _ x.proposer_index hx.2.2.1)
+  simp only [undv_BuilderPendingPayment, kids_BuilderPendingPayment, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2]
+
+def undv_PendingConsolidation : DV → Option PendingConsolidation
+  | .cont ty ds =>
+    if ty = 523 then do
+      let source_index ← ds[0]?.bind (GenBridge.undvLeaf dec_ValidatorIndex)
+      let target_index ← ds[1]?.bind (GenBridge.undvLeaf dec_ValidatorIndex)
+      pure { source_index, target_index }
+    else none
+  | _ => none
+
+theorem decOf_PendingConsolidation : GenBridge.DecOf dec_PendingConsolidation undv_PendingConsolidation := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_PendingConsolidation] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_PendingConsolidation, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_PendingConsolidation] at hu
+
+theorem undv_kids_PendingConsolidation (x : PendingConsolidation) (hx : ok_PendingConsolidation x) :
+    undv_PendingConsolidation (.cont 523 (kids_PendingConsolidation x)) = some x := by
+  simp only [ok_PendingConsolidation] at hx
+  have e0 : (GenBridge.undvLeaf dec_ValidatorIndex) (.leaf (.uint (.nominal 82 64) x.source_index.val)) = some x.source_index :=
+    (GenBridge.undv_uint _ x.source_index hx.1)
+  have e1 : (GenBridge.undvLeaf dec_ValidatorIndex) (.leaf (.uint (.nominal 82 64) x.target_index.val)) = some x.target_index :=
+    (GenBridge.undv_uint _ x.target_index hx.2.1)
+  simp only [undv_PendingConsolidation, kids_PendingConsolidation, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_Eth1Data : DV → Option Eth1Data
+  | .cont ty ds =>
+    if ty = 759 then do
+      let deposit_root ← ds[0]?.bind (GenBridge.undvLeaf dec_Root)
+      let deposit_count ← ds[1]?.bind (GenBridge.undvLeaf dec_Uint64)
+      let block_hash ← ds[2]?.bind (GenBridge.undvLeaf dec_Hash32)
+      pure { deposit_root, deposit_count, block_hash }
+    else none
+  | _ => none
+
+theorem decOf_Eth1Data : GenBridge.DecOf dec_Eth1Data undv_Eth1Data := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_Eth1Data] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_Eth1Data, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2]
+      try rfl
+    · cases hu
+  | _ => simp [undv_Eth1Data] at hu
+
+theorem undv_kids_Eth1Data (x : Eth1Data) (hx : ok_Eth1Data x) :
+    undv_Eth1Data (.cont 759 (kids_Eth1Data x)) = some x := by
+  simp only [ok_Eth1Data] at hx
+  have e0 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.deposit_root.data)) = some x.deposit_root :=
+    (GenBridge.undv_bytes _ x.deposit_root hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Uint64) (.leaf (.uint (.width 64) x.deposit_count.val)) = some x.deposit_count :=
+    (GenBridge.undv_uint _ x.deposit_count hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Hash32) (.leaf (.bytes 758 x.block_hash.data)) = some x.block_hash :=
+    (GenBridge.undv_bytes _ x.block_hash hx.2.2.1)
+  simp only [undv_Eth1Data, kids_Eth1Data, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2]
+
+def undv_HistoricalSummary : DV → Option HistoricalSummary
+  | .cont ty ds =>
+    if ty = 570 then do
+      let block_summary_root ← ds[0]?.bind (GenBridge.undvLeaf dec_Root)
+      let state_summary_root ← ds[1]?.bind (GenBridge.undvLeaf dec_Root)
+      pure { block_summary_root, state_summary_root }
+    else none
+  | _ => none
+
+theorem decOf_HistoricalSummary : GenBridge.DecOf dec_HistoricalSummary undv_HistoricalSummary := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_HistoricalSummary] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_HistoricalSummary, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_HistoricalSummary] at hu
+
+theorem undv_kids_HistoricalSummary (x : HistoricalSummary) (hx : ok_HistoricalSummary x) :
+    undv_HistoricalSummary (.cont 570 (kids_HistoricalSummary x)) = some x := by
+  simp only [ok_HistoricalSummary] at hx
+  have e0 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.block_summary_root.data)) = some x.block_summary_root :=
+    (GenBridge.undv_bytes _ x.block_summary_root hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.state_summary_root.data)) = some x.state_summary_root :=
+    (GenBridge.undv_bytes _ x.state_summary_root hx.2.1)
+  simp only [undv_HistoricalSummary, kids_HistoricalSummary, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_DepositRequest : DV → Option DepositRequest
+  | .cont ty ds =>
+    if ty = 760 then do
+      let pubkey ← ds[0]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      let withdrawal_credentials ← ds[1]?.bind (GenBridge.undvLeaf dec_Bytes32)
+      let amount ← ds[2]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let signature ← ds[3]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      let index ← ds[4]?.bind (GenBridge.undvLeaf dec_Uint64)
+      pure { pubkey, withdrawal_credentials, amount, signature, index }
+    else none
+  | _ => none
+
+theorem decOf_DepositRequest : GenBridge.DecOf dec_DepositRequest undv_DepositRequest := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_DepositRequest] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y4, h4, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_DepositRequest, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 2 h2, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 3 h3, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 4 h4]
+      try rfl
+    · cases hu
+  | _ => simp [undv_DepositRequest] at hu
+
+theorem undv_kids_DepositRequest (x : DepositRequest) (hx : ok_DepositRequest x) :
+    undv_DepositRequest (.cont 760 (kids_DepositRequest x)) = some x := by
+  simp only [ok_DepositRequest] at hx
+  have e0 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.pubkey.data)) = some x.pubkey :=
+    (GenBridge.undv_bytes _ x.pubkey hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Bytes32) (.leaf (.bytes 505 x.withdrawal_credentials.data)) = some x.withdrawal_credentials :=
+    (GenBridge.undv_bytes _ x.withdrawal_credentials hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.amount.val)) = some x.amount :=
+    (GenBridge.undv_uint _ x.amount hx.2.2.1)
+  have e3 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.2.2.1)
+  have e4 : (GenBridge.undvLeaf dec_Uint64) (.leaf (.uint (.width 64) x.index.val)) = some x.index :=
+    (GenBridge.undv_uint _ x.index hx.2.2.2.2.1)
+  simp only [undv_DepositRequest, kids_DepositRequest, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3, e4]
+
+def undv_WithdrawalRequest : DV → Option WithdrawalRequest
+  | .cont ty ds =>
+    if ty = 761 then do
+      let source_address ← ds[0]?.bind (GenBridge.undvLeaf dec_ExecutionAddress)
+      let validator_pubkey ← ds[1]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      let amount ← ds[2]?.bind (GenBridge.undvLeaf dec_Gwei)
+      pure { source_address, validator_pubkey, amount }
+    else none
+  | _ => none
+
+theorem decOf_WithdrawalRequest : GenBridge.DecOf dec_WithdrawalRequest undv_WithdrawalRequest := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_WithdrawalRequest] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_WithdrawalRequest, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 2 h2]
+      try rfl
+    · cases hu
+  | _ => simp [undv_WithdrawalRequest] at hu
+
+theorem undv_kids_WithdrawalRequest (x : WithdrawalRequest) (hx : ok_WithdrawalRequest x) :
+    undv_WithdrawalRequest (.cont 761 (kids_WithdrawalRequest x)) = some x := by
+  simp only [ok_WithdrawalRequest] at hx
+  have e0 : (GenBridge.undvLeaf dec_ExecutionAddress) (.leaf (.bytes 378 x.source_address.data)) = some x.source_address :=
+    (GenBridge.undv_bytes _ x.source_address hx.1)
+  have e1 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.validator_pubkey.data)) = some x.validator_pubkey :=
+    (GenBridge.undv_bytes _ x.validator_pubkey hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.amount.val)) = some x.amount :=
+    (GenBridge.undv_uint _ x.amount hx.2.2.1)
+  simp only [undv_WithdrawalRequest, kids_WithdrawalRequest, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2]
+
+def undv_ConsolidationRequest : DV → Option ConsolidationRequest
+  | .cont ty ds =>
+    if ty = 762 then do
+      let source_address ← ds[0]?.bind (GenBridge.undvLeaf dec_ExecutionAddress)
+      let source_pubkey ← ds[1]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      let target_pubkey ← ds[2]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      pure { source_address, source_pubkey, target_pubkey }
+    else none
+  | _ => none
+
+theorem decOf_ConsolidationRequest : GenBridge.DecOf dec_ConsolidationRequest undv_ConsolidationRequest := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_ConsolidationRequest] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_ConsolidationRequest, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2]
+      try rfl
+    · cases hu
+  | _ => simp [undv_ConsolidationRequest] at hu
+
+theorem undv_kids_ConsolidationRequest (x : ConsolidationRequest) (hx : ok_ConsolidationRequest x) :
+    undv_ConsolidationRequest (.cont 762 (kids_ConsolidationRequest x)) = some x := by
+  simp only [ok_ConsolidationRequest] at hx
+  have e0 : (GenBridge.undvLeaf dec_ExecutionAddress) (.leaf (.bytes 378 x.source_address.data)) = some x.source_address :=
+    (GenBridge.undv_bytes _ x.source_address hx.1)
+  have e1 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.source_pubkey.data)) = some x.source_pubkey :=
+    (GenBridge.undv_bytes _ x.source_pubkey hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.target_pubkey.data)) = some x.target_pubkey :=
+    (GenBridge.undv_bytes _ x.target_pubkey hx.2.2.1)
+  simp only [undv_ConsolidationRequest, kids_ConsolidationRequest, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2]
+
+def undv_BuilderDepositRequest : DV → Option BuilderDepositRequest
+  | .cont ty ds =>
+    if ty = 763 then do
+      let pubkey ← ds[0]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      let withdrawal_credentials ← ds[1]?.bind (GenBridge.undvLeaf dec_Bytes32)
+      let amount ← ds[2]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let signature ← ds[3]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      pure { pubkey, withdrawal_credentials, amount, signature }
+    else none
+  | _ => none
+
+theorem decOf_BuilderDepositRequest : GenBridge.DecOf dec_BuilderDepositRequest undv_BuilderDepositRequest := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_BuilderDepositRequest] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_BuilderDepositRequest, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 2 h2, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 3 h3]
+      try rfl
+    · cases hu
+  | _ => simp [undv_BuilderDepositRequest] at hu
+
+theorem undv_kids_BuilderDepositRequest (x : BuilderDepositRequest) (hx : ok_BuilderDepositRequest x) :
+    undv_BuilderDepositRequest (.cont 763 (kids_BuilderDepositRequest x)) = some x := by
+  simp only [ok_BuilderDepositRequest] at hx
+  have e0 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.pubkey.data)) = some x.pubkey :=
+    (GenBridge.undv_bytes _ x.pubkey hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Bytes32) (.leaf (.bytes 505 x.withdrawal_credentials.data)) = some x.withdrawal_credentials :=
+    (GenBridge.undv_bytes _ x.withdrawal_credentials hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.amount.val)) = some x.amount :=
+    (GenBridge.undv_uint _ x.amount hx.2.2.1)
+  have e3 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.2.2.1)
+  simp only [undv_BuilderDepositRequest, kids_BuilderDepositRequest, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3]
+
+def undv_BuilderExitRequest : DV → Option BuilderExitRequest
+  | .cont ty ds =>
+    if ty = 764 then do
+      let source_address ← ds[0]?.bind (GenBridge.undvLeaf dec_ExecutionAddress)
+      let pubkey ← ds[1]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      pure { source_address, pubkey }
+    else none
+  | _ => none
+
+theorem decOf_BuilderExitRequest : GenBridge.DecOf dec_BuilderExitRequest undv_BuilderExitRequest := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_BuilderExitRequest] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_BuilderExitRequest, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_BuilderExitRequest] at hu
+
+theorem undv_kids_BuilderExitRequest (x : BuilderExitRequest) (hx : ok_BuilderExitRequest x) :
+    undv_BuilderExitRequest (.cont 764 (kids_BuilderExitRequest x)) = some x := by
+  simp only [ok_BuilderExitRequest] at hx
+  have e0 : (GenBridge.undvLeaf dec_ExecutionAddress) (.leaf (.bytes 378 x.source_address.data)) = some x.source_address :=
+    (GenBridge.undv_bytes _ x.source_address hx.1)
+  have e1 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.pubkey.data)) = some x.pubkey :=
+    (GenBridge.undv_bytes _ x.pubkey hx.2.1)
+  simp only [undv_BuilderExitRequest, kids_BuilderExitRequest, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_PendingPartialWithdrawal : DV → Option PendingPartialWithdrawal
+  | .cont ty ds =>
+    if ty = 681 then do
+      let validator_index ← ds[0]?.bind (GenBridge.undvLeaf dec_ValidatorIndex)
+      let amount ← ds[1]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let withdrawable_epoch ← ds[2]?.bind (GenBridge.undvLeaf dec_Epoch)
+      pure { validator_index, amount, withdrawable_epoch }
+    else none
+  | _ => none
+
+theorem decOf_PendingPartialWithdrawal : GenBridge.DecOf dec_PendingPartialWithdrawal undv_PendingPartialWithdrawal := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_PendingPartialWithdrawal] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_PendingPartialWithdrawal, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 2 h2]
+      try rfl
+    · cases hu
+  | _ => simp [undv_PendingPartialWithdrawal] at hu
+
+theorem undv_kids_PendingPartialWithdrawal (x : PendingPartialWithdrawal) (hx : ok_PendingPartialWithdrawal x) :
+    undv_PendingPartialWithdrawal (.cont 681 (kids_PendingPartialWithdrawal x)) = some x := by
+  simp only [ok_PendingPartialWithdrawal] at hx
+  have e0 : (GenBridge.undvLeaf dec_ValidatorIndex) (.leaf (.uint (.nominal 82 64) x.validator_index.val)) = some x.validator_index :=
+    (GenBridge.undv_uint _ x.validator_index hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.amount.val)) = some x.amount :=
+    (GenBridge.undv_uint _ x.amount hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Epoch) (.leaf (.uint (.nominal 140 64) x.withdrawable_epoch.val)) = some x.withdrawable_epoch :=
+    (GenBridge.undv_uint _ x.withdrawable_epoch hx.2.2.1)
+  simp only [undv_PendingPartialWithdrawal, kids_PendingPartialWithdrawal, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2]
+
+def undv_Fork : DV → Option Fork
+  | .cont ty ds =>
+    if ty = 713 then do
+      let previous_version ← ds[0]?.bind (GenBridge.undvLeaf dec_Version)
+      let current_version ← ds[1]?.bind (GenBridge.undvLeaf dec_Version)
+      let epoch ← ds[2]?.bind (GenBridge.undvLeaf dec_Epoch)
+      pure { previous_version, current_version, epoch }
+    else none
+  | _ => none
+
+theorem decOf_Fork : GenBridge.DecOf dec_Fork undv_Fork := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_Fork] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_Fork, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 2 h2]
+      try rfl
+    · cases hu
+  | _ => simp [undv_Fork] at hu
+
+theorem undv_kids_Fork (x : Fork) (hx : ok_Fork x) :
+    undv_Fork (.cont 713 (kids_Fork x)) = some x := by
+  simp only [ok_Fork] at hx
+  have e0 : (GenBridge.undvLeaf dec_Version) (.leaf (.bytes 745 x.previous_version.data)) = some x.previous_version :=
+    (GenBridge.undv_bytes _ x.previous_version hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Version) (.leaf (.bytes 745 x.current_version.data)) = some x.current_version :=
+    (GenBridge.undv_bytes _ x.current_version hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Epoch) (.leaf (.uint (.nominal 140 64) x.epoch.val)) = some x.epoch :=
+    (GenBridge.undv_uint _ x.epoch hx.2.2.1)
+  simp only [undv_Fork, kids_Fork, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2]
+
+def undv_ExecutionPayloadBid : DV → Option ExecutionPayloadBid
+  | .cont ty ds =>
+    if ty = 732 then do
+      let parent_block_hash ← ds[0]?.bind (GenBridge.undvLeaf dec_Hash32)
+      let parent_block_root ← ds[1]?.bind (GenBridge.undvLeaf dec_Root)
+      let block_hash ← ds[2]?.bind (GenBridge.undvLeaf dec_Hash32)
+      let prev_randao ← ds[3]?.bind (GenBridge.undvLeaf dec_Bytes32)
+      let fee_recipient ← ds[4]?.bind (GenBridge.undvLeaf dec_ExecutionAddress)
+      let gas_limit ← ds[5]?.bind (GenBridge.undvLeaf dec_Uint64)
+      let builder_index ← ds[6]?.bind (GenBridge.undvLeaf dec_BuilderIndex)
+      let slot ← ds[7]?.bind (GenBridge.undvLeaf dec_Slot)
+      let value ← ds[8]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let execution_payment ← ds[9]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let blob_kzg_commitments ← ds[10]?.bind (GenBridge.undvList .progressiveList (.bytes Scope.Id.«KZGCommitment» 48) none (GenBridge.undvLeaf dec_KZGCommitment))
+      let execution_requests_root ← ds[11]?.bind (GenBridge.undvLeaf dec_Root)
+      pure { parent_block_hash, parent_block_root, block_hash, prev_randao, fee_recipient, gas_limit, builder_index, slot, value, execution_payment, blob_kzg_commitments, execution_requests_root }
+    else none
+  | _ => none
+
+theorem decOf_ExecutionPayloadBid : GenBridge.DecOf dec_ExecutionPayloadBid undv_ExecutionPayloadBid := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_ExecutionPayloadBid] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y4, h4, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y5, h5, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y6, h6, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y7, h7, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y8, h8, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y9, h9, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y10, h10, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y11, h11, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_ExecutionPayloadBid, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 3 h3, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 4 h4, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 5 h5, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 6 h6, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 7 h7, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 8 h8, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 9 h9, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_bytes _) _ _ _) hm 10 h10, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 11 h11]
+      try rfl
+    · cases hu
+  | _ => simp [undv_ExecutionPayloadBid] at hu
+
+theorem undv_kids_ExecutionPayloadBid (x : ExecutionPayloadBid) (hx : ok_ExecutionPayloadBid x) :
+    undv_ExecutionPayloadBid (.cont 732 (kids_ExecutionPayloadBid x)) = some x := by
+  simp only [ok_ExecutionPayloadBid] at hx
+  have e0 : (GenBridge.undvLeaf dec_Hash32) (.leaf (.bytes 758 x.parent_block_hash.data)) = some x.parent_block_hash :=
+    (GenBridge.undv_bytes _ x.parent_block_hash hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.parent_block_root.data)) = some x.parent_block_root :=
+    (GenBridge.undv_bytes _ x.parent_block_root hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Hash32) (.leaf (.bytes 758 x.block_hash.data)) = some x.block_hash :=
+    (GenBridge.undv_bytes _ x.block_hash hx.2.2.1)
+  have e3 : (GenBridge.undvLeaf dec_Bytes32) (.leaf (.bytes 505 x.prev_randao.data)) = some x.prev_randao :=
+    (GenBridge.undv_bytes _ x.prev_randao hx.2.2.2.1)
+  have e4 : (GenBridge.undvLeaf dec_ExecutionAddress) (.leaf (.bytes 378 x.fee_recipient.data)) = some x.fee_recipient :=
+    (GenBridge.undv_bytes _ x.fee_recipient hx.2.2.2.2.1)
+  have e5 : (GenBridge.undvLeaf dec_Uint64) (.leaf (.uint (.width 64) x.gas_limit.val)) = some x.gas_limit :=
+    (GenBridge.undv_uint _ x.gas_limit hx.2.2.2.2.2.1)
+  have e6 : (GenBridge.undvLeaf dec_BuilderIndex) (.leaf (.uint (.nominal 199 64) x.builder_index.val)) = some x.builder_index :=
+    (GenBridge.undv_uint _ x.builder_index hx.2.2.2.2.2.2.1)
+  have e7 : (GenBridge.undvLeaf dec_Slot) (.leaf (.uint (.nominal 196 64) x.slot.val)) = some x.slot :=
+    (GenBridge.undv_uint _ x.slot hx.2.2.2.2.2.2.2.1)
+  have e8 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.value.val)) = some x.value :=
+    (GenBridge.undv_uint _ x.value hx.2.2.2.2.2.2.2.2.1)
+  have e9 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.execution_payment.val)) = some x.execution_payment :=
+    (GenBridge.undv_uint _ x.execution_payment hx.2.2.2.2.2.2.2.2.2.1)
+  have e10 : (GenBridge.undvList .progressiveList (.bytes Scope.Id.«KZGCommitment» 48) none (GenBridge.undvLeaf dec_KZGCommitment)) (.list .progressiveList (.bytes 765 48) none (x.blob_kzg_commitments.map fun z1 => (.leaf (.bytes 765 z1.data)))) = some x.blob_kzg_commitments :=
+    (GenBridge.undvList_map _ _ _ x.blob_kzg_commitments (fun y0 hy0 => (GenBridge.undv_bytes _ y0 (hx.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e11 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.execution_requests_root.data)) = some x.execution_requests_root :=
+    (GenBridge.undv_bytes _ x.execution_requests_root hx.2.2.2.2.2.2.2.2.2.2.2.1)
+  simp only [undv_ExecutionPayloadBid, kids_ExecutionPayloadBid, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11]
+
+def undv_SignedBeaconBlockHeader : DV → Option SignedBeaconBlockHeader
+  | .cont ty ds =>
+    if ty = 767 then do
+      let message ← ds[0]?.bind undv_BeaconBlockHeader
+      let signature ← ds[1]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      pure { message, signature }
+    else none
+  | _ => none
+
+theorem decOf_SignedBeaconBlockHeader : GenBridge.DecOf dec_SignedBeaconBlockHeader undv_SignedBeaconBlockHeader := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_SignedBeaconBlockHeader] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_SignedBeaconBlockHeader, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf decOf_BeaconBlockHeader hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_SignedBeaconBlockHeader] at hu
+
+theorem undv_kids_SignedBeaconBlockHeader (x : SignedBeaconBlockHeader) (hx : ok_SignedBeaconBlockHeader x) :
+    undv_SignedBeaconBlockHeader (.cont 767 (kids_SignedBeaconBlockHeader x)) = some x := by
+  simp only [ok_SignedBeaconBlockHeader] at hx
+  have e0 : undv_BeaconBlockHeader (.cont 497 (kids_BeaconBlockHeader x.message)) = some x.message :=
+    (undv_kids_BeaconBlockHeader x.message hx.1)
+  have e1 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.1)
+  simp only [undv_SignedBeaconBlockHeader, kids_SignedBeaconBlockHeader, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_DepositData : DV → Option DepositData
+  | .cont ty ds =>
+    if ty = 772 then do
+      let pubkey ← ds[0]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      let withdrawal_credentials ← ds[1]?.bind (GenBridge.undvLeaf dec_Bytes32)
+      let amount ← ds[2]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let signature ← ds[3]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      pure { pubkey, withdrawal_credentials, amount, signature }
+    else none
+  | _ => none
+
+theorem decOf_DepositData : GenBridge.DecOf dec_DepositData undv_DepositData := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_DepositData] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_DepositData, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 2 h2, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 3 h3]
+      try rfl
+    · cases hu
+  | _ => simp [undv_DepositData] at hu
+
+theorem undv_kids_DepositData (x : DepositData) (hx : ok_DepositData x) :
+    undv_DepositData (.cont 772 (kids_DepositData x)) = some x := by
+  simp only [ok_DepositData] at hx
+  have e0 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.pubkey.data)) = some x.pubkey :=
+    (GenBridge.undv_bytes _ x.pubkey hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Bytes32) (.leaf (.bytes 505 x.withdrawal_credentials.data)) = some x.withdrawal_credentials :=
+    (GenBridge.undv_bytes _ x.withdrawal_credentials hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.amount.val)) = some x.amount :=
+    (GenBridge.undv_uint _ x.amount hx.2.2.1)
+  have e3 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.2.2.1)
+  simp only [undv_DepositData, kids_DepositData, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3]
+
+def undv_VoluntaryExit : DV → Option VoluntaryExit
+  | .cont ty ds =>
+    if ty = 774 then do
+      let epoch ← ds[0]?.bind (GenBridge.undvLeaf dec_Epoch)
+      let validator_index ← ds[1]?.bind (GenBridge.undvLeaf dec_ValidatorIndex)
+      pure { epoch, validator_index }
+    else none
+  | _ => none
+
+theorem decOf_VoluntaryExit : GenBridge.DecOf dec_VoluntaryExit undv_VoluntaryExit := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_VoluntaryExit] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_VoluntaryExit, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_VoluntaryExit] at hu
+
+theorem undv_kids_VoluntaryExit (x : VoluntaryExit) (hx : ok_VoluntaryExit x) :
+    undv_VoluntaryExit (.cont 774 (kids_VoluntaryExit x)) = some x := by
+  simp only [ok_VoluntaryExit] at hx
+  have e0 : (GenBridge.undvLeaf dec_Epoch) (.leaf (.uint (.nominal 140 64) x.epoch.val)) = some x.epoch :=
+    (GenBridge.undv_uint _ x.epoch hx.1)
+  have e1 : (GenBridge.undvLeaf dec_ValidatorIndex) (.leaf (.uint (.nominal 82 64) x.validator_index.val)) = some x.validator_index :=
+    (GenBridge.undv_uint _ x.validator_index hx.2.1)
+  simp only [undv_VoluntaryExit, kids_VoluntaryExit, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_SyncAggregate : DV → Option SyncAggregate
+  | .cont ty ds =>
+    if ty = 776 then do
+      let sync_committee_bits ← ds[0]?.bind (GenBridge.undvList .bitvector .boolean (some 32) (GenBridge.undvLeaf decBooleanV))
+      let sync_committee_signature ← ds[1]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      pure { sync_committee_bits, sync_committee_signature }
+    else none
+  | _ => none
+
+theorem decOf_SyncAggregate : GenBridge.DecOf dec_SyncAggregate undv_SyncAggregate := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_SyncAggregate] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_SyncAggregate, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_list GenBridge.decOf_boolean _ _ _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_SyncAggregate] at hu
+
+theorem undv_kids_SyncAggregate (x : SyncAggregate) (hx : ok_SyncAggregate x) :
+    undv_SyncAggregate (.cont 776 (kids_SyncAggregate x)) = some x := by
+  simp only [ok_SyncAggregate] at hx
+  have e0 : (GenBridge.undvList .bitvector .boolean (some 32) (GenBridge.undvLeaf decBooleanV)) (.list .bitvector .boolean (some 32) (x.sync_committee_bits.map fun z0 => (.leaf (.boolean z0.val)))) = some x.sync_committee_bits :=
+    (GenBridge.undvList_map _ _ _ x.sync_committee_bits (fun y0 hy0 => (GenBridge.undv_boolean y0)))
+  have e1 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.sync_committee_signature.data)) = some x.sync_committee_signature :=
+    (GenBridge.undv_bytes _ x.sync_committee_signature hx.1)
+  simp only [undv_SyncAggregate, kids_SyncAggregate, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_BLSToExecutionChange : DV → Option BLSToExecutionChange
+  | .cont ty ds =>
+    if ty = 777 then do
+      let validator_index ← ds[0]?.bind (GenBridge.undvLeaf dec_ValidatorIndex)
+      let from_bls_pubkey ← ds[1]?.bind (GenBridge.undvLeaf dec_BLSPubkey)
+      let to_execution_address ← ds[2]?.bind (GenBridge.undvLeaf dec_ExecutionAddress)
+      pure { validator_index, from_bls_pubkey, to_execution_address }
+    else none
+  | _ => none
+
+theorem decOf_BLSToExecutionChange : GenBridge.DecOf dec_BLSToExecutionChange undv_BLSToExecutionChange := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_BLSToExecutionChange] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_BLSToExecutionChange, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2]
+      try rfl
+    · cases hu
+  | _ => simp [undv_BLSToExecutionChange] at hu
+
+theorem undv_kids_BLSToExecutionChange (x : BLSToExecutionChange) (hx : ok_BLSToExecutionChange x) :
+    undv_BLSToExecutionChange (.cont 777 (kids_BLSToExecutionChange x)) = some x := by
+  simp only [ok_BLSToExecutionChange] at hx
+  have e0 : (GenBridge.undvLeaf dec_ValidatorIndex) (.leaf (.uint (.nominal 82 64) x.validator_index.val)) = some x.validator_index :=
+    (GenBridge.undv_uint _ x.validator_index hx.1)
+  have e1 : (GenBridge.undvLeaf dec_BLSPubkey) (.leaf (.bytes 656 x.from_bls_pubkey.data)) = some x.from_bls_pubkey :=
+    (GenBridge.undv_bytes _ x.from_bls_pubkey hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_ExecutionAddress) (.leaf (.bytes 378 x.to_execution_address.data)) = some x.to_execution_address :=
+    (GenBridge.undv_bytes _ x.to_execution_address hx.2.2.1)
+  simp only [undv_BLSToExecutionChange, kids_BLSToExecutionChange, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2]
+
+def undv_SignedExecutionPayloadBid : DV → Option SignedExecutionPayloadBid
+  | .cont ty ds =>
+    if ty = 779 then do
+      let message ← ds[0]?.bind undv_ExecutionPayloadBid
+      let signature ← ds[1]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      pure { message, signature }
+    else none
+  | _ => none
+
+theorem decOf_SignedExecutionPayloadBid : GenBridge.DecOf dec_SignedExecutionPayloadBid undv_SignedExecutionPayloadBid := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_SignedExecutionPayloadBid] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_SignedExecutionPayloadBid, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf decOf_ExecutionPayloadBid hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_SignedExecutionPayloadBid] at hu
+
+theorem undv_kids_SignedExecutionPayloadBid (x : SignedExecutionPayloadBid) (hx : ok_SignedExecutionPayloadBid x) :
+    undv_SignedExecutionPayloadBid (.cont 779 (kids_SignedExecutionPayloadBid x)) = some x := by
+  simp only [ok_SignedExecutionPayloadBid] at hx
+  have e0 : undv_ExecutionPayloadBid (.cont 732 (kids_ExecutionPayloadBid x.message)) = some x.message :=
+    (undv_kids_ExecutionPayloadBid x.message hx.1)
+  have e1 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.1)
+  simp only [undv_SignedExecutionPayloadBid, kids_SignedExecutionPayloadBid, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_PayloadAttestation : DV → Option PayloadAttestation
+  | .cont ty ds =>
+    if ty = 780 then do
+      let aggregation_bits ← ds[0]?.bind (GenBridge.undvList .bitvector .boolean (some 16) (GenBridge.undvLeaf decBooleanV))
+      let data ← ds[1]?.bind undv_PayloadAttestationData
+      let signature ← ds[2]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      pure { aggregation_bits, data, signature }
+    else none
+  | _ => none
+
+theorem decOf_PayloadAttestation : GenBridge.DecOf dec_PayloadAttestation undv_PayloadAttestation := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_PayloadAttestation] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_PayloadAttestation, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_list GenBridge.decOf_boolean _ _ _) hm 0 h0, GenBridge.field_decOf decOf_PayloadAttestationData hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2]
+      try rfl
+    · cases hu
+  | _ => simp [undv_PayloadAttestation] at hu
+
+theorem undv_kids_PayloadAttestation (x : PayloadAttestation) (hx : ok_PayloadAttestation x) :
+    undv_PayloadAttestation (.cont 780 (kids_PayloadAttestation x)) = some x := by
+  simp only [ok_PayloadAttestation] at hx
+  have e0 : (GenBridge.undvList .bitvector .boolean (some 16) (GenBridge.undvLeaf decBooleanV)) (.list .bitvector .boolean (some 16) (x.aggregation_bits.map fun z4 => (.leaf (.boolean z4.val)))) = some x.aggregation_bits :=
+    (GenBridge.undvList_map _ _ _ x.aggregation_bits (fun y0 hy0 => (GenBridge.undv_boolean y0)))
+  have e1 : undv_PayloadAttestationData (.cont 753 (kids_PayloadAttestationData x.data)) = some x.data :=
+    (undv_kids_PayloadAttestationData x.data hx.1)
+  have e2 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.1)
+  simp only [undv_PayloadAttestation, kids_PayloadAttestation, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2]
+
+def undv_AttestationData : DV → Option AttestationData
+  | .cont ty ds =>
+    if ty = 750 then do
+      let slot ← ds[0]?.bind (GenBridge.undvLeaf dec_Slot)
+      let index ← ds[1]?.bind (GenBridge.undvLeaf dec_CommitteeIndex)
+      let beacon_block_root ← ds[2]?.bind (GenBridge.undvLeaf dec_Root)
+      let source ← ds[3]?.bind undv_Checkpoint
+      let target ← ds[4]?.bind undv_Checkpoint
+      pure { slot, index, beacon_block_root, source, target }
+    else none
+  | _ => none
+
+theorem decOf_AttestationData : GenBridge.DecOf dec_AttestationData undv_AttestationData := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_AttestationData] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y4, h4, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_AttestationData, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2, GenBridge.field_decOf decOf_Checkpoint hm 3 h3, GenBridge.field_decOf decOf_Checkpoint hm 4 h4]
+      try rfl
+    · cases hu
+  | _ => simp [undv_AttestationData] at hu
+
+theorem undv_kids_AttestationData (x : AttestationData) (hx : ok_AttestationData x) :
+    undv_AttestationData (.cont 750 (kids_AttestationData x)) = some x := by
+  simp only [ok_AttestationData] at hx
+  have e0 : (GenBridge.undvLeaf dec_Slot) (.leaf (.uint (.nominal 196 64) x.slot.val)) = some x.slot :=
+    (GenBridge.undv_uint _ x.slot hx.1)
+  have e1 : (GenBridge.undvLeaf dec_CommitteeIndex) (.leaf (.uint (.nominal 170 64) x.index.val)) = some x.index :=
+    (GenBridge.undv_uint _ x.index hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.beacon_block_root.data)) = some x.beacon_block_root :=
+    (GenBridge.undv_bytes _ x.beacon_block_root hx.2.2.1)
+  have e3 : undv_Checkpoint (.cont 741 (kids_Checkpoint x.source)) = some x.source :=
+    (undv_kids_Checkpoint x.source hx.2.2.2.1)
+  have e4 : undv_Checkpoint (.cont 741 (kids_Checkpoint x.target)) = some x.target :=
+    (undv_kids_Checkpoint x.target hx.2.2.2.2.1)
+  simp only [undv_AttestationData, kids_AttestationData, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3, e4]
+
+def undv_IndexedPayloadAttestation : DV → Option IndexedPayloadAttestation
+  | .cont ty ds =>
+    if ty = 357 then do
+      let attesting_indices ← ds[0]?.bind (GenBridge.undvList .list (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16) (GenBridge.undvLeaf dec_ValidatorIndex))
+      let data ← ds[1]?.bind undv_PayloadAttestationData
+      let signature ← ds[2]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      pure { attesting_indices, data, signature }
+    else none
+  | _ => none
+
+theorem decOf_IndexedPayloadAttestation : GenBridge.DecOf dec_IndexedPayloadAttestation undv_IndexedPayloadAttestation := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_IndexedPayloadAttestation] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_IndexedPayloadAttestation, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_uint _) _ _ _) hm 0 h0, GenBridge.field_decOf decOf_PayloadAttestationData hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2]
+      try rfl
+    · cases hu
+  | _ => simp [undv_IndexedPayloadAttestation] at hu
+
+theorem undv_kids_IndexedPayloadAttestation (x : IndexedPayloadAttestation) (hx : ok_IndexedPayloadAttestation x) :
+    undv_IndexedPayloadAttestation (.cont 357 (kids_IndexedPayloadAttestation x)) = some x := by
+  simp only [ok_IndexedPayloadAttestation] at hx
+  have e0 : (GenBridge.undvList .list (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16) (GenBridge.undvLeaf dec_ValidatorIndex)) (.list .list (.uint (.nominal 82 64)) (some 16) (x.attesting_indices.map fun z5 => (.leaf (.uint (.nominal 82 64) z5.val)))) = some x.attesting_indices :=
+    (GenBridge.undvList_map _ _ _ x.attesting_indices (fun y0 hy0 => (GenBridge.undv_uint _ y0 (hx.1 y0 hy0))))
+  have e1 : undv_PayloadAttestationData (.cont 753 (kids_PayloadAttestationData x.data)) = some x.data :=
+    (undv_kids_PayloadAttestationData x.data hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.2.1)
+  simp only [undv_IndexedPayloadAttestation, kids_IndexedPayloadAttestation, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2]
+
+def undv_ExecutionRequests : DV → Option ExecutionRequests
+  | .cont ty ds =>
+    if ty = 597 then do
+      let deposits ← ds[0]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«DepositRequest») none undv_DepositRequest)
+      let withdrawals ← ds[1]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«WithdrawalRequest») none undv_WithdrawalRequest)
+      let consolidations ← ds[2]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«ConsolidationRequest») none undv_ConsolidationRequest)
+      let builder_deposits ← ds[3]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«BuilderDepositRequest») none undv_BuilderDepositRequest)
+      let builder_exits ← ds[4]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«BuilderExitRequest») none undv_BuilderExitRequest)
+      pure { deposits, withdrawals, consolidations, builder_deposits, builder_exits }
+    else none
+  | _ => none
+
+theorem decOf_ExecutionRequests : GenBridge.DecOf dec_ExecutionRequests undv_ExecutionRequests := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_ExecutionRequests] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y4, h4, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_ExecutionRequests, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_list decOf_DepositRequest _ _ _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_list decOf_WithdrawalRequest _ _ _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_list decOf_ConsolidationRequest _ _ _) hm 2 h2, GenBridge.field_decOf (GenBridge.decOf_list decOf_BuilderDepositRequest _ _ _) hm 3 h3, GenBridge.field_decOf (GenBridge.decOf_list decOf_BuilderExitRequest _ _ _) hm 4 h4]
+      try rfl
+    · cases hu
+  | _ => simp [undv_ExecutionRequests] at hu
+
+theorem undv_kids_ExecutionRequests (x : ExecutionRequests) (hx : ok_ExecutionRequests x) :
+    undv_ExecutionRequests (.cont 597 (kids_ExecutionRequests x)) = some x := by
+  simp only [ok_ExecutionRequests] at hx
+  have e0 : (GenBridge.undvList .progressiveList (.container Scope.Id.«DepositRequest») none undv_DepositRequest) (.list .progressiveList (.container 760) none (x.deposits.map fun z3 => (.cont 760 (kids_DepositRequest z3)))) = some x.deposits :=
+    (GenBridge.undvList_map _ _ _ x.deposits (fun y0 hy0 => (undv_kids_DepositRequest y0 (hx.1 y0 hy0))))
+  have e1 : (GenBridge.undvList .progressiveList (.container Scope.Id.«WithdrawalRequest») none undv_WithdrawalRequest) (.list .progressiveList (.container 761) none (x.withdrawals.map fun z6 => (.cont 761 (kids_WithdrawalRequest z6)))) = some x.withdrawals :=
+    (GenBridge.undvList_map _ _ _ x.withdrawals (fun y0 hy0 => (undv_kids_WithdrawalRequest y0 (hx.2.1 y0 hy0))))
+  have e2 : (GenBridge.undvList .progressiveList (.container Scope.Id.«ConsolidationRequest») none undv_ConsolidationRequest) (.list .progressiveList (.container 762) none (x.consolidations.map fun z2 => (.cont 762 (kids_ConsolidationRequest z2)))) = some x.consolidations :=
+    (GenBridge.undvList_map _ _ _ x.consolidations (fun y0 hy0 => (undv_kids_ConsolidationRequest y0 (hx.2.2.1 y0 hy0))))
+  have e3 : (GenBridge.undvList .progressiveList (.container Scope.Id.«BuilderDepositRequest») none undv_BuilderDepositRequest) (.list .progressiveList (.container 763) none (x.builder_deposits.map fun z4 => (.cont 763 (kids_BuilderDepositRequest z4)))) = some x.builder_deposits :=
+    (GenBridge.undvList_map _ _ _ x.builder_deposits (fun y0 hy0 => (undv_kids_BuilderDepositRequest y0 (hx.2.2.2.1 y0 hy0))))
+  have e4 : (GenBridge.undvList .progressiveList (.container Scope.Id.«BuilderExitRequest») none undv_BuilderExitRequest) (.list .progressiveList (.container 764) none (x.builder_exits.map fun z1 => (.cont 764 (kids_BuilderExitRequest z1)))) = some x.builder_exits :=
+    (GenBridge.undvList_map _ _ _ x.builder_exits (fun y0 hy0 => (undv_kids_BuilderExitRequest y0 (hx.2.2.2.2.1 y0 hy0))))
+  simp only [undv_ExecutionRequests, kids_ExecutionRequests, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3, e4]
+
+def undv_BeaconState : DV → Option BeaconState
+  | .cont ty ds =>
+    if ty = 733 then do
+      let genesis_time ← ds[0]?.bind (GenBridge.undvLeaf dec_Uint64)
+      let genesis_validators_root ← ds[1]?.bind (GenBridge.undvLeaf dec_Root)
+      let slot ← ds[2]?.bind (GenBridge.undvLeaf dec_Slot)
+      let fork ← ds[3]?.bind undv_Fork
+      let latest_block_header ← ds[4]?.bind undv_BeaconBlockHeader
+      let block_roots ← ds[5]?.bind (GenBridge.undvList .vector (.bytes Scope.Id.«Root» 32) (some 64) (GenBridge.undvLeaf dec_Root))
+      let state_roots ← ds[6]?.bind (GenBridge.undvList .vector (.bytes Scope.Id.«Root» 32) (some 64) (GenBridge.undvLeaf dec_Root))
+      let historical_roots ← ds[7]?.bind (GenBridge.undvList .list (.bytes Scope.Id.«Root» 32) (some 16777216) (GenBridge.undvLeaf dec_Root))
+      let eth1_data ← ds[8]?.bind undv_Eth1Data
+      let eth1_data_votes ← ds[9]?.bind (GenBridge.undvList .list (.container Scope.Id.«Eth1Data») (some 32) undv_Eth1Data)
+      let eth1_deposit_index ← ds[10]?.bind (GenBridge.undvLeaf dec_Uint64)
+      let validators ← ds[11]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«Validator») none undv_Validator)
+      let balances ← ds[12]?.bind (GenBridge.undvList .progressiveList (.uint (.nominal Scope.Id.«Gwei» 64)) none (GenBridge.undvLeaf dec_Gwei))
+      let randao_mixes ← ds[13]?.bind (GenBridge.undvList .vector (.bytes Scope.Id.«Bytes32» 32) (some 64) (GenBridge.undvLeaf dec_Bytes32))
+      let slashings ← ds[14]?.bind (GenBridge.undvList .vector (.uint (.nominal Scope.Id.«Gwei» 64)) (some 64) (GenBridge.undvLeaf dec_Gwei))
+      let previous_epoch_participation ← ds[15]?.bind (GenBridge.undvList .progressiveList (.uint (.nominal Scope.Id.«ParticipationFlags» 8)) none (GenBridge.undvLeaf dec_ParticipationFlags))
+      let current_epoch_participation ← ds[16]?.bind (GenBridge.undvList .progressiveList (.uint (.nominal Scope.Id.«ParticipationFlags» 8)) none (GenBridge.undvLeaf dec_ParticipationFlags))
+      let justification_bits ← ds[17]?.bind (GenBridge.undvList .bitvector .boolean (some 4) (GenBridge.undvLeaf decBooleanV))
+      let previous_justified_checkpoint ← ds[18]?.bind undv_Checkpoint
+      let current_justified_checkpoint ← ds[19]?.bind undv_Checkpoint
+      let finalized_checkpoint ← ds[20]?.bind undv_Checkpoint
+      let inactivity_scores ← ds[21]?.bind (GenBridge.undvList .progressiveList (.uint (.width 64)) none (GenBridge.undvLeaf dec_Uint64))
+      let current_sync_committee ← ds[22]?.bind undv_SyncCommittee
+      let next_sync_committee ← ds[23]?.bind undv_SyncCommittee
+      let latest_block_hash ← ds[24]?.bind (GenBridge.undvLeaf dec_Hash32)
+      let next_withdrawal_index ← ds[25]?.bind (GenBridge.undvLeaf dec_WithdrawalIndex)
+      let next_withdrawal_validator_index ← ds[26]?.bind (GenBridge.undvLeaf dec_ValidatorIndex)
+      let historical_summaries ← ds[27]?.bind (GenBridge.undvList .list (.container Scope.Id.«HistoricalSummary») (some 16777216) undv_HistoricalSummary)
+      let deposit_requests_start_index ← ds[28]?.bind (GenBridge.undvLeaf dec_Uint64)
+      let deposit_balance_to_consume ← ds[29]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let exit_balance_to_consume ← ds[30]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let earliest_exit_epoch ← ds[31]?.bind (GenBridge.undvLeaf dec_Epoch)
+      let consolidation_balance_to_consume ← ds[32]?.bind (GenBridge.undvLeaf dec_Gwei)
+      let earliest_consolidation_epoch ← ds[33]?.bind (GenBridge.undvLeaf dec_Epoch)
+      let pending_deposits ← ds[34]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«PendingDeposit») none undv_PendingDeposit)
+      let pending_partial_withdrawals ← ds[35]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«PendingPartialWithdrawal») none undv_PendingPartialWithdrawal)
+      let pending_consolidations ← ds[36]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«PendingConsolidation») none undv_PendingConsolidation)
+      let proposer_lookahead ← ds[37]?.bind (GenBridge.undvList .vector (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16) (GenBridge.undvLeaf dec_ValidatorIndex))
+      let builders ← ds[38]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«Builder») none undv_Builder)
+      let next_withdrawal_builder_index ← ds[39]?.bind (GenBridge.undvLeaf dec_BuilderIndex)
+      let execution_payload_availability ← ds[40]?.bind (GenBridge.undvList .bitvector .boolean (some 64) (GenBridge.undvLeaf decBooleanV))
+      let builder_pending_payments ← ds[41]?.bind (GenBridge.undvList .vector (.container Scope.Id.«BuilderPendingPayment») (some 16) undv_BuilderPendingPayment)
+      let builder_pending_withdrawals ← ds[42]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«BuilderPendingWithdrawal») none undv_BuilderPendingWithdrawal)
+      let latest_execution_payload_bid ← ds[43]?.bind undv_ExecutionPayloadBid
+      let payload_expected_withdrawals ← ds[44]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«Withdrawal») none undv_Withdrawal)
+      let ptc_window ← ds[45]?.bind (GenBridge.undvList .vector (.list .vector (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16)) (some 24) (GenBridge.undvList .vector (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16) (GenBridge.undvLeaf dec_ValidatorIndex)))
+      pure { genesis_time, genesis_validators_root, slot, fork, latest_block_header, block_roots, state_roots, historical_roots, eth1_data, eth1_data_votes, eth1_deposit_index, validators, balances, randao_mixes, slashings, previous_epoch_participation, current_epoch_participation, justification_bits, previous_justified_checkpoint, current_justified_checkpoint, finalized_checkpoint, inactivity_scores, current_sync_committee, next_sync_committee, latest_block_hash, next_withdrawal_index, next_withdrawal_validator_index, historical_summaries, deposit_requests_start_index, deposit_balance_to_consume, exit_balance_to_consume, earliest_exit_epoch, consolidation_balance_to_consume, earliest_consolidation_epoch, pending_deposits, pending_partial_withdrawals, pending_consolidations, proposer_lookahead, builders, next_withdrawal_builder_index, execution_payload_availability, builder_pending_payments, builder_pending_withdrawals, latest_execution_payload_bid, payload_expected_withdrawals, ptc_window }
+    else none
+  | _ => none
+
+theorem decOf_BeaconState : GenBridge.DecOf dec_BeaconState undv_BeaconState := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_BeaconState] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y4, h4, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y5, h5, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y6, h6, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y7, h7, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y8, h8, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y9, h9, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y10, h10, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y11, h11, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y12, h12, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y13, h13, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y14, h14, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y15, h15, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y16, h16, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y17, h17, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y18, h18, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y19, h19, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y20, h20, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y21, h21, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y22, h22, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y23, h23, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y24, h24, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y25, h25, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y26, h26, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y27, h27, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y28, h28, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y29, h29, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y30, h30, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y31, h31, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y32, h32, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y33, h33, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y34, h34, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y35, h35, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y36, h36, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y37, h37, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y38, h38, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y39, h39, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y40, h40, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y41, h41, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y42, h42, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y43, h43, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y44, h44, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y45, h45, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_BeaconState, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 2 h2, GenBridge.field_decOf decOf_Fork hm 3 h3, GenBridge.field_decOf decOf_BeaconBlockHeader hm 4 h4, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_bytes _) _ _ _) hm 5 h5, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_bytes _) _ _ _) hm 6 h6, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_bytes _) _ _ _) hm 7 h7, GenBridge.field_decOf decOf_Eth1Data hm 8 h8, GenBridge.field_decOf (GenBridge.decOf_list decOf_Eth1Data _ _ _) hm 9 h9, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 10 h10, GenBridge.field_decOf (GenBridge.decOf_list decOf_Validator _ _ _) hm 11 h11, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_uint _) _ _ _) hm 12 h12, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_bytes _) _ _ _) hm 13 h13, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_uint _) _ _ _) hm 14 h14, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_uint _) _ _ _) hm 15 h15, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_uint _) _ _ _) hm 16 h16, GenBridge.field_decOf (GenBridge.decOf_list GenBridge.decOf_boolean _ _ _) hm 17 h17, GenBridge.field_decOf decOf_Checkpoint hm 18 h18, GenBridge.field_decOf decOf_Checkpoint hm 19 h19, GenBridge.field_decOf decOf_Checkpoint hm 20 h20, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_uint _) _ _ _) hm 21 h21, GenBridge.field_decOf decOf_SyncCommittee hm 22 h22, GenBridge.field_decOf decOf_SyncCommittee hm 23 h23, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 24 h24, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 25 h25, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 26 h26, GenBridge.field_decOf (GenBridge.decOf_list decOf_HistoricalSummary _ _ _) hm 27 h27, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 28 h28, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 29 h29, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 30 h30, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 31 h31, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 32 h32, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 33 h33, GenBridge.field_decOf (GenBridge.decOf_list decOf_PendingDeposit _ _ _) hm 34 h34, GenBridge.field_decOf (GenBridge.decOf_list decOf_PendingPartialWithdrawal _ _ _) hm 35 h35, GenBridge.field_decOf (GenBridge.decOf_list decOf_PendingConsolidation _ _ _) hm 36 h36, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_uint _) _ _ _) hm 37 h37, GenBridge.field_decOf (GenBridge.decOf_list decOf_Builder _ _ _) hm 38 h38, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 39 h39, GenBridge.field_decOf (GenBridge.decOf_list GenBridge.decOf_boolean _ _ _) hm 40 h40, GenBridge.field_decOf (GenBridge.decOf_list decOf_BuilderPendingPayment _ _ _) hm 41 h41, GenBridge.field_decOf (GenBridge.decOf_list decOf_BuilderPendingWithdrawal _ _ _) hm 42 h42, GenBridge.field_decOf decOf_ExecutionPayloadBid hm 43 h43, GenBridge.field_decOf (GenBridge.decOf_list decOf_Withdrawal _ _ _) hm 44 h44, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_list (GenBridge.decOf_uint _) _ _ _) _ _ _) hm 45 h45]
+      try rfl
+    · cases hu
+  | _ => simp [undv_BeaconState] at hu
+
+theorem undv_kids_BeaconState (x : BeaconState) (hx : ok_BeaconState x) :
+    undv_BeaconState (.cont 733 (kids_BeaconState x)) = some x := by
+  simp only [ok_BeaconState] at hx
+  have e0 : (GenBridge.undvLeaf dec_Uint64) (.leaf (.uint (.width 64) x.genesis_time.val)) = some x.genesis_time :=
+    (GenBridge.undv_uint _ x.genesis_time hx.1)
+  have e1 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.genesis_validators_root.data)) = some x.genesis_validators_root :=
+    (GenBridge.undv_bytes _ x.genesis_validators_root hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Slot) (.leaf (.uint (.nominal 196 64) x.slot.val)) = some x.slot :=
+    (GenBridge.undv_uint _ x.slot hx.2.2.1)
+  have e3 : undv_Fork (.cont 713 (kids_Fork x.fork)) = some x.fork :=
+    (undv_kids_Fork x.fork hx.2.2.2.1)
+  have e4 : undv_BeaconBlockHeader (.cont 497 (kids_BeaconBlockHeader x.latest_block_header)) = some x.latest_block_header :=
+    (undv_kids_BeaconBlockHeader x.latest_block_header hx.2.2.2.2.1)
+  have e5 : (GenBridge.undvList .vector (.bytes Scope.Id.«Root» 32) (some 64) (GenBridge.undvLeaf dec_Root)) (.list .vector (.bytes 146 32) (some 64) (x.block_roots.map fun z6 => (.leaf (.bytes 146 z6.data)))) = some x.block_roots :=
+    (GenBridge.undvList_map _ _ _ x.block_roots (fun y0 hy0 => (GenBridge.undv_bytes _ y0 (hx.2.2.2.2.2.1 y0 hy0))))
+  have e6 : (GenBridge.undvList .vector (.bytes Scope.Id.«Root» 32) (some 64) (GenBridge.undvLeaf dec_Root)) (.list .vector (.bytes 146 32) (some 64) (x.state_roots.map fun z6 => (.leaf (.bytes 146 z6.data)))) = some x.state_roots :=
+    (GenBridge.undvList_map _ _ _ x.state_roots (fun y0 hy0 => (GenBridge.undv_bytes _ y0 (hx.2.2.2.2.2.2.1 y0 hy0))))
+  have e7 : (GenBridge.undvList .list (.bytes Scope.Id.«Root» 32) (some 16777216) (GenBridge.undvLeaf dec_Root)) (.list .list (.bytes 146 32) (some 16777216) (x.historical_roots.map fun z4 => (.leaf (.bytes 146 z4.data)))) = some x.historical_roots :=
+    (GenBridge.undvList_map _ _ _ x.historical_roots (fun y0 hy0 => (GenBridge.undv_bytes _ y0 (hx.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e8 : undv_Eth1Data (.cont 759 (kids_Eth1Data x.eth1_data)) = some x.eth1_data :=
+    (undv_kids_Eth1Data x.eth1_data hx.2.2.2.2.2.2.2.2.1)
+  have e9 : (GenBridge.undvList .list (.container Scope.Id.«Eth1Data») (some 32) undv_Eth1Data) (.list .list (.container 759) (some 32) (x.eth1_data_votes.map fun z3 => (.cont 759 (kids_Eth1Data z3)))) = some x.eth1_data_votes :=
+    (GenBridge.undvList_map _ _ _ x.eth1_data_votes (fun y0 hy0 => (undv_kids_Eth1Data y0 (hx.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e10 : (GenBridge.undvLeaf dec_Uint64) (.leaf (.uint (.width 64) x.eth1_deposit_index.val)) = some x.eth1_deposit_index :=
+    (GenBridge.undv_uint _ x.eth1_deposit_index hx.2.2.2.2.2.2.2.2.2.2.1)
+  have e11 : (GenBridge.undvList .progressiveList (.container Scope.Id.«Validator») none undv_Validator) (.list .progressiveList (.container 396) none (x.validators.map fun z5 => (.cont 396 (kids_Validator z5)))) = some x.validators :=
+    (GenBridge.undvList_map _ _ _ x.validators (fun y0 hy0 => (undv_kids_Validator y0 (hx.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e12 : (GenBridge.undvList .progressiveList (.uint (.nominal Scope.Id.«Gwei» 64)) none (GenBridge.undvLeaf dec_Gwei)) (.list .progressiveList (.uint (.nominal 265 64)) none (x.balances.map fun z3 => (.leaf (.uint (.nominal 265 64) z3.val)))) = some x.balances :=
+    (GenBridge.undvList_map _ _ _ x.balances (fun y0 hy0 => (GenBridge.undv_uint _ y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e13 : (GenBridge.undvList .vector (.bytes Scope.Id.«Bytes32» 32) (some 64) (GenBridge.undvLeaf dec_Bytes32)) (.list .vector (.bytes 505 32) (some 64) (x.randao_mixes.map fun z0 => (.leaf (.bytes 505 z0.data)))) = some x.randao_mixes :=
+    (GenBridge.undvList_map _ _ _ x.randao_mixes (fun y0 hy0 => (GenBridge.undv_bytes _ y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e14 : (GenBridge.undvList .vector (.uint (.nominal Scope.Id.«Gwei» 64)) (some 64) (GenBridge.undvLeaf dec_Gwei)) (.list .vector (.uint (.nominal 265 64)) (some 64) (x.slashings.map fun z4 => (.leaf (.uint (.nominal 265 64) z4.val)))) = some x.slashings :=
+    (GenBridge.undvList_map _ _ _ x.slashings (fun y0 hy0 => (GenBridge.undv_uint _ y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e15 : (GenBridge.undvList .progressiveList (.uint (.nominal Scope.Id.«ParticipationFlags» 8)) none (GenBridge.undvLeaf dec_ParticipationFlags)) (.list .progressiveList (.uint (.nominal 20 8)) none (x.previous_epoch_participation.map fun z2 => (.leaf (.uint (.nominal 20 8) z2.val)))) = some x.previous_epoch_participation :=
+    (GenBridge.undvList_map _ _ _ x.previous_epoch_participation (fun y0 hy0 => (GenBridge.undv_uint _ y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e16 : (GenBridge.undvList .progressiveList (.uint (.nominal Scope.Id.«ParticipationFlags» 8)) none (GenBridge.undvLeaf dec_ParticipationFlags)) (.list .progressiveList (.uint (.nominal 20 8)) none (x.current_epoch_participation.map fun z1 => (.leaf (.uint (.nominal 20 8) z1.val)))) = some x.current_epoch_participation :=
+    (GenBridge.undvList_map _ _ _ x.current_epoch_participation (fun y0 hy0 => (GenBridge.undv_uint _ y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e17 : (GenBridge.undvList .bitvector .boolean (some 4) (GenBridge.undvLeaf decBooleanV)) (.list .bitvector .boolean (some 4) (x.justification_bits.map fun z6 => (.leaf (.boolean z6.val)))) = some x.justification_bits :=
+    (GenBridge.undvList_map _ _ _ x.justification_bits (fun y0 hy0 => (GenBridge.undv_boolean y0)))
+  have e18 : undv_Checkpoint (.cont 741 (kids_Checkpoint x.previous_justified_checkpoint)) = some x.previous_justified_checkpoint :=
+    (undv_kids_Checkpoint x.previous_justified_checkpoint hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e19 : undv_Checkpoint (.cont 741 (kids_Checkpoint x.current_justified_checkpoint)) = some x.current_justified_checkpoint :=
+    (undv_kids_Checkpoint x.current_justified_checkpoint hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e20 : undv_Checkpoint (.cont 741 (kids_Checkpoint x.finalized_checkpoint)) = some x.finalized_checkpoint :=
+    (undv_kids_Checkpoint x.finalized_checkpoint hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e21 : (GenBridge.undvList .progressiveList (.uint (.width 64)) none (GenBridge.undvLeaf dec_Uint64)) (.list .progressiveList (.uint (.width 64)) none (x.inactivity_scores.map fun z5 => (.leaf (.uint (.width 64) z5.val)))) = some x.inactivity_scores :=
+    (GenBridge.undvList_map _ _ _ x.inactivity_scores (fun y0 hy0 => (GenBridge.undv_uint _ y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e22 : undv_SyncCommittee (.cont 366 (kids_SyncCommittee x.current_sync_committee)) = some x.current_sync_committee :=
+    (undv_kids_SyncCommittee x.current_sync_committee hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e23 : undv_SyncCommittee (.cont 366 (kids_SyncCommittee x.next_sync_committee)) = some x.next_sync_committee :=
+    (undv_kids_SyncCommittee x.next_sync_committee hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e24 : (GenBridge.undvLeaf dec_Hash32) (.leaf (.bytes 758 x.latest_block_hash.data)) = some x.latest_block_hash :=
+    (GenBridge.undv_bytes _ x.latest_block_hash hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e25 : (GenBridge.undvLeaf dec_WithdrawalIndex) (.leaf (.uint (.nominal 748 64) x.next_withdrawal_index.val)) = some x.next_withdrawal_index :=
+    (GenBridge.undv_uint _ x.next_withdrawal_index hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e26 : (GenBridge.undvLeaf dec_ValidatorIndex) (.leaf (.uint (.nominal 82 64) x.next_withdrawal_validator_index.val)) = some x.next_withdrawal_validator_index :=
+    (GenBridge.undv_uint _ x.next_withdrawal_validator_index hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e27 : (GenBridge.undvList .list (.container Scope.Id.«HistoricalSummary») (some 16777216) undv_HistoricalSummary) (.list .list (.container 570) (some 16777216) (x.historical_summaries.map fun z1 => (.cont 570 (kids_HistoricalSummary z1)))) = some x.historical_summaries :=
+    (GenBridge.undvList_map _ _ _ x.historical_summaries (fun y0 hy0 => (undv_kids_HistoricalSummary y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e28 : (GenBridge.undvLeaf dec_Uint64) (.leaf (.uint (.width 64) x.deposit_requests_start_index.val)) = some x.deposit_requests_start_index :=
+    (GenBridge.undv_uint _ x.deposit_requests_start_index hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e29 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.deposit_balance_to_consume.val)) = some x.deposit_balance_to_consume :=
+    (GenBridge.undv_uint _ x.deposit_balance_to_consume hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e30 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.exit_balance_to_consume.val)) = some x.exit_balance_to_consume :=
+    (GenBridge.undv_uint _ x.exit_balance_to_consume hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e31 : (GenBridge.undvLeaf dec_Epoch) (.leaf (.uint (.nominal 140 64) x.earliest_exit_epoch.val)) = some x.earliest_exit_epoch :=
+    (GenBridge.undv_uint _ x.earliest_exit_epoch hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e32 : (GenBridge.undvLeaf dec_Gwei) (.leaf (.uint (.nominal 265 64) x.consolidation_balance_to_consume.val)) = some x.consolidation_balance_to_consume :=
+    (GenBridge.undv_uint _ x.consolidation_balance_to_consume hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e33 : (GenBridge.undvLeaf dec_Epoch) (.leaf (.uint (.nominal 140 64) x.earliest_consolidation_epoch.val)) = some x.earliest_consolidation_epoch :=
+    (GenBridge.undv_uint _ x.earliest_consolidation_epoch hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e34 : (GenBridge.undvList .progressiveList (.container Scope.Id.«PendingDeposit») none undv_PendingDeposit) (.list .progressiveList (.container 525) none (x.pending_deposits.map fun z4 => (.cont 525 (kids_PendingDeposit z4)))) = some x.pending_deposits :=
+    (GenBridge.undvList_map _ _ _ x.pending_deposits (fun y0 hy0 => (undv_kids_PendingDeposit y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e35 : (GenBridge.undvList .progressiveList (.container Scope.Id.«PendingPartialWithdrawal») none undv_PendingPartialWithdrawal) (.list .progressiveList (.container 681) none (x.pending_partial_withdrawals.map fun z1 => (.cont 681 (kids_PendingPartialWithdrawal z1)))) = some x.pending_partial_withdrawals :=
+    (GenBridge.undvList_map _ _ _ x.pending_partial_withdrawals (fun y0 hy0 => (undv_kids_PendingPartialWithdrawal y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e36 : (GenBridge.undvList .progressiveList (.container Scope.Id.«PendingConsolidation») none undv_PendingConsolidation) (.list .progressiveList (.container 523) none (x.pending_consolidations.map fun z3 => (.cont 523 (kids_PendingConsolidation z3)))) = some x.pending_consolidations :=
+    (GenBridge.undvList_map _ _ _ x.pending_consolidations (fun y0 hy0 => (undv_kids_PendingConsolidation y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e37 : (GenBridge.undvList .vector (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16) (GenBridge.undvLeaf dec_ValidatorIndex)) (.list .vector (.uint (.nominal 82 64)) (some 16) (x.proposer_lookahead.map fun z6 => (.leaf (.uint (.nominal 82 64) z6.val)))) = some x.proposer_lookahead :=
+    (GenBridge.undvList_map _ _ _ x.proposer_lookahead (fun y0 hy0 => (GenBridge.undv_uint _ y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e38 : (GenBridge.undvList .progressiveList (.container Scope.Id.«Builder») none undv_Builder) (.list .progressiveList (.container 14) none (x.builders.map fun z3 => (.cont 14 (kids_Builder z3)))) = some x.builders :=
+    (GenBridge.undvList_map _ _ _ x.builders (fun y0 hy0 => (undv_kids_Builder y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e39 : (GenBridge.undvLeaf dec_BuilderIndex) (.leaf (.uint (.nominal 199 64) x.next_withdrawal_builder_index.val)) = some x.next_withdrawal_builder_index :=
+    (GenBridge.undv_uint _ x.next_withdrawal_builder_index hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e40 : (GenBridge.undvList .bitvector .boolean (some 64) (GenBridge.undvLeaf decBooleanV)) (.list .bitvector .boolean (some 64) (x.execution_payload_availability.map fun z4 => (.leaf (.boolean z4.val)))) = some x.execution_payload_availability :=
+    (GenBridge.undvList_map _ _ _ x.execution_payload_availability (fun y0 hy0 => (GenBridge.undv_boolean y0)))
+  have e41 : (GenBridge.undvList .vector (.container Scope.Id.«BuilderPendingPayment») (some 16) undv_BuilderPendingPayment) (.list .vector (.container 509) (some 16) (x.builder_pending_payments.map fun z5 => (.cont 509 (kids_BuilderPendingPayment z5)))) = some x.builder_pending_payments :=
+    (GenBridge.undvList_map _ _ _ x.builder_pending_payments (fun y0 hy0 => (undv_kids_BuilderPendingPayment y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e42 : (GenBridge.undvList .progressiveList (.container Scope.Id.«BuilderPendingWithdrawal») none undv_BuilderPendingWithdrawal) (.list .progressiveList (.container 67) none (x.builder_pending_withdrawals.map fun z1 => (.cont 67 (kids_BuilderPendingWithdrawal z1)))) = some x.builder_pending_withdrawals :=
+    (GenBridge.undvList_map _ _ _ x.builder_pending_withdrawals (fun y0 hy0 => (undv_kids_BuilderPendingWithdrawal y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e43 : undv_ExecutionPayloadBid (.cont 732 (kids_ExecutionPayloadBid x.latest_execution_payload_bid)) = some x.latest_execution_payload_bid :=
+    (undv_kids_ExecutionPayloadBid x.latest_execution_payload_bid hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  have e44 : (GenBridge.undvList .progressiveList (.container Scope.Id.«Withdrawal») none undv_Withdrawal) (.list .progressiveList (.container 297) none (x.payload_expected_withdrawals.map fun z2 => (.cont 297 (kids_Withdrawal z2)))) = some x.payload_expected_withdrawals :=
+    (GenBridge.undvList_map _ _ _ x.payload_expected_withdrawals (fun y0 hy0 => (undv_kids_Withdrawal y0 (hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e45 : (GenBridge.undvList .vector (.list .vector (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16)) (some 24) (GenBridge.undvList .vector (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) (some 16) (GenBridge.undvLeaf dec_ValidatorIndex))) (.list .vector (.list .vector (.uint (.nominal 82 64)) (some 16)) (some 24) (x.ptc_window.map fun z5 => (.list .vector (.uint (.nominal 82 64)) (some 16) (z5.map fun z2 => (.leaf (.uint (.nominal 82 64) z2.val)))))) = some x.ptc_window :=
+    (GenBridge.undvList_map _ _ _ x.ptc_window (fun y0 hy0 => (GenBridge.undvList_map _ _ _ y0 (fun y1 hy1 => (GenBridge.undv_uint _ y1 ((hx.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0) y1 hy1))))))
+  simp only [undv_BeaconState, kids_BeaconState, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24, e25, e26, e27, e28, e29, e30, e31, e32, e33, e34, e35, e36, e37, e38, e39, e40, e41, e42, e43, e44, e45]
+
+def undv_ProposerSlashing : DV → Option ProposerSlashing
+  | .cont ty ds =>
+    if ty = 768 then do
+      let signed_header_1 ← ds[0]?.bind undv_SignedBeaconBlockHeader
+      let signed_header_2 ← ds[1]?.bind undv_SignedBeaconBlockHeader
+      pure { signed_header_1, signed_header_2 }
+    else none
+  | _ => none
+
+theorem decOf_ProposerSlashing : GenBridge.DecOf dec_ProposerSlashing undv_ProposerSlashing := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_ProposerSlashing] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_ProposerSlashing, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf decOf_SignedBeaconBlockHeader hm 0 h0, GenBridge.field_decOf decOf_SignedBeaconBlockHeader hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_ProposerSlashing] at hu
+
+theorem undv_kids_ProposerSlashing (x : ProposerSlashing) (hx : ok_ProposerSlashing x) :
+    undv_ProposerSlashing (.cont 768 (kids_ProposerSlashing x)) = some x := by
+  simp only [ok_ProposerSlashing] at hx
+  have e0 : undv_SignedBeaconBlockHeader (.cont 767 (kids_SignedBeaconBlockHeader x.signed_header_1)) = some x.signed_header_1 :=
+    (undv_kids_SignedBeaconBlockHeader x.signed_header_1 hx.1)
+  have e1 : undv_SignedBeaconBlockHeader (.cont 767 (kids_SignedBeaconBlockHeader x.signed_header_2)) = some x.signed_header_2 :=
+    (undv_kids_SignedBeaconBlockHeader x.signed_header_2 hx.2.1)
+  simp only [undv_ProposerSlashing, kids_ProposerSlashing, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_Attestation : DV → Option Attestation
+  | .cont ty ds =>
+    if ty = 770 then do
+      let aggregation_bits ← ds[0]?.bind (GenBridge.undvList .progressiveBitlist .boolean none (GenBridge.undvLeaf decBooleanV))
+      let data ← ds[1]?.bind undv_AttestationData
+      let signature ← ds[2]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      let committee_bits ← ds[3]?.bind (GenBridge.undvList .bitvector .boolean (some 4) (GenBridge.undvLeaf decBooleanV))
+      pure { aggregation_bits, data, signature, committee_bits }
+    else none
+  | _ => none
+
+theorem decOf_Attestation : GenBridge.DecOf dec_Attestation undv_Attestation := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_Attestation] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_Attestation, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_list GenBridge.decOf_boolean _ _ _) hm 0 h0, GenBridge.field_decOf decOf_AttestationData hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2, GenBridge.field_decOf (GenBridge.decOf_list GenBridge.decOf_boolean _ _ _) hm 3 h3]
+      try rfl
+    · cases hu
+  | _ => simp [undv_Attestation] at hu
+
+theorem undv_kids_Attestation (x : Attestation) (hx : ok_Attestation x) :
+    undv_Attestation (.cont 770 (kids_Attestation x)) = some x := by
+  simp only [ok_Attestation] at hx
+  have e0 : (GenBridge.undvList .progressiveBitlist .boolean none (GenBridge.undvLeaf decBooleanV)) (.list .progressiveBitlist .boolean none (x.aggregation_bits.map fun z4 => (.leaf (.boolean z4.val)))) = some x.aggregation_bits :=
+    (GenBridge.undvList_map _ _ _ x.aggregation_bits (fun y0 hy0 => (GenBridge.undv_boolean y0)))
+  have e1 : undv_AttestationData (.cont 750 (kids_AttestationData x.data)) = some x.data :=
+    (undv_kids_AttestationData x.data hx.1)
+  have e2 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.1)
+  have e3 : (GenBridge.undvList .bitvector .boolean (some 4) (GenBridge.undvLeaf decBooleanV)) (.list .bitvector .boolean (some 4) (x.committee_bits.map fun z2 => (.leaf (.boolean z2.val)))) = some x.committee_bits :=
+    (GenBridge.undvList_map _ _ _ x.committee_bits (fun y0 hy0 => (GenBridge.undv_boolean y0)))
+  simp only [undv_Attestation, kids_Attestation, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3]
+
+def undv_Deposit : DV → Option Deposit
+  | .cont ty ds =>
+    if ty = 773 then do
+      let proof ← ds[0]?.bind (GenBridge.undvList .vector (.bytes Scope.Id.«Bytes32» 32) (some 33) (GenBridge.undvLeaf dec_Bytes32))
+      let data ← ds[1]?.bind undv_DepositData
+      pure { proof, data }
+    else none
+  | _ => none
+
+theorem decOf_Deposit : GenBridge.DecOf dec_Deposit undv_Deposit := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_Deposit] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_Deposit, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_bytes _) _ _ _) hm 0 h0, GenBridge.field_decOf decOf_DepositData hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_Deposit] at hu
+
+theorem undv_kids_Deposit (x : Deposit) (hx : ok_Deposit x) :
+    undv_Deposit (.cont 773 (kids_Deposit x)) = some x := by
+  simp only [ok_Deposit] at hx
+  have e0 : (GenBridge.undvList .vector (.bytes Scope.Id.«Bytes32» 32) (some 33) (GenBridge.undvLeaf dec_Bytes32)) (.list .vector (.bytes 505 32) (some 33) (x.proof.map fun z0 => (.leaf (.bytes 505 z0.data)))) = some x.proof :=
+    (GenBridge.undvList_map _ _ _ x.proof (fun y0 hy0 => (GenBridge.undv_bytes _ y0 (hx.1 y0 hy0))))
+  have e1 : undv_DepositData (.cont 772 (kids_DepositData x.data)) = some x.data :=
+    (undv_kids_DepositData x.data hx.2.1)
+  simp only [undv_Deposit, kids_Deposit, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_SignedVoluntaryExit : DV → Option SignedVoluntaryExit
+  | .cont ty ds =>
+    if ty = 775 then do
+      let message ← ds[0]?.bind undv_VoluntaryExit
+      let signature ← ds[1]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      pure { message, signature }
+    else none
+  | _ => none
+
+theorem decOf_SignedVoluntaryExit : GenBridge.DecOf dec_SignedVoluntaryExit undv_SignedVoluntaryExit := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_SignedVoluntaryExit] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_SignedVoluntaryExit, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf decOf_VoluntaryExit hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_SignedVoluntaryExit] at hu
+
+theorem undv_kids_SignedVoluntaryExit (x : SignedVoluntaryExit) (hx : ok_SignedVoluntaryExit x) :
+    undv_SignedVoluntaryExit (.cont 775 (kids_SignedVoluntaryExit x)) = some x := by
+  simp only [ok_SignedVoluntaryExit] at hx
+  have e0 : undv_VoluntaryExit (.cont 774 (kids_VoluntaryExit x.message)) = some x.message :=
+    (undv_kids_VoluntaryExit x.message hx.1)
+  have e1 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.1)
+  simp only [undv_SignedVoluntaryExit, kids_SignedVoluntaryExit, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_SignedBLSToExecutionChange : DV → Option SignedBLSToExecutionChange
+  | .cont ty ds =>
+    if ty = 778 then do
+      let message ← ds[0]?.bind undv_BLSToExecutionChange
+      let signature ← ds[1]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      pure { message, signature }
+    else none
+  | _ => none
+
+theorem decOf_SignedBLSToExecutionChange : GenBridge.DecOf dec_SignedBLSToExecutionChange undv_SignedBLSToExecutionChange := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_SignedBLSToExecutionChange] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_SignedBLSToExecutionChange, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf decOf_BLSToExecutionChange hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_SignedBLSToExecutionChange] at hu
+
+theorem undv_kids_SignedBLSToExecutionChange (x : SignedBLSToExecutionChange) (hx : ok_SignedBLSToExecutionChange x) :
+    undv_SignedBLSToExecutionChange (.cont 778 (kids_SignedBLSToExecutionChange x)) = some x := by
+  simp only [ok_SignedBLSToExecutionChange] at hx
+  have e0 : undv_BLSToExecutionChange (.cont 777 (kids_BLSToExecutionChange x.message)) = some x.message :=
+    (undv_kids_BLSToExecutionChange x.message hx.1)
+  have e1 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.1)
+  simp only [undv_SignedBLSToExecutionChange, kids_SignedBLSToExecutionChange, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_IndexedAttestation : DV → Option IndexedAttestation
+  | .cont ty ds =>
+    if ty = 350 then do
+      let attesting_indices ← ds[0]?.bind (GenBridge.undvList .progressiveList (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) none (GenBridge.undvLeaf dec_ValidatorIndex))
+      let data ← ds[1]?.bind undv_AttestationData
+      let signature ← ds[2]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      pure { attesting_indices, data, signature }
+    else none
+  | _ => none
+
+theorem decOf_IndexedAttestation : GenBridge.DecOf dec_IndexedAttestation undv_IndexedAttestation := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_IndexedAttestation] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_IndexedAttestation, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_list (GenBridge.decOf_uint _) _ _ _) hm 0 h0, GenBridge.field_decOf decOf_AttestationData hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2]
+      try rfl
+    · cases hu
+  | _ => simp [undv_IndexedAttestation] at hu
+
+theorem undv_kids_IndexedAttestation (x : IndexedAttestation) (hx : ok_IndexedAttestation x) :
+    undv_IndexedAttestation (.cont 350 (kids_IndexedAttestation x)) = some x := by
+  simp only [ok_IndexedAttestation] at hx
+  have e0 : (GenBridge.undvList .progressiveList (.uint (.nominal Scope.Id.«ValidatorIndex» 64)) none (GenBridge.undvLeaf dec_ValidatorIndex)) (.list .progressiveList (.uint (.nominal 82 64)) none (x.attesting_indices.map fun z5 => (.leaf (.uint (.nominal 82 64) z5.val)))) = some x.attesting_indices :=
+    (GenBridge.undvList_map _ _ _ x.attesting_indices (fun y0 hy0 => (GenBridge.undv_uint _ y0 (hx.1 y0 hy0))))
+  have e1 : undv_AttestationData (.cont 750 (kids_AttestationData x.data)) = some x.data :=
+    (undv_kids_AttestationData x.data hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.2.1)
+  simp only [undv_IndexedAttestation, kids_IndexedAttestation, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2]
+
+def undv_AttesterSlashing : DV → Option AttesterSlashing
+  | .cont ty ds =>
+    if ty = 769 then do
+      let attestation_1 ← ds[0]?.bind undv_IndexedAttestation
+      let attestation_2 ← ds[1]?.bind undv_IndexedAttestation
+      pure { attestation_1, attestation_2 }
+    else none
+  | _ => none
+
+theorem decOf_AttesterSlashing : GenBridge.DecOf dec_AttesterSlashing undv_AttesterSlashing := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_AttesterSlashing] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_AttesterSlashing, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf decOf_IndexedAttestation hm 0 h0, GenBridge.field_decOf decOf_IndexedAttestation hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_AttesterSlashing] at hu
+
+theorem undv_kids_AttesterSlashing (x : AttesterSlashing) (hx : ok_AttesterSlashing x) :
+    undv_AttesterSlashing (.cont 769 (kids_AttesterSlashing x)) = some x := by
+  simp only [ok_AttesterSlashing] at hx
+  have e0 : undv_IndexedAttestation (.cont 350 (kids_IndexedAttestation x.attestation_1)) = some x.attestation_1 :=
+    (undv_kids_IndexedAttestation x.attestation_1 hx.1)
+  have e1 : undv_IndexedAttestation (.cont 350 (kids_IndexedAttestation x.attestation_2)) = some x.attestation_2 :=
+    (undv_kids_IndexedAttestation x.attestation_2 hx.2.1)
+  simp only [undv_AttesterSlashing, kids_AttesterSlashing, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+def undv_BeaconBlockBody : DV → Option BeaconBlockBody
+  | .cont ty ds =>
+    if ty = 781 then do
+      let randao_reveal ← ds[0]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      let eth1_data ← ds[1]?.bind undv_Eth1Data
+      let graffiti ← ds[2]?.bind (GenBridge.undvLeaf dec_Bytes32)
+      let proposer_slashings ← ds[3]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«ProposerSlashing») none undv_ProposerSlashing)
+      let attester_slashings ← ds[4]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«AttesterSlashing») none undv_AttesterSlashing)
+      let attestations ← ds[5]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«Attestation») none undv_Attestation)
+      let deposits ← ds[6]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«Deposit») none undv_Deposit)
+      let voluntary_exits ← ds[7]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«SignedVoluntaryExit») none undv_SignedVoluntaryExit)
+      let sync_aggregate ← ds[8]?.bind undv_SyncAggregate
+      let bls_to_execution_changes ← ds[9]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«SignedBLSToExecutionChange») none undv_SignedBLSToExecutionChange)
+      let signed_execution_payload_bid ← ds[10]?.bind undv_SignedExecutionPayloadBid
+      let payload_attestations ← ds[11]?.bind (GenBridge.undvList .progressiveList (.container Scope.Id.«PayloadAttestation») none undv_PayloadAttestation)
+      let parent_execution_requests ← ds[12]?.bind undv_ExecutionRequests
+      pure { randao_reveal, eth1_data, graffiti, proposer_slashings, attester_slashings, attestations, deposits, voluntary_exits, sync_aggregate, bls_to_execution_changes, signed_execution_payload_bid, payload_attestations, parent_execution_requests }
+    else none
+  | _ => none
+
+theorem decOf_BeaconBlockBody : GenBridge.DecOf dec_BeaconBlockBody undv_BeaconBlockBody := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_BeaconBlockBody] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y4, h4, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y5, h5, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y6, h6, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y7, h7, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y8, h8, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y9, h9, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y10, h10, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y11, h11, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y12, h12, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_BeaconBlockBody, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 0 h0, GenBridge.field_decOf decOf_Eth1Data hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2, GenBridge.field_decOf (GenBridge.decOf_list decOf_ProposerSlashing _ _ _) hm 3 h3, GenBridge.field_decOf (GenBridge.decOf_list decOf_AttesterSlashing _ _ _) hm 4 h4, GenBridge.field_decOf (GenBridge.decOf_list decOf_Attestation _ _ _) hm 5 h5, GenBridge.field_decOf (GenBridge.decOf_list decOf_Deposit _ _ _) hm 6 h6, GenBridge.field_decOf (GenBridge.decOf_list decOf_SignedVoluntaryExit _ _ _) hm 7 h7, GenBridge.field_decOf decOf_SyncAggregate hm 8 h8, GenBridge.field_decOf (GenBridge.decOf_list decOf_SignedBLSToExecutionChange _ _ _) hm 9 h9, GenBridge.field_decOf decOf_SignedExecutionPayloadBid hm 10 h10, GenBridge.field_decOf (GenBridge.decOf_list decOf_PayloadAttestation _ _ _) hm 11 h11, GenBridge.field_decOf decOf_ExecutionRequests hm 12 h12]
+      try rfl
+    · cases hu
+  | _ => simp [undv_BeaconBlockBody] at hu
+
+theorem undv_kids_BeaconBlockBody (x : BeaconBlockBody) (hx : ok_BeaconBlockBody x) :
+    undv_BeaconBlockBody (.cont 781 (kids_BeaconBlockBody x)) = some x := by
+  simp only [ok_BeaconBlockBody] at hx
+  have e0 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.randao_reveal.data)) = some x.randao_reveal :=
+    (GenBridge.undv_bytes _ x.randao_reveal hx.1)
+  have e1 : undv_Eth1Data (.cont 759 (kids_Eth1Data x.eth1_data)) = some x.eth1_data :=
+    (undv_kids_Eth1Data x.eth1_data hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Bytes32) (.leaf (.bytes 505 x.graffiti.data)) = some x.graffiti :=
+    (GenBridge.undv_bytes _ x.graffiti hx.2.2.1)
+  have e3 : (GenBridge.undvList .progressiveList (.container Scope.Id.«ProposerSlashing») none undv_ProposerSlashing) (.list .progressiveList (.container 768) none (x.proposer_slashings.map fun z6 => (.cont 768 (kids_ProposerSlashing z6)))) = some x.proposer_slashings :=
+    (GenBridge.undvList_map _ _ _ x.proposer_slashings (fun y0 hy0 => (undv_kids_ProposerSlashing y0 (hx.2.2.2.1 y0 hy0))))
+  have e4 : (GenBridge.undvList .progressiveList (.container Scope.Id.«AttesterSlashing») none undv_AttesterSlashing) (.list .progressiveList (.container 769) none (x.attester_slashings.map fun z6 => (.cont 769 (kids_AttesterSlashing z6)))) = some x.attester_slashings :=
+    (GenBridge.undvList_map _ _ _ x.attester_slashings (fun y0 hy0 => (undv_kids_AttesterSlashing y0 (hx.2.2.2.2.1 y0 hy0))))
+  have e5 : (GenBridge.undvList .progressiveList (.container Scope.Id.«Attestation») none undv_Attestation) (.list .progressiveList (.container 770) none (x.attestations.map fun z0 => (.cont 770 (kids_Attestation z0)))) = some x.attestations :=
+    (GenBridge.undvList_map _ _ _ x.attestations (fun y0 hy0 => (undv_kids_Attestation y0 (hx.2.2.2.2.2.1 y0 hy0))))
+  have e6 : (GenBridge.undvList .progressiveList (.container Scope.Id.«Deposit») none undv_Deposit) (.list .progressiveList (.container 773) none (x.deposits.map fun z3 => (.cont 773 (kids_Deposit z3)))) = some x.deposits :=
+    (GenBridge.undvList_map _ _ _ x.deposits (fun y0 hy0 => (undv_kids_Deposit y0 (hx.2.2.2.2.2.2.1 y0 hy0))))
+  have e7 : (GenBridge.undvList .progressiveList (.container Scope.Id.«SignedVoluntaryExit») none undv_SignedVoluntaryExit) (.list .progressiveList (.container 775) none (x.voluntary_exits.map fun z3 => (.cont 775 (kids_SignedVoluntaryExit z3)))) = some x.voluntary_exits :=
+    (GenBridge.undvList_map _ _ _ x.voluntary_exits (fun y0 hy0 => (undv_kids_SignedVoluntaryExit y0 (hx.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e8 : undv_SyncAggregate (.cont 776 (kids_SyncAggregate x.sync_aggregate)) = some x.sync_aggregate :=
+    (undv_kids_SyncAggregate x.sync_aggregate hx.2.2.2.2.2.2.2.2.1)
+  have e9 : (GenBridge.undvList .progressiveList (.container Scope.Id.«SignedBLSToExecutionChange») none undv_SignedBLSToExecutionChange) (.list .progressiveList (.container 778) none (x.bls_to_execution_changes.map fun z5 => (.cont 778 (kids_SignedBLSToExecutionChange z5)))) = some x.bls_to_execution_changes :=
+    (GenBridge.undvList_map _ _ _ x.bls_to_execution_changes (fun y0 hy0 => (undv_kids_SignedBLSToExecutionChange y0 (hx.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e10 : undv_SignedExecutionPayloadBid (.cont 779 (kids_SignedExecutionPayloadBid x.signed_execution_payload_bid)) = some x.signed_execution_payload_bid :=
+    (undv_kids_SignedExecutionPayloadBid x.signed_execution_payload_bid hx.2.2.2.2.2.2.2.2.2.2.1)
+  have e11 : (GenBridge.undvList .progressiveList (.container Scope.Id.«PayloadAttestation») none undv_PayloadAttestation) (.list .progressiveList (.container 780) none (x.payload_attestations.map fun z1 => (.cont 780 (kids_PayloadAttestation z1)))) = some x.payload_attestations :=
+    (GenBridge.undvList_map _ _ _ x.payload_attestations (fun y0 hy0 => (undv_kids_PayloadAttestation y0 (hx.2.2.2.2.2.2.2.2.2.2.2.1 y0 hy0))))
+  have e12 : undv_ExecutionRequests (.cont 597 (kids_ExecutionRequests x.parent_execution_requests)) = some x.parent_execution_requests :=
+    (undv_kids_ExecutionRequests x.parent_execution_requests hx.2.2.2.2.2.2.2.2.2.2.2.2.1)
+  simp only [undv_BeaconBlockBody, kids_BeaconBlockBody, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12]
+
+def undv_BeaconBlock : DV → Option BeaconBlock
+  | .cont ty ds =>
+    if ty = 782 then do
+      let slot ← ds[0]?.bind (GenBridge.undvLeaf dec_Slot)
+      let proposer_index ← ds[1]?.bind (GenBridge.undvLeaf dec_ValidatorIndex)
+      let parent_root ← ds[2]?.bind (GenBridge.undvLeaf dec_Root)
+      let state_root ← ds[3]?.bind (GenBridge.undvLeaf dec_Root)
+      let body ← ds[4]?.bind undv_BeaconBlockBody
+      pure { slot, proposer_index, parent_root, state_root, body }
+    else none
+  | _ => none
+
+theorem decOf_BeaconBlock : GenBridge.DecOf dec_BeaconBlock undv_BeaconBlock := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_BeaconBlock] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y2, h2, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y3, h3, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y4, h4, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_BeaconBlock, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_uint _) hm 1 h1, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 2 h2, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 3 h3, GenBridge.field_decOf decOf_BeaconBlockBody hm 4 h4]
+      try rfl
+    · cases hu
+  | _ => simp [undv_BeaconBlock] at hu
+
+theorem undv_kids_BeaconBlock (x : BeaconBlock) (hx : ok_BeaconBlock x) :
+    undv_BeaconBlock (.cont 782 (kids_BeaconBlock x)) = some x := by
+  simp only [ok_BeaconBlock] at hx
+  have e0 : (GenBridge.undvLeaf dec_Slot) (.leaf (.uint (.nominal 196 64) x.slot.val)) = some x.slot :=
+    (GenBridge.undv_uint _ x.slot hx.1)
+  have e1 : (GenBridge.undvLeaf dec_ValidatorIndex) (.leaf (.uint (.nominal 82 64) x.proposer_index.val)) = some x.proposer_index :=
+    (GenBridge.undv_uint _ x.proposer_index hx.2.1)
+  have e2 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.parent_root.data)) = some x.parent_root :=
+    (GenBridge.undv_bytes _ x.parent_root hx.2.2.1)
+  have e3 : (GenBridge.undvLeaf dec_Root) (.leaf (.bytes 146 x.state_root.data)) = some x.state_root :=
+    (GenBridge.undv_bytes _ x.state_root hx.2.2.2.1)
+  have e4 : undv_BeaconBlockBody (.cont 781 (kids_BeaconBlockBody x.body)) = some x.body :=
+    (undv_kids_BeaconBlockBody x.body hx.2.2.2.2.1)
+  simp only [undv_BeaconBlock, kids_BeaconBlock, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1, e2, e3, e4]
+
+def undv_SignedBeaconBlock : DV → Option SignedBeaconBlock
+  | .cont ty ds =>
+    if ty = 783 then do
+      let message ← ds[0]?.bind undv_BeaconBlock
+      let signature ← ds[1]?.bind (GenBridge.undvLeaf dec_BLSSignature)
+      pure { message, signature }
+    else none
+  | _ => none
+
+theorem decOf_SignedBeaconBlock : GenBridge.DecOf dec_SignedBeaconBlock undv_SignedBeaconBlock := by
+  intro h n v d x hd hu
+  cases d with
+  | cont ty ds =>
+    simp only [undv_SignedBeaconBlock] at hu
+    split at hu
+    · next hty =>
+      subst hty
+      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd
+      simp only [Option.bind_eq_bind] at hu
+      obtain ⟨y0, h0, hu⟩ := Option.bind_eq_some_iff.mp hu
+      obtain ⟨y1, h1, hu⟩ := Option.bind_eq_some_iff.mp hu
+      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu
+      simp only [dec_SignedBeaconBlock, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, GenBridge.field_decOf decOf_BeaconBlock hm 0 h0, GenBridge.field_decOf (GenBridge.decOf_bytes _) hm 1 h1]
+      try rfl
+    · cases hu
+  | _ => simp [undv_SignedBeaconBlock] at hu
+
+theorem undv_kids_SignedBeaconBlock (x : SignedBeaconBlock) (hx : ok_SignedBeaconBlock x) :
+    undv_SignedBeaconBlock (.cont 783 (kids_SignedBeaconBlock x)) = some x := by
+  simp only [ok_SignedBeaconBlock] at hx
+  have e0 : undv_BeaconBlock (.cont 782 (kids_BeaconBlock x.message)) = some x.message :=
+    (undv_kids_BeaconBlock x.message hx.1)
+  have e1 : (GenBridge.undvLeaf dec_BLSSignature) (.leaf (.bytes 747 x.signature.data)) = some x.signature :=
+    (GenBridge.undv_bytes _ x.signature hx.2.1)
+  simp only [undv_SignedBeaconBlock, kids_SignedBeaconBlock, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,
+    Option.bind_some, Option.bind_eq_bind, Option.pure_def, e0, e1]
+
+/-! The callees taken from statements (`ExtOK`). -/
+
+def ext_get_index_for_new_builder : ExtFn where
+  bound := fun rs => match rs with
+    | [r0] => match undv_BeaconState r0 with
+      | some x0 => x0.builders.length + 256
+      | _ => 0
+    | _ => 0
+  run := fun rs => match rs with
+    | [r0] => match undv_BeaconState r0 with
+      | some x0 => if True then GenBridge.extRes (fun y : BuilderIndex => DRes.val (.uint (.nominal 199 64) y.val)) (get_index_for_new_builder x0) else none
+      | _ => none
+    | _ => none
+
+def ext_get_total_active_balance : ExtFn where
+  bound := fun rs => match rs with
+    | [r0] => match undv_BeaconState r0 with
+      | some x0 => x0.validators.length + x0.validators.length + 256
+      | _ => 0
+    | _ => 0
+  run := fun rs => match rs with
+    | [r0] => match undv_BeaconState r0 with
+      | some x0 => if True then GenBridge.extRes (fun y : Gwei => DRes.val (.uint (.nominal 265 64) y.val)) (get_total_active_balance x0) else none
+      | _ => none
+    | _ => none
+
+/-- The table of the generated theorems. -/
+instance extGen : ExtTab := ⟨fun g => if g = 8 then some ext_get_index_for_new_builder else if g = 209 then some ext_get_total_active_balance else none⟩
+
+@[l4_simp] theorem extGen_ext (g : Name) : ExtTab.ext g = (fun g : Name => if g = 8 then some ext_get_index_for_new_builder else if g = 209 then some ext_get_total_active_balance else none) g := rfl
+
 set_option maxHeartbeats 1000000 in
 theorem encDec_Builder (x : Builder) : GenBridge.EncDec (enc_Builder x) (.cont 14 (kids_Builder x)) := by
   show GenBridge.EncDec (encContainer _ _) _

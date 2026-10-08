@@ -12,7 +12,7 @@ namespace SpecLean.Layer4
 
 open SpecLean SpecLean.Encode
 
-variable [LibModel]
+variable [LibModel] [ExtTab]
 
 attribute [local instance high] LibModel.toLibValues
 
@@ -86,8 +86,8 @@ theorem call_ro {env : Env} {fps : Name → Footprint} {n : Nat} {P : Sem} {fp :
       · next l l' g' args' => split at hch <;> simp at hch; obtain ⟨rfl, rfl⟩ := hch; exact ⟨l, l', rfl, trivial, trivial⟩
       · cases hch
     simp only [exprStep, hch]
-    rw [show (fun rs => dCallW env fps P.fn fp s g rs) = fun rs =>
-        (dCallRO env fps P.fn s g rs).map (·.map (·, s.roots)) from ?_]
+    rw [show (fun rs => dCallW env fps (m + 1) P.fn fp s g rs) = fun rs =>
+        (dCallRO env fps (m + 1) P.fn s g rs).map (·.map (·, s.roots)) from ?_]
     · by_cases hk : allKw args = true
       · simp only [hk, ↓reduceIte]
         cases DM.bind (kwsOf (P.expr fp s) args) (fun kvs => kwCtor env g kvs) with
@@ -103,7 +103,7 @@ theorem call_ro {env : Env} {fps : Name → Footprint} {n : Nat} {P : Sem} {fp :
       · split
         · next d hg =>
           simp only [he, ↓reduceIte]
-          cases dCallRO env fps P.fn s g rs with
+          cases dCallRO env fps (m + 1) P.fn s g rs with
           | none => rfl
           | some q => cases q <;> rfl
         · rfl

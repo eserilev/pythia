@@ -115,6 +115,29 @@ def lift : Res α → DM α
   | .error .outOfFuel => none
   | r => some r
 
+/-- An error of each class (`SpecError.fail`): the proofs compare errors by class, since a
+callee taken from a statement (`ResultMatches`) fixes only the class of its error. -/
+def SpecError.rep : Fail → SpecError
+  | .invalid => .assertionFailed
+  | .bug => .typeError
+
+/-- The error of the class of `e`. Running out of fuel stays as it is. -/
+def normE : SpecError → SpecError
+  | .outOfFuel => .outOfFuel
+  | e => SpecError.rep e.fail
+
+theorem normE_ne {e : SpecError} (h : e ≠ .outOfFuel) : normE e ≠ .outOfFuel := by
+  cases e <;> simp_all [normE, SpecError.rep, SpecError.fail] <;> split <;> simp
+
+theorem normE_ne' {e : SpecError} (h : normE e ≠ .outOfFuel) : e ≠ .outOfFuel := by
+  rintro rfl; exact h rfl
+
+theorem normE_eq_oof {e : SpecError} (h : normE e = .outOfFuel) : e = .outOfFuel := by
+  cases e <;> simp_all [normE, SpecError.rep, SpecError.fail] <;> split at h <;> simp_all
+
+theorem normE_fail (e : SpecError) : (normE e).fail = e.fail := by
+  cases e <;> simp [normE, SpecError.rep, SpecError.fail] <;> split <;> simp_all [SpecError.fail]
+
 /-! ## Footprint check -/
 
 def matchesB : List PStep → List Nat → Bool
