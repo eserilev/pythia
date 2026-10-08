@@ -471,6 +471,15 @@ def classes_file(m):
             m.okb.add(n)
         except Unsupported:
             pass
+    out.append("/-! The readable value of a decoded tree. -/\n")
+    m.undv = set()
+    for n in m.rep_order:
+        try:
+            out.append(undv_text(m, n))
+            m.undv.add(n)
+        except Unsupported:
+            pass
+    out.append(ext_text(m))
     for n in m.rep_order:
         if ("def enc_%s : Enc %s := fun x =>" % (n, n)) not in m.rd:
             continue
@@ -481,6 +490,142 @@ def classes_file(m):
             pass
     out.append("\nend SpecLean.Layer4.Gen\n")
     return "\n".join(out)
+
+
+def dec_fields(m, n):
+    """The fields of the readable decoder of `n`: (name, decoder text) each, or Unsupported."""
+    i = m.rd.find("def dec_%s : Dec %s := fun h v => do\n" % (n, n))
+    if i < 0:
+        raise Unsupported("no decoder")
+    body = m.rd[i:m.rd.index("\n\n", i)]
+    out = []
+    for k, (fn, idx, d) in enumerate(re.findall(r"^  let (\S+) ← fs\[(\d+)\]\? >>= (.+) h$", body, re.M)):
+        if int(idx) != k:
+            raise Unsupported("field order")
+        out.append((fn, d))
+    if len(out) != len(m.containers[n]):
+        raise Unsupported("decoder fields")
+    return out
+
+
+def undv_of(m, d):
+    """The decoder of a tree and its `DecOf` proof, for a readable field decoder `d`."""
+    d = d.strip()
+    if d.startswith("(") and d.endswith(")"):
+        a = split_args(d)
+        if a[0] == "decListT" and len(a) == 5:
+            u, p = undv_of(m, a[4])
+            return ("(GenBridge.undvList %s %s %s %s)" % (a[1], a[2], a[3], u),
+                    "(GenBridge.decOf_list %s _ _ _)" % p)
+        raise Unsupported("decoder " + d)
+    if d == "decBooleanV":
+        return "(GenBridge.undvLeaf decBooleanV)", "GenBridge.decOf_boolean"
+    mm = re.fullmatch(r"dec_(\w+)", d)
+    if not mm:
+        raise Unsupported("decoder " + d)
+    y = mm.group(1)
+    if y in m.reps:
+        if y not in m.undv:
+            raise Unsupported("undv of " + y)
+        return "undv_%s" % y, "decOf_%s" % y
+    if y in m.uint:
+        return "(GenBridge.undvLeaf dec_%s)" % y, "(GenBridge.decOf_uint _)"
+    if y in m.bytes:
+        return "(GenBridge.undvLeaf dec_%s)" % y, "(GenBridge.decOf_bytes _)"
+    raise Unsupported("decoder " + d)
+
+
+def undv_kid(m, d, rt, t, hok, depth=0):
+    """A proof that the tree decoder of `d` gives back `t : rt` from its tree; `hok` proves the
+    range fact of `t` (or is None)."""
+    d, rt = d.strip(), strip_parens(rt)
+    if d.startswith("("):
+        a = split_args(d)
+        mr = re.fullmatch(r"List (.*)", rt)
+        y = "y%d" % depth
+        inner = undv_kid(m, a[4], mr.group(1), y, "(%s %s hy%d)" % (hok, y, depth) if hok else None, depth + 1)
+        return "(GenBridge.undvList_map _ _ _ %s (fun %s hy%d => %s))" % (t, y, depth, inner)
+    if d == "decBooleanV":
+        return "(GenBridge.undv_boolean %s)" % t
+    y = d[len("dec_"):]
+    if y in m.reps:
+        return "(undv_kids_%s %s %s)" % (y, t, hok)
+    if y in m.uint:
+        return "(GenBridge.undv_uint _ %s %s)" % (t, hok)
+    return "(GenBridge.undv_bytes _ %s %s)" % (t, hok)
+
+
+def ext_text(m):
+    """The callees taken from statements: one `ExtFn` each, and the table `extGen`."""
+    out = ["/-! The callees taken from statements (`ExtOK`). -/\n"]
+    ents = []
+    for c, o in sorted(OPAQUE.items()):
+        if o["cls"] not in m.undv or c not in m.fns:
+            continue
+        enc = result(m, m.sigs[c][1]).replace("x.val", "y.val").replace("(x)", "(y)")
+        out.append("def ext_%s : ExtFn where\n"
+                   "  bound := fun rs => match rs with\n"
+                   "    | [r] => match undv_%s r with\n"
+                   "      | some x => %s\n"
+                   "      | none => 0\n"
+                   "    | _ => 0\n"
+                   "  run := fun rs => match rs with\n"
+                   "    | [r] => match undv_%s r with\n"
+                   "      | some x => GenBridge.extRes (fun y : %s => %s) (%s x)\n"
+                   "      | none => none\n"
+                   "    | _ => none\n" % (c, o["cls"], o["bound"], o["cls"], m.sigs[c][1], enc, c))
+        ents.append((m.fns[c]["id"], c))
+    body = "fun g => " + "".join("if g = %d then some ext_%s else " % (i, c) for i, c in ents) + "none"
+    out.append("/-- The table of the generated theorems. -/\ninstance extGen : ExtTab := ⟨%s⟩\n" % body)
+    out.append("@[l4_simp] theorem extGen_ext (g : Name) : ExtTab.ext g = (%s) g := rfl\n" % body.replace("fun g => ", "fun g : Name => ", 1))
+    return "\n".join(out)
+
+
+def undv_text(m, n):
+    fs = dec_fields(m, n)
+    us = [undv_of(m, d) for _, d in fs]
+    K = len(fs)
+    lines = ["def undv_%s : DV → Option %s\n  | .cont ty ds =>\n    if ty = %d then do" % (n, n, m.cid[n])]
+    for i, ((fn, d), (u, p)) in enumerate(zip(fs, us)):
+        lines.append("      let %s ← ds[%d]?.bind %s" % (fn, i, u))
+    lines.append("      pure { %s }\n    else none\n  | _ => none\n" % ", ".join(fn for fn, _ in fs))
+    pat = "\n".join("      obtain ⟨y%d, h%d, hu⟩ := Option.bind_eq_some_iff.mp hu" % (i, i) for i in range(K))
+    fl = ", ".join("GenBridge.field_decOf %s hm %d h%d" % (p, i, i) for i, (u, p) in enumerate(us))
+    lines.append("theorem decOf_%s : GenBridge.DecOf dec_%s undv_%s := by\n"
+                 "  intro h n v d x hd hu\n"
+                 "  cases d with\n"
+                 "  | cont ty ds =>\n"
+                 "    simp only [undv_%s] at hu\n"
+                 "    split at hu\n"
+                 "    · next hty =>\n"
+                 "      subst hty\n"
+                 "      obtain ⟨a, m, fs, rfl, rfl, ho, hm⟩ := dec_cont hd\n"
+                 "      simp only [Option.bind_eq_bind] at hu\n%s\n"
+                 "      simp only [Option.pure_def, Option.some.injEq] at hu; subst hu\n"
+                 "      simp only [dec_%s, containerFieldsT, ho, ↓reduceIte, Option.bind_eq_bind, Option.bind_some, %s]\n"
+                 "      try rfl\n"
+                 "    · cases hu\n"
+                 "  | _ => simp [undv_%s] at hu\n" % (n, n, n, n, pat, n, fl, n))
+    facts = []
+    for fn, ssz, rt in m.containers[n]:
+        facts.append(ok_fact(m, ssz, rt, "x.%s" % fn) is not None)
+    haves = []
+    j = 0
+    for i, ((fn, d), (u, p), (_, ssz, rt)) in enumerate(zip(fs, us, m.containers[n])):
+        hok = None
+        if facts[i]:
+            hok = "hx" + ".2" * j + ".1"
+            j += 1
+        haves.append("  have e%d : %s %s = some x.%s :=\n    %s" % (i, u, m.reps[n][i], fn,
+                                                                undv_kid(m, d, rt, "x.%s" % fn, hok)))
+    lines.append("theorem undv_kids_%s (x : %s) (hx : ok_%s x) :\n"
+                 "    undv_%s (.cont %d (kids_%s x)) = some x := by\n"
+                 "  simp only [ok_%s] at hx\n%s\n"
+                 "  simp only [undv_%s, kids_%s, ↓reduceIte, List.getElem?_cons_zero, List.getElem?_cons_succ,\n"
+                 "    Option.bind_some, Option.bind_eq_bind, Option.pure_def, %s]\n"
+                 % (n, n, n, n, m.cid[n], n, n, "\n".join(haves), n, n,
+                    ", ".join("e%d" % i for i in range(K))))
+    return "\n".join(lines)
 
 
 def bridge_field(m, ssz, rt, hy):
@@ -1328,6 +1473,12 @@ def callee_lens(m, name, params):
 
 
 HTR = {}
+# Callees taken from a statement of the tactic (`ExtOK`): the class of the argument, the fuel
+# bound of the statement on the readable argument `x`, the lengths it grows with, its constant.
+OPAQUE = {
+    "get_total_active_balance": dict(cls="BeaconState", bound="x.validators.length + x.validators.length + 256",
+                                     lens=[(0, "validators*2")], D=256),
+}
 COND = {}   # unproved callee -> (its call statement as a hypothesis, its fuel)
 NONE_OK = set()
 RNG = set()
@@ -1462,9 +1613,13 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
     if f["vararg"] != "none":
         raise Unsupported("defaults")
     for c in m.callees(name):
-        if c not in proved and c not in COND:
+        if c not in proved and c not in COND and c not in OPAQUE:
             raise Unsupported("callee " + c)
     proved = dict(proved)
+    for c in m.callees(name):
+        if c in OPAQUE and c not in proved:
+            proved[c] = OPAQUE[c]["D"]
+            LENS_OF[c] = OPAQUE[c]["lens"]
     for c in m.callees(name):
         if c not in proved:
             proved[c] = COND[c][1]
@@ -1528,10 +1683,12 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
     for it in callee_lens(m, name, params):
         if it not in items:
             items.append(it)
-    LENS = "".join("bigFuel + " if k == "W" else ("%s.%s.length + " % (rds[k], fld)) if fld else ("%s.length + " % rds[k])
+    LENS = "".join("bigFuel + " if k == "W" else
+                   ("%s.%s.length + " % (rds[k], fld[:-2])) * 2 if fld and fld.endswith("*2") else
+                   ("%s.%s.length + " % (rds[k], fld)) if fld else ("%s.length + " % rds[k])
                    for k, fld in items)
     fcalls = ["%s_fcall" % c for c in m.callees(name) if LENS_OF.get(c) and not needs_oracle(m, c)
-              and c not in COND]
+              and c not in COND and c not in OPAQUE]
     hyps = []
     for c in m.callees(name):
         if c in COND:
@@ -1541,7 +1698,7 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
     bs = bs + hyps
     xs = xs + [h[1:h.index(" :")] for h in hyps]
     for c in m.callees(name):
-        if not needs_oracle(m, c) or c in COND:
+        if not needs_oracle(m, c) or c in COND or c in OPAQUE:
             continue
         oa = oracle_args(m, c)
         objcls = re.findall(r"\b%s \(⟨enc_(\w+)" % re.escape(c), m.bodies.get(name, ""))
@@ -1567,6 +1724,12 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
         unf += ["ho", "ho.sha256"]
     if uses_bls(m, name):
         unf += ["hbv"]
+    for c in m.callees(name):
+        if c in OPAQUE:
+            unf += ["GenBridge.dbind_assoc", "GenBridge.extRes_call", "ext_" + c]
+            for a in re.findall(r"\b%s (\w+)\b" % re.escape(c), m.bodies.get(name, "")):
+                if ("hok_" + a) in xs:
+                    unf.append("undv_kids_%s a_%s hok_%s" % (OPAQUE[c]["cls"], a, a))
     if rt in m.reps and ("theorem kids_%s_mk" % rt) in classes_file_cache(m):
         unf.append("kids_%s_mk" % rt)
     loopstep = ""
@@ -1688,7 +1851,7 @@ def wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS=""):
         E = "(fun (x : %s) _ v => v = %s)" % (m.sigs[name][1], V)
         hE = "(fun x h' v hx => hx.1.1)"
     return ("theorem %s_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)\n"
-            "    (hh : Examples2.HtrDec (Scope.env sha)) %s %s%s :\n"
+            "    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) %s %s%s :\n"
             "    ∀ fuel, %s%d ≤ fuel →\n"
             "      ResultMatches gfp %s h %s %s\n"
             "        (interp (Scope.env sha) fuel Scope.Id.«%s» %s h) (%s %s) := by\n"
@@ -1720,12 +1883,12 @@ def bridged_wrapper(m, name, params, bs, rds, xs, vs, hw, LENS, D, fp, VS, E, f)
                     for pn, pt in conts)
     args = " ".join("r_%s (bridge_%s hc hy_%s)" % (pn, pt, pn) for pn, pt in conts)
     return ("\ntheorem %s_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)\n"
-            "    (hh : Examples2.HtrDec (Scope.env sha))\n"
+            "    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha))\n"
             "    (hc : GenBridge.ContWF h) %s %s%s :\n"
             "    ∀ fuel, %s%d ≤ fuel →\n"
             "      ResultMatches gfp %s h %s %s\n"
             "        (interp (Scope.env sha) fuel Scope.Id.«%s» %s h) (%s %s) :=\n"
-            "  %s_l4 sha gfp h hwf hh %s %s%s\n"
+            "  %s_l4 sha gfp h hwf hh hX %s %s%s\n"
             % (name, " ".join(bs), hyps, hw, LENS, D, fp, VS, E, name, VS, name, " ".join(rds),
                name, " ".join(xs), args, " hw" if hw else ""))
 

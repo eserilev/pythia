@@ -431,4 +431,125 @@ theorem callK_htrObj_len [Spec] {sha : Oracle} (ho : Validation.HtrBridge.Oracle
       Layer4.GenSteps.callK (htrObj o) g :=
   callK_htr_len ho (fun (_ : Unit) => o.enc) () g z
 
+/-! ## Decoded trees back to readable values -/
+
+/-- A leaf decoder on a decoded tree: the readable decoder on the flat value. -/
+def undvLeaf {α : Type} (f : Dec α) : DV → Option α
+  | .leaf v => f Heap.empty v
+  | _ => none
+
+/-- A list decoder on a decoded tree. -/
+def undvList {α : Type} (k : ListKind) (e : SszTy) (l : Option Nat) (f : DV → Option α) : DV → Option (List α)
+  | .list k' e' l' ds => if k' = k ∧ e' = e ∧ l' = l then ds.mapM f else none
+  | _ => none
+
+/-- `u` decodes a tree as `f` decodes every value whose decoded tree it is. -/
+def DecOf {α : Type} (f : Dec α) (u : DV → Option α) : Prop :=
+  ∀ h n v d x, dec h n v = some d → u d = some x → f h v = some x
+
+theorem decOf_leaf {α : Type} {f : Dec α} (hf : ∀ h v, Flat v = true → f h v = f Heap.empty v) :
+    DecOf f (undvLeaf f) := by
+  intro h n v d x hd hu
+  cases d with
+  | leaf u =>
+    obtain ⟨rfl, hfl⟩ := dec_leaf hd
+    simp only [undvLeaf] at hu
+    rw [hf h v hfl]; exact hu
+  | _ => simp [undvLeaf] at hu
+
+theorem decOf_uint {α : Type} [UintC α] (t : UintTy) : DecOf (decUintT (α := α) t) (undvLeaf (decUintT t)) :=
+  decOf_leaf fun h v _ => by cases v with | lib l => cases l <;> rfl | _ => rfl
+
+theorem decOf_bytes {α : Type} [BytesC α] (c : Name) : DecOf (decBytesT (α := α) c) (undvLeaf (decBytesT c)) :=
+  decOf_leaf fun h v _ => by cases v <;> rfl
+
+theorem decOf_boolean : DecOf decBooleanV (undvLeaf decBooleanV) :=
+  decOf_leaf fun h v _ => by cases v with | lib l => cases l <;> rfl | _ => rfl
+
+theorem mapM_decOf {α : Type} {f : Dec α} {u : DV → Option α} (hf : DecOf f u) {h : Heap} {m : Nat} :
+    ∀ (xs : List Value) (ds : List DV) (ys : List α), xs.mapM (dec h m) = some ds → ds.mapM u = some ys →
+      xs.mapM (f h) = some ys
+  | [], ds, ys, hx, hy => by simp at hx; subst hx; simpa using hy
+  | x :: xs, ds, ys, hx, hy => by
+    simp only [List.mapM_cons, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at hx
+    obtain ⟨d, hd, ds', hds', rfl⟩ := hx
+    simp only [List.mapM_cons, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at hy
+    obtain ⟨y, hu, ys', hys', rfl⟩ := hy
+    simp [List.mapM_cons, hf h m x d y hd hu, mapM_decOf hf xs ds' ys' hds' hys']
+
+theorem decOf_list {α : Type} {f : Dec α} {u : DV → Option α} (hf : DecOf f u) (k : ListKind) (e : SszTy)
+    (l : Option Nat) : DecOf (decListT k e l f) (undvList k e l u) := by
+  intro h n v d x hd hu
+  cases d with
+  | list k' e' l' ds =>
+    simp only [undvList] at hu
+    split at hu
+    · next hc =>
+      obtain ⟨rfl, rfl, rfl⟩ := hc
+      obtain ⟨a, m, xs, rfl, rfl, ho, hm⟩ := dec_list hd
+      simp only [decListT, ho, and_self, ↓reduceIte]
+      exact mapM_decOf hf xs ds x hm hu
+    · cases hu
+  | _ => simp [undvList] at hu
+
+/-- The field `i` of a container, decoded as its tree. -/
+theorem field_decOf {α : Type} {f : Dec α} {u : DV → Option α} (hf : DecOf f u) {h : Heap} {m : Nat}
+    {fs : List Value} {ds : List DV} (hm : fs.mapM (dec h m) = some ds) (i : Nat) {y : α}
+    (hy : ds[i]?.bind u = some y) : fs[i]?.bind (f h) = some y := by
+  have hl := ((mapM_some_iff fs ds).mp hm)
+  cases hd : ds[i]? with
+  | none => rw [hd] at hy; cases hy
+  | some d =>
+    rw [hd] at hy
+    have hi : i < fs.length := by have := (List.getElem?_eq_some_iff.mp hd).1; have := hl.1; omega
+    have hfx : fs[i]? = some fs[i] := List.getElem?_eq_getElem hi
+    rw [hfx]
+    have hdec : dec h m fs[i] = some d := by rw [hl.2 i fs[i] hfx, hd]
+    exact hf h m fs[i] d y hdec hy
+
+theorem undvList_map {α : Type} {u : DV → Option α} {g : α → DV} (k : ListKind) (e : SszTy) (l : Option Nat)
+    (xs : List α) (hx : ∀ x ∈ xs, u (g x) = some x) : undvList k e l u (.list k e l (xs.map g)) = some xs := by
+  simp only [undvList, and_self, ↓reduceIte]
+  induction xs with
+  | nil => rfl
+  | cons x xs ih =>
+    simp only [List.map_cons, List.mapM_cons, hx x (by simp), ih (fun y hy => hx y (by simp [hy]))]
+    rfl
+
+theorem undv_uint {α : Type} [UintC α] (t : UintTy) (x : α) (hx : UintC.val x < 2 ^ UintC.bits α) :
+    undvLeaf (decUintT t) (.leaf (.uint t (UintC.val x))) = some x := by
+  simp [undvLeaf, decUintT, hx, UintC.ofNat_val]
+
+theorem undv_bytes {α : Type} [BytesC α] (c : Name) (x : α) (hx : (BytesC.data x).length = BytesC.len α) :
+    undvLeaf (decBytesT c) (.leaf (.bytes c (BytesC.data x))) = some x := by
+  simp [undvLeaf, decBytesT, hx, BytesC.ofBytes_data]
+
+theorem undv_boolean (x : Boolean) : undvLeaf decBooleanV (.leaf (.boolean x.val)) = some x := by
+  simp [undvLeaf, decBooleanV]
+
+/-! ## The result of a callee taken from a statement -/
+
+/-- The den result of a readable call: its value as a tree, or the error of its class. -/
+def extRes {α : Type} (enc : α → DRes) (r : SpecM α) : DM DRes :=
+  match r with
+  | .ok y => some (.ok (enc y))
+  | .error f => some (.error (SpecError.rep f))
+
+theorem rep_fail (f : Fail) : (SpecError.rep f).fail = f := by cases f <;> rfl
+
+theorem extRes_map {α : Type} (enc : α → DRes) (r : SpecM α) :
+    Option.map (Except.mapError SpecError.fail) (extRes enc r) = some (enc <$> r) := by
+  cases r <;> simp [extRes, rep_fail, Except.mapError] <;> rfl
+
+theorem dbind_assoc {α β γ : Type} (x : DM α) (f : α → DM β) (g : β → DM γ) :
+    DM.bind (DM.bind x f) g = DM.bind x (fun a => DM.bind (f a) g) := by
+  rcases x with _ | ⟨e | a⟩ <;> rfl
+
+theorem extRes_call {α γ : Type} (enc : α → DRes) (r : SpecM α) (K : DRes → DM γ) :
+    Option.map (Except.mapError SpecError.fail) (DM.bind (extRes enc r) K) =
+      Layer4.GenSteps.callK r fun y => Option.map (Except.mapError SpecError.fail) (K (enc y)) :=
+  Layer4.GenSteps.bind_call (extRes_map enc r) K
+
 end SpecLean.Layer4.GenBridge
