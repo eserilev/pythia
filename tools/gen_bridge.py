@@ -280,7 +280,7 @@ def gen_types(m):
             skipped.append(name)
             continue
         body = ", ".join(f"{f} := {c} x.{f}" for f, _, c in convs)
-        out.append(f"@[bridge_simp] def abs_{name} (x : Gen.{name}) : {HNS}.{name} := {{ {body} }}")
+        out.append(f"@[bridge_simp, bridge_abs] def abs_{name} (x : Gen.{name}) : {HNS}.{name} := {{ {body} }}")
         irs = " ∧ ".join(f"{m.ir(rt)} x.{f}" for f, rt, _ in convs) or "True"
         out.append(f"@[bridge_ir] def IR_{name} (x : Gen.{name}) : Prop := {irs}")
         out.append("")

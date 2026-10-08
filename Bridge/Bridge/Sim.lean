@@ -526,6 +526,11 @@ theorem toVec_beq {n : Nat} (a b : List UInt8) (ha : a.length = n) (hb : b.lengt
     (toVec n a == toVec n b) = (a == b) := by
   rw [Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq, toVec_inj ha hb]
 
+@[bridge_const, bridge_cast] theorem toVec_vec_toList {n : Nat} (v : Vector UInt8 n) :
+    toVec n v.toList = v := by
+  apply Vector.toList_inj.mp
+  rw [toVec_toList _ _ (by simp)]
+
 theorem toVec_beq_vec {n : Nat} (a : List UInt8) (v : Vector UInt8 n) (ha : a.length = n) :
     (toVec n a == v) = (a == v.toList) := by
   rw [Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq]

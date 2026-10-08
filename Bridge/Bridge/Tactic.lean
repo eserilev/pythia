@@ -109,6 +109,9 @@ macro "bridge_nat" : tactic => `(tactic| try simp only [EpochProofs.Spec.Epoch,
   EpochProofs.Spec.ValidatorIndex, EpochProofs.Spec.BuilderIndex,
   EpochProofs.Spec.WithdrawalIndex, EpochProofs.Spec.CommitteeIndex] at *)
 
+/-- Step through both `do` blocks. Fails if a goal is left. -/
+syntax "bridge_run" "[" ident,* "]" : tactic
+
 /-- Relate the first steps of a bind: a primitive lemma or a callee theorem. -/
 syntax "bridge_leaf" "[" ident,* "]" : tactic
 
@@ -252,10 +255,12 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
             try
               let hS ← g.withContext (Term.exprToSyntax d.toExpr)
               let hS' ← g.withContext (Term.exprToSyntax d'.toExpr)
+              let before := (← getThe Core.State).messages.toList.countP (·.severity == .error)
               let gs ← evalTacticAt (← `(tactic|
                 have := lset_forall $hS $hS' (by bridge_range0))) g
+              let after := (← getThe Core.State).messages.toList.countP (·.severity == .error)
               match gs with
-              | [g'] => g := g'
+              | [g'] => if after == before then g := g' else s.restore
               | _ => s.restore
             catch _ => s.restore
         let (_, g') ← (← g.assert nm (← inferType pf) pf).intro1P
@@ -268,10 +273,12 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
         let s ← saveState
         try
           let hy ← g.withContext (Term.exprToSyntax d.toExpr)
+          let before := (← getThe Core.State).messages.toList.countP (·.severity == .error)
           let gs ← evalTacticAt (← `(tactic|
             have := simI_post (by apply $h:ident <;> bridge_range0) $hy)) g
+          let after := (← getThe Core.State).messages.toList.countP (·.severity == .error)
           match gs with
-          | [g'] => g := g'; break
+          | [g'] => if after == before then g := g'; break else s.restore
           | _ => s.restore
         catch _ => s.restore
   replaceMainGoal [g]
@@ -279,8 +286,42 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
 elab_rules : tactic | `(tactic| bridge_facts0) => addFacts false
 elab_rules : tactic | `(tactic| bridge_facts) => addFacts true
 
+/-- Close `P a` from `h : ∀ y ∈ xs, P y` and `ha : a ∈ xs` in the context. -/
+syntax "bridge_mem" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_mem) => withMainContext do
+    let lctx ← getLCtx
+    let mut mems : Array Lean.Expr := #[]
+    let mut alls : Array Lean.Expr := #[]
+    for d in lctx do
+      if d.isImplementationDetail then continue
+      let t := (← instantiateMVars d.type).consumeMData
+      if t.isAppOfArity ``Membership.mem 5 then mems := mems.push d.toExpr
+      else if t.isForall && t.bindingBody!.isForall &&
+          t.bindingBody!.bindingDomain!.isAppOfArity ``Membership.mem 5 then
+        alls := alls.push d.toExpr
+    let g ← getMainGoal
+    for h in alls do
+      for m in mems do
+        let s ← saveState
+        try
+          let mt ← inferType m
+          let a := (mt.consumeMData.getArg! 4)
+          let pf := mkApp2 h a m
+          let ty ← inferType pf
+          if ← isDefEq ty (← g.getType) then
+            g.assign pf
+            replaceMainGoal []
+            return
+          s.restore
+        catch _ => s.restore
+    throwError "bridge_mem: no fact"
+
 macro_rules | `(tactic| bridge_range0) => `(tactic| first
   | assumption
+  | bridge_mem
   | (simp only [bridge_simp]; done)
   | bridge_decide
   | (simp only [Option.mem_def, Option.some.injEq, forall_eq', forall_eq]; first | bridge_range0 | (split <;> bridge_range0))
@@ -316,6 +357,7 @@ elab_rules : tactic
 macro_rules | `(tactic| bridge_range) => `(tactic| first
   | assumption
   | bridge_ir_struct
+  | bridge_mem
   | (bridge_facts; simp only [bd, bridge_cast, List.length_append, List.length_take, List.length_drop] at *; omega)
   | (simp only [Option.mem_def, Option.some.injEq, forall_eq', forall_eq]; first | bridge_range | (split <;> bridge_range))
   | (apply Nat.or_lt_two_pow <;> bridge_range)
@@ -352,6 +394,7 @@ elab_rules : tactic
       ← `(tactic| (simp only [bridge_const]; done)),
       ← `(tactic| (subst_vars; with_reducible rfl)),
       ← `(tactic| (subst_vars; with_reducible exact Iff.rfl)),
+      ← `(tactic| (subst_vars; simp only [bridge_abs, bridge_const, bridge_cast, List.map_append, List.map_cons, List.map_nil]; done)),
       ← `(tactic| (subst_vars; simp (disch := omega) only [bridge_simp, uv, bridge_cast]; done)),
       ← `(tactic| (simp only [uv, bridge_cast, bridge_const] at *; rw [uint8_and_beq _ _ (by omega) (by omega)]; simp_all)),
       ← `(tactic| (simp only [uv, bridge_cast, bridge_const] at *; rw [uint8_or _ _ (by omega) (by omega)]; simp_all)),
@@ -520,6 +563,8 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
     return #[← `(tactic| (apply sim_uCast_pure; $close))]
   if fn == ``SpecLean.Rd.uOf && handPure then
     return #[← `(tactic| (apply sim_uOf_pure; $close))]
+  if fn == ``List.filterMapM then
+    return #[← `(tactic| (apply sim_filterMapM_zipIdx (hM := fun _ _ => rfl); intro _ _ _ _ _; (try dsimp only); bridge_run [$hs,*]))]
   if fn == ``SpecLean.Rd.sumU then return #[← `(tactic| (apply sim_sumU; $close))]
   if fn == ``SpecLean.Rd.pyMax then
     return #[← `(tactic| (apply sim_pyMax2; intro _ _; rfl))]
@@ -789,8 +834,6 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
   if let some gs ← tryAt leafAs g then return gs
   return [g]
 
-/-- Step through both `do` blocks. Fails if a goal is left. -/
-syntax "bridge_run" "[" ident,* "]" : tactic
 
 open Lean Meta Elab Tactic in
 elab_rules : tactic
@@ -831,6 +874,8 @@ partial def bridgePost (g : MVarId) : TacticM (List MVarId) := do
         (apply post_pure; (try dsimp only); bridge_range)))) g then return gs
   if r.getAppFn.constName? == some ``SpecLean.Rd.bytesOf then
     if let some gs ← tryAt (evalTactic (← `(tactic| exact post_bytesOf _))) g then return gs
+  if r.getAppFn.constName? == some ``List.filterMapM then
+    if let some gs ← step (← `(tactic| (refine post_filterMapM_ir _ _ _ (by simp only [List.length_map, List.length_zipIdx]; bridge_range) ?_; intro x _; cases x; (try dsimp only)))) then return gs
   if r.getAppFn.constName? == some ``MonadExcept.throw then
     if let some gs ← tryAt (evalTactic (← `(tactic| exact post_throw _))) g then return gs
   if let some gs ← tryAt (evalTactic (← `(tactic|
