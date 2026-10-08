@@ -485,7 +485,9 @@ def statement(m, name, rsigs, hsigs):
             irs.append(f"{ir} {q(n)}")
     rd_call = f"Gen.{name} " + " ".join(q(n) for n, _ in rbs) if rbs else f"Gen.{name}"
     hd_call = f"{HNS}.{name} " + " ".join(args) if args else f"{HNS}.{name}"
-    post = m.ir(rret) if (rret in m.uints or rret in m.bytes) else "(fun _ => True)"
+    elem = strip_parens(rret[5:]) if rret.startswith("List ") else None
+    simple = rret in m.uints or rret in m.bytes or (elem is not None and (elem in m.uints or elem in m.bytes))
+    post = m.ir(rret) if simple else "(fun _ => True)"
     if oracle:
         binders = [("o", "EpochProofs.Spec.Oracle")] + binders
         irs = ["OracleAgrees «o»"] + irs

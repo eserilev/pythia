@@ -45,7 +45,7 @@ abbrev spec_convert_builder_index_to_validator_index : Prop :=
 
 /-- The bridge statement of `get_active_validator_indices`. -/
 abbrev spec_get_active_validator_indices : Prop :=
-  ∀ («state» : GenMainnet.BeaconState) («epoch» : GenMainnet.Epoch), IR_BeaconState «state» → (fun x : GenMainnet.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun _ => True) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_active_validator_indices «state» «epoch») (pure (EpochProofs.Spec.get_active_validator_indices (abs_BeaconState «state») ((fun x : GenMainnet.Epoch => x.val) «epoch»)))
+  ∀ («state» : GenMainnet.BeaconState) («epoch» : GenMainnet.Epoch), IR_BeaconState «state» → (fun x : GenMainnet.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_active_validator_indices «state» «epoch») (pure (EpochProofs.Spec.get_active_validator_indices (abs_BeaconState «state») ((fun x : GenMainnet.Epoch => x.val) «epoch»)))
 
 /-- The bridge statement of `get_balance_after_withdrawals`. -/
 abbrev spec_get_balance_after_withdrawals : Prop :=
@@ -65,7 +65,7 @@ abbrev spec_get_current_epoch : Prop :=
 
 /-- The bridge statement of `get_eligible_validator_indices`. -/
 abbrev spec_get_eligible_validator_indices : Prop :=
-  ∀ («state» : GenMainnet.BeaconState), IR_BeaconState «state» → SimI (fun _ => True) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_eligible_validator_indices «state») (EpochProofs.Spec.get_eligible_validator_indices Hand (abs_BeaconState «state»))
+  ∀ («state» : GenMainnet.BeaconState), IR_BeaconState «state» → SimI (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_eligible_validator_indices «state») (EpochProofs.Spec.get_eligible_validator_indices Hand (abs_BeaconState «state»))
 
 /-- The bridge statement of `get_finality_delay`. -/
 abbrev spec_get_finality_delay : Prop :=
@@ -101,7 +101,7 @@ abbrev spec_get_total_balance : Prop :=
 
 /-- The bridge statement of `get_unslashed_participating_indices`. -/
 abbrev spec_get_unslashed_participating_indices : Prop :=
-  ∀ («state» : GenMainnet.BeaconState) («flag_index» : Int) («epoch» : GenMainnet.Epoch), IR_BeaconState «state» → (fun x : Int => 0 ≤ x) «flag_index» → (fun x : GenMainnet.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun _ => True) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_unslashed_participating_indices «state» «flag_index» «epoch») (EpochProofs.Spec.get_unslashed_participating_indices Hand (abs_BeaconState «state») (Int.toNat «flag_index») ((fun x : GenMainnet.Epoch => x.val) «epoch»))
+  ∀ («state» : GenMainnet.BeaconState) («flag_index» : Int) («epoch» : GenMainnet.Epoch), IR_BeaconState «state» → (fun x : Int => 0 ≤ x) «flag_index» → (fun x : GenMainnet.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_unslashed_participating_indices «state» «flag_index» «epoch») (EpochProofs.Spec.get_unslashed_participating_indices Hand (abs_BeaconState «state») (Int.toNat «flag_index») ((fun x : GenMainnet.Epoch => x.val) «epoch»))
 
 /-- The bridge statement of `get_validator_from_deposit`. -/
 abbrev spec_get_validator_from_deposit : Prop :=
@@ -405,7 +405,7 @@ abbrev spec_can_builder_cover_bid : Prop :=
 
 /-- The bridge statement of `compute_shuffled_permutation`. -/
 abbrev spec_compute_shuffled_permutation : Prop :=
-  ∀ («o» : EpochProofs.Spec.Oracle) («index_count» : GenMainnet.Uint64) («seed» : GenMainnet.Bytes32), OracleAgrees «o» → (fun x : GenMainnet.Uint64 => x.val < 2 ^ 64) «index_count» → (fun x : GenMainnet.Bytes32 => x.data.length = 32) «seed» → SimI (fun _ => True) (List.map (fun x : GenMainnet.Uint64 => x.val)) (GenMainnet.compute_shuffled_permutation «index_count» «seed») (EpochProofs.Spec.compute_shuffled_permutation Hand «o» ((fun x : GenMainnet.Uint64 => x.val) «index_count») ((fun x : GenMainnet.Bytes32 => toVec 32 x.data) «seed»))
+  ∀ («o» : EpochProofs.Spec.Oracle) («index_count» : GenMainnet.Uint64) («seed» : GenMainnet.Bytes32), OracleAgrees «o» → (fun x : GenMainnet.Uint64 => x.val < 2 ^ 64) «index_count» → (fun x : GenMainnet.Bytes32 => x.data.length = 32) «seed» → SimI (fun xs : List (GenMainnet.Uint64) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.Uint64 => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.Uint64 => x.val)) (GenMainnet.compute_shuffled_permutation «index_count» «seed») (EpochProofs.Spec.compute_shuffled_permutation Hand «o» ((fun x : GenMainnet.Uint64 => x.val) «index_count») ((fun x : GenMainnet.Bytes32 => toVec 32 x.data) «seed»))
 
 /-- The bridge statement of `compute_shuffled_index`. -/
 abbrev spec_compute_shuffled_index : Prop :=
@@ -413,15 +413,15 @@ abbrev spec_compute_shuffled_index : Prop :=
 
 /-- The bridge statement of `compute_balance_weighted_selection`. -/
 abbrev spec_compute_balance_weighted_selection : Prop :=
-  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState) («indices» : List (GenMainnet.ValidatorIndex)) («seed» : GenMainnet.Bytes32) («size» : GenMainnet.Uint64) («shuffle_indices» : Bool), OracleAgrees «o» → IR_BeaconState «state» → (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) «indices» → (fun x : GenMainnet.Bytes32 => x.data.length = 32) «seed» → (fun x : GenMainnet.Uint64 => x.val < 2 ^ 64) «size» → SimI (fun _ => True) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.compute_balance_weighted_selection «state» «indices» «seed» «size» «shuffle_indices») (EpochProofs.Spec.compute_balance_weighted_selection Hand «o» (abs_BeaconState «state») ((List.map (fun x : GenMainnet.ValidatorIndex => x.val)) «indices») ((fun x : GenMainnet.Bytes32 => toVec 32 x.data) «seed») ((fun x : GenMainnet.Uint64 => x.val) «size») ((fun x : Bool => x) «shuffle_indices»))
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState) («indices» : List (GenMainnet.ValidatorIndex)) («seed» : GenMainnet.Bytes32) («size» : GenMainnet.Uint64) («shuffle_indices» : Bool), OracleAgrees «o» → IR_BeaconState «state» → (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) «indices» → (fun x : GenMainnet.Bytes32 => x.data.length = 32) «seed» → (fun x : GenMainnet.Uint64 => x.val < 2 ^ 64) «size» → SimI (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.compute_balance_weighted_selection «state» «indices» «seed» «size» «shuffle_indices») (EpochProofs.Spec.compute_balance_weighted_selection Hand «o» (abs_BeaconState «state») ((List.map (fun x : GenMainnet.ValidatorIndex => x.val)) «indices») ((fun x : GenMainnet.Bytes32 => toVec 32 x.data) «seed») ((fun x : GenMainnet.Uint64 => x.val) «size») ((fun x : Bool => x) «shuffle_indices»))
 
 /-- The bridge statement of `compute_committee`. -/
 abbrev spec_compute_committee : Prop :=
-  ∀ («o» : EpochProofs.Spec.Oracle) («indices» : List (GenMainnet.ValidatorIndex)) («seed» : GenMainnet.Bytes32) («index» : GenMainnet.Uint64) («count» : GenMainnet.Uint64), OracleAgrees «o» → (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) «indices» → (fun x : GenMainnet.Bytes32 => x.data.length = 32) «seed» → (fun x : GenMainnet.Uint64 => x.val < 2 ^ 64) «index» → (fun x : GenMainnet.Uint64 => x.val < 2 ^ 64) «count» → SimI (fun _ => True) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.compute_committee «indices» «seed» «index» «count») (EpochProofs.Spec.compute_committee Hand «o» ((List.map (fun x : GenMainnet.ValidatorIndex => x.val)) «indices») ((fun x : GenMainnet.Bytes32 => toVec 32 x.data) «seed») ((fun x : GenMainnet.Uint64 => x.val) «index») ((fun x : GenMainnet.Uint64 => x.val) «count»))
+  ∀ («o» : EpochProofs.Spec.Oracle) («indices» : List (GenMainnet.ValidatorIndex)) («seed» : GenMainnet.Bytes32) («index» : GenMainnet.Uint64) («count» : GenMainnet.Uint64), OracleAgrees «o» → (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) «indices» → (fun x : GenMainnet.Bytes32 => x.data.length = 32) «seed» → (fun x : GenMainnet.Uint64 => x.val < 2 ^ 64) «index» → (fun x : GenMainnet.Uint64 => x.val < 2 ^ 64) «count» → SimI (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.compute_committee «indices» «seed» «index» «count») (EpochProofs.Spec.compute_committee Hand «o» ((List.map (fun x : GenMainnet.ValidatorIndex => x.val)) «indices») ((fun x : GenMainnet.Bytes32 => toVec 32 x.data) «seed») ((fun x : GenMainnet.Uint64 => x.val) «index») ((fun x : GenMainnet.Uint64 => x.val) «count»))
 
 /-- The bridge statement of `compute_proposer_indices`. -/
 abbrev spec_compute_proposer_indices : Prop :=
-  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState) («epoch» : GenMainnet.Epoch) («seed» : GenMainnet.Bytes32) («indices» : List (GenMainnet.ValidatorIndex)), OracleAgrees «o» → IR_BeaconState «state» → (fun x : GenMainnet.Epoch => x.val < 2 ^ 64) «epoch» → (fun x : GenMainnet.Bytes32 => x.data.length = 32) «seed» → (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) «indices» → SimI (fun _ => True) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.compute_proposer_indices «state» «epoch» «seed» «indices») (EpochProofs.Spec.compute_proposer_indices Hand «o» (abs_BeaconState «state») ((fun x : GenMainnet.Epoch => x.val) «epoch») ((fun x : GenMainnet.Bytes32 => toVec 32 x.data) «seed») ((List.map (fun x : GenMainnet.ValidatorIndex => x.val)) «indices»))
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState) («epoch» : GenMainnet.Epoch) («seed» : GenMainnet.Bytes32) («indices» : List (GenMainnet.ValidatorIndex)), OracleAgrees «o» → IR_BeaconState «state» → (fun x : GenMainnet.Epoch => x.val < 2 ^ 64) «epoch» → (fun x : GenMainnet.Bytes32 => x.data.length = 32) «seed» → (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) «indices» → SimI (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.compute_proposer_indices «state» «epoch» «seed» «indices») (EpochProofs.Spec.compute_proposer_indices Hand «o» (abs_BeaconState «state») ((fun x : GenMainnet.Epoch => x.val) «epoch») ((fun x : GenMainnet.Bytes32 => toVec 32 x.data) «seed») ((List.map (fun x : GenMainnet.ValidatorIndex => x.val)) «indices»))
 
 /-- The bridge statement of `get_committee_count_per_slot`. -/
 abbrev spec_get_committee_count_per_slot : Prop :=
@@ -437,11 +437,11 @@ abbrev spec_get_seed : Prop :=
 
 /-- The bridge statement of `get_beacon_committee`. -/
 abbrev spec_get_beacon_committee : Prop :=
-  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState) («slot» : GenMainnet.Slot) («index» : GenMainnet.CommitteeIndex), OracleAgrees «o» → IR_BeaconState «state» → (fun x : GenMainnet.Slot => x.val < 2 ^ 64) «slot» → (fun x : GenMainnet.CommitteeIndex => x.val < 2 ^ 64) «index» → SimI (fun _ => True) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_beacon_committee «state» «slot» «index») (EpochProofs.Spec.get_beacon_committee Hand «o» (abs_BeaconState «state») ((fun x : GenMainnet.Slot => x.val) «slot») ((fun x : GenMainnet.CommitteeIndex => x.val) «index»))
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState) («slot» : GenMainnet.Slot) («index» : GenMainnet.CommitteeIndex), OracleAgrees «o» → IR_BeaconState «state» → (fun x : GenMainnet.Slot => x.val < 2 ^ 64) «slot» → (fun x : GenMainnet.CommitteeIndex => x.val < 2 ^ 64) «index» → SimI (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_beacon_committee «state» «slot» «index») (EpochProofs.Spec.get_beacon_committee Hand «o» (abs_BeaconState «state») ((fun x : GenMainnet.Slot => x.val) «slot») ((fun x : GenMainnet.CommitteeIndex => x.val) «index»))
 
 /-- The bridge statement of `compute_ptc`. -/
 abbrev spec_compute_ptc : Prop :=
-  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState) («slot» : GenMainnet.Slot), OracleAgrees «o» → IR_BeaconState «state» → (fun x : GenMainnet.Slot => x.val < 2 ^ 64) «slot» → SimI (fun _ => True) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.compute_ptc «state» «slot») (EpochProofs.Spec.compute_ptc Hand «o» (abs_BeaconState «state») ((fun x : GenMainnet.Slot => x.val) «slot»))
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState) («slot» : GenMainnet.Slot), OracleAgrees «o» → IR_BeaconState «state» → (fun x : GenMainnet.Slot => x.val < 2 ^ 64) «slot» → SimI (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.compute_ptc «state» «slot») (EpochProofs.Spec.compute_ptc Hand «o» (abs_BeaconState «state») ((fun x : GenMainnet.Slot => x.val) «slot»))
 
 /-- The bridge statement of `eth_fast_aggregate_verify`. -/
 abbrev spec_eth_fast_aggregate_verify : Prop :=
@@ -465,11 +465,11 @@ abbrev spec_get_attestation_participation_flag_indices : Prop :=
 
 /-- The bridge statement of `get_committee_indices`. -/
 abbrev spec_get_committee_indices : Prop :=
-  ∀ («committee_bits» : List (Boolean)), (fun xs : List (Boolean) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun _ => True) y) «committee_bits» → SimI (fun _ => True) (List.map (fun x : GenMainnet.CommitteeIndex => x.val)) (GenMainnet.get_committee_indices «committee_bits») (pure (EpochProofs.Spec.get_committee_indices ((List.map Boolean.val) «committee_bits»)))
+  ∀ («committee_bits» : List (Boolean)), (fun xs : List (Boolean) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun _ => True) y) «committee_bits» → SimI (fun xs : List (GenMainnet.CommitteeIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.CommitteeIndex => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.CommitteeIndex => x.val)) (GenMainnet.get_committee_indices «committee_bits») (pure (EpochProofs.Spec.get_committee_indices ((List.map Boolean.val) «committee_bits»)))
 
 /-- The bridge statement of `get_attesting_indices`. -/
 abbrev spec_get_attesting_indices : Prop :=
-  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState) («attestation» : GenMainnet.Attestation), OracleAgrees «o» → IR_BeaconState «state» → IR_Attestation «attestation» → SimI (fun _ => True) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_attesting_indices «state» «attestation») (EpochProofs.Spec.get_attesting_indices Hand «o» (abs_BeaconState «state») (abs_Attestation «attestation»))
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState) («attestation» : GenMainnet.Attestation), OracleAgrees «o» → IR_BeaconState «state» → IR_Attestation «attestation» → SimI (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_attesting_indices «state» «attestation») (EpochProofs.Spec.get_attesting_indices Hand «o» (abs_BeaconState «state») (abs_Attestation «attestation»))
 
 /-- The bridge statement of `get_beacon_proposer_index`. -/
 abbrev spec_get_beacon_proposer_index : Prop :=
@@ -477,7 +477,7 @@ abbrev spec_get_beacon_proposer_index : Prop :=
 
 /-- The bridge statement of `get_beacon_proposer_indices`. -/
 abbrev spec_get_beacon_proposer_indices : Prop :=
-  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState) («epoch» : GenMainnet.Epoch), OracleAgrees «o» → IR_BeaconState «state» → (fun x : GenMainnet.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun _ => True) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_beacon_proposer_indices «state» «epoch») (EpochProofs.Spec.get_beacon_proposer_indices Hand «o» (abs_BeaconState «state») ((fun x : GenMainnet.Epoch => x.val) «epoch»))
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState) («epoch» : GenMainnet.Epoch), OracleAgrees «o» → IR_BeaconState «state» → (fun x : GenMainnet.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_beacon_proposer_indices «state» «epoch») (EpochProofs.Spec.get_beacon_proposer_indices Hand «o» (abs_BeaconState «state») ((fun x : GenMainnet.Epoch => x.val) «epoch»))
 
 /-- The bridge statement of `get_domain`. -/
 abbrev spec_get_domain : Prop :=
@@ -489,7 +489,7 @@ abbrev spec_get_indexed_attestation : Prop :=
 
 /-- The bridge statement of `get_next_sync_committee_indices`. -/
 abbrev spec_get_next_sync_committee_indices : Prop :=
-  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState), OracleAgrees «o» → IR_BeaconState «state» → SimI (fun _ => True) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_next_sync_committee_indices «state») (EpochProofs.Spec.get_next_sync_committee_indices Hand «o» (abs_BeaconState «state»))
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : GenMainnet.BeaconState), OracleAgrees «o» → IR_BeaconState «state» → SimI (fun xs : List (GenMainnet.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : GenMainnet.ValidatorIndex => x.val)) (GenMainnet.get_next_sync_committee_indices «state») (EpochProofs.Spec.get_next_sync_committee_indices Hand «o» (abs_BeaconState «state»))
 
 /-- The bridge statement of `get_next_sync_committee`. -/
 abbrev spec_get_next_sync_committee : Prop :=

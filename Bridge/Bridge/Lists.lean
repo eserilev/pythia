@@ -165,4 +165,77 @@ theorem post_filterMapM_ir {γ δ : Type} (R : δ → Prop) (F : γ → SpecM (O
   have := post_filterMapM R F L hF ys h
   exact ⟨by omega, this.2⟩
 
+/-- `dedup` keeps a list with no duplicates. -/
+theorem dedup_of_nodup {α : Type} [BEq α] [LawfulBEq α] (xs : List α) (h : xs.Nodup) :
+    dedup xs = xs := by
+  have key : ∀ acc : List α, (acc ++ xs).Nodup →
+      xs.foldl (fun acc x => if acc.contains x then acc else acc ++ [x]) acc = acc ++ xs := by
+    clear h
+    induction xs with
+    | nil => intro acc _; simp
+    | cons x xs ih =>
+      intro acc hn
+      rw [List.foldl_cons]
+      have hx : x ∉ acc := by
+        intro hm
+        have := List.nodup_append.mp hn
+        exact this.2.2 x hm x (List.mem_cons_self ..) rfl
+      rw [if_neg (by simpa using hx)]
+      have := ih (acc ++ [x]) (by simpa using hn)
+      simpa using this
+  unfold dedup
+  simpa using key [] (by simpa using h)
+
+theorem nodup_filter_zipIdx_snd {β : Type} (xs : List β) (p : β × Nat → Bool) :
+    ((xs.zipIdx.filter p).map (·.2)).Nodup := by
+  have h1 : (xs.zipIdx.map (·.2)).Nodup := by
+    rw [List.zipIdx_map_snd]
+    exact List.nodup_range'
+  exact (List.Sublist.map _ List.filter_sublist).nodup h1
+theorem nodup_of_map {α β : Type} (f : α → β) {l : List α} (h : (l.map f).Nodup) : l.Nodup := by
+  unfold List.Nodup at *
+  rw [List.pairwise_map] at h
+  exact h.imp fun hne heq => hne (congrArg f heq)
+
+theorem nodup_get_active (s : EpochProofs.Spec.BeaconState) (e : Nat) :
+    (EpochProofs.Spec.get_active_validator_indices s e).Nodup :=
+  nodup_filter_zipIdx_snd _ _
+
+/-- The items of `dedup xs` are items of `xs`, and there are not more of them. -/
+theorem dedup_facts {α : Type} [BEq α] (xs : List α) :
+    (dedup xs).length ≤ xs.length ∧ ∀ z ∈ dedup xs, z ∈ xs := by
+  have key : ∀ acc : List α,
+      (xs.foldl (fun acc x => if acc.contains x then acc else acc ++ [x]) acc).length ≤
+        acc.length + xs.length ∧
+      ∀ z ∈ xs.foldl (fun acc x => if acc.contains x then acc else acc ++ [x]) acc,
+        z ∈ acc ∨ z ∈ xs := by
+    induction xs with
+    | nil => intro acc; simp
+    | cons x xs ih =>
+      intro acc
+      rw [List.foldl_cons]
+      split
+      · have := ih acc
+        refine ⟨by simp only [List.length_cons]; omega, fun z hz => ?_⟩
+        rcases this.2 z hz with h | h
+        · exact Or.inl h
+        · exact Or.inr (List.mem_cons_of_mem _ h)
+      · have := ih (acc ++ [x])
+        refine ⟨by simp only [List.length_cons, List.length_append, List.length_nil] at this ⊢; omega,
+          fun z hz => ?_⟩
+        rcases this.2 z hz with h | h
+        · rcases List.mem_append.mp h with h' | h'
+          · exact Or.inl h'
+          · simp only [List.mem_singleton] at h'; subst h'; exact Or.inr (List.mem_cons_self ..)
+        · exact Or.inr (List.mem_cons_of_mem _ h)
+  have := key []
+  unfold dedup
+  refine ⟨by simpa using this.1, fun z hz => ?_⟩
+  rcases this.2 z hz with h | h
+  · cases h
+  · exact h
+
+theorem ir_dedup {α : Type} [BEq α] {P : α → Prop} {xs : List α}
+    (h : xs.length < 2 ^ 64 ∧ ∀ z ∈ xs, P z) : (dedup xs).length < 2 ^ 64 ∧ ∀ z ∈ dedup xs, P z :=
+  ⟨Nat.lt_of_le_of_lt (dedup_facts xs).1 h.1, fun z hz => h.2 z ((dedup_facts xs).2 z hz)⟩
 end Pythia.Bridge

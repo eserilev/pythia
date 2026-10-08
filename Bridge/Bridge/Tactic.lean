@@ -30,6 +30,21 @@ theorem uOp_range {α : Type} [UintC α] {op : BinOp} {a b : Int} {x : α}
   | error e => rw [hr] at h; cases h
   | ok z => rw [hr, ok_bind] at h; exact uOf_range z x h
 
+theorem sumU_range {α : Type} [UintC α] {s : α} {xs : List α} {y : α} (h : sumU s xs = .ok y) :
+    UintC.val y < 2 ^ UintC.bits α ∨ UintC.val y = UintC.val s := by
+  unfold sumU Prim.sum at h
+  induction xs generalizing s with
+  | nil => cases h; exact Or.inr rfl
+  | cons x xs ih =>
+    rw [List.foldlM_cons] at h
+    cases hz : (uOp .add (uv s) (uv x) : SpecM α) with
+    | error e => rw [hz] at h; cases h
+    | ok z =>
+      rw [hz] at h
+      rcases ih h with h1 | h1
+      · exact Or.inl h1
+      · exact Or.inl (h1 ▸ uOp_range hz)
+
 theorem lget_mem {α : Type} {xs : List α} {i : Int} {x : α} (h : lget xs i = .ok x) : x ∈ xs := by
   unfold lget at h
   split at h
@@ -206,7 +221,8 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
       else if fn == ``SpecLean.Rd.uCast then some ``uCast_range
       else if fn == ``SpecLean.Rd.uOf then some ``uOf_range'
       else if fn == ``SpecLean.Rd.bytesOf then some ``bytesOf_len
-      else if fn == ``SpecLean.Rd.lset then some ``lset_length else none
+      else if fn == ``SpecLean.Rd.lset then some ``lset_length
+      else if fn == ``SpecLean.Rd.sumU then some ``sumU_range else none
     if let some lem := lem then
       try
         let pf ← mkAppM lem #[d.toExpr]
@@ -357,6 +373,7 @@ elab_rules : tactic
 macro_rules | `(tactic| bridge_range) => `(tactic| first
   | assumption
   | bridge_ir_struct
+  | (apply ir_dedup; bridge_range)
   | bridge_mem
   | (bridge_facts; simp only [bd, bridge_cast, List.length_append, List.length_take, List.length_drop] at *; omega)
   | (simp only [Option.mem_def, Option.some.injEq, forall_eq', forall_eq]; first | bridge_range | (split <;> bridge_range))
@@ -381,7 +398,11 @@ macro_rules | `(tactic| bridge_range) => `(tactic| first
      | omega
      | (simp_all only; done)
      | (simp_all; done)
-     | (simp_all; omega)))
+     | (simp_all; omega))
+  | (bridge_facts
+     simp only [bridge_ir, uv, bridge_simp, bridge_cast, decide_eq_true_eq, gt_iff_lt]
+     bridge_nat
+     omega))
 
 /-- Close a pure goal: the alternatives below, tried in order. -/
 syntax "bridge_close" : tactic
@@ -494,7 +515,8 @@ elab_rules : tactic
     for d in (← getLCtx) do
       if d.isImplementationDetail then continue
       let t := (← instantiateMVars d.type).consumeMData
-      if t.isAppOfArity ``Eq 3 && (t.getArg! 1).consumeMData.getAppFn.constName? == some ``toVec then
+      let lhsFn := (t.getArg! 1).consumeMData.headBeta.getAppFn.constName?
+      if t.isAppOfArity ``Eq 3 && (lhsFn == some ``toVec || lhsFn == some ``List.map) then
         facts := facts.push (← Term.exprToSyntax d.toExpr)
     evalTactic (← `(tactic| try simp only [bd, bridge_cast, List.map_map, Function.comp_def]))
     if (← getUnsolvedGoals).isEmpty then return
@@ -567,7 +589,8 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
     return #[← `(tactic| (apply sim_filterMapM_zipIdx (hM := fun _ _ => rfl); intro _ _ _ _ _; (try dsimp only); bridge_run [$hs,*]))]
   if fn == ``SpecLean.Rd.sumU then return #[← `(tactic| (apply sim_sumU; $close))]
   if fn == ``SpecLean.Rd.pyMax then
-    return #[← `(tactic| (apply sim_pyMax2; intro _ _; rfl))]
+    return #[← `(tactic| (apply sim_pyMax2; intro _ _; rfl)),
+      ← `(tactic| (refine sim_hand_eq (sim_pyMax2 (fun _ _ => rfl) _ _) ?_; simp only [bridge_const, bridge_cast]))]
   if fn == ``SpecLean.Rd.lget then return #[← `(tactic| apply sim_lget)]
   if fn == ``SpecLean.Rd.lset then return #[← `(tactic| (apply sim_lset; bridge_close))]
   if a.isAppOfArity ``Bind.bind 6 then
@@ -582,7 +605,7 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
       out := out.push (← `(tactic| (apply simI_sim; apply $h:ident; all_goals bridge_range)))
     -- the same, when the hand arguments are equal to the callee's only after a rewrite
     for h in hs ++ (← specHyps) do
-      out := out.push (← `(tactic| (apply sim_hand_eq; (focus (apply simI_sim; apply $h:ident; all_goals bridge_range)); first | with_reducible rfl | (simp only [Option.map_some, Option.map_none, uv, bridge_cast, decide_eq_true_eq, Int.ofNat_lt, apply_ite, bridge_simp]; done) | (congr 1; bridge_eqv))))
+      out := out.push (← `(tactic| (apply sim_hand_eq; (focus (apply simI_sim; apply $h:ident; all_goals bridge_range)); first | with_reducible rfl | (simp only [Option.map_some, Option.map_none, uv, bridge_cast, decide_eq_true_eq, Int.ofNat_lt, apply_ite, bridge_simp]; done) | (congr 1 <;> bridge_eqv))))
     return out
   return #[]
 
@@ -633,6 +656,24 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
       for g' in gs do out := out ++ (← bridgeGoal hs g')
       return out
   let some (r, h) ← g.withContext (simSides g) | return [g]
+  -- `dedup x` of a list with no duplicates: drop it, with the fact `List.map f x = H`
+  if let some dd := r.find? (fun e => e.isAppOfArity ``SpecLean.Rd.dedup 3 && (e.getArg! 2).isFVar) then
+    let x := dd.getArg! 2
+    for d in (← g.getDecl).lctx do
+      if d.isImplementationDetail then continue
+      let t := (← instantiateMVars d.type).consumeMData
+      unless t.isAppOfArity ``Eq 3 do continue
+      let l := (t.getArg! 1).consumeMData.headBeta
+      unless l.isAppOfArity ``List.map 4 && l.getArg! 3 == x do continue
+      let xS ← g.withContext (Term.exprToSyntax x)
+      let fS ← g.withContext (Term.exprToSyntax (l.getArg! 2))
+      let hS ← g.withContext (Term.exprToSyntax d.toExpr)
+      let tacD : TacticM Unit := evalTactic (← `(tactic|
+        rw [dedup_of_nodup $xS (nodup_of_map $fS (by rw [$hS:term]; first | exact nodup_get_active _ _ | exact nodup_filter_zipIdx_snd _ _))]))
+      if let some gs ← tryAt tacD g then
+        let mut out := []
+        for g' in gs do out := out ++ (← bridgeGoal hs g')
+        return out
   if bridge.debug.get (← getOptions) then
     logInfo m!"bridge: {r.getAppFn} {r.getAppNumArgs} | {h.getAppFn} {h.getAppNumArgs}"
   let isBind (e : Lean.Expr) := e.isAppOfArity ``Bind.bind 6
@@ -746,7 +787,17 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
     if isPure a then
       if let some gs ← continueWith (← tryAt (evalTactic (← `(tactic| refine sim_bind_l _ rfl ?_))) g) then
         return gs
-    if isBind h && a.isAppOfArity ``List.mapM 5 then
+    if isBind h && (a.isAppOfArity ``List.mapM 5 || a.isAppOfArity ``List.mapM 6) then
+      -- first with the item map `UintC.val`: a later `sumU` needs it, and unification cannot
+      -- find it from the item goals
+      let tacMv : TacticM Unit := do
+        evalTactic (← `(tactic| apply sim_bind))
+        onTag `hA (← `(tactic| apply sim_mapM (g := UintC.val)))
+        onTag `hK (← `(tactic| intro x hx))
+      let sM ← saveState
+      if let some gs ← continueWith (← tryAt tacMv g) then
+        if gs.isEmpty then return gs
+        sM.restore
       let tacM : TacticM Unit := do
         evalTactic (← `(tactic| apply sim_bind))
         onTag `hA (← `(tactic| apply sim_mapM))
@@ -761,11 +812,11 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
     -- a readable call whose hand side is a plain value
     let aFn := a.getAppFn.constName?.getD .anonymous
     let tac2 : TacticM Unit := do
-      unless isGenFn aFn || aFn == ``SpecLean.Rd.uOp do
+      unless isGenFn aFn || aFn == ``SpecLean.Rd.uOp || aFn == ``SpecLean.Rd.pyMax do
         throwError "bridge: not a call"
       let k := (r.getArg! 5).consumeMData
       let kb := if k.isLambda then k.bindingBody!.consumeMData else k
-      if kb.getAppFn.constName? == some ``SpecLean.Rd.uCast then
+      if kb.getAppFn.constName? == some ``SpecLean.Rd.uCast && aFn != ``SpecLean.Rd.pyMax then
         throwError "bridge: a cast follows"
       evalTactic (← `(tactic| apply sim_bind_val))
       onTag `hA (← `(tactic| bridge_callee [$hs,*]))
@@ -872,6 +923,13 @@ partial def bridgePost (g : MVarId) : TacticM (List MVarId) := do
   if r.isAppOfArity ``Pure.pure 4 then
     if let some gs ← tryAt (evalTactic (← `(tactic|
         (apply post_pure; (try dsimp only); bridge_range)))) g then return gs
+  if isGenFn (r.getAppFn.constName?.getD .anonymous) then
+    setGoals [g]
+    for h in ← specHyps do
+      let s ← saveState
+      if let some gs ← tryAt (evalTactic (← `(tactic| (apply post_simI; apply $h:ident; all_goals bridge_range)))) g then
+        if gs.isEmpty then return gs
+        s.restore
   if r.getAppFn.constName? == some ``SpecLean.Rd.bytesOf then
     if let some gs ← tryAt (evalTactic (← `(tactic| exact post_bytesOf _))) g then return gs
   if r.getAppFn.constName? == some ``List.filterMapM then
