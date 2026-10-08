@@ -227,7 +227,7 @@ def HtrDec (env : Env) : Prop :=
 
 theorem libFlat_ssz (env : Env) (hn : NmOK env) (hh : HtrDec env) : LibFlat env :=
   ⟨Examples.coerceFlat_ssz env, constructFlat_ssz env, fun h b args kws hb => by
-    rcases hb with rfl | rfl | rfl | rfl | rfl | rfl <;> simp [LibModel.builtin, Ssz.builtin],
+    rcases hb with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [LibModel.builtin, Ssz.builtin],
    fun h ty fs kvs r hfs hall hk => kwctor_ssz env h ty fs kvs r hfs hall hk,
    fun h a k e l xs v ho hap => append_ssz env hn h a k e l xs v ho hap,
    fun h g args hg => by show Ssz.method env h (.glob g) env.nm.fromBytes args = none; simp [Ssz.method, hg],

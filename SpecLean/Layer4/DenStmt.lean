@@ -378,7 +378,10 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
       at? h vs ls.k ls.p = some (.ref a) → (den env fps n).items fp s t ifs elt ls i = some r →
       ItemsOK h r (compItems env n L h t ifs [] elt none (ls.src a) i))
     (hSub : ∀ m, n = m + 1 → ∀ fp h0 h vs s L, CInv fp h0 h vs s L →
-      EvOK env h0.next h vs L m ((den env fps n).sub fp s)) :
+      EvOK env h0.next h vs L m ((den env fps n).sub fp s))
+    (hRItems : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ifs elt xs i r,
+      (den env fps n).ritems fp s t ifs elt xs i = some r →
+      ItemsOK h r (compItems env n L h t ifs [] elt none (.seq (.snap xs)) i)) :
     ∀ e r, callStep env fps n (den env fps n) fp s e = some r →
       CallOK fp h0 h vs s L r (evalExpr env (n + 1) L h e) := by
   intro e r hd
@@ -393,7 +396,7 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
   rw [hao] at hd
   simp only at hd
   have ih : EvF env fp h0 vs s L n ((den env fps n).expr fp s) := fun h1 hI1 => hEx fp h0 h1 vs s L hI1
-  have hE1 := exprStep_sound env fps hlf hEx hF hIter hItems hI
+  have hE1 := exprStep_sound env fps hlf hEx hF hIter hItems hSub hRItems hI
   have fallback : (exprStep env fps n (den env fps n) fp s e).map (·.map (·, s.roots)) = some r →
       CallOK fp h0 h vs s L r (evalExpr env (n + 1) L h e) := by
     intro hx
@@ -547,6 +550,9 @@ structure LevelOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop where
     EvOK env h0.next h vs L m ((den env fps n).sub fp s)
   whl : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ c body r,
     (den env fps n).whl fp s c body = some r → CStmtOK fp h0 h vs r (execWhile env n L h c body)
+  ritems : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ifs elt xs i r,
+    (den env fps n).ritems fp s t ifs elt xs i = some r →
+    ItemsOK h r (compItems env n L h t ifs [] elt none (.seq (.snap xs)) i)
 
 theorem blockOf_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : LevelOK env fps n)
     {fp : Footprint} {h0 : Heap} {vs : List Value} :
@@ -840,7 +846,7 @@ theorem iterStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
   intro it r hd
   have hEF : EvF env fp h0 vs s L n ((den env fps n).expr fp s) :=
     fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1
-  have hE1 := exprStep_sound env fps hlf hL.expr hL.fn hL.iter hL.items hI
+  have hE1 := exprStep_sound env fps hlf hL.expr hL.fn hL.iter hL.items hL.sub hL.ritems hI
   have place : ∀ (h' : Heap), CInv fp h0 h' vs s L → ∀ (rr : DRes) (w : Value) (enum : Bool),
       ERel h' vs rr w →
       (match rr with
@@ -1041,14 +1047,15 @@ theorem level_zero (env : Env) (fps : Name → Footprint) : LevelOK env fps 0 :=
    fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun m hm => absurd hm.symm (Nat.succ_ne_zero m),
-   fun _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd⟩
+   fun _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
+   fun _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd⟩
 
 theorem level_succ (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
     (hL : LevelOK env fps n) : LevelOK env fps (n + 1) :=
   ⟨fun fp h0 h vs s L hI =>
-     exprStep_sound env fps hlf hL.expr hL.fn hL.iter hL.items hI,
+     exprStep_sound env fps hlf hL.expr hL.fn hL.iter hL.items hL.sub hL.ritems hI,
    fun fp h0 h vs s L hI =>
-     callStep_sound env fps hlf hI hL.expr hL.fn hL.iter hL.items hL.sub,
+     callStep_sound env fps hlf hI hL.expr hL.fn hL.iter hL.items hL.sub hL.ritems,
    fun fp h0 h vs s L hI t r w res hr hlo hd =>
      targetStep_sound env fps hlf hI (fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1) t hr hlo hd,
    fun fp h0 h vs s L hI => stmtStep_sound env fps hlf hL hI,
@@ -1059,7 +1066,8 @@ theorem level_succ (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n
    fun m hm fp h0 h vs s L hI => by
      cases hm
      exact hL.expr fp h0 h vs s L hI,
-   fun fp h0 h vs s L hI c body r hd => whileStep_sound hL hI hd⟩
+   fun fp h0 h vs s L hI c body r hd => whileStep_sound hL hI hd,
+   fun fp h0 h vs s L hI t ifs elt xs i r hd => ritemsStep_sound hL.expr hL.ritems hI hd⟩
 
 theorem level_ok (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) :
     ∀ n, LevelOK env fps n
