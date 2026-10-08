@@ -1040,3 +1040,14 @@ Lessons:
 - An agent can only hear you between turns. Long turns make it deaf.
 - If callers wait on callees, you are as slow as your hardest function. Prove callers modulo
   callees.
+
+Layer 4, writer callees (2026-10-08). A callee that writes can now come from a tactic statement
+(`ExtW` in `dCallW`). Layer 4 needs the field count of each container at the call (`CW`).
+`ContRun.callFn_cw` proves that every run keeps it, so the writer theorems take `CW` at entry.
+Two facts are still hypotheses. They are open obligations for the tactic road (`_pk`):
+
+- `ListKeep h h'`: each old list keeps its kind, element type and limit. It keeps the reference
+  at each old index (`RefEq`), and it grows only by items that reach new objects. Two flat items
+  are `RefEq`, so a write of a uint item is allowed. A container item replaced by a new object
+  breaks old paths, so such writers stay out of layer 4 for now.
+- `NewOnce h h' vs`: each new object that the arguments reach has one path from them.

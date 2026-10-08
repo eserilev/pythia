@@ -284,14 +284,24 @@ structure ExtFn where
   bound : List DV → Nat
   run : List DV → DM DRes
 
+/-- A callee that writes, taken from a statement: its footprint, the fuel its call needs, and
+its result and new argument trees on the decoded arguments. -/
+structure ExtW where
+  fp : Footprint
+  bound : List DV → Nat
+  run : List DV → DM (DRes × List DV)
+
 /-- The callees taken from statements (`ExtOK` says that each agrees with the interpreter). -/
 class ExtTab where
   ext : Name → Option ExtFn
+  extW : Name → Option ExtW
 
 /-- No callee is taken from a statement. -/
-instance (priority := low) noExt : ExtTab := ⟨fun _ => none⟩
+instance (priority := low) noExt : ExtTab := ⟨fun _ => none, fun _ => none⟩
 
 @[simp] theorem noExt_ext (g : Name) : (noExt.ext g) = none := rfl
+
+@[simp] theorem noExt_extW (g : Name) : (noExt.extW g) = none := rfl
 
 variable [ExtTab]
 
@@ -330,6 +340,19 @@ def dCallRO (env : Env) (fps : Name → Footprint) (n : Nat)
   | some (.builtin b) => dBuiltin env s b rs
   | _ => none
 
+/-- The footprint of a callee that writes: from its statement, or `fps`. -/
+def wFp (fps : Name → Footprint) (g : Name) : Footprint :=
+  match ExtTab.extW g with
+  | some x => x.fp
+  | none => fps g
+
+/-- The run of a callee that writes: its statement, or its body. -/
+def wRun (n : Nat) (fn : Footprint → FunctionDef → List DV → DM (DRes × List DV))
+    (fps : Name → Footprint) (d : FunctionDef) (g : Name) (rg : List DV) : DM (DRes × List DV) :=
+  match ExtTab.extW g with
+  | some x => if rg.length = d.params.names.length ∧ x.bound rg ≤ n then x.run rg else none
+  | none => fn (fps g) d rg
+
 /-- A call at statement level: it may write through its one place argument. -/
 def dCallW (env : Env) (fps : Name → Footprint) (n : Nat)
     (fn : Footprint → FunctionDef → List DV → DM (DRes × List DV)) (fp : Footprint) (s : DSt)
@@ -343,8 +366,8 @@ def dCallW (env : Env) (fps : Name → Footprint) (n : Nat)
       | some (i, k, p), some rg =>
         match s.deref k p, s.roots[k]? with
         | some dk, some dr =>
-          if !fp.isEmpty && coversAll fp s.roots k p dk (fps g) then
-            DM.bind (fn (fps g) d rg) fun (r, rg') =>
+          if !fp.isEmpty && coversAll fp s.roots k p dk (wFp fps g) then
+            DM.bind (wRun n fn fps d g rg) fun (r, rg') =>
               match r, rg'[i]? with
               | .val v, some di =>
                 if Flat v then .ok (.val v, s.roots.set k (setAt p dr di)) else none

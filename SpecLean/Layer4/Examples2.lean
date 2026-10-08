@@ -523,7 +523,7 @@ theorem dbal_den_ok (sha : Oracle) (m : Nat) (ds : List DV) (k : ListKind) (l : 
   rw [den_fn]
   simp [-den_fn, hsat, fnStep, noneDefaults, Scope.fn_decrease_balance, Sem.block, blockOf, stmtStep,
     exprStep, callStep, appendOf, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
-    setLoc, slot, argsOf, dCallRO, padNone, dCallW, fpsEx, argRoot, Scope.Id.«decrease_balance»,
+    setLoc, slot, argsOf, dCallRO, padNone, dCallW, noExt_extW, wFp, wRun, fpsEx, argRoot, Scope.Id.«decrease_balance»,
     Scope.Id.«saturating_sub», DSt.deref, subAt, DV.kids, dAttr, dIndex, ofChild, hb, hm,
     Validation.Tactic.fieldIndex_lit, isByteList, normIndex_nat, hi, targetStep, dCoerce_gwei,
     dWriteD, dWrite, Except.map, Flat, fpOk, Examples.ibFp, rootIs, matchesB, leafAt, updAt, List.map_set, Examples.gleaf]

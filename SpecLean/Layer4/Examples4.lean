@@ -496,7 +496,7 @@ theorem s_else (M : Nat) (hc : ACtx s ds kB lB bals kD lD bs kW lW ws) {i : Nat}
     simp [List.mapM, List.mapM.loop, argRoot, hder]
   have hne : List.isEmpty Examples.ibFp = false := rfl
   have hne' : (!List.isEmpty awFp) = true := rfl
-  simp only [dCallW, hl, fps89, hne, Bool.false_eq_true, if_false, hmap, hder, hroot, hne', hcov,
+  simp only [dCallW, noExt_extW, wFp, wRun, hl, fps89, hne, Bool.false_eq_true, if_false, hmap, hder, hroot, hne', hcov,
     Bool.and_self, if_true]
   simp only [show onePlace [DRes.place 0 [], .val (.uint viTy ws[i].validator_index.val),
       .val (.uint gwTy ws[i].amount.val)] = some (0, 0, []) from rfl]

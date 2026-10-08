@@ -509,19 +509,34 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
               | none => simp [hdk, hdr] at hd2
               | some dr =>
               simp only [hdk, hdr] at hd2
-              by_cases hcnd : (!fp.isEmpty && coversAll fp s.roots k p dk (fps g)) = true
+              by_cases hcnd : (!fp.isEmpty && coversAll fp s.roots k p dk (wFp fps g)) = true
               · rw [if_pos hcnd] at hd2
                 simp only [Bool.and_eq_true, Bool.not_eq_true', List.isEmpty_eq_false_iff] at hcnd
                 obtain ⟨hfpne, hcov⟩ := hcnd
                 have hwt := callee_wtree hI2 hrel hop hdk hcov
-                have hfn := hF (fps g) d rg ws h2
+                have hcw2 := cw_args hk hea hcw hfpne
+                have hda0 := argRoots_dec hI2.i.r hrel hm
+                have hfn : ∀ r0, wRun (m + 1) (den env fps (m + 1)).fn fps d g rg = some r0 →
+                    FnRel (wFp fps g) h2 ws r0
+                      (callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h2) := by
+                  intro r0 hr0
+                  revert hwt hr0
+                  unfold wRun wFp
+                  cases hxw : ExtTab.extW g with
+                  | none => exact fun hwt hr0 => hF (fps g) d rg ws h2 r0 hda0 hwt hI2.wf (fun _ => hcw2) hr0
+                  | some x =>
+                    intro hwt hr0
+                    simp only at hr0 hwt ⊢
+                    split at hr0
+                    · next hc => exact hX.2 g x d hxw hg (m + 1) rg ws h2 r0 hda0 hwt hI2.wf hcw2 hc.1 hc.2 hr0
+                    · cases hr0
                 rcases bind_case hd2 with ⟨err, hf, rfl⟩ | ⟨⟨v, rg'⟩, hf, hd3⟩
-                · have := hfn _ (argRoots_dec hI2.i.r hrel hm) hwt hI2.wf (fun _ => cw_args hk hea hcw hfpne) hf
+                · have := hfn _ hf
                   revert this
                   cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h2 with
                   | error e' => rintro ⟨hn, hne⟩; exact ⟨hn, hne⟩
                   | ok q => intro hx; cases hx
-                · have := hfn _ (argRoots_dec hI2.i.r hrel hm) hwt hI2.wf (fun _ => cw_args hk hea hcw hfpne) hf
+                · have := hfn _ hf
                   revert this
                   cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h2 with
                   | error e' => intro hx; cases hx

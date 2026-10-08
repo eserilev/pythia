@@ -650,7 +650,7 @@ def ext_args(o):
 def ext_text(m):
     """The callees taken from statements: one `ExtFn` each, and the table `extGen`."""
     out = ["/-! The callees taken from statements (`ExtOK`). -/\n"]
-    ents = []
+    ents, entsW = [], []
     for c, o in sorted(OPAQUE.items()):
         rs, scr, pat, conds = ext_args(o)
         rt = o["rt"]
@@ -672,8 +672,10 @@ def ext_text(m):
                       ", ".join("_" for _ in rs)))
         ents.append((m.fns[c]["id"], c))
     body = "fun g => " + "".join("if g = %d then some ext_%s else " % (i, c) for i, c in ents) + "none"
-    out.append("/-- The table of the generated theorems. -/\ninstance extGen : ExtTab := ⟨%s⟩\n" % body)
+    bodyW = "fun g => " + "".join("if g = %d then some extW_%s else " % (i, c) for i, c in entsW) + "none"
+    out.append("/-- The table of the generated theorems. -/\ninstance extGen : ExtTab := ⟨%s, %s⟩\n" % (body, bodyW))
     out.append("@[l4_simp] theorem extGen_ext (g : Name) : ExtTab.ext g = (%s) g := rfl\n" % body.replace("fun g => ", "fun g : Name => ", 1))
+    out.append("@[l4_simp] theorem extGen_extW (g : Name) : ExtTab.extW g = (%s) g := rfl\n" % bodyW.replace("fun g => ", "fun g : Name => ", 1))
     return "\n".join(out)
 
 
@@ -2185,6 +2187,7 @@ def ext_file(m, proved, texts):
             "the `_l4` theorem without the hypothesis.\n-/\n",
             "namespace SpecLean.Layer4.Gen\n", OPEN, "open SpecLean.Layer4.ExtBridge\n"]
     prf = ["theorem extGen_ok (sha : Oracle) : ExtOK (Scope.env sha) := by",
+           "  refine ⟨?_, fun g x d hx => by simp [extGen_extW] at hx⟩",
            "  intro g x d hx hd n roots vs h r hdec hwf hlen hb hr",
            "  simp only [extGen_ext] at hx"]
     for c, o in ents:

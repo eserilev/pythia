@@ -25,6 +25,7 @@ open SpecLean.Layer4.ExtBridge
 
 set_option maxHeartbeats 4000000 in
 theorem extGen_ok (sha : Oracle) : ExtOK (Scope.env sha) := by
+  refine ⟨?_, fun g x d hx => by simp [extGen_extW] at hx⟩
   intro g x d hx hd n roots vs h r hdec hwf hlen hb hr
   simp only [extGen_ext] at hx
   split at hx

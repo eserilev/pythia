@@ -130,9 +130,9 @@ def FnOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop :=
     (fp ≠ [] → ContRun.CW env h) → (den env fps n).fn fp d roots = some r →
     FnRel fp h vs r (callFn env n d.params (.stmts d.body) Locals.empty vs [] h)
 
-/-- Each callee taken from a statement agrees with the interpreter's call on its body, at every
-fuel from its bound, on arguments whose decoded trees it gets. -/
-def ExtOK (env : Env) : Prop :=
+/-- Each callee taken from a statement that writes nothing agrees with the interpreter's call on
+its body, at every fuel from its bound, on arguments whose decoded trees it gets. -/
+def ExtROK (env : Env) : Prop :=
   ∀ (g : Name) (x : ExtFn) (d : FunctionDef), ExtTab.ext g = some x →
     env.globals.lookup g = some (.fn d) →
     ∀ (n : Nat) (roots : List DV) (vs : List Value) (h : Heap) (r : Res DRes),
@@ -140,9 +140,22 @@ def ExtOK (env : Env) : Prop :=
       x.run roots = some r →
       FnRel [] h vs (r.map (·, roots)) (callFn env n d.params (.stmts d.body) Locals.empty vs [] h)
 
+/-- Each callee taken from a statement that writes agrees with the interpreter's call on its body,
+under `WTree` over its footprint, in a heap where each container has its field count. -/
+def ExtWOK (env : Env) : Prop :=
+  ∀ (g : Name) (x : ExtW) (d : FunctionDef), ExtTab.extW g = some x →
+    env.globals.lookup g = some (.fn d) →
+    ∀ (n : Nat) (roots : List DV) (vs : List Value) (h : Heap) (r : Res (DRes × List DV)),
+      DecArgs h vs roots → WTree h vs x.fp → HeapWF h → ContRun.CW env h →
+      roots.length = d.params.names.length → x.bound roots ≤ n → x.run roots = some r →
+      FnRel x.fp h vs r (callFn env n d.params (.stmts d.body) Locals.empty vs [] h)
+
+/-- The callees taken from statements agree with the interpreter. -/
+def ExtOK (env : Env) : Prop := ExtROK env ∧ ExtWOK env
+
 /-- With no callee taken from a statement, `ExtOK` holds. -/
-theorem extOK_none (env : Env) : @ExtOK _ noExt env := by
-  intro g x d hx; simp at hx
+theorem extOK_none (env : Env) : @ExtOK _ noExt env :=
+  ⟨fun g x d hx => by simp at hx, fun g x d hx => by simp at hx⟩
 
 def ArgsOK (h : Heap) (vs : List Value) :
     Res (List DRes) → Res (List Value × List (Name × Value) × Heap) → Prop
@@ -1044,12 +1057,12 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
             · rw [if_pos hcond] at hd2
               have hda := argRoots_dec hI2.i.r hrel hm
               rcases bind_case hd2 with ⟨err, hf, rfl⟩ | ⟨v, hf, hd3⟩
-              · have := hX g x d hxg hg (m + 1) rg ws h2 _ hda hI2.wf hcond.1 hcond.2 hf
+              · have := hX.1 g x d hxg hg (m + 1) rg ws h2 _ hda hI2.wf hcond.1 hcond.2 hf
                 revert this
                 cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h2 with
                 | error e' => rintro ⟨hn, hne⟩; exact ⟨hn, hne⟩
                 | ok q => intro hx; cases hx
-              · have := hX g x d hxg hg (m + 1) rg ws h2 _ hda hI2.wf hcond.1 hcond.2 hf
+              · have := hX.1 g x d hxg hg (m + 1) rg ws h2 _ hda hI2.wf hcond.1 hcond.2 hf
                 revert this
                 cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h2 with
                 | error e' => intro hx; cases hx
