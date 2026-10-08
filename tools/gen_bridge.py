@@ -307,6 +307,8 @@ def gen_types(m):
             continue
         checks.append(c)
         out.append(f"@[bridge_const] theorem const_{c} : {beta(conv, f'Gen.{c}')} = {target} := by decide")
+        if rt in m.bytes:
+            out.append(f"@[bridge_const] theorem constL_{c} : (Gen.{c}).data = ({target}).toList := by decide")
         if not target.startswith("Hand."):
             out.append(f"attribute [bridge_simp] Gen.{c} {target}")
         else:
@@ -333,6 +335,8 @@ def gen_types(m):
         checks.append("Cfg." + c)
         out.append(f"@[bridge_const] theorem const_cfg_{c} : "
                    f"{beta(conv, f'(Gen.Cfg.default).{c}')} = {target} := by decide")
+    out.append("@[bridge_const] theorem const_zero32 : toVec 32 (List.replicate 32 0) = "
+               "EpochProofs.Spec.Bytes32.zero := by decide")
     out += gen_oracle(m)
     out.append("attribute [bridge_simp] Hand EpochProofs.Spec.Preset.minimal")
     for c in sorted(rconst):
@@ -552,7 +556,12 @@ def gen_specs(stmts):
 def proof(st, callees):
     names = [q(n) for n, _ in st.binders] + [f"hr{i}" for i in range(len(st.irs))]
     intro = f"  intro {' '.join(names)}\n" if names else ""
-    hs = ", ".join(f"h_{c}" for c in callees)
+    opts = [q(n) for n, t in st.binders if t.startswith("Option ")]
+    cases = "  " + " <;> ".join(f"cases {n}" for n in opts) + "\n"
+    body = (f"bridge_split; unfold Gen.{st.name} {HNS}.{st.name}; "
+            f"(try simp only [bind_pure, Option.map_none, Option.map_some]); (try dsimp only); bridge_main")
+    if opts:
+        return f"{intro}{cases}  all_goals ({body})\n"
     return (f"{intro}  bridge_split\n  unfold Gen.{st.name} {HNS}.{st.name}\n"
             f"  try simp only [bind_pure]\n  bridge_main\n")
 

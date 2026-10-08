@@ -69,6 +69,40 @@ theorem cond_get_max_effective_balance (h_has_compounding_withdrawal_credential 
 
 theorem full_get_max_effective_balance : spec_get_max_effective_balance := cond_get_max_effective_balance full_has_compounding_withdrawal_credential
 
+theorem cond_compute_fork_data_root  : spec_compute_fork_data_root := by
+  intro «o» «current_version» «genesis_validators_root» hr0 hr1 hr2
+  bridge_split
+  unfold GenMainnet.compute_fork_data_root EpochProofs.Spec.compute_fork_data_root
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_compute_fork_data_root : spec_compute_fork_data_root := cond_compute_fork_data_root 
+
+theorem cond_compute_domain (h_compute_fork_data_root : spec_compute_fork_data_root) : spec_compute_domain := by
+  intro «o» «domain_type» «fork_version» «genesis_validators_root» hr0 hr1 hr2 hr3
+  cases «fork_version» <;> cases «genesis_validators_root»
+  all_goals (bridge_split; unfold GenMainnet.compute_domain EpochProofs.Spec.compute_domain; (try simp only [bind_pure, Option.map_none, Option.map_some]); (try dsimp only); bridge_main)
+
+theorem full_compute_domain : spec_compute_domain := cond_compute_domain full_compute_fork_data_root
+
+theorem cond_compute_signing_root  : spec_compute_signing_root := by
+  intro «o» «ssz_object» «r» «domain» hr0 hr1 hr2 hr3
+  bridge_split
+  unfold GenMainnet.compute_signing_root EpochProofs.Spec.compute_signing_root
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_compute_signing_root : spec_compute_signing_root := cond_compute_signing_root 
+
+theorem cond_is_valid_deposit_signature (h_compute_domain : spec_compute_domain) (h_compute_signing_root : spec_compute_signing_root) : spec_is_valid_deposit_signature := by
+  intro «o» «pubkey» «withdrawal_credentials» «amount» «signature» hr0 hr1 hr2 hr3 hr4
+  bridge_split
+  unfold GenMainnet.is_valid_deposit_signature EpochProofs.Spec.is_valid_deposit_signature
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_is_valid_deposit_signature : spec_is_valid_deposit_signature := cond_is_valid_deposit_signature full_compute_domain full_compute_signing_root
+
 theorem cond_compute_activation_exit_epoch  : spec_compute_activation_exit_epoch := by
   intro «epoch» hr0
   bridge_split
@@ -240,6 +274,15 @@ theorem cond_get_randao_mix  : spec_get_randao_mix := by
 
 theorem full_get_randao_mix : spec_get_randao_mix := cond_get_randao_mix 
 
+theorem cond_get_seed (h_get_randao_mix : spec_get_randao_mix) : spec_get_seed := by
+  intro «o» «state» «epoch» «domain_type» hr0 hr1 hr2 hr3
+  bridge_split
+  unfold GenMainnet.get_seed EpochProofs.Spec.get_seed
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_get_seed : spec_get_seed := cond_get_seed full_get_randao_mix
+
 theorem cond_get_beacon_proposer_index  : spec_get_beacon_proposer_index := by
   intro «state» hr0
   bridge_split
@@ -249,6 +292,13 @@ theorem cond_get_beacon_proposer_index  : spec_get_beacon_proposer_index := by
 
 theorem full_get_beacon_proposer_index : spec_get_beacon_proposer_index := cond_get_beacon_proposer_index 
 
+theorem cond_get_domain (h_compute_domain : spec_compute_domain) (h_get_current_epoch : spec_get_current_epoch) : spec_get_domain := by
+  intro «o» «state» «domain_type» «epoch» hr0 hr1 hr2 hr3
+  cases «epoch»
+  all_goals (bridge_split; unfold GenMainnet.get_domain EpochProofs.Spec.get_domain; (try simp only [bind_pure, Option.map_none, Option.map_some]); (try dsimp only); bridge_main)
+
+theorem full_get_domain : spec_get_domain := cond_get_domain full_compute_domain full_get_current_epoch
+
 theorem cond_is_builder_withdrawal_credential  : spec_is_builder_withdrawal_credential := by
   intro «withdrawal_credentials» hr0
   bridge_split
@@ -257,6 +307,15 @@ theorem cond_is_builder_withdrawal_credential  : spec_is_builder_withdrawal_cred
   bridge_main
 
 theorem full_is_builder_withdrawal_credential : spec_is_builder_withdrawal_credential := cond_is_builder_withdrawal_credential 
+
+theorem cond_is_valid_builder_deposit_signature (h_compute_domain : spec_compute_domain) (h_compute_signing_root : spec_compute_signing_root) : spec_is_valid_builder_deposit_signature := by
+  intro «o» «request» hr0 hr1
+  bridge_split
+  unfold GenMainnet.is_valid_builder_deposit_signature EpochProofs.Spec.is_valid_builder_deposit_signature
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_is_valid_builder_deposit_signature : spec_is_valid_builder_deposit_signature := cond_is_valid_builder_deposit_signature full_compute_domain full_compute_signing_root
 
 theorem cond_is_active_builder  : spec_is_active_builder := by
   intro «state» «builder_index» hr0 hr1
@@ -303,6 +362,15 @@ theorem cond_process_slashings_reset (h_get_current_epoch : spec_get_current_epo
 
 theorem full_process_slashings_reset : spec_process_slashings_reset := cond_process_slashings_reset full_get_current_epoch
 
+theorem cond_eth_fast_aggregate_verify  : spec_eth_fast_aggregate_verify := by
+  intro «o» «pubkeys» «message» «signature» hr0 hr1 hr2 hr3
+  bridge_split
+  unfold GenMainnet.eth_fast_aggregate_verify EpochProofs.Spec.eth_fast_aggregate_verify
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_eth_fast_aggregate_verify : spec_eth_fast_aggregate_verify := cond_eth_fast_aggregate_verify 
+
 theorem cond_update_builder_pending_withdrawals  : spec_update_builder_pending_withdrawals := by
   intro «state» «processed_builder_withdrawals_count» hr0 hr1
   bridge_split
@@ -330,6 +398,15 @@ theorem cond_update_pending_partial_withdrawals  : spec_update_pending_partial_w
 
 theorem full_update_pending_partial_withdrawals : spec_update_pending_partial_withdrawals := cond_update_pending_partial_withdrawals 
 
+theorem cond_verify_block_signature (h_compute_signing_root : spec_compute_signing_root) (h_get_domain : spec_get_domain) : spec_verify_block_signature := by
+  intro «o» «state» «signed_block» hr0 hr1 hr2
+  bridge_split
+  unfold GenMainnet.verify_block_signature EpochProofs.Spec.verify_block_signature
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_verify_block_signature : spec_verify_block_signature := cond_verify_block_signature full_compute_signing_root full_get_domain
+
 theorem cond_convert_validator_index_to_builder_index  : spec_convert_validator_index_to_builder_index := by
   intro «validator_index» hr0
   bridge_split
@@ -346,10 +423,19 @@ theorem cond_can_builder_cover_bid (h_get_pending_balance_to_withdraw_for_builde
   try simp only [bind_pure]
   bridge_main
 
+theorem cond_verify_execution_payload_bid_signature (h_compute_signing_root : spec_compute_signing_root) (h_get_domain : spec_get_domain) : spec_verify_execution_payload_bid_signature := by
+  intro «o» «state» «signed_bid» hr0 hr1 hr2
+  bridge_split
+  unfold GenMainnet.verify_execution_payload_bid_signature EpochProofs.Spec.verify_execution_payload_bid_signature
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_verify_execution_payload_bid_signature : spec_verify_execution_payload_bid_signature := cond_verify_execution_payload_bid_signature full_compute_signing_root full_get_domain
+
 -- Mapped functions: 106, 83 without a loop, 66 of them with a statement.
--- Conditional: 27 mapped, 10 callees (37 of 106 statements without a loop).
--- Full: 27 mapped, 9 callees.
--- Not proved: add_builder_to_registry, add_flag, add_validator_to_registry, apply_pending_deposit, bytes_to_uint64, compute_committee, compute_domain, compute_fork_data_root, compute_proposer_indices, compute_shuffled_index, compute_signing_root, eth_fast_aggregate_verify, get_active_validator_indices, get_attestation_participation_flag_indices, get_balance_after_withdrawals, get_beacon_committee, get_beacon_proposer_indices, get_block_root, get_block_root_at_slot, get_committee_count_per_slot, get_committee_indices, get_domain, get_eligible_validator_indices, get_indexed_attestation, get_next_sync_committee, get_next_sync_committee_indices, get_seed, get_set_bit_count, get_total_active_balance, get_total_balance, get_unslashed_participating_indices, get_validator_from_deposit, is_attestation_same_slot, is_partially_withdrawable_validator, is_slashable_attestation_data, is_valid_builder_deposit_signature, is_valid_deposit_signature, is_valid_indexed_attestation, is_valid_indexed_payload_attestation, is_valid_switch_to_compounding_request, process_block_header, process_bls_to_execution_change, process_builder_deposit_request, process_builder_exit_request, process_consolidation_request, process_epoch, process_eth1_data, process_historical_summaries_update, process_justification_and_finalization, process_participation_flag_updates, process_proposer_lookahead, process_ptc_window, process_randao, process_slot, process_sync_committee_updates, process_voluntary_exit, process_withdrawal_request, process_withdrawals, queue_excess_active_balance, settle_builder_payment, slash_validator, switch_to_compounding_validator, update_next_withdrawal_builder_index, update_next_withdrawal_index, update_next_withdrawal_validator_index, verify_block_signature, verify_execution_payload_bid_signature, weigh_justification_and_finalization, xor.
+-- Conditional: 29 mapped, 18 callees (47 of 106 statements without a loop).
+-- Full: 29 mapped, 17 callees.
+-- Not proved: add_builder_to_registry, add_flag, add_validator_to_registry, apply_pending_deposit, bytes_to_uint64, compute_committee, compute_proposer_indices, compute_shuffled_index, get_active_validator_indices, get_attestation_participation_flag_indices, get_balance_after_withdrawals, get_beacon_committee, get_beacon_proposer_indices, get_block_root, get_block_root_at_slot, get_committee_count_per_slot, get_committee_indices, get_eligible_validator_indices, get_indexed_attestation, get_next_sync_committee, get_next_sync_committee_indices, get_set_bit_count, get_total_active_balance, get_total_balance, get_unslashed_participating_indices, get_validator_from_deposit, is_attestation_same_slot, is_partially_withdrawable_validator, is_slashable_attestation_data, is_valid_indexed_attestation, is_valid_indexed_payload_attestation, is_valid_switch_to_compounding_request, process_block_header, process_bls_to_execution_change, process_builder_deposit_request, process_builder_exit_request, process_consolidation_request, process_epoch, process_eth1_data, process_historical_summaries_update, process_justification_and_finalization, process_participation_flag_updates, process_proposer_lookahead, process_ptc_window, process_randao, process_slot, process_sync_committee_updates, process_voluntary_exit, process_withdrawal_request, process_withdrawals, queue_excess_active_balance, settle_builder_payment, slash_validator, switch_to_compounding_validator, update_next_withdrawal_builder_index, update_next_withdrawal_index, update_next_withdrawal_validator_index, weigh_justification_and_finalization, xor.
 -- Loops (statement only): compute_balance_weighted_selection, compute_ptc, compute_shuffled_permutation, get_attesting_indices, get_builder_withdrawals, get_builders_sweep_withdrawals, get_inactivity_penalty_deltas, get_index_for_new_builder, get_pending_balance_to_withdraw, get_pending_balance_to_withdraw_for_builder, get_pending_partial_withdrawals, get_validators_sweep_withdrawals, integer_squareroot, process_attestation, process_attester_slashing, process_effective_balance_updates, process_inactivity_updates, process_pending_consolidations, process_proposer_slashing, process_sync_aggregate.
 -- No statement (parameters): apply_withdrawals, compute_consolidation_epoch_and_update_churn, compute_exit_epoch_and_update_churn, decrease_balance, get_activation_churn_limit, get_base_reward, get_base_reward_per_increment, get_builder_payment_quorum_threshold, get_exit_churn_limit, get_flag_index_deltas, increase_balance, initiate_validator_exit, process_block, process_builder_pending_payments, process_execution_payload_bid, process_operations, process_payload_attestation, process_pending_deposits, process_registry_updates, process_rewards_and_penalties, process_slashings, process_slots, state_transition.
 -- No statement (return type): apply_parent_execution_payload, get_expected_withdrawals, process_parent_execution_payload.

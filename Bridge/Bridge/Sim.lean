@@ -46,6 +46,15 @@ theorem bytesOf_ok {β : Type} [BytesC β] (b : List UInt8) (h : b.length = Byte
     (bytesOf β b : SpecM β) = .ok (BytesC.ofBytes b) := by
   unfold bytesOf; rw [if_pos h]; rfl
 
+/-- Four bytes then the first 28 of a 32-byte vector, as the hand spec builds a domain. -/
+theorem toVec_domain (a b : List UInt8) (ha : a.length = 4) (hb : b.length = 32)
+    (h : 4 + (min 28 32 - 0) = 32) :
+    toVec 32 (a ++ (b.take 28)) = (toVec 4 a ++ (toVec 32 b).extract 0 28).cast h := by
+  apply Vector.toList_inj.mp
+  rw [toVec_toList _ _ (by simp [ha, hb])]
+  simp [Vector.toList_cast, Vector.toList_append, Vector.toList_extract, toVec_toList _ _ ha,
+    toVec_toList _ _ hb]
+
 def Sim {α β : Type} (f : α → β) (r : SpecM α) (h : HM β) : Prop :=
   r.map f = h.mapError errClass
 
@@ -464,6 +473,66 @@ theorem sim_pow_uOf {α β β' : Type} [UintC α] {g : β → β'} (hb : UintC.b
     (UInt8.ofNat a &&& UInt8.ofNat b == UInt8.ofNat b) = (a &&& b == b) := by
   rw [uint8_and a b ha hb, uint8_beq _ _ (Nat.lt_of_le_of_lt Nat.and_le_left ha) hb]
 
+/-- `hash_tree_root` then `bytesOf` of a 32-byte class, against the hand oracle value. -/
+theorem sim_htr_bytes [Spec] {α β : Type} [BytesC β] (hl : BytesC.len β = 32) (enc : Enc α) (x : α)
+    (v : Vector UInt8 32) (h : ∃ r, htr enc x = .ok r ∧ r.length = 32 ∧ toVec 32 r = v) :
+    Sim (fun y : β => toVec 32 (BytesC.data y)) (htr enc x >>= fun r => bytesOf β r) (pure v) := by
+  obtain ⟨r, hr, hlen, hv⟩ := h
+  rw [hr, ok_bind, bytesOf_ok r (by rw [hl, hlen])]
+  subst hv
+  show Except.ok (toVec 32 (BytesC.data (BytesC.ofBytes r : β))) = Except.ok (toVec 32 r)
+  rw [BytesC.data_ofBytes]
+
+theorem sim_bytesOf_pure {β : Type} [BytesC β] (hl : BytesC.len β = 32) (b : List UInt8)
+    (v : Vector UInt8 32) (hb : b.length = 32) (hv : toVec 32 b = v) :
+    Sim (fun y : β => toVec 32 (BytesC.data y)) (bytesOf β b) (pure v) := by
+  rw [bytesOf_ok b (by rw [hl, hb])]
+  subst hv
+  show Except.ok (toVec 32 (BytesC.data (BytesC.ofBytes b : β))) = Except.ok (toVec 32 b)
+  rw [BytesC.data_ofBytes]
+
+/-- A callee theorem whose hand side is equal to the goal's hand side, but not in the same form. -/
+theorem sim_hand_eq {α β : Type} {f : α → β} {r : SpecM α} {h h' : HM β} (hs : Sim f r h)
+    (he : h = h') : Sim f r h' := he ▸ hs
+
+/-- `sha256` then `bytesOf` of a 32-byte class, against the hand `hash`. -/
+theorem sim_sha256_bytes [Spec] {β : Type} [BytesC β] (hl : BytesC.len β = 32)
+    (hash : List UInt8 → Vector UInt8 32)
+    (hh : ∀ l, (Spec.sha256 l).length = 32 ∧ toVec 32 (Spec.sha256 l) = hash l)
+    (l l' : List UInt8) (e : l = l') :
+    Sim (fun y : β => toVec 32 (BytesC.data y)) (bytesOf β (Spec.sha256 l)) (pure (hash l')) := by
+  subst e
+  rw [bytesOf_ok _ (by rw [hl, (hh l).1])]
+  show Except.ok (toVec 32 (BytesC.data (BytesC.ofBytes (Spec.sha256 l) : β))) = Except.ok (hash l)
+  rw [BytesC.data_ofBytes, (hh l).2]
+
+theorem post_bytesOf {β : Type} [BytesC β] (b : List UInt8) :
+    Post (fun x : β => (BytesC.data x).length = BytesC.len β) (bytesOf β b) := by
+  intro x hx
+  unfold bytesOf at hx
+  split at hx
+  · cases hx; rw [BytesC.data_ofBytes]; assumption
+  · cases hx
+
+/-- Two lists of length `n` are equal when their vectors are. -/
+theorem toVec_inj {n : Nat} {a b : List UInt8} (ha : a.length = n) (hb : b.length = n) :
+    toVec n a = toVec n b ↔ a = b := by
+  constructor
+  · intro h
+    rw [← toVec_toList n a ha, ← toVec_toList n b hb, h]
+  · intro h; rw [h]
+
+theorem toVec_beq {n : Nat} (a b : List UInt8) (ha : a.length = n) (hb : b.length = n) :
+    (toVec n a == toVec n b) = (a == b) := by
+  rw [Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq, toVec_inj ha hb]
+
+theorem toVec_beq_vec {n : Nat} (a : List UInt8) (v : Vector UInt8 n) (ha : a.length = n) :
+    (toVec n a == v) = (a == v.toList) := by
+  rw [Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq]
+  constructor
+  · intro h; rw [← h, toVec_toList _ _ ha]
+  · intro h; apply Vector.toList_inj.mp; rw [toVec_toList _ _ ha, h]
+
 /-! ## Lists -/
 
 @[bridge_cast] theorem int_beq_nat (a b : Nat) : ((a : Int) == (b : Int)) = (a == b) := by
@@ -491,6 +560,10 @@ theorem lslice_take {α : Type} (xs : List α) (n : Nat) :
   rw [if_neg (by omega)]
   simp [Int.toNat_natCast]
 
+@[bridge_cast] theorem lslice_take_lit {α : Type} (xs : List α) (n : Nat) :
+    lslice xs none (some (no_index (OfNat.ofNat n : Int))) = xs.take n :=
+  lslice_take xs n
+
 theorem lslice_drop {α : Type} (xs : List α) (n : Nat) :
     lslice xs (some (n : Int)) none = xs.drop n := by
   unfold lslice sliceBound'
@@ -504,6 +577,10 @@ theorem lslice_drop {α : Type} (xs : List α) (n : Nat) :
 
 theorem lslice_drop_one {α : Type} (xs : List α) : lslice xs (some 1) none = xs.drop 1 :=
   lslice_drop xs 1
+
+@[bridge_cast] theorem lslice_drop_lit {α : Type} (xs : List α) (n : Nat) :
+    lslice xs (some (no_index (OfNat.ofNat n : Int))) none = xs.drop n :=
+  lslice_drop xs n
 
 theorem lappend_none {α : Type} (xs : List α) (x : α) : lappend xs x none = .ok (xs ++ [x]) := rfl
 

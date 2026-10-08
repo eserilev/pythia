@@ -225,24 +225,34 @@ attribute [bridge_simp] GenMainnet.BUILDER_PAYMENT_THRESHOLD_DENOMINATOR EpochPr
 @[bridge_const] theorem const_BUILDER_PAYMENT_THRESHOLD_NUMERATOR : (GenMainnet.BUILDER_PAYMENT_THRESHOLD_NUMERATOR).val = EpochProofs.Spec.BUILDER_PAYMENT_THRESHOLD_NUMERATOR := by decide
 attribute [bridge_simp] GenMainnet.BUILDER_PAYMENT_THRESHOLD_NUMERATOR EpochProofs.Spec.BUILDER_PAYMENT_THRESHOLD_NUMERATOR
 @[bridge_const] theorem const_DOMAIN_BEACON_ATTESTER : toVec 4 (GenMainnet.DOMAIN_BEACON_ATTESTER).data = EpochProofs.Spec.DOMAIN_BEACON_ATTESTER := by decide
+@[bridge_const] theorem constL_DOMAIN_BEACON_ATTESTER : (GenMainnet.DOMAIN_BEACON_ATTESTER).data = (EpochProofs.Spec.DOMAIN_BEACON_ATTESTER).toList := by decide
 attribute [bridge_simp] GenMainnet.DOMAIN_BEACON_ATTESTER EpochProofs.Spec.DOMAIN_BEACON_ATTESTER
 @[bridge_const] theorem const_DOMAIN_BEACON_BUILDER : toVec 4 (GenMainnet.DOMAIN_BEACON_BUILDER).data = EpochProofs.Spec.DOMAIN_BEACON_BUILDER := by decide
+@[bridge_const] theorem constL_DOMAIN_BEACON_BUILDER : (GenMainnet.DOMAIN_BEACON_BUILDER).data = (EpochProofs.Spec.DOMAIN_BEACON_BUILDER).toList := by decide
 attribute [bridge_simp] GenMainnet.DOMAIN_BEACON_BUILDER EpochProofs.Spec.DOMAIN_BEACON_BUILDER
 @[bridge_const] theorem const_DOMAIN_BEACON_PROPOSER : toVec 4 (GenMainnet.DOMAIN_BEACON_PROPOSER).data = EpochProofs.Spec.DOMAIN_BEACON_PROPOSER := by decide
+@[bridge_const] theorem constL_DOMAIN_BEACON_PROPOSER : (GenMainnet.DOMAIN_BEACON_PROPOSER).data = (EpochProofs.Spec.DOMAIN_BEACON_PROPOSER).toList := by decide
 attribute [bridge_simp] GenMainnet.DOMAIN_BEACON_PROPOSER EpochProofs.Spec.DOMAIN_BEACON_PROPOSER
 @[bridge_const] theorem const_DOMAIN_BLS_TO_EXECUTION_CHANGE : toVec 4 (GenMainnet.DOMAIN_BLS_TO_EXECUTION_CHANGE).data = EpochProofs.Spec.DOMAIN_BLS_TO_EXECUTION_CHANGE := by decide
+@[bridge_const] theorem constL_DOMAIN_BLS_TO_EXECUTION_CHANGE : (GenMainnet.DOMAIN_BLS_TO_EXECUTION_CHANGE).data = (EpochProofs.Spec.DOMAIN_BLS_TO_EXECUTION_CHANGE).toList := by decide
 attribute [bridge_simp] GenMainnet.DOMAIN_BLS_TO_EXECUTION_CHANGE EpochProofs.Spec.DOMAIN_BLS_TO_EXECUTION_CHANGE
 @[bridge_const] theorem const_DOMAIN_BUILDER_DEPOSIT : toVec 4 (GenMainnet.DOMAIN_BUILDER_DEPOSIT).data = EpochProofs.Spec.DOMAIN_BUILDER_DEPOSIT := by decide
+@[bridge_const] theorem constL_DOMAIN_BUILDER_DEPOSIT : (GenMainnet.DOMAIN_BUILDER_DEPOSIT).data = (EpochProofs.Spec.DOMAIN_BUILDER_DEPOSIT).toList := by decide
 attribute [bridge_simp] GenMainnet.DOMAIN_BUILDER_DEPOSIT EpochProofs.Spec.DOMAIN_BUILDER_DEPOSIT
 @[bridge_const] theorem const_DOMAIN_DEPOSIT : toVec 4 (GenMainnet.DOMAIN_DEPOSIT).data = EpochProofs.Spec.DOMAIN_DEPOSIT := by decide
+@[bridge_const] theorem constL_DOMAIN_DEPOSIT : (GenMainnet.DOMAIN_DEPOSIT).data = (EpochProofs.Spec.DOMAIN_DEPOSIT).toList := by decide
 attribute [bridge_simp] GenMainnet.DOMAIN_DEPOSIT EpochProofs.Spec.DOMAIN_DEPOSIT
 @[bridge_const] theorem const_DOMAIN_PTC_ATTESTER : toVec 4 (GenMainnet.DOMAIN_PTC_ATTESTER).data = EpochProofs.Spec.DOMAIN_PTC_ATTESTER := by decide
+@[bridge_const] theorem constL_DOMAIN_PTC_ATTESTER : (GenMainnet.DOMAIN_PTC_ATTESTER).data = (EpochProofs.Spec.DOMAIN_PTC_ATTESTER).toList := by decide
 attribute [bridge_simp] GenMainnet.DOMAIN_PTC_ATTESTER EpochProofs.Spec.DOMAIN_PTC_ATTESTER
 @[bridge_const] theorem const_DOMAIN_RANDAO : toVec 4 (GenMainnet.DOMAIN_RANDAO).data = EpochProofs.Spec.DOMAIN_RANDAO := by decide
+@[bridge_const] theorem constL_DOMAIN_RANDAO : (GenMainnet.DOMAIN_RANDAO).data = (EpochProofs.Spec.DOMAIN_RANDAO).toList := by decide
 attribute [bridge_simp] GenMainnet.DOMAIN_RANDAO EpochProofs.Spec.DOMAIN_RANDAO
 @[bridge_const] theorem const_DOMAIN_SYNC_COMMITTEE : toVec 4 (GenMainnet.DOMAIN_SYNC_COMMITTEE).data = EpochProofs.Spec.DOMAIN_SYNC_COMMITTEE := by decide
+@[bridge_const] theorem constL_DOMAIN_SYNC_COMMITTEE : (GenMainnet.DOMAIN_SYNC_COMMITTEE).data = (EpochProofs.Spec.DOMAIN_SYNC_COMMITTEE).toList := by decide
 attribute [bridge_simp] GenMainnet.DOMAIN_SYNC_COMMITTEE EpochProofs.Spec.DOMAIN_SYNC_COMMITTEE
 @[bridge_const] theorem const_DOMAIN_VOLUNTARY_EXIT : toVec 4 (GenMainnet.DOMAIN_VOLUNTARY_EXIT).data = EpochProofs.Spec.DOMAIN_VOLUNTARY_EXIT := by decide
+@[bridge_const] theorem constL_DOMAIN_VOLUNTARY_EXIT : (GenMainnet.DOMAIN_VOLUNTARY_EXIT).data = (EpochProofs.Spec.DOMAIN_VOLUNTARY_EXIT).toList := by decide
 attribute [bridge_simp] GenMainnet.DOMAIN_VOLUNTARY_EXIT EpochProofs.Spec.DOMAIN_VOLUNTARY_EXIT
 @[bridge_const] theorem const_EFFECTIVE_BALANCE_INCREMENT : (GenMainnet.EFFECTIVE_BALANCE_INCREMENT).val = Hand.EFFECTIVE_BALANCE_INCREMENT := by decide
 attribute [bridge_simp] GenMainnet.EFFECTIVE_BALANCE_INCREMENT
@@ -259,6 +269,7 @@ attribute [bridge_simp] GenMainnet.FAR_FUTURE_EPOCH EpochProofs.Spec.FAR_FUTURE_
 @[bridge_const] theorem const_FULL_EXIT_REQUEST_AMOUNT : (GenMainnet.FULL_EXIT_REQUEST_AMOUNT).val = EpochProofs.Spec.FULL_EXIT_REQUEST_AMOUNT := by decide
 attribute [bridge_simp] GenMainnet.FULL_EXIT_REQUEST_AMOUNT EpochProofs.Spec.FULL_EXIT_REQUEST_AMOUNT
 @[bridge_const] theorem const_G2_POINT_AT_INFINITY : toVec 96 (GenMainnet.G2_POINT_AT_INFINITY).data = EpochProofs.Spec.G2_POINT_AT_INFINITY := by decide
+@[bridge_const] theorem constL_G2_POINT_AT_INFINITY : (GenMainnet.G2_POINT_AT_INFINITY).data = (EpochProofs.Spec.G2_POINT_AT_INFINITY).toList := by decide
 attribute [bridge_simp] GenMainnet.G2_POINT_AT_INFINITY EpochProofs.Spec.G2_POINT_AT_INFINITY
 @[bridge_const] theorem const_GENESIS_EPOCH : (GenMainnet.GENESIS_EPOCH).val = EpochProofs.Spec.GENESIS_EPOCH := by decide
 attribute [bridge_simp] GenMainnet.GENESIS_EPOCH EpochProofs.Spec.GENESIS_EPOCH
@@ -374,6 +385,7 @@ attribute [bridge_simp] GenMainnet.WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA
 @[bridge_const] theorem const_cfg_MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA : ((GenMainnet.Cfg.default).MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA).val = Hand.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA := by decide
 @[bridge_const] theorem const_cfg_MIN_VALIDATOR_WITHDRAWABILITY_DELAY : ((GenMainnet.Cfg.default).MIN_VALIDATOR_WITHDRAWABILITY_DELAY).val = Hand.MIN_VALIDATOR_WITHDRAWABILITY_DELAY := by decide
 @[bridge_const] theorem const_cfg_SHARD_COMMITTEE_PERIOD : ((GenMainnet.Cfg.default).SHARD_COMMITTEE_PERIOD).val = Hand.SHARD_COMMITTEE_PERIOD := by decide
+@[bridge_const] theorem const_zero32 : toVec 32 (List.replicate 32 0) = EpochProofs.Spec.Bytes32.zero := by decide
 
 /-- The hand oracle `o` agrees with the oracle of the readable Lean on values in range. -/
 structure OracleAgrees [Spec] (o : EpochProofs.Spec.Oracle) : Prop where
