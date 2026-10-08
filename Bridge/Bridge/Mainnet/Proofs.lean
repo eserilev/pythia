@@ -362,4 +362,102 @@ theorem hand_get_eligible_validator_indices (h_get_previous_epoch : spec_get_pre
               rw [if_neg hl]; simp
         · simp
   · bridge_post
+/-- A readable index loop that adds the amounts of the items that pass a test, against the hand
+`for` loop over the same items. -/
+theorem sum_loop {α β : Type} (xs : List α) (ab : α → β) (cond : α → Bool) (cond' : β → Bool)
+    (amt : α → GenMainnet.Gwei) (amt' : β → Nat)
+    (hc : ∀ x, cond' (ab x) = cond x) (ha : ∀ x, amt' (ab x) = (amt x).val)
+    (L : Nat → GenMainnet.Gwei → SpecM GenMainnet.Gwei)
+    (hL : ∀ i b, L i b = if i < xs.length then
+        (lget xs (i : Int) >>= fun x => if cond x = true then
+          (lget xs (i : Int) >>= fun y => uOp .add (uv b) (uv (amt y)) >>= fun b' => L (i + 1) b')
+        else L (i + 1) b)
+      else pure b)
+    (B : β → Nat → EpochProofs.Spec.SpecM (ForInStep Nat))
+    (hB : ∀ w r, B w r = if cond' w = true then
+        (EpochProofs.Spec.uint64Add r (amt' w) >>= fun r' => pure (ForInStep.yield r'))
+      else pure (ForInStep.yield r))
+    (i : Nat) (b : GenMainnet.Gwei) (hb : b.val < 2 ^ 64) :
+    SimI (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) (fun x => x.val) (L i b)
+      (forIn ((xs.map ab).drop i) b.val B) := by
+  rw [hL]
+  by_cases hi : i < xs.length
+  · rw [if_pos hi]
+    have hg : lget xs (i : Int) = .ok xs[i] := by
+      unfold lget Rd.pyIndex
+      rw [if_neg (by omega), if_pos (by omega)]
+      simp [hi]; rfl
+    have hd : (xs.map ab).drop i = ab xs[i] :: (xs.map ab).drop (i + 1) := by
+      rw [List.drop_eq_getElem_cons (by simpa using hi)]; simp
+    rw [hd, List.forIn_cons, hB, hg, ok_bind, hc, ha]
+    have ih := fun b' (hb' : GenMainnet.Gwei.val b' < 2 ^ 64) =>
+      sum_loop xs ab cond cond' amt amt' hc ha L hL B hB (i + 1) b' hb'
+    generalize xs[i] = w at *
+    by_cases hcw : cond w = true
+    · rw [if_pos hcw, if_pos hcw, ok_bind]
+      by_cases ho : b.val + (amt w).val < 2 ^ 64
+      · have e1 : (uOp .add (uv b) (uv (amt w)) : SpecM GenMainnet.Gwei) = .ok ⟨b.val + (amt w).val⟩ := by
+          rw [show uv b = ((b.val : Nat) : Int) from rfl, show uv (amt w) = (((amt w).val : Nat) : Int) from rfl,
+            uOp_add_nat (α := GenMainnet.Gwei) rfl, if_pos ho]; rfl
+        have e2 : EpochProofs.Spec.uint64Add b.val (amt w).val = .ok (b.val + (amt w).val) := by
+          unfold EpochProofs.Spec.uint64Add
+          rw [if_pos (by simpa [EpochProofs.Spec.UINT64_SIZE] using ho)]; rfl
+        rw [e1, ok_bind, e2, ok_bind]
+        exact ih ⟨b.val + (amt w).val⟩ ho
+      · have e1 : (uOp .add (uv b) (uv (amt w)) : SpecM GenMainnet.Gwei) = .error .bug := by
+          rw [show uv b = ((b.val : Nat) : Int) from rfl, show uv (amt w) = (((amt w).val : Nat) : Int) from rfl,
+            uOp_add_nat (α := GenMainnet.Gwei) rfl, if_neg ho]
+        have e2 : EpochProofs.Spec.uint64Add b.val (amt w).val = .error .overflow := by
+          unfold EpochProofs.Spec.uint64Add
+          rw [if_neg (by simpa [EpochProofs.Spec.UINT64_SIZE] using ho)]; rfl
+        rw [e1, err_bind, e2, err_bind]
+        exact ⟨rfl, fun x hx => by cases hx⟩
+    · rw [if_neg hcw, if_neg hcw]
+      exact ih b hb
+  · rw [if_neg hi]
+    have hd : (xs.map ab).drop i = [] := by simp; omega
+    rw [hd]
+    exact ⟨rfl, fun x hx => by cases hx; exact hb⟩
+termination_by xs.length - i
+
+theorem hand_get_pending_balance_to_withdraw_for_builder : spec_get_pending_balance_to_withdraw_for_builder := by
+  intro st bi hr0 hr1
+  unfold GenMainnet.get_pending_balance_to_withdraw_for_builder EpochProofs.Spec.get_pending_balance_to_withdraw_for_builder
+  simp only [bind_pure]
+  have e0 : (uOf GenMainnet.Gwei (0 : Int) : SpecM GenMainnet.Gwei) = .ok ⟨0⟩ := rfl
+  rw [e0, ok_bind]
+  have h1 := sum_loop st.builder_pending_withdrawals abs_BuilderPendingWithdrawal
+    (fun x => uv x.builder_index == uv bi) (fun w => w.builder_index == bi.val) (·.amount) (·.amount)
+    (fun x => (int_beq_nat _ _).symm) (fun x => rfl)
+    (GenMainnet.get_pending_balance_to_withdraw_for_builder.loop1 bi st st.builder_pending_withdrawals.length)
+    (fun i b => by rw [GenMainnet.get_pending_balance_to_withdraw_for_builder.loop1]; rfl) _
+    (fun w r => rfl) 0 ⟨0⟩ (by decide)
+  have h2 := fun (x : GenMainnet.Gwei) (hx : x.val < 2 ^ 64) =>
+    sum_loop st.builder_pending_payments abs_BuilderPendingPayment
+    (fun x => uv x.withdrawal.builder_index == uv bi) (fun w => w.withdrawal.builder_index == bi.val)
+    (·.withdrawal.amount) (·.withdrawal.amount)
+    (fun x => (int_beq_nat _ _).symm) (fun x => rfl)
+    (GenMainnet.get_pending_balance_to_withdraw_for_builder.loop2 bi st st.builder_pending_payments.length)
+    (fun i b => by rw [GenMainnet.get_pending_balance_to_withdraw_for_builder.loop2]; rfl) _
+    (fun w r => rfl) 0 x hx
+  refine simI_intro ?_ ?_
+  · apply sim_bind (simI_sim h1)
+    intro x hx
+    exact simI_sim (h2 x (h1.2 x hx))
+  · apply post_bind
+    intro x hx
+    exact (h2 x (h1.2 x hx)).2
+theorem hand_get_pending_balance_to_withdraw : spec_get_pending_balance_to_withdraw := by
+  intro st vi hr0 hr1
+  unfold GenMainnet.get_pending_balance_to_withdraw EpochProofs.Spec.get_pending_balance_to_withdraw
+  simp only [bind_pure]
+  have e0 : (uOf GenMainnet.Gwei (0 : Int) : SpecM GenMainnet.Gwei) = .ok ⟨0⟩ := rfl
+  rw [e0, ok_bind]
+  exact sum_loop st.pending_partial_withdrawals abs_PendingPartialWithdrawal
+    (fun x => uv x.validator_index == uv vi) (fun w => w.validator_index == vi.val) (·.amount) (·.amount)
+    (fun x => (int_beq_nat _ _).symm) (fun x => rfl)
+    (GenMainnet.get_pending_balance_to_withdraw.loop1 st vi st.pending_partial_withdrawals.length)
+    (fun i b => by rw [GenMainnet.get_pending_balance_to_withdraw.loop1]; rfl) _
+    (fun w r => rfl) 0 ⟨0⟩ (by decide)
+
 end Pythia.Bridge.Mainnet
