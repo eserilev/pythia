@@ -490,14 +490,21 @@ def write_eqs(stmts, why, loops, callees, proved):
             full.add(n)
             args = " ".join(f"full_{c}" for c in callees[n])
             out.append(f"theorem full_{n} : spec_{n} := cond_{n} {args}\n")
+    mapped = (ROOT / "tools/bridge_targets.txt").read_text().split()
     nonloop = [n for n in stmts if n not in loops]
-    out.append(f"-- Conditional: {len(proved)} of {len(nonloop)} functions without a loop.")
-    out.append(f"-- Full: {len(full)}.")
+    mnl = [n for n in mapped if n not in loops]
+    out.append(f"-- Mapped functions: {len(mapped)}, {len(mnl)} without a loop, "
+               f"{len([n for n in mnl if n in stmts])} of them with a statement.")
+    out.append(f"-- Conditional: {len([n for n in mnl if n in proved])} mapped, "
+               f"{len([n for n in proved if n not in mapped])} callees "
+               f"({len(proved)} of {len(nonloop)} statements without a loop).")
+    out.append(f"-- Full: {len([n for n in mnl if n in full])} mapped, "
+               f"{len([n for n in full if n not in mapped])} callees.")
     out.append(f"-- Not proved: {', '.join(sorted(set(nonloop) - proved)) or 'none'}.")
     out.append(f"-- Loops (statement only): {', '.join(sorted(n for n in stmts if n in loops))}.")
-    for reason in sorted(set(why.values())):
+    for reason in sorted(set(why[n] for n in mapped if n in why)):
         out.append(f"-- No statement ({reason}): "
-                   f"{', '.join(sorted(n for n, r in why.items() if r == reason))}.")
+                   f"{', '.join(sorted(n for n in mapped if why.get(n) == reason))}.")
     out.append("")
     out.append("end Pythia.Bridge")
     (ROOT / "Bridge/Bridge/Gen/Eqs.lean").write_text("\n".join(out) + "\n")

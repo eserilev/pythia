@@ -194,10 +194,10 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
         g := gs.headD g'
       catch _ => pure ()
     else if callees && fn.getPrefix == `SpecLean.Rd.Gen then
-      let hy := mkIdent d.userName
       for h in hs do
         let s ← saveState
         try
+          let hy ← g.withContext (Term.exprToSyntax d.toExpr)
           let gs ← evalTacticAt (← `(tactic|
             have := simI_post (by apply $h:ident <;> bridge_range0) $hy)) g
           match gs with
@@ -227,6 +227,7 @@ macro_rules | `(tactic| bridge_range) => `(tactic| first
   | (simp only [bridge_simp]; done)
   | decide
   | (simp only [bridge_simp, List.length_map]; first | assumption | omega)
+  | (simp only [bridge_ir, bridge_cast]; simp_all; done)
   | (bridge_facts0
      try simp only [bridge_ir, uv, decide_eq_true_eq, gt_iff_lt, Int.toNat_natCast]
      bridge_nat
@@ -255,7 +256,7 @@ elab_rules : tactic
       ← `(tactic| (simp only [bridge_const]; done)),
       ← `(tactic| (subst_vars; with_reducible rfl)),
       ← `(tactic| (subst_vars; with_reducible exact Iff.rfl)),
-      ← `(tactic| (simp (disch := assumption) only [bridge_simp, uv, lslice_take, lslice_take_one, bd, toVec_toList, bridge_cast]; done)),
+      ← `(tactic| (simp (disch := assumption) only [bridge_simp, uv, lslice_take, lslice_take_one, lslice_drop, lslice_drop_one, List.map_drop, bd, toVec_toList, bridge_cast]; done)),
       ← `(tactic| (simp only [uv, bridge_const, bridge_cast] at *; simp_all only; done)),
       ← `(tactic| (simp only [uv, bridge_const, bridge_cast] at *; omega)),
       ← `(tactic| (rw [Bool.eq_iff_iff]; simp [bridge_simp, uv, and_assoc]; done)),
@@ -480,6 +481,21 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
       onTag `hA (← `(tactic| bridge_callee [$hs,*]))
       onTag `hK (← `(tactic| intro x hx hfx))
     if let some gs ← continueWith (← tryAt tac2 g) then return gs
+    -- a readable `mod` or `//` by a nonzero value: it cannot fail, so it may come before or after
+    -- the hand step
+    if aFn == ``SpecLean.Rd.uOp && isBind h then
+      let tac7 : TacticM Unit :=
+        evalTactic (← `(tactic| first
+          | refine sim_bind_l _ (uOp_mod_ok (by decide) _ _ (by bridge_range) (by bridge_range)) ?_
+          | refine sim_bind_l _ (uOp_div_ok (by decide) _ _ (by bridge_range) (by bridge_range)) ?_))
+      if let some gs ← continueWith (← tryAt tac7 g) then return gs
+    -- a readable step that cannot fail: an append or a list of no limit
+    if aFn == ``SpecLean.Rd.lappend || aFn == ``SpecLean.Rd.lfrom then
+      let tac6 : TacticM Unit :=
+        evalTactic (← `(tactic| first
+          | refine sim_bind_l _ (lappend_none _ _) ?_
+          | refine sim_bind_l _ (lfrom_none _) ?_))
+      if let some gs ← continueWith (← tryAt tac6 g) then return gs
     -- a readable step whose result is already known (a second read of the same place)
     let tac5 : TacticM Unit :=
       evalTactic (← `(tactic| refine sim_bind_l _ (by assumption) ?_))
@@ -494,6 +510,13 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
     if let some gs ← continueWith (← tryAt tac3 g) then return gs
   if isBind h then
     let b := (h.getArg! 4).consumeMData
+    let bFn := b.getAppFn.constName?.getD .anonymous
+    if bFn == ``EpochProofs.Spec.uint64Mod || bFn == ``EpochProofs.Spec.uint64Div then
+      let tac8 : TacticM Unit :=
+        evalTactic (← `(tactic| first
+          | refine sim_bind_r _ (uint64Mod_ok _ _ (by bridge_range)) ?_
+          | refine sim_bind_r _ (uint64Div_ok _ _ (by bridge_range)) ?_))
+      if let some gs ← continueWith (← tryAt tac8 g) then return gs
     if isPure b then
       if let some gs ← continueWith (← tryAt (evalTactic (← `(tactic| refine sim_bind_r _ rfl ?_))) g) then
         return gs

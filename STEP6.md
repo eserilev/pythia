@@ -329,3 +329,80 @@ proofs will need that direction in step 6.6.
   `n < 2 ^ UintC.bits α` made the same kernel failure.
 - `simp` rewrites `↑(n / 8)` to `↑n / 8` and `Int.fdiv` to `/`. Lemmas stated on the
   cast form (`fdiv_nat`) must be applied with `rw` before `simp` runs.
+
+## 5. The bridge generator
+
+`tools/gen_bridge.py` writes three files in `Bridge/Bridge/Gen/`:
+
+- `Types.lean`: `abs_T` (readable to hand) and `IR_T` (each uint below `2 ^ bits`, each byte
+  vector of its length, each list shorter than `2 ^ 64`) for the 46 containers in both models.
+  It also writes one `decide` check per constant and configuration value that both models define.
+- `Specs.lean`: one statement `spec_f` per function with the same parameters in both models
+  (85: 60 mapped functions and 25 of their callees). The statement is
+  `SimI P abs (Gen.f x) (Hand.f p (abs x))` under `IR` hypotheses: the same result up to `abs`
+  or errors of the same class, and the readable result in range (`P`).
+- `Eqs.lean`: `cond_f`, the proof of `spec_f` with the callee statements as hypotheses, and
+  `full_f`, the same proof with the callee hypotheses discharged.
+
+`tools/bridge_trials.py` runs one trial per function and lists the proofs that pass. Only those go
+into `Eqs.lean`. The proofs use `bridge_main` (`Bridge/Bridge/Tactic.lean`). It steps through both
+`do` blocks one bind at a time with the lemmas of `Sim.lean` and `Lists.lean`, and never unfolds
+`bind` with `simp`.
+
+Status (`Eqs.lean` lists the names):
+
+| | Count |
+|---|---|
+| Mapped functions without a loop | 83 |
+| with a statement | 51 |
+| proved, conditional | 25 (and 8 callees) |
+| proved, full | 25 (and 8 callees) |
+| without a statement: oracle (`o : Oracle` parameter) | 20 |
+| without a statement: other parameters (adapters) | 10, and `get_expected_withdrawals`, `set_or_append_list` |
+
+Not proved yet, by cause:
+
+- Comprehensions: the readable `filterMapM`/`filterMap`/`foldl` against the hand
+  `filter`/`map`/`for`: `get_active_validator_indices`, `get_eligible_validator_indices`,
+  `get_committee_indices`, `get_set_bit_count`, `get_balance_after_withdrawals`,
+  `get_unslashed_participating_indices`, `process_participation_flag_updates`, `xor`.
+- `assert` against the hand `if ¬c then throw`: `get_unslashed_participating_indices` and the
+  block functions.
+- Other steps without a lemma yet: `iOp .pow` (`add_flag`, `has_flag`), `lindex`/`contains`
+  (`process_builder_exit_request`, `is_valid_switch_to_compounding_request`), `bytesOf`
+  (`switch_to_compounding_validator`), the `.not` of an `int` (`convert_validator_index_to_builder_index`),
+  `dedup` (`get_total_active_balance`), and the steps listed per function in the trial logs.
+
+The hand spec has the mainnet value of four minimal-preset values:
+`PENDING_CONSOLIDATIONS_LIMIT`, `PENDING_PARTIAL_WITHDRAWALS_LIMIT`,
+`CONSOLIDATION_CHURN_LIMIT_QUOTIENT` and `MIN_BUILDER_WITHDRAWABILITY_DELAY` (the `decide`
+checks fail for them). So on the minimal preset, the hand `process_withdrawal_request`,
+`process_consolidation_request`, `get_consolidation_churn_limit` and `initiate_builder_exit` differ
+from the spec. They are correct on mainnet.
+
+Left for later:
+
+- The 23 functions with a loop: `apply_parent_execution_payload`, `apply_withdrawals`,
+  `get_builders_sweep_withdrawals`, `get_builder_withdrawals`, `get_flag_index_deltas`,
+  `get_inactivity_penalty_deltas`, `get_pending_partial_withdrawals`,
+  `get_validators_sweep_withdrawals`, `integer_squareroot`, `process_attestation`,
+  `process_attester_slashing`, `process_builder_pending_payments`,
+  `process_effective_balance_updates`, `process_inactivity_updates`, `process_operations`,
+  `process_pending_consolidations`, `process_pending_deposits`, `process_proposer_slashing`,
+  `process_registry_updates`, `process_rewards_and_penalties`, `process_slashings`,
+  `process_slots`, `process_sync_aggregate`. Those with a statement are hypotheses of their callers.
+- The 29 parameter adapters (hand functions): `process_attestation_loop`,
+  `process_payload_attestation`, `process_operations`, `process_block`, `state_transition`,
+  `compute_consolidation_epoch_and_update_churn`, `process_execution_payload_bid`,
+  `process_sync_aggregate_loop`, `get_builder_withdrawals_loop`,
+  `get_pending_partial_withdrawals_loop`, `get_builders_sweep_withdrawals_loop`,
+  `get_validators_sweep_withdrawals_loop`, `get_builder_payment_quorum_threshold`,
+  `process_builder_pending_payments`, `get_activation_churn_limit`, `process_pending_deposits`,
+  `get_exit_churn_limit`, `compute_exit_epoch_and_update_churn`, `initiate_validator_exit`,
+  `process_registry_updates`, `get_base_reward_per_increment`, `get_base_reward`,
+  `increase_balance`, `get_flag_index_deltas`, `process_rewards_and_penalties`,
+  `decrease_balance`, `process_slashings`, `process_slots_loop`, `process_slots`.
+
+To regenerate: `python3 tools/gen_bridge.py --trials DIR`, then
+`python3 tools/bridge_trials.py DIR` (4 runners, 8 GB each), then
+`python3 tools/gen_bridge.py --proved DIR/proved.txt`, then `cd Bridge && lake build`.

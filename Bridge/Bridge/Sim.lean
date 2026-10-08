@@ -324,6 +324,26 @@ theorem sim_uOp_mod {α : Type} [UintC α] (hb : UintC.bits α = 64) (a b : Nat)
   · rw [if_neg (by omega), if_neg h, mapError_ok, ok_bind, fmod_nat,
       uOf_ok (a % b) hb (Nat.lt_of_le_of_lt (Nat.mod_le _ _) ha), map_val_ofNat]; rfl
 
+theorem uOp_mod_ok {α : Type} [UintC α] (hb : UintC.bits α = 64) (a b : Nat) (hb0 : b ≠ 0)
+    (ha : a < 2 ^ 64) : (uOp .mod (a : Int) (b : Int) : SpecM α) = .ok (UintC.ofNat (a % b)) := by
+  unfold uOp
+  simp only [erase, intArith]
+  rw [if_neg (by omega), mapError_ok, ok_bind, fmod_nat,
+    uOf_ok (a % b) hb (Nat.lt_of_le_of_lt (Nat.mod_le _ _) ha)]
+
+theorem uOp_div_ok {α : Type} [UintC α] (hb : UintC.bits α = 64) (a b : Nat) (hb0 : b ≠ 0)
+    (ha : a < 2 ^ 64) : (uOp .floorDiv (a : Int) (b : Int) : SpecM α) = .ok (UintC.ofNat (a / b)) := by
+  unfold uOp
+  simp only [erase, intArith]
+  rw [if_neg (by omega), mapError_ok, ok_bind, fdiv_nat,
+    uOf_ok (a / b) hb (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) ha)]
+
+theorem uint64Mod_ok (a b : Nat) (hb0 : b ≠ 0) : EpochProofs.Spec.uint64Mod a b = .ok (a % b) := by
+  unfold EpochProofs.Spec.uint64Mod; rw [if_neg hb0]; rfl
+
+theorem uint64Div_ok (a b : Nat) (hb0 : b ≠ 0) : EpochProofs.Spec.uint64Div a b = .ok (a / b) := by
+  unfold EpochProofs.Spec.uint64Div; rw [if_neg hb0]; rfl
+
 /-! ## Lists -/
 
 @[bridge_cast] theorem int_beq_nat (a b : Nat) : ((a : Int) == (b : Int)) = (a == b) := by
@@ -350,6 +370,24 @@ theorem lslice_take {α : Type} (xs : List α) (n : Nat) :
   simp only [Option.map_none, Option.getD_none, Option.map_some, Option.getD_some, List.drop_zero]
   rw [if_neg (by omega)]
   simp [Int.toNat_natCast]
+
+theorem lslice_drop {α : Type} (xs : List α) (n : Nat) :
+    lslice xs (some (n : Int)) none = xs.drop n := by
+  unfold lslice sliceBound'
+  simp only [Option.map_some, Option.getD_some, Option.map_none, Option.getD_none]
+  rw [if_neg (by omega)]
+  simp only [Int.toNat_natCast]
+  rw [List.take_of_length_le (by simp <;> omega)]
+  by_cases h : n ≤ xs.length
+  · rw [Nat.min_eq_left h]
+  · rw [Nat.min_eq_right (by omega), List.drop_length, List.drop_of_length_le (by omega)]
+
+theorem lslice_drop_one {α : Type} (xs : List α) : lslice xs (some 1) none = xs.drop 1 :=
+  lslice_drop xs 1
+
+theorem lappend_none {α : Type} (xs : List α) (x : α) : lappend xs x none = .ok (xs ++ [x]) := rfl
+
+theorem lfrom_none {α : Type} (xs : List α) : lfrom .progressiveList none xs = .ok xs := rfl
 
 theorem lslice_take_one {α : Type} (xs : List α) : lslice xs none (some 1) = xs.take 1 :=
   lslice_take xs 1
