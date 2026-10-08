@@ -31,6 +31,87 @@ theorem extGen_ok (sha : Oracle) : ExtOK (Scope.env sha) := by
   · next hg =>
     subst hg
     simp only [Option.some.injEq] at hx; subst hx
+    obtain ⟨r_0, r_1, r_2, rfl⟩ : ∃ r_0 r_1 r_2, roots = [r_0, r_1, r_2] := by
+      rcases roots with _ | ⟨r_0, _ | ⟨r_1, _ | ⟨r_2, _ | ⟨_, _⟩⟩⟩⟩ <;> simp [ext_get_balance_after_withdrawals] at hr ⊢
+    obtain ⟨v_0, v_1, v_2, rfl⟩ : ∃ v_0 v_1 v_2, vs = [v_0, v_1, v_2] := by
+      rcases vs with _ | ⟨v_0, _ | ⟨v_1, _ | ⟨v_2, _ | ⟨_, _⟩⟩⟩⟩ <;> simp [DecArgs] at hdec ⊢ <;> omega
+    obtain ⟨k0, hk0⟩ := hdec.2 0 v_0 r_0 rfl rfl
+    obtain ⟨k1, hk1⟩ := hdec.2 1 v_1 r_1 rfl rfl
+    obtain ⟨k2, hk2⟩ := hdec.2 2 v_2 r_2 rfl rfl
+    cases hu0 : undv_BeaconState r_0 with
+    | none => simp [ext_get_balance_after_withdrawals, hu0] at hr
+    | some x0 =>
+    have hy0 := decOf_BeaconState h k0 v_0 r_0 x0 hk0 hu0
+    obtain ⟨r0, rfl⟩ : ∃ a, v_0 = .ref a := by
+      cases v_0 <;> simp [dec_BeaconState, containerFieldsT] at hy0; exact ⟨_, rfl⟩
+    have hb0 : Below h (.ref r0) := dec_below hwf k0 _ r_0 hk0
+    cases hl1 : GenBridge.leafUint r_1 with
+    | none => simp [ext_get_balance_after_withdrawals, hu0, hl1] at hr
+    | some p1 =>
+    obtain ⟨t1, x1⟩ := p1
+    cases hu2 : GenBridge.undvListE (.container Scope.Id.«Withdrawal») undv_Withdrawal r_2 with
+    | none => simp [ext_get_balance_after_withdrawals, hu0, hl1, hu2] at hr
+    | some x2 =>
+    have hy2 := (GenBridge.decOf_listE decOf_Withdrawal (.container Scope.Id.«Withdrawal»)) h k2 v_2 r_2 x2 hk2 hu2
+    obtain ⟨r2, rfl⟩ : ∃ a, v_2 = .ref a := by
+      cases v_2 <;> simp [Validation.decListE] at hy2; exact ⟨_, rfl⟩
+    have hb2 : Below h (.ref r2) := dec_below hwf k2 _ r_2 hk2
+    by_cases ht1 : t1 ≠ (.nominal Scope.Id.«ValidatorIndex» 64)
+    · simp [ext_get_balance_after_withdrawals, hu0, hl1, hu2, ht1] at hr
+    rw [ne_eq, Classical.not_not] at ht1
+    subst ht1
+    obtain rfl := GenBridge.leafUint_spec hl1
+    obtain ⟨rfl, -⟩ := dec_leaf hk1
+    have hb1 : Below h (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1) := fun q a e => absurd e (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+    simp only [ext_get_balance_after_withdrawals, hu0, hl1, hu2] at hr hb
+    try simp only [and_self, ↓reduceIte, true_and] at hr
+    have haw : ArgsWF h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.ref r2)] := by
+      intro kk q a ha
+      obtain ⟨w, hw, hf⟩ := at?_some ha
+      match kk, hw with
+      | 0, hw => simp at hw; subst hw; exact dec_exists k0 _ r_0 hk0 q a hf
+      | 1, hw => simp at hw; subst hw; exact absurd hf (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+      | 2, hw => simp at hw; subst hw; exact dec_exists k2 _ r_2 hk2 q a hf
+      | _ + 3, hw => simp at hw
+    have hm := Validation.Gen.get_balance_after_withdrawals_runF sha [] h r0 x0 hy0 x1 r2 x2 hy2 hwf haw n hb
+    rw [interp, callName, callValue_glob_fn _ _ _ hd] at hm
+    have hba : BelowArgs h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.ref r2)] := by
+      intro kk w' hw'
+      match kk, hw' with
+      | 0, hw' => simp at hw'; subst hw'; exact hb0
+      | 1, hw' => simp at hw'; subst hw'; exact hb1
+      | 2, hw' => simp at hw'; subst hw'; exact hb2
+      | _ + 3, hw' => simp at hw'
+    revert hm
+    cases hc : callFn (Scope.env sha) n d.params (ClosureBody.stmts d.body) Locals.empty [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1), (.ref r2)] [] h with
+    | error e' =>
+      cases hg : get_balance_after_withdrawals x0 (⟨x1⟩ : ValidatorIndex) x2 with
+      | ok y => intro hm; simp [ResultMatches] at hm
+      | error f =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hne, hf⟩
+        refine ⟨?_, rep_ne_oof f⟩
+        rw [normE_of_ne hne, normE_of_ne (rep_ne_oof f), GenBridge.rep_fail, hf]
+    | ok q =>
+      obtain ⟨w, h'⟩ := q
+      cases hg : get_balance_after_withdrawals x0 (⟨x1⟩ : ValidatorIndex) x2 with
+      | error f => intro hm; simp [ResultMatches] at hm
+      | ok y =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hw, hfr, hfresh, -⟩
+        have he : Ext h h' := ext_of_frame hfr hfresh (NoFill.callFn_noFill _ NoFill.ssz_libKeeps hc)
+        refine ⟨⟨by have := hw.1; simp only [enc_Gwei, encUint] at this; exact this, rfl⟩, trivial, ⟨rfl, fun j w' d' hw' hd' => ?_⟩,
+          hfr, Skel_of_Ext he, fun _ => he, fun kg q b kg' q' hab hle _ => ?_⟩
+        · match j, hw', hd' with
+          | 0, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k0, by rw [dec_ext he hb0 k0]; exact hk0⟩
+          | 1, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k1, by rw [dec_ext he hb1 k1]; exact hk1⟩
+          | 2, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k2, by rw [dec_ext he hb2 k2]; exact hk2⟩
+          | _ + 3, hw', _ => simp at hw'
+        · have := at?_below0 hwf hdec ((at?_Ext he hba kg q b).mp hab); omega
+  split at hx
+  · next hg =>
+    subst hg
+    simp only [Option.some.injEq] at hx; subst hx
     obtain ⟨r_0, rfl⟩ : ∃ r_0, roots = [r_0] := by
       rcases roots with _ | ⟨r_0, _ | ⟨_, _⟩⟩ <;> simp [ext_get_index_for_new_builder] at hr ⊢
     obtain ⟨v_0, rfl⟩ : ∃ v_0, vs = [v_0] := by
@@ -77,6 +158,61 @@ theorem extGen_ok (sha : Oracle) : ExtOK (Scope.env sha) := by
         rintro ⟨hw, hfr, hfresh, -⟩
         have he : Ext h h' := ext_of_frame hfr hfresh (NoFill.callFn_noFill _ NoFill.ssz_libKeeps hc)
         refine ⟨⟨by have := hw.1; simp only [enc_BuilderIndex, encUint] at this; exact this, rfl⟩, trivial, ⟨rfl, fun j w' d' hw' hd' => ?_⟩,
+          hfr, Skel_of_Ext he, fun _ => he, fun kg q b kg' q' hab hle _ => ?_⟩
+        · match j, hw', hd' with
+          | 0, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k0, by rw [dec_ext he hb0 k0]; exact hk0⟩
+          | _ + 1, hw', _ => simp at hw'
+        · have := at?_below0 hwf hdec ((at?_Ext he hba kg q b).mp hab); omega
+  split at hx
+  · next hg =>
+    subst hg
+    simp only [Option.some.injEq] at hx; subst hx
+    obtain ⟨r_0, rfl⟩ : ∃ r_0, roots = [r_0] := by
+      rcases roots with _ | ⟨r_0, _ | ⟨_, _⟩⟩ <;> simp [ext_get_set_bit_count] at hr ⊢
+    obtain ⟨v_0, rfl⟩ : ∃ v_0, vs = [v_0] := by
+      rcases vs with _ | ⟨v_0, _ | ⟨_, _⟩⟩ <;> simp [DecArgs] at hdec ⊢ <;> omega
+    obtain ⟨k0, hk0⟩ := hdec.2 0 v_0 r_0 rfl rfl
+    cases hu0 : GenBridge.undvListE .boolean (GenBridge.undvLeaf decBooleanV) r_0 with
+    | none => simp [ext_get_set_bit_count, hu0] at hr
+    | some x0 =>
+    have hy0 := (GenBridge.decOf_listE GenBridge.decOf_boolean .boolean) h k0 v_0 r_0 x0 hk0 hu0
+    obtain ⟨r0, rfl⟩ : ∃ a, v_0 = .ref a := by
+      cases v_0 <;> simp [Validation.decListE] at hy0; exact ⟨_, rfl⟩
+    have hb0 : Below h (.ref r0) := dec_below hwf k0 _ r_0 hk0
+    simp only [ext_get_set_bit_count, hu0] at hr hb
+    try simp only [and_self, ↓reduceIte, true_and] at hr
+    have haw : ArgsWF h [(.ref r0)] := by
+      intro kk q a ha
+      obtain ⟨w, hw, hf⟩ := at?_some ha
+      match kk, hw with
+      | 0, hw => simp at hw; subst hw; exact dec_exists k0 _ r_0 hk0 q a hf
+      | _ + 1, hw => simp at hw
+    have hm := Validation.Gen.get_set_bit_count_runF sha [] h r0 x0 hy0 hwf haw n hb
+    rw [interp, callName, callValue_glob_fn _ _ _ hd] at hm
+    have hba : BelowArgs h [(.ref r0)] := by
+      intro kk w' hw'
+      match kk, hw' with
+      | 0, hw' => simp at hw'; subst hw'; exact hb0
+      | _ + 1, hw' => simp at hw'
+    revert hm
+    cases hc : callFn (Scope.env sha) n d.params (ClosureBody.stmts d.body) Locals.empty [(.ref r0)] [] h with
+    | error e' =>
+      cases hg : get_set_bit_count x0 with
+      | ok y => intro hm; simp [ResultMatches] at hm
+      | error f =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hne, hf⟩
+        refine ⟨?_, rep_ne_oof f⟩
+        rw [normE_of_ne hne, normE_of_ne (rep_ne_oof f), GenBridge.rep_fail, hf]
+    | ok q =>
+      obtain ⟨w, h'⟩ := q
+      cases hg : get_set_bit_count x0 with
+      | error f => intro hm; simp [ResultMatches] at hm
+      | ok y =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hw, hfr, hfresh, -⟩
+        have he : Ext h h' := ext_of_frame hfr hfresh (NoFill.callFn_noFill _ NoFill.ssz_libKeeps hc)
+        refine ⟨⟨by have := hw.1; simp only [enc_Uint64, encUint] at this; exact this, rfl⟩, trivial, ⟨rfl, fun j w' d' hw' hd' => ?_⟩,
           hfr, Skel_of_Ext he, fun _ => he, fun kg q b kg' q' hab hle _ => ?_⟩
         · match j, hw', hd' with
           | 0, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k0, by rw [dec_ext he hb0 k0]; exact hk0⟩

@@ -585,6 +585,15 @@ def parse_runf(m, path="SpecLean/Validation/Gen/Loops.lean"):
             if ma:
                 i = ma.group(1)
                 md = re.search(r"\(x%s : (\w+)\) \(hy%s : dec_(\w+) h \(\.ref r%s\) = some x%s\)" % (i, i, i, i), binders)
+                ml = re.search(r"\(hy%s : \(decListE (.*?) (dec\w+)\) h \(\.ref r%s\) = some x%s\)" % (i, i, i), binders)
+                if ml:
+                    try:
+                        u, pf = undv_of(m, ml.group(2))
+                    except Unsupported:
+                        ok = False
+                        break
+                    arglist.append(("list", (ml.group(1), u, pf), int(i)))
+                    continue
                 if not md or md.group(1) != md.group(2) or md.group(1) not in m.undv:
                     ok = False
                     break
@@ -605,8 +614,12 @@ def parse_runf(m, path="SpecLean/Validation/Gen/Loops.lean"):
         lens = {}
         for i, fld in re.findall(r"\bx(\d+)\.(\w+)\.length\b", bound):
             lens[(int(i), fld)] = lens.get((int(i), fld), 0) + 1
+        for i in re.findall(r"\bx(\d+)\.length\b", bound):
+            lens[(int(i), None)] = lens.get((int(i), None), 0) + 1
         mD = re.search(r"(\d+)$", bound.strip())
-        if not mD or re.sub(r"\bx\d+\.\w+\.length \+ ", "", bound.strip()) != mD.group(1):
+        if not mD or re.sub(r"\bx\d+(\.\w+)?\.length \+ ", "", bound.strip()) != mD.group(1):
+            continue
+        if any(fld is None and n > 1 for (_, fld), n in lens.items()):
             continue
         pos = {i: k for k, (_, _, i) in enumerate(arglist)}
         out[c] = dict(args=arglist, bound=bound, rt=rt, rkind=rkind, call=call, binders=bnames,
@@ -623,6 +636,9 @@ def ext_args(o):
     for (k, ty, i), r in zip(o["args"], rs):
         if k == "cont":
             scr.append("undv_%s %s" % (ty, r))
+            pat.append("some x%d" % i)
+        elif k == "list":
+            scr.append("GenBridge.undvListE %s %s %s" % (ty[0], ty[1], r))
             pat.append("some x%d" % i)
         else:
             scr.append("GenBridge.leafUint %s" % r)
@@ -1537,6 +1553,8 @@ def callee_lens(m, name, params):
         if not LENS_OF.get(c):
             continue
         cps = [p for p, _ in m.sigs[c][0]]
+        if ("W", None) in LENS_OF[c] and ("W", None) not in out:
+            out.append(("W", None))
         for mm in re.finditer(r"\b%s((?:\s+\(?\w+\)?)+)" % re.escape(c), body):
             args = [a.strip("()") for a in mm.group(1).split()]
             for pos, fld in LENS_OF[c]:
@@ -2066,16 +2084,21 @@ def ext_entry(m, c, o):
     L.append("      rcases vs with %s <;> simp [DecArgs] at hdec ⊢ <;> omega" % nested(vs))
     for i in range(N):
         L.append("    obtain ⟨k%d, hk%d⟩ := hdec.2 %d v_%d r_%d rfl rfl" % (i, i, i, i, i))
-    hus = []
+    hus, tys = [], []
     for (k, ty, i), r, v in zip(o["args"], rs, vs):
-        if k == "cont":
-            L.append("    cases hu%d : undv_%s %s with" % (i, ty, r))
+        if k == "cont" or k == "list":
+            u = ("undv_%s %s" % (ty, r)) if k == "cont" else ("GenBridge.undvListE %s %s %s" % (ty[0], ty[1], r))
+            pf = ("decOf_%s" % ty) if k == "cont" else ("(GenBridge.decOf_listE %s %s)" % (ty[2], ty[0]))
+            L.append("    cases hu%d : %s with" % (i, u))
             L.append("    | none => simp [ext_%s, %s] at hr" % (c, ", ".join(hus + ["hu%d" % i])))
             L.append("    | some x%d =>" % i)
             hus.append("hu%d" % i)
-            L.append("    have hy%d := decOf_%s h k%d %s %s x%d hk%d hu%d" % (i, ty, i, v, r, i, i, i))
+            L.append("    have hy%d := %s h k%d %s %s x%d hk%d hu%d" % (i, pf, i, v, r, i, i, i))
             L.append("    obtain ⟨r%d, rfl⟩ : ∃ a, %s = .ref a := by" % (i, v))
-            L.append("      cases %s <;> simp [dec_%s, containerFieldsT] at hy%d; exact ⟨_, rfl⟩" % (v, ty, i))
+            if k == "cont":
+                L.append("      cases %s <;> simp [dec_%s, containerFieldsT] at hy%d; exact ⟨_, rfl⟩" % (v, ty, i))
+            else:
+                L.append("      cases %s <;> simp [Validation.decListE] at hy%d; exact ⟨_, rfl⟩" % (v, i))
             L.append("    have hb%d : Below h (.ref r%d) := dec_below hwf k%d _ %s hk%d" % (i, i, i, r, i))
         else:
             L.append("    cases hl%d : GenBridge.leafUint %s with" % (i, r))
@@ -2083,22 +2106,24 @@ def ext_entry(m, c, o):
             L.append("    | some p%d =>" % i)
             L.append("    obtain ⟨t%d, x%d⟩ := p%d" % (i, i, i))
             hus.append("hl%d" % i)
-            L.append("    by_cases ht%d : t%d = %s" % (i, i, ty))
-            L.append("    swap")
-            L.append("    · simp [ext_%s, %s, ht%d] at hr" % (c, ", ".join(hus), i))
-            L.append("    subst ht%d" % i)
-            L.append("    rw [GenBridge.leafUint_spec hl%d] at hk%d" % (i, i))
-            L.append("    obtain ⟨rfl, -⟩ := dec_leaf hk%d" % i)
-            L.append("    have hb%d : Below h (.uint %s x%d) := fun q a e => absurd e (fun e' => follow_nonref_ref (fun b e => by cases e) e')" % (i, ty, i))
+            tys.append((i, ty))
+    for i, ty in tys:
+        L.append("    by_cases ht%d : t%d ≠ %s" % (i, i, ty))
+        L.append("    · simp [ext_%s, %s, ht%d] at hr" % (c, ", ".join(hus), i))
+        L.append("    rw [ne_eq, Classical.not_not] at ht%d" % i)
+        L.append("    subst ht%d" % i)
+        L.append("    obtain rfl := GenBridge.leafUint_spec hl%d" % i)
+        L.append("    obtain ⟨rfl, -⟩ := dec_leaf hk%d" % i)
+        L.append("    have hb%d : Below h (.uint %s x%d) := fun q a e => absurd e (fun e' => follow_nonref_ref (fun b e => by cases e) e')" % (i, ty, i))
     L.append("    simp only [ext_%s, %s] at hr hb" % (c, ", ".join(hus)))
     L.append("    try simp only [and_self, ↓reduceIte, true_and] at hr")
-    VS = "[%s]" % ", ".join("(.ref r%d)" % i if k == "cont" else "(.uint %s x%d)" % (ty, i) for k, ty, i in o["args"])
+    VS = "[%s]" % ", ".join("(.ref r%d)" % i if k != "uint" else "(.uint %s x%d)" % (ty, i) for k, ty, i in o["args"])
     L.append("    have haw : ArgsWF h %s := by" % VS)
     L.append("      intro kk q a ha")
     L.append("      obtain ⟨w, hw, hf⟩ := at?_some ha")
     L.append("      match kk, hw with")
     for (k, ty, i) in o["args"]:
-        if k == "cont":
+        if k != "uint":
             L.append("      | %d, hw => simp at hw; subst hw; exact dec_exists k%d _ r_%d hk%d q a hf" % (i, i, i, i))
         else:
             L.append("      | %d, hw => simp at hw; subst hw; exact absurd hf (fun e' => follow_nonref_ref (fun b e => by cases e) e')" % i)
@@ -2279,6 +2304,7 @@ def main():
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--show", default="", help="check one function and print the whole output")
     ap.add_argument("--cond", action="store_true", help="only the conditional pass, after a full run")
+    ap.add_argument("--ext", action="store_true", help="only Classes and Ext, against the last Funcs")
     args = ap.parse_args()
     m = model()
     GEN.mkdir(parents=True, exist_ok=True)
@@ -2287,6 +2313,13 @@ def main():
     if not ok:
         print(out)
         sys.exit(1)
+    if args.ext:
+        txt = (GEN / "Funcs.lean").read_text()
+        proved = dict.fromkeys(re.findall(r"theorem (\w+)_den \(sha : Oracle\)", txt), 0)
+        (GEN / "Ext.lean").write_text(ext_file(m, proved, dict.fromkeys(proved, txt)))
+        okx, outx = build("SpecLean.Layer4.Gen.Ext")
+        print("ext build %s" % ("ok" if okx else "FAILED\n" + outx[-6000:]))
+        return
     if args.cond:
         import json
         txt = (GEN / "Funcs.lean").read_text()
@@ -2481,7 +2514,7 @@ def report_cond(m, proved, fails, jobs):
     if not okc:
         print(outc[-3000:])
     # What fails even conditionally, ranked by the functions it blocks.
-    done = set(proved) | set(ctexts)
+    done = set(proved) | set(ctexts) | set(OPAQUE)
     deps = {}
     for n in m.fns:
         for c in m.callees(n):

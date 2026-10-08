@@ -6988,6 +6988,18 @@ theorem undv_kids_SignedBeaconBlock (x : SignedBeaconBlock) (hx : ok_SignedBeaco
 
 /-! The callees taken from statements (`ExtOK`). -/
 
+def ext_get_balance_after_withdrawals : ExtFn where
+  bound := fun rs => match rs with
+    | [r0, r1, r2] => match undv_BeaconState r0, GenBridge.leafUint r1, GenBridge.undvListE (.container Scope.Id.«Withdrawal») undv_Withdrawal r2 with
+      | some x0, some (t1, x1), some x2 => x2.length + 128
+      | _, _, _ => 0
+    | _ => 0
+  run := fun rs => match rs with
+    | [r0, r1, r2] => match undv_BeaconState r0, GenBridge.leafUint r1, GenBridge.undvListE (.container Scope.Id.«Withdrawal») undv_Withdrawal r2 with
+      | some x0, some (t1, x1), some x2 => if t1 = (.nominal Scope.Id.«ValidatorIndex» 64) then GenBridge.extRes (fun y : Gwei => DRes.val (.uint (.nominal 265 64) y.val)) (get_balance_after_withdrawals x0 (⟨x1⟩ : ValidatorIndex) x2) else none
+      | _, _, _ => none
+    | _ => none
+
 def ext_get_index_for_new_builder : ExtFn where
   bound := fun rs => match rs with
     | [r0] => match undv_BeaconState r0 with
@@ -6997,6 +7009,18 @@ def ext_get_index_for_new_builder : ExtFn where
   run := fun rs => match rs with
     | [r0] => match undv_BeaconState r0 with
       | some x0 => if True then GenBridge.extRes (fun y : BuilderIndex => DRes.val (.uint (.nominal 199 64) y.val)) (get_index_for_new_builder x0) else none
+      | _ => none
+    | _ => none
+
+def ext_get_set_bit_count : ExtFn where
+  bound := fun rs => match rs with
+    | [r0] => match GenBridge.undvListE .boolean (GenBridge.undvLeaf decBooleanV) r0 with
+      | some x0 => x0.length + 128
+      | _ => 0
+    | _ => 0
+  run := fun rs => match rs with
+    | [r0] => match GenBridge.undvListE .boolean (GenBridge.undvLeaf decBooleanV) r0 with
+      | some x0 => if True then GenBridge.extRes (fun y : Uint64 => DRes.val (.uint (.width 64) y.val)) (get_set_bit_count x0) else none
       | _ => none
     | _ => none
 
@@ -7013,9 +7037,9 @@ def ext_get_total_active_balance : ExtFn where
     | _ => none
 
 /-- The table of the generated theorems. -/
-instance extGen : ExtTab := ⟨fun g => if g = 8 then some ext_get_index_for_new_builder else if g = 209 then some ext_get_total_active_balance else none⟩
+instance extGen : ExtTab := ⟨fun g => if g = 260 then some ext_get_balance_after_withdrawals else if g = 8 then some ext_get_index_for_new_builder else if g = 387 then some ext_get_set_bit_count else if g = 209 then some ext_get_total_active_balance else none⟩
 
-@[l4_simp] theorem extGen_ext (g : Name) : ExtTab.ext g = (fun g : Name => if g = 8 then some ext_get_index_for_new_builder else if g = 209 then some ext_get_total_active_balance else none) g := rfl
+@[l4_simp] theorem extGen_ext (g : Name) : ExtTab.ext g = (fun g : Name => if g = 260 then some ext_get_balance_after_withdrawals else if g = 8 then some ext_get_index_for_new_builder else if g = 387 then some ext_get_set_bit_count else if g = 209 then some ext_get_total_active_balance else none) g := rfl
 
 set_option maxHeartbeats 1000000 in
 theorem encDec_Builder (x : Builder) : GenBridge.EncDec (enc_Builder x) (.cont 14 (kids_Builder x)) := by

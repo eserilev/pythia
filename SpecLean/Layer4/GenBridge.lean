@@ -494,6 +494,35 @@ theorem decOf_list {α : Type} {f : Dec α} {u : DV → Option α} (hf : DecOf f
     · cases hu
   | _ => simp [undvList] at hu
 
+/-- A `Sequence` decoder on a decoded tree: a list of any kind and limit with element type `e`. -/
+def undvListE {α : Type} (e : SszTy) (f : DV → Option α) : DV → Option (List α)
+  | .list _ e' _ ds => if e' = e then ds.mapM f else none
+  | _ => none
+
+theorem decOf_listE {α : Type} {f : Dec α} {u : DV → Option α} (hf : DecOf f u) (e : SszTy) :
+    DecOf (Validation.decListE e f) (undvListE e u) := by
+  intro h n v d x hd hu
+  cases d with
+  | list k' e' l' ds =>
+    simp only [undvListE] at hu
+    split at hu
+    · next hc =>
+      subst hc
+      obtain ⟨a, m, xs, rfl, rfl, ho, hm⟩ := dec_list hd
+      simp only [Validation.decListE, ho, ↓reduceIte]
+      exact mapM_decOf hf xs ds x hm hu
+    · cases hu
+  | _ => simp [undvListE] at hu
+
+theorem undvListE_map {α : Type} {u : DV → Option α} {g : α → DV} (k : ListKind) (e : SszTy) (l : Option Nat)
+    (xs : List α) (hx : ∀ x ∈ xs, u (g x) = some x) : undvListE e u (.list k e l (xs.map g)) = some xs := by
+  simp only [undvListE, ↓reduceIte]
+  induction xs with
+  | nil => rfl
+  | cons x xs ih =>
+    simp only [List.map_cons, List.mapM_cons, hx x (by simp), ih (fun y hy => hx y (by simp [hy]))]
+    rfl
+
 /-- The field `i` of a container, decoded as its tree. -/
 theorem field_decOf {α : Type} {f : Dec α} {u : DV → Option α} (hf : DecOf f u) {h : Heap} {m : Nat}
     {fs : List Value} {ds : List DV} (hm : fs.mapM (dec h m) = some ds) (i : Nat) {y : α}
