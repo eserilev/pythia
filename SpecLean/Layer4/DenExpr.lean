@@ -13,7 +13,7 @@ namespace SpecLean.Layer4
 
 open SpecLean SpecLean.Encode SpecLean.Validation.Where
 
-variable [LibModel]
+variable [LibModel] [ExtTab]
 
 attribute [local instance high] LibModel.toLibValues
 
@@ -128,6 +128,20 @@ def FnOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop :=
     (r : Res (DRes × List DV)), DecArgs h vs roots → WTree h vs fp → HeapWF h →
     (den env fps n).fn fp d roots = some r →
     FnRel fp h vs r (callFn env n d.params (.stmts d.body) Locals.empty vs [] h)
+
+/-- Each callee taken from a statement agrees with the interpreter's call on its body, at every
+fuel from its bound, on arguments whose decoded trees it gets. -/
+def ExtOK (env : Env) : Prop :=
+  ∀ (g : Name) (x : ExtFn) (d : FunctionDef), ExtTab.ext g = some x →
+    env.globals.lookup g = some (.fn d) →
+    ∀ (n : Nat) (roots : List DV) (vs : List Value) (h : Heap) (r : Res DRes),
+      DecArgs h vs roots → HeapWF h → roots.length = d.params.names.length → x.bound roots ≤ n →
+      x.run roots = some r →
+      FnRel [] h vs (r.map (·, roots)) (callFn env n d.params (.stmts d.body) Locals.empty vs [] h)
+
+/-- With no callee taken from a statement, `ExtOK` holds. -/
+theorem extOK_none (env : Env) : @ExtOK _ noExt env := by
+  intro g x d hx; simp at hx
 
 def ArgsOK (h : Heap) (vs : List Value) :
     Res (List DRes) → Res (List Value × List (Name × Value) × Heap) → Prop
@@ -979,10 +993,10 @@ theorem dSer_spec {env : Env} {s : DSt} {rs : List DRes} {r : Res DRes}
 theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) {m : Nat}
     {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : CInv fp h0 h vs s L) (ih : EvF env fp h0 vs s L (m + 1) ((den env fps (m + 1)).expr fp s))
-    (hF : FnOK env fps (m + 1)) {g : Name} {l l' : Line} {args : List Arg}
+    (hF : FnOK env fps (m + 1)) (hX : ExtOK env) {g : Name} {l l' : Line} {args : List Arg}
     (hloc : s.loc g = none) (hc : callable env g = true) {r : Res DRes}
     (hd : DM.bind (argsOf ((den env fps (m + 1)).expr fp s) args)
-      (fun rs => dCallRO env fps (den env fps (m + 1)).fn s g rs) = some r) :
+      (fun rs => dCallRO env fps (m + 1) (den env fps (m + 1)).fn s g rs) = some r) :
     GOK h0.next h vs r (evalExpr env (m + 2) L h (.call l (.name l' g) args)) := by
   have hL : L g = none := by
     have := hI.i.r.loc g; rw [hloc] at this
@@ -1017,6 +1031,47 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
         | fn d =>
           simp only at hd2
           rw [callValue_glob_fn _ _ _ hg]
+          cases hxg : ExtTab.ext g with
+          | some x =>
+            simp only [hxg] at hd2
+            cases hm : rs.mapM (argRoot s) with
+            | none => simp [hm] at hd2
+            | some rg =>
+            rw [hm] at hd2
+            simp only at hd2
+            by_cases hcond : rg.length = d.params.names.length ∧ x.bound rg ≤ m + 1
+            · rw [if_pos hcond] at hd2
+              have hda := argRoots_dec hI2.i.r hrel hm
+              rcases bind_case hd2 with ⟨err, hf, rfl⟩ | ⟨v, hf, hd3⟩
+              · have := hX g x d hxg hg (m + 1) rg ws h2 _ hda hI2.wf hcond.1 hcond.2 hf
+                revert this
+                cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h2 with
+                | error e' => rintro ⟨hn, hne⟩; exact ⟨hn, hne⟩
+                | ok q => intro hx; cases hx
+              · have := hX g x d hxg hg (m + 1) rg ws h2 _ hda hI2.wf hcond.1 hcond.2 hf
+                revert this
+                cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty ws [] h2 with
+                | error e' => intro hx; cases hx
+                | ok q =>
+                  obtain ⟨w, h'⟩ := q
+                  rintro ⟨hrr, hlo, -, -, -, hro, -⟩
+                  have hx' := hro rfl
+                  cases v with
+                  | val v =>
+                    obtain ⟨rfl, hfl⟩ := hrr
+                    simp [hfl, DM.ok] at hd3; subst hd3; exact ⟨hx', trivial, rfl, hfl⟩
+                  | tree t =>
+                    simp [DM.ok] at hd3; subst hd3
+                    obtain ⟨hdt, -⟩ := hrr
+                    refine ⟨hx', fun q a ea => Nat.le_trans hI2.i.fresh.1 (hlo q a ea), hdt,
+                      fun q a ea k p ep => ?_⟩
+                    have hge := hlo q a ea
+                    have hlt := at?_below hI2.below ((at?_Ext hx' hI2.below k p a).mp ep)
+                    omega
+                  | place _ _ => simp at hd3
+            · rw [if_neg hcond] at hd2; cases hd2
+          | none =>
+          simp only [hxg] at hd2
           by_cases hfe : (fps g).isEmpty = true
           · rw [if_pos hfe] at hd2
             cases hm : rs.mapM (argRoot s) with
@@ -1691,6 +1746,7 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
     (hRItems : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ifs elt xs i r,
       (den env fps n).ritems fp s t ifs elt xs i = some r →
       ItemsOK h r (compItems env n L h t ifs [] elt none (.seq (.snap xs)) i))
+    (hX : ExtOK env)
     {fp : Footprint} {h0 : Heap} {vs : List Value} {s : DSt} {L : Locals}
     {h : Heap} (hI : CInv fp h0 h vs s L) :
     EvOK env h0.next h vs L (n + 1) (exprStep env fps n (den env fps n) fp s) := by
@@ -1948,7 +2004,7 @@ theorem exprStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
         simp only [hch] at hd
         split at hd
         · exact kwCall_sound hlf hI ih hloc hc hd
-        · exact roCall_sound hlf hI ih hF hloc hc hd
+        · exact roCall_sound hlf hI ih hF hX hloc hc hd
   | unop l op a =>
     cases op with
     | not =>

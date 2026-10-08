@@ -12,7 +12,7 @@ namespace SpecLean.Layer4
 
 open SpecLean SpecLean.Encode SpecLean.Validation.Where
 
-variable [LibModel]
+variable [LibModel] [ExtTab]
 
 attribute [local instance high] LibModel.toLibValues
 
@@ -381,7 +381,8 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
       EvOK env h0.next h vs L m ((den env fps n).sub fp s))
     (hRItems : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ifs elt xs i r,
       (den env fps n).ritems fp s t ifs elt xs i = some r →
-      ItemsOK h r (compItems env n L h t ifs [] elt none (.seq (.snap xs)) i)) :
+      ItemsOK h r (compItems env n L h t ifs [] elt none (.seq (.snap xs)) i))
+    (hX : ExtOK env) :
     ∀ e r, callStep env fps n (den env fps n) fp s e = some r →
       CallOK fp h0 h vs s L r (evalExpr env (n + 1) L h e) := by
   intro e r hd
@@ -396,7 +397,7 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
   rw [hao] at hd
   simp only at hd
   have ih : EvF env fp h0 vs s L n ((den env fps n).expr fp s) := fun h1 hI1 => hEx fp h0 h1 vs s L hI1
-  have hE1 := exprStep_sound env fps hlf hEx hF hIter hItems hSub hRItems hI
+  have hE1 := exprStep_sound env fps hlf hEx hF hIter hItems hSub hRItems hX hI
   have fallback : (exprStep env fps n (den env fps n) fp s e).map (·.map (·, s.roots)) = some r →
       CallOK fp h0 h vs s L r (evalExpr env (n + 1) L h e) := by
     intro hx
@@ -421,11 +422,11 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
     rw [if_neg hkw] at hd
     -- A call that writes nothing goes through `roCall_sound`.
     have ro : ∀ r', DM.bind (argsOf ((den env fps (m + 1)).expr fp s) args)
-        (fun rs => dCallRO env fps (den env fps (m + 1)).fn s g rs) = some r' →
+        (fun rs => dCallRO env fps (m + 1) (den env fps (m + 1)).fn s g rs) = some r' →
         r = r'.map (·, s.roots) → CallOK fp h0 h vs s L r (evalExpr env (m + 2) L h
           (.call l (.name l' g) args)) := by
       intro r' h1 h2; subst h2
-      exact callOK_of_exprOK hI (roCall_sound hlf hI ih hF hloc hc h1)
+      exact callOK_of_exprOK hI (roCall_sound hlf hI ih hF hX hloc hc h1)
     have hL : L g = none := by
       have := hI.i.r.loc g; rw [hloc] at this
       revert this; cases L g <;> simp [LRel]
@@ -440,14 +441,14 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
         by_cases hfe : (fps g).isEmpty = true
         · simp only [hfe, ↓reduceIte] at hd
           have hd' := hd
-          rw [show (fun rs => DM.bind (dCallRO env fps (den env fps (m + 1)).fn s g rs)
-              fun r => DM.ok (r, s.roots)) = (fun rs => (dCallRO env fps (den env fps (m + 1)).fn s g rs).map
+          rw [show (fun rs => DM.bind (dCallRO env fps (m + 1) (den env fps (m + 1)).fn s g rs)
+              fun r => DM.ok (r, s.roots)) = (fun rs => (dCallRO env fps (m + 1) (den env fps (m + 1)).fn s g rs).map
               (·.map (·, s.roots))) from by
-                funext rs; cases dCallRO env fps (den env fps (m + 1)).fn s g rs with
+                funext rs; cases dCallRO env fps (m + 1) (den env fps (m + 1)).fn s g rs with
                 | none => rfl
                 | some q => cases q <;> rfl, bind_map] at hd'
           cases hb : DM.bind (argsOf ((den env fps (m + 1)).expr fp s) args)
-              (fun rs => dCallRO env fps (den env fps (m + 1)).fn s g rs) with
+              (fun rs => dCallRO env fps (m + 1) (den env fps (m + 1)).fn s g rs) with
           | none => rw [hb] at hd'; cases hd'
           | some r' => rw [hb] at hd'; simp at hd'; exact ro r' hb hd'.symm
         · simp only [hfe, Bool.false_eq_true, ↓reduceIte] at hd
@@ -520,7 +521,7 @@ theorem callStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
       | _ =>
         simp only [hg] at hd
         cases hb : DM.bind (argsOf ((den env fps (m + 1)).expr fp s) args)
-            (fun rs => dCallRO env fps (den env fps (m + 1)).fn s g rs) with
+            (fun rs => dCallRO env fps (m + 1) (den env fps (m + 1)).fn s g rs) with
         | none =>
           rw [bind_map, hb] at hd; cases hd
         | some r' =>
@@ -553,6 +554,7 @@ structure LevelOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop where
   ritems : ∀ fp h0 h vs s L, CInv fp h0 h vs s L → ∀ t ifs elt xs i r,
     (den env fps n).ritems fp s t ifs elt xs i = some r →
     ItemsOK h r (compItems env n L h t ifs [] elt none (.seq (.snap xs)) i)
+  ext : ExtOK env
 
 theorem blockOf_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : LevelOK env fps n)
     {fp : Footprint} {h0 : Heap} {vs : List Value} :
@@ -846,7 +848,7 @@ theorem iterStep_sound (env : Env) (fps : Name → Footprint) (hlf : LibFlat env
   intro it r hd
   have hEF : EvF env fp h0 vs s L n ((den env fps n).expr fp s) :=
     fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1
-  have hE1 := exprStep_sound env fps hlf hL.expr hL.fn hL.iter hL.items hL.sub hL.ritems hI
+  have hE1 := exprStep_sound env fps hlf hL.expr hL.fn hL.iter hL.items hL.sub hL.ritems hL.ext hI
   have place : ∀ (h' : Heap), CInv fp h0 h' vs s L → ∀ (rr : DRes) (w : Value) (enum : Bool),
       ERel h' vs rr w →
       (match rr with
@@ -1037,7 +1039,7 @@ theorem whileStep_sound {env : Env} {fps : Name → Footprint} {n : Nat} (hL : L
           · exact CStmtOK.preS hs12 (hL.whl fp h0 h2 vs s2 L2 hI2 c body r hd4)
           · simp [DM.ok] at hd4; subst hd4; exact ⟨⟨hrr, hll⟩, hI2, hs12⟩
 
-theorem level_zero (env : Env) (fps : Name → Footprint) : LevelOK env fps 0 :=
+theorem level_zero (env : Env) (fps : Name → Footprint) (hX : ExtOK env) : LevelOK env fps 0 :=
   ⟨fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
@@ -1048,14 +1050,14 @@ theorem level_zero (env : Env) (fps : Name → Footprint) : LevelOK env fps 0 :=
    fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
    fun m hm => absurd hm.symm (Nat.succ_ne_zero m),
    fun _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd,
-   fun _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd⟩
+   fun _ _ _ _ _ _ _ _ _ _ _ _ _ hd => by simp [den] at hd, hX⟩
 
 theorem level_succ (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n : Nat}
     (hL : LevelOK env fps n) : LevelOK env fps (n + 1) :=
   ⟨fun fp h0 h vs s L hI =>
-     exprStep_sound env fps hlf hL.expr hL.fn hL.iter hL.items hL.sub hL.ritems hI,
+     exprStep_sound env fps hlf hL.expr hL.fn hL.iter hL.items hL.sub hL.ritems hL.ext hI,
    fun fp h0 h vs s L hI =>
-     callStep_sound env fps hlf hI hL.expr hL.fn hL.iter hL.items hL.sub hL.ritems,
+     callStep_sound env fps hlf hI hL.expr hL.fn hL.iter hL.items hL.sub hL.ritems hL.ext,
    fun fp h0 h vs s L hI t r w res hr hlo hd =>
      targetStep_sound env fps hlf hI (fun h1 hI1 => hL.expr fp h0 h1 vs s L hI1) t hr hlo hd,
    fun fp h0 h vs s L hI => stmtStep_sound env fps hlf hL hI,
@@ -1067,24 +1069,24 @@ theorem level_succ (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) {n
      cases hm
      exact hL.expr fp h0 h vs s L hI,
    fun fp h0 h vs s L hI c body r hd => whileStep_sound hL hI hd,
-   fun fp h0 h vs s L hI t ifs elt xs i r hd => ritemsStep_sound hL.expr hL.ritems hI hd⟩
+   fun fp h0 h vs s L hI t ifs elt xs i r hd => ritemsStep_sound hL.expr hL.ritems hI hd, hL.ext⟩
 
-theorem level_ok (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) :
+theorem level_ok (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) (hX : ExtOK env) :
     ∀ n, LevelOK env fps n
-  | 0 => level_zero env fps
-  | n + 1 => level_succ env fps hlf (level_ok env fps hlf n)
+  | 0 => level_zero env fps hX
+  | n + 1 => level_succ env fps hlf (level_ok env fps hlf hX n)
 
 /-- The theorem for the fragment with calls. `fps` gives the footprint of each callee. For a
 function `f` whose denotation at fuel `n` gives `r`: under `WTree` over the footprint `fp`, in a
 well-formed heap, the interpreter at fuel `n` matches `r`. Reads and calls may allocate. `interp_fuel_mono` gives every larger fuel. -/
-theorem denote_sound_calls (env : Env) (fps : Name → Footprint) (hlf : LibFlat env)
+theorem denote_sound_calls (env : Env) (fps : Name → Footprint) (hlf : LibFlat env) (hX : ExtOK env)
     (gfp fp : Footprint) {f : Name} {d : FunctionDef} (hg : env.globals.lookup f = some (.fn d))
     {h : Heap} {vs : List Value} {roots : List DV} (hdec : DecArgs h vs roots)
     (hw : WTree h vs fp) (hwf : HeapWF h) {n : Nat} {r : Res (DRes × List DV)}
     (hd : (den env fps n).fn fp d roots = some r) :
     ResultMatches gfp fp h vs (fun (x : DRes × List DV) h' v => ERel h' vs x.1 v ∧ DecArgs h' vs x.2)
       (interp env n f vs h) (r.mapError SpecError.fail) := by
-  have hrel := (level_ok env fps hlf n).fn fp d roots vs h r hdec hw hwf hd
+  have hrel := (level_ok env fps hlf hX n).fn fp d roots vs h r hdec hw hwf hd
   rw [interp, callName, callValue_glob_fn _ _ _ hg]
   revert hrel
   cases callFn env n d.params (.stmts d.body) Locals.empty vs [] h with

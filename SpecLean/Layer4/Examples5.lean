@@ -330,7 +330,7 @@ theorem get_active_validator_indices_l4 (sha : Oracle) (gfp : Footprint) (h : He
     | 0, hv', hd' => simp at hv' hd'; subst hv'; subst hd'; exact ⟨n, hd⟩
     | 1, hv', hd' => simp at hv' hd'; subst hv'; subst hd'; exact ⟨0, dec_flat rfl 0⟩
     | _ + 2, hv', _ => simp at hv'
-  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp []
+  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) gfp []
     (f := Scope.Id.«get_active_validator_indices»)
     (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec (Examples.wtree_nil h _) hwf hden
   refine resultMatches_mono hf (Examples.resultMatches_map

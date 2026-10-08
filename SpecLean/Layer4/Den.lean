@@ -277,12 +277,42 @@ theorem padNone_full {d : FunctionDef} {rg : List DV} (h : rg.length = d.params.
     padNone d rg = some rg := by
   unfold padNone; rw [if_pos (by omega)]; simp [h]
 
-/-- A call that writes nothing. `fn` is the callee body at the fuel of the call. -/
-def dCallRO (env : Env) (fps : Name → Footprint)
+/-- A callee taken from a statement, not from its body: the fuel its call needs and its result
+on the decoded arguments. It writes nothing. -/
+structure ExtFn where
+  bound : List DV → Nat
+  run : List DV → DM DRes
+
+/-- The callees taken from statements (`ExtOK` says that each agrees with the interpreter). -/
+class ExtTab where
+  ext : Name → Option ExtFn
+
+/-- No callee is taken from a statement. -/
+instance (priority := low) noExt : ExtTab := ⟨fun _ => none⟩
+
+@[simp] theorem noExt_ext (g : Name) : (noExt.ext g) = none := rfl
+
+variable [ExtTab]
+
+/-- A call that writes nothing. `fn` is the callee body at fuel `n`, the fuel of the call. -/
+def dCallRO (env : Env) (fps : Name → Footprint) (n : Nat)
     (fn : Footprint → FunctionDef → List DV → DM (DRes × List DV)) (s : DSt) (g : Name)
     (rs : List DRes) : DM DRes :=
   match env.globals.lookup g with
   | some (.fn d) =>
+    match ExtTab.ext g with
+    | some x =>
+      match rs.mapM (argRoot s) with
+      | some rg =>
+        if rg.length = d.params.names.length ∧ x.bound rg ≤ n then
+          DM.bind (x.run rg) fun r =>
+            match r with
+            | .val v => if Flat v then .ok (.val v) else none
+            | .tree t => .ok (.tree t)
+            | .place _ _ => none
+        else none
+      | none => none
+    | none =>
     if (fps g).isEmpty then
       match rs.mapM (argRoot s) with
       | some rg =>
@@ -300,13 +330,13 @@ def dCallRO (env : Env) (fps : Name → Footprint)
   | _ => none
 
 /-- A call at statement level: it may write through its one place argument. -/
-def dCallW (env : Env) (fps : Name → Footprint)
+def dCallW (env : Env) (fps : Name → Footprint) (n : Nat)
     (fn : Footprint → FunctionDef → List DV → DM (DRes × List DV)) (fp : Footprint) (s : DSt)
     (g : Name) (rs : List DRes) : DM (DRes × List DV) :=
   match env.globals.lookup g with
   | some (.fn d) =>
     if (fps g).isEmpty then
-      DM.bind (dCallRO env fps fn s g rs) fun r => .ok (r, s.roots)
+      DM.bind (dCallRO env fps n fn s g rs) fun r => .ok (r, s.roots)
     else
       match onePlace rs, rs.mapM (argRoot s) with
       | some (i, k, p), some rg =>
@@ -321,7 +351,7 @@ def dCallW (env : Env) (fps : Name → Footprint)
           else none
         | _, _ => none
       | _, _ => none
-  | _ => dCallRO env fps fn s g rs |>.map (·.map (·, s.roots))
+  | _ => dCallRO env fps n fn s g rs |>.map (·.map (·, s.roots))
 
 /-- A global that a call can name: a spec function or an SSZ class. -/
 def callable (env : Env) (g : Name) : Bool :=
@@ -554,7 +584,7 @@ def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
     match n, callHead env s e with
     | _ + 1, some (g, args) =>
       if allKw args then DM.bind (kwsOf (P.expr fp s) args) fun kvs => kwCtor env g kvs
-      else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallRO env fps P.fn s g rs
+      else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallRO env fps n P.fn s g rs
     | _ + 2, none =>
       match fromBytesOf env s e with
       | some args => DM.bind (argsOf (P.expr fp s) args) fun rs => dFromBytes env rs
@@ -614,7 +644,7 @@ def callStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
   | _ + 1, some (g, args) =>
     if allKw args then
       DM.bind (DM.bind (kwsOf (P.expr fp s) args) fun kvs => kwCtor env g kvs) fun r => .ok (r, s.roots)
-    else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallW env fps P.fn fp s g rs
+    else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallW env fps n P.fn fp s g rs
   | _, _ => (exprStep env fps n P fp s e).map (·.map (·, s.roots))
 
 def targetStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) :

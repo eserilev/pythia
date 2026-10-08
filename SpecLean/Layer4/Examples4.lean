@@ -989,7 +989,7 @@ theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
       | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
       | 1, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨nw, hdw⟩
       | _ + 2, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp awFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) gfp awFp
       (f := Scope.Id.«apply_withdrawals»)
       (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
     rw [hden] at hm

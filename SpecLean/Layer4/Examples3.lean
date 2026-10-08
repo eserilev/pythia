@@ -1071,7 +1071,7 @@ theorem process_effective_balance_updates_l4 (sha : Oracle) (gfp : Footprint) (h
       match k, hv, hd' with
       | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
       | _ + 1, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp pebuFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) gfp pebuFp
       (f := Scope.Id.«process_effective_balance_updates»)
       (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
     rw [hden] at hm

@@ -15,7 +15,7 @@ namespace SpecLean.Layer4.GenSteps
 
 open SpecLean SpecLean.Encode SpecLean.Layer4
 
-variable [LibModel]
+variable [LibModel] [ExtTab]
 
 attribute [local instance high] LibModel.toLibValues
 
@@ -120,7 +120,7 @@ theorem s_call (l : Line) (f : Expr) (args : List Arg)
       | some (g, args) =>
         if allKw args then DM.bind (kwsOf ((den env fps (n + 1)).expr fp s) args) fun kvs => kwCtor env g kvs
         else DM.bind (argsOf ((den env fps (n + 1)).expr fp s) args) fun rs =>
-          dCallRO env fps (den env fps (n + 1)).fn s g rs
+          dCallRO env fps (n + 1) (den env fps (n + 1)).fn s g rs
       | none => none := by
   rw [den_expr]
   cases hc : callHead env s (.call l f args) with
@@ -156,7 +156,7 @@ theorem s_callStep (e : Expr) (hap : appendOf env e = none) :
           DM.bind (DM.bind (kwsOf ((den env fps (n + 1)).expr fp s) args) fun kvs => kwCtor env g kvs)
             fun r => .ok (r, s.roots)
         else DM.bind (argsOf ((den env fps (n + 1)).expr fp s) args) fun rs =>
-          dCallW env fps (den env fps (n + 1)).fn fp s g rs
+          dCallW env fps (n + 1) (den env fps (n + 1)).fn fp s g rs
       | none => DM.bind ((den env fps (n + 2)).expr fp s e) fun r => .ok (r, s.roots) := by
   rw [den_call]; unfold callStep; simp only [hap]; show (match n + 1, callHead env s e with
     | _ + 1, some (g, args) => _
@@ -883,7 +883,7 @@ macro_rules
       uv_ofNat, Rd.uOp, Rd.uOf, Rd.erase, Rd.uv, emap_ite, emap_ok, emap_err,
       merr_ok, merr_err, epure, ethrow, ebind_pure, SpecError.fail, callHead, callable, Option.isNone,
       Bool.and_true, Bool.true_and, Bool.and_false, Bool.false_and, Bool.not_true, Bool.not_false,
-      argsOf, dCallRO, dCallW, allKw_nil, allKw_pos, allKw_starred, allKw_kw, kwsOf, kwCtor,
+      argsOf, dCallRO, noExt_ext, dCallW, allKw_nil, allKw_pos, allKw_starred, allKw_kw, kwsOf, kwCtor,
       kwFields, flatTy, Bool.and_self, List.all_cons, List.all_nil, List.contains_cons, List.contains_nil,
       List.lookup_cons, List.lookup_nil, List.map_cons, List.map_nil, Bool.or_self, Bool.true_or, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
       Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,
@@ -915,7 +915,7 @@ macro_rules
       uv_ofNat, Rd.uOp, Rd.uOf, Rd.erase, Rd.uv, emap_ite, emap_ok, emap_err,
       merr_ok, merr_err, epure, ethrow, ebind_pure, SpecError.fail, callHead, callable, Option.isNone,
       Bool.and_true, Bool.true_and, Bool.and_false, Bool.false_and, Bool.not_true, Bool.not_false,
-      argsOf, dCallRO, dCallW, allKw_nil, allKw_pos, allKw_starred, allKw_kw, kwsOf, kwCtor,
+      argsOf, dCallRO, noExt_ext, dCallW, allKw_nil, allKw_pos, allKw_starred, allKw_kw, kwsOf, kwCtor,
       kwFields, flatTy, Bool.and_self, List.all_cons, List.all_nil, List.contains_cons, List.contains_nil,
       List.lookup_cons, List.lookup_nil, List.map_cons, List.map_nil, Bool.or_self, Bool.true_or, dmb_none, Int.reduceAbs, Nat.reduceLeDiff, Int.reduceEq,
       Int.reduceLT, Int.reduceLE, Int.reducePow, Nat.reducePow, Int.reduceToNat, dCtor, ctorFlat, allVals, argRoot, merr_ite, eb_assoc, dm_assoc, Int.natCast_eq_zero, List.mapM_cons, List.mapM_nil,

@@ -296,7 +296,7 @@ theorem dec_alloc_flat {h : Heap} {ty : Name} {ws : List Value} (hf : ∀ v ∈ 
     simp [dec_flat hfx, hx]
   simp [this]
 
-variable [LibModel]
+variable [LibModel] [ExtTab]
 
 attribute [local instance high] LibModel.toLibValues
 

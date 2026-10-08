@@ -363,7 +363,7 @@ theorem get_current_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
     match k, hv, hd' with
     | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
     | _ + 1, hv, _ => simp at hv
-  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp []
+  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) gfp []
     (f := Scope.Id.«get_current_epoch») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
     hdec (Examples.wtree_nil h _) hwf hden
   refine resultMatches_mono hf (Examples.resultMatches_map
@@ -611,7 +611,7 @@ theorem get_previous_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf :
     match k, hv, hd' with
     | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
     | _ + 1, hv, _ => simp at hv
-  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp []
+  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) gfp []
     (f := Scope.Id.«get_previous_epoch») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
     hdec (Examples.wtree_nil h _) hwf hden
   refine resultMatches_mono hf (Examples.resultMatches_map
@@ -654,7 +654,7 @@ theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : H
       | 1, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨0, dec_flat rfl 0⟩
       | 2, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨0, dec_flat rfl 0⟩
       | _ + 3, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp Examples.ibFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) gfp Examples.ibFp
       (f := Scope.Id.«decrease_balance») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
       hdec hw hwf hdn
     rw [hden] at hm

@@ -14,6 +14,8 @@ open SpecLean SpecLean.Encode SpecLean.Layer4 SpecLean.Rd
 
 attribute [local instance high] LibModel.toLibValues
 
+variable [ExtTab]
+
 theorem l4_wrap {sha : Oracle} {fps : Name → Footprint} {gfp fp : Footprint} {fid : Name}
     {d : FunctionDef} (hg : (Scope.env sha).globals.lookup fid = some (.fn d)) {h : Heap}
     (hwf : HeapWF h) (hh : Examples2.HtrDec (Scope.env sha)) {vs : List Value} {roots : List DV} (hdec : DecArgs h vs roots)
@@ -21,13 +23,14 @@ theorem l4_wrap {sha : Oracle} {fps : Name → Footprint} {gfp fp : Footprint} {
     (hden : ((den (Scope.env sha) fps n).fn fp d roots).map (Except.mapError SpecError.fail) =
       some (g <$> r))
     {E : α → Heap → Value → Prop}
-    (hE : ∀ x h' v, ERel h' vs (g x).1 v ∧ DecArgs h' vs (g x).2 → E x h' v) :
+    (hE : ∀ x h' v, ERel h' vs (g x).1 v ∧ DecArgs h' vs (g x).2 → E x h' v)
+    (hX : ExtOK (Scope.env sha) := by first | assumption | exact extOK_none _) :
     ResultMatches gfp fp h vs E (interp (Scope.env sha) n fid vs h) r := by
   cases hd : (den (Scope.env sha) fps n).fn fp d roots with
   | none => rw [hd] at hden; cases hden
   | some r0 =>
     rw [hd] at hden
-    have hm := denote_sound_calls (Scope.env sha) fps (Examples2.libFlat_ssz _ (Examples2.nmOK_scope _) hh) gfp fp hg hdec hw hwf hd
+    have hm := denote_sound_calls (Scope.env sha) fps (Examples2.libFlat_ssz _ (Examples2.nmOK_scope _) hh) hX gfp fp hg hdec hw hwf hd
     simp only [Option.map_some, Option.some.injEq] at hden
     rw [hden] at hm
     exact Examples.resultMatches_map hE hm
