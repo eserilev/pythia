@@ -1,4 +1,4 @@
-import Bridge.Sim
+import Bridge.Lists
 import SpecLean.Gen.Readable
 
 /-!
@@ -38,26 +38,6 @@ theorem get_current_epoch_eq (s : EpochProofs.Spec.BeaconState) (r : Gen.BeaconS
       (EpochProofs.Spec.get_current_epoch Hand s).mapError errClass := by
   have hr : r.slot = ⟨s.slot⟩ := by rw [← hslot]
   simp only [Gen.get_current_epoch, hr, rd_compute_epoch_at_slot _ hs]
-  rfl
-
-theorem lget_ok {α : Type} (xs : List α) (i : Nat) (h : i < xs.length) :
-    lget xs (i : Int) = .ok xs[i] := by
-  unfold lget Rd.pyIndex
-  rw [if_neg (by omega), if_pos (by omega)]
-  simp [h]
-  rfl
-
-theorem lget_err {α : Type} (xs : List α) (i : Nat) (h : ¬ i < xs.length) :
-    lget xs (i : Int) = .error .invalid := by
-  unfold lget Rd.pyIndex
-  rw [if_neg (by omega), if_neg (by omega)]
-  rfl
-
-theorem lset_ok {α : Type} (xs : List α) (i : Nat) (x : α) (h : i < xs.length) :
-    lset xs (i : Int) x = .ok (xs.set i x) := by
-  unfold lset Rd.pyIndex
-  rw [if_neg (by omega), if_pos (by omega)]
-  simp only [Int.toNat_natCast]
   rfl
 
 theorem rd_saturating_sub (a d : Nat) (ha : a < 2 ^ 64) :

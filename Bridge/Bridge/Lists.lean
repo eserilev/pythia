@@ -430,4 +430,25 @@ theorem pyRange_uv_len {α β : Type} [UintC α] [UintC β] {a : α} {b : β} {y
   cases h
   simp
 
+/-- `xs[i]` and `xs[i] = x` at an index in range, and `xs[i]` out of range. -/
+theorem lget_ok {α : Type} (xs : List α) (i : Nat) (h : i < xs.length) :
+    lget xs (i : Int) = .ok xs[i] := by
+  unfold lget Rd.pyIndex
+  rw [if_neg (by omega), if_pos (by omega)]
+  simp [h]
+  rfl
+
+theorem lget_err {α : Type} (xs : List α) (i : Nat) (h : ¬ i < xs.length) :
+    lget xs (i : Int) = .error .invalid := by
+  unfold lget Rd.pyIndex
+  rw [if_neg (by omega), if_neg (by omega)]
+  rfl
+
+theorem lset_ok {α : Type} (xs : List α) (i : Nat) (x : α) (h : i < xs.length) :
+    lset xs (i : Int) x = .ok (xs.set i x) := by
+  unfold lset Rd.pyIndex
+  rw [if_neg (by omega), if_pos (by omega)]
+  simp only [Int.toNat_natCast]
+  rfl
+
 end Pythia.Bridge
