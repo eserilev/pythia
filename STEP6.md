@@ -358,7 +358,7 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 | proved, conditional | 50 (and 31 callees) |
 | proved, full | 49 (and 27 callees) |
 | loops proved by hand (`Mainnet/Proofs.lean`) | 2 of the 23 mapped loops, and 3 callee loops |
-| loops proved by `bridge_loop` (generated) | 3 (`process_inactivity_updates`, `process_slashings`, `get_inactivity_penalty_deltas`) |
+| loops proved by `bridge_loop` (generated) | 4 (`process_inactivity_updates`, `process_slashings`, `get_inactivity_penalty_deltas`, `get_flag_index_deltas`) |
 
 `bridge_main` has these steps in addition to the steps for binds, `if` and leaves:
 
@@ -466,6 +466,13 @@ accumulator is an `MProd`, with the lists in the order of their names. The state
 functions have a range post condition on the lists. `post_loop` (with `bridge_loop_post` and
 `bridge_post_walk`) gives it: the same index loop, with an invariant `J` on the readable loop
 variables only. `get_inactivity_penalty_deltas` has a generated proof of this shape.
+
+`get_flag_index_deltas` (two lists) also has a generated proof.
+
+Facts of the context are found by the head of their left side (`bridge_from_ok lem f`: `refine
+lem h …` for a fact `h : f … = .ok _`), and conjuncts of hypotheses by `bridge_conj_assumption`.
+`assumption` and `‹_›` try every hypothesis with full unfolding, and they reached the recursion
+limit on the large states of these goals.
 
 All alternatives of `bridge_inv` are in one `first`. Separate `macro_rules` do not fall back
 to the next rule when an alternative logs an elaboration error.

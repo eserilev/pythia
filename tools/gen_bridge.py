@@ -575,6 +575,7 @@ attribute [local instance] Gen.Cfg.default
 set_option linter.unusedSectionVars false
 set_option linter.unusedVariables false
 set_option maxHeartbeats 4000000
+set_option maxRecDepth 4000
 
 variable [Spec]
 """
@@ -664,8 +665,9 @@ def loop_shape(m, name):
         return {"kind": "field", "vs": vs, "j": js[0], "field": field, "conv": conv,
                 "ir": m.ir(rt[5:])}
     pre, body = hb.split("for ", 1)
-    accs = [a for a in re.findall(r"let mut (\w+) :=", pre)
-            if re.search(rf"\b{a} (←|:=)", body)]
+    # with two lists, the hand accumulator is an `MProd` with the lists in the order of their names
+    accs = sorted(a for a in re.findall(r"let mut (\w+) :=", pre)
+                  if re.search(rf"\b{a} (←|:=)", body))
     if not accs or len(accs) > 2:
         return None
     vn = [v for v, _ in vs]
@@ -731,9 +733,9 @@ def loop_proof(m, st, callees):
         js, irs = sh["js"], sh["irs"]
         projs = ["l" + ".2" * jj + (".1" if jj < k - 1 else "") for jj in js]
         jinv = f"fun _ {vv} => " + " ∧ ".join(
-            f"{v[jj]}.length < 2 ^ 64 ∧ (∀ y ∈ {v[jj]}, {ii} y)" for jj, ii in zip(js, irs))
+            f"({v[jj]}.length < 2 ^ 64 ∧ (∀ y ∈ {v[jj]}, {ii} y))" for jj, ii in zip(js, irs))
         qpost = "fun l => " + " ∧ ".join(
-            f"({pj}).length < 2 ^ 64 ∧ (∀ y ∈ {pj}, {ii} y)" for pj, ii in zip(projs, irs))
+            f"(({pj}).length < 2 ^ 64 ∧ (∀ y ∈ {pj}, {ii} y))" for pj, ii in zip(projs, irs))
         tail = (f"  · (try dsimp only)\n    bridge_post_walk\n    all_goals\n"
                 f"      bridge_loop_post ({jinv}) ({qpost})\n"
                 f"      case pinit => bridge_range\n"

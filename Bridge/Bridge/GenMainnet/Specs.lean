@@ -12,6 +12,7 @@ attribute [local instance] GenMainnet.Cfg.default
 set_option linter.unusedSectionVars false
 set_option linter.unusedVariables false
 set_option maxHeartbeats 4000000
+set_option maxRecDepth 4000
 
 variable [Spec]
 
