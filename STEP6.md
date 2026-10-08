@@ -355,7 +355,7 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 |---|---|
 | Mapped functions without a loop | 83 |
 | with a statement | 74 |
-| proved, conditional | 42 (and 24 callees) |
+| proved, conditional | 44 (and 26 callees) |
 | proved, full | 41 (and 20 callees) |
 
 `bridge_main` has these steps in addition to the steps for binds, `if` and leaves:

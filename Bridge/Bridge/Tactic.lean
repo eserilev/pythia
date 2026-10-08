@@ -366,46 +366,6 @@ elab_rules : tactic
         catch _ => s.restore
     throwError "bridge_mem: no fact"
 
-macro_rules | `(tactic| bridge_range0) => `(tactic| first
-  | assumption
-  | bridge_mem
-  | (simp only [bridge_simp]; done)
-  | bridge_decide
-  | (simp only [Option.mem_def, Option.some.injEq, forall_eq', forall_eq]; first | bridge_range0 | (split <;> bridge_range0))
-  | (bridge_facts0
-     try simp only [bridge_ir, uv, decide_eq_true_eq, gt_iff_lt, Int.toNat_natCast]
-     bridge_nat
-     first
-     | assumption
-     | omega
-     | (simp_all only; done)
-     | (simp_all; done)
-     | (simp_all; omega))
-  | (bridge_facts0
-     simp only [bridge_ir, bridge_cast, bd, bridge_simp, List.length_append, List.length_drop,
-       List.length_cons, List.length_nil]
-     simp_all
-     done))
-
-/-- Close the goal with `simpa using h` for a negated hypothesis `h` of the context. -/
-syntax "bridge_from_not" : tactic
-
-open Lean Meta Elab Tactic in
-elab_rules : tactic
-  | `(tactic| bridge_from_not) => withMainContext do
-    for d in ← getLCtx do
-      if d.isImplementationDetail then continue
-      let t := (← instantiateMVars d.type).consumeMData
-      unless t.isAppOfArity ``Not 1 do continue
-      let s ← saveState
-      try
-        let hS ← Term.exprToSyntax d.toExpr
-        evalTactic (← `(tactic| simpa using $hS))
-        if (← getUnsolvedGoals).isEmpty then return
-        s.restore
-      catch _ => s.restore
-    throwError "bridge_from_not: no hypothesis"
-
 /-- Close `f x = .ok ?b` with a hypothesis `f y = .ok b` of the same head `f`. `assumption` tries
 every hypothesis and can unfold large definitions. -/
 syntax "bridge_ok_hyp" : tactic
@@ -429,6 +389,67 @@ elab_rules : tactic
       catch _ => s.restore
     throwError "bridge_ok_hyp: no hypothesis"
 
+/-- `assumption`, but a goal `call = .ok _` uses only hypotheses about the same call: other
+hypotheses make the unifier unfold large definitions. -/
+syntax "bridge_assumption" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_assumption) => withMainContext do
+    let t := (← instantiateMVars (← getMainTarget)).consumeMData
+    if t.isAppOfArity ``Eq 3 && (t.getArg! 2).consumeMData.isAppOfArity ``Except.ok 3 then
+      evalTactic (← `(tactic| bridge_ok_hyp))
+    else
+      let s ← saveState
+      try evalTactic (← `(tactic| with_reducible assumption)) catch _ =>
+        s.restore
+        -- the full `assumption` can reach the recursion limit, which `first` does not catch
+        let ok ← tryCatchRuntimeEx (do evalTactic (← `(tactic| assumption)); pure true)
+          (fun _ => pure false)
+        unless ok do
+          s.restore
+          throwError "bridge_assumption: no hypothesis"
+
+macro_rules | `(tactic| bridge_range0) => `(tactic| first
+  | bridge_assumption
+  | bridge_mem
+  | (simp only [bridge_simp]; done)
+  | bridge_decide
+  | (simp only [Option.mem_def, Option.some.injEq, forall_eq', forall_eq]; first | bridge_range0 | (split <;> bridge_range0))
+  | (bridge_facts0
+     try simp only [bridge_ir, uv, decide_eq_true_eq, gt_iff_lt, Int.toNat_natCast]
+     bridge_nat
+     first
+     | assumption
+     | omega
+     | (simp_all only; done)
+     | (simp_all; done)
+     | (simp_all; omega))
+  | (bridge_facts0
+     simp only [bridge_ir, bridge_cast, bd, bridge_simp, List.length_append, List.length_drop,
+       List.length_cons, List.length_nil]
+     (repeat' apply And.intro)
+     all_goals first | assumption | omega | bridge_mem))
+
+/-- Close the goal with `simpa using h` for a negated hypothesis `h` of the context. -/
+syntax "bridge_from_not" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_from_not) => withMainContext do
+    for d in ← getLCtx do
+      if d.isImplementationDetail then continue
+      let t := (← instantiateMVars d.type).consumeMData
+      unless t.isAppOfArity ``Not 1 do continue
+      let s ← saveState
+      try
+        let hS ← Term.exprToSyntax d.toExpr
+        evalTactic (← `(tactic| simpa using $hS))
+        if (← getUnsolvedGoals).isEmpty then return
+        s.restore
+      catch _ => s.restore
+    throwError "bridge_from_not: no hypothesis"
+
 /-- Close `IR_T ⟨…⟩` for a structure value: one goal per field, each from the context. -/
 syntax "bridge_ir_struct" : tactic
 
@@ -441,10 +462,10 @@ elab_rules : tactic
       throwError "bridge_ir_struct: not an IR goal"
     unless t.appArg!.consumeMData.getAppFn.isConst do
       throwError "bridge_ir_struct: not a structure value"
-    evalTactic (← `(tactic| (bridge_facts; unfold $(mkIdent c):ident; (repeat' apply And.intro); all_goals ((try dsimp only); first | assumption | omega | (intro _ _; first | (apply_assumption <;> assumption) | bridge_range0) | bridge_range0))))
+    evalTactic (← `(tactic| (bridge_facts; unfold $(mkIdent c):ident; (repeat' apply And.intro); all_goals ((try dsimp only); first | bridge_assumption | omega | (intro _ _; first | bridge_mem | bridge_range0) | bridge_range0))))
 
 macro_rules | `(tactic| bridge_range) => `(tactic| first
-  | assumption
+  | bridge_assumption
   | bridge_ir_struct
   | (apply ir_dedup; bridge_range)
   | bridge_mem

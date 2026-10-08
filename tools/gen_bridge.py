@@ -496,9 +496,7 @@ def statement(m, name, rsigs, hsigs):
     irs += extra_hs
     rd_call = f"Gen.{name} " + " ".join(q(n) for n, _ in rbs) if rbs else f"Gen.{name}"
     hd_call = f"{HNS}.{name} " + " ".join(args) if args else f"{HNS}.{name}"
-    elem = strip_parens(rret[5:]) if rret.startswith("List ") else None
-    simple = rret in m.uints or rret in m.bytes or (elem is not None and (elem in m.uints or elem in m.bytes))
-    post = m.ir(rret) if simple else "(fun _ => True)"
+    post = post_ir(m, rret)
     if oracle:
         binders = [("o", "EpochProofs.Spec.Oracle")] + binders
         irs = ["OracleAgrees «o»"] + irs
@@ -506,6 +504,24 @@ def statement(m, name, rsigs, hsigs):
         if hd_call.endswith(" o"):
             hd_call = hd_call[:-2] + " «o»"
     return Stmt(name, binders, irs, rd_call, hd_call, rc, pure, post), None
+
+
+def post_ir(m, rret):
+    """The range post condition of a result of readable type `rret`: uints, byte vectors, lists of
+    them, and pairs of these."""
+    rret = strip_parens(rret)
+    ps = split_prod(rret)
+    if len(ps) == 2:
+        a, b = post_ir(m, ps[0]), post_ir(m, ps[1])
+        return f"(fun x : {m.rty(rret)} => {a} x.1 ∧ {b} x.2)"
+    elem = strip_parens(rret[5:]) if rret.startswith("List ") else None
+    # Not containers: a readable step that appends to a list with no limit cannot keep the list
+    # length below 2 ^ 64, so the post condition `IR_T` fails for many state functions.
+    if rret in m.uints or rret in m.bytes:
+        return m.ir(rret)
+    if elem is not None and (elem in m.uints or elem in m.bytes):
+        return m.ir(rret)
+    return "(fun _ => True)"
 
 
 def signing_root_statement(m, rbs, hbs, hret):

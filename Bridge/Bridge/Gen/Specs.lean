@@ -30,7 +30,7 @@ abbrev spec_compute_activation_exit_epoch : Prop :=
 
 /-- The bridge statement of `compute_consolidation_epoch_and_update_churn`. -/
 abbrev spec_compute_consolidation_epoch_and_update_churn : Prop :=
-  ∀ («state» : Gen.BeaconState) («consolidation_balance» : Gen.Gwei) («total_active_balance» : Nat), IR_BeaconState «state» → (fun x : Gen.Gwei => x.val < 2 ^ 64) «consolidation_balance» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun _ => True) (fun x : (Gen.Epoch) × (Gen.BeaconState) => ((fun x : Gen.Epoch => x.val) x.1, abs_BeaconState x.2)) (Gen.compute_consolidation_epoch_and_update_churn «state» «consolidation_balance») (EpochProofs.Spec.compute_consolidation_epoch_and_update_churn Hand «total_active_balance» (abs_BeaconState «state») ((fun x : Gen.Gwei => x.val) «consolidation_balance»))
+  ∀ («state» : Gen.BeaconState) («consolidation_balance» : Gen.Gwei) («total_active_balance» : Nat), IR_BeaconState «state» → (fun x : Gen.Gwei => x.val < 2 ^ 64) «consolidation_balance» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun x : (Gen.Epoch) × (Gen.BeaconState) => (fun x : Gen.Epoch => x.val < 2 ^ 64) x.1 ∧ (fun _ => True) x.2) (fun x : (Gen.Epoch) × (Gen.BeaconState) => ((fun x : Gen.Epoch => x.val) x.1, abs_BeaconState x.2)) (Gen.compute_consolidation_epoch_and_update_churn «state» «consolidation_balance») (EpochProofs.Spec.compute_consolidation_epoch_and_update_churn Hand «total_active_balance» (abs_BeaconState «state») ((fun x : Gen.Gwei => x.val) «consolidation_balance»))
 
 /-- The bridge statement of `compute_epoch_at_slot`. -/
 abbrev spec_compute_epoch_at_slot : Prop :=
@@ -38,7 +38,7 @@ abbrev spec_compute_epoch_at_slot : Prop :=
 
 /-- The bridge statement of `compute_exit_epoch_and_update_churn`. -/
 abbrev spec_compute_exit_epoch_and_update_churn : Prop :=
-  ∀ («state» : Gen.BeaconState) («exit_balance» : Gen.Gwei) («total_active_balance» : Nat), IR_BeaconState «state» → (fun x : Gen.Gwei => x.val < 2 ^ 64) «exit_balance» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun _ => True) (fun x : (Gen.Epoch) × (Gen.BeaconState) => ((fun x : Gen.Epoch => x.val) x.1, abs_BeaconState x.2)) (Gen.compute_exit_epoch_and_update_churn «state» «exit_balance») (EpochProofs.Spec.compute_exit_epoch_and_update_churn Hand «total_active_balance» (abs_BeaconState «state») ((fun x : Gen.Gwei => x.val) «exit_balance»))
+  ∀ («state» : Gen.BeaconState) («exit_balance» : Gen.Gwei) («total_active_balance» : Nat), IR_BeaconState «state» → (fun x : Gen.Gwei => x.val < 2 ^ 64) «exit_balance» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun x : (Gen.Epoch) × (Gen.BeaconState) => (fun x : Gen.Epoch => x.val < 2 ^ 64) x.1 ∧ (fun _ => True) x.2) (fun x : (Gen.Epoch) × (Gen.BeaconState) => ((fun x : Gen.Epoch => x.val) x.1, abs_BeaconState x.2)) (Gen.compute_exit_epoch_and_update_churn «state» «exit_balance») (EpochProofs.Spec.compute_exit_epoch_and_update_churn Hand «total_active_balance» (abs_BeaconState «state») ((fun x : Gen.Gwei => x.val) «exit_balance»))
 
 /-- The bridge statement of `compute_start_slot_at_epoch`. -/
 abbrev spec_compute_start_slot_at_epoch : Prop :=
@@ -98,11 +98,11 @@ abbrev spec_get_finality_delay : Prop :=
 
 /-- The bridge statement of `get_flag_index_deltas`. -/
 abbrev spec_get_flag_index_deltas : Prop :=
-  ∀ («state» : Gen.BeaconState) («flag_index» : Int) («total_active_balance» : Nat), IR_BeaconState «state» → (fun x : Int => 0 ≤ x) «flag_index» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun _ => True) (fun x : (List (Gen.Gwei)) × (List (Gen.Gwei)) => ((List.map (fun x : Gen.Gwei => x.val)) x.1, (List.map (fun x : Gen.Gwei => x.val)) x.2)) (Gen.get_flag_index_deltas «state» «flag_index») (EpochProofs.Spec.get_flag_index_deltas Hand «total_active_balance» (abs_BeaconState «state») (Int.toNat «flag_index»))
+  ∀ («state» : Gen.BeaconState) («flag_index» : Int) («total_active_balance» : Nat), IR_BeaconState «state» → (fun x : Int => 0 ≤ x) «flag_index» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun x : (List (Gen.Gwei)) × (List (Gen.Gwei)) => (fun xs : List (Gen.Gwei) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.Gwei => x.val < 2 ^ 64) y) x.1 ∧ (fun xs : List (Gen.Gwei) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.Gwei => x.val < 2 ^ 64) y) x.2) (fun x : (List (Gen.Gwei)) × (List (Gen.Gwei)) => ((List.map (fun x : Gen.Gwei => x.val)) x.1, (List.map (fun x : Gen.Gwei => x.val)) x.2)) (Gen.get_flag_index_deltas «state» «flag_index») (EpochProofs.Spec.get_flag_index_deltas Hand «total_active_balance» (abs_BeaconState «state») (Int.toNat «flag_index»))
 
 /-- The bridge statement of `get_inactivity_penalty_deltas`. -/
 abbrev spec_get_inactivity_penalty_deltas : Prop :=
-  ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun _ => True) (fun x : (List (Gen.Gwei)) × (List (Gen.Gwei)) => ((List.map (fun x : Gen.Gwei => x.val)) x.1, (List.map (fun x : Gen.Gwei => x.val)) x.2)) (Gen.get_inactivity_penalty_deltas «state») (EpochProofs.Spec.get_inactivity_penalty_deltas Hand (abs_BeaconState «state»))
+  ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun x : (List (Gen.Gwei)) × (List (Gen.Gwei)) => (fun xs : List (Gen.Gwei) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.Gwei => x.val < 2 ^ 64) y) x.1 ∧ (fun xs : List (Gen.Gwei) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.Gwei => x.val < 2 ^ 64) y) x.2) (fun x : (List (Gen.Gwei)) × (List (Gen.Gwei)) => ((List.map (fun x : Gen.Gwei => x.val)) x.1, (List.map (fun x : Gen.Gwei => x.val)) x.2)) (Gen.get_inactivity_penalty_deltas «state») (EpochProofs.Spec.get_inactivity_penalty_deltas Hand (abs_BeaconState «state»))
 
 /-- The bridge statement of `get_index_for_new_validator`. -/
 abbrev spec_get_index_for_new_validator : Prop :=
