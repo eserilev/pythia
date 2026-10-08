@@ -355,8 +355,8 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 |---|---|
 | Mapped functions without a loop | 83 |
 | with a statement | 74 |
-| proved, conditional | 46 (and 28 callees) |
-| proved, full | 45 (and 22 callees) |
+| proved, conditional | 47 (and 28 callees) |
+| proved, full | 46 (and 22 callees) |
 | loops proved by hand (`Mainnet/Proofs.lean`) | 1 (`integer_squareroot`) |
 
 `bridge_main` has these steps in addition to the steps for binds, `if` and leaves:
@@ -378,14 +378,14 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 
 Functions with a loop get hand-written proofs in `Bridge/Bridge/Mainnet/Proofs.lean`, one
 theorem `hand_f : spec_f` each. The generator reads the names and adds `full_f := hand_f` to
-`Eqs.lean`. `integer_squareroot` is the first: a recursion on `x` that keeps `x ≤ n` and
+`Eqs.lean`. A hand proof can take callee statements as hypotheses (`(h_g : spec_g)`), as the
+generated proofs do. The comprehensions `get_set_bit_count`, `get_balance_after_withdrawals`,
+`process_participation_flag_updates`, `xor` and `get_eligible_validator_indices` (a hand `for`
+loop, `forIn_append`) have hand proofs too. `integer_squareroot` is the first loop: a recursion on `x` that keeps `x ≤ n` and
 `1 ≤ y`, so the division and the addition in the loop cannot fail.
 
 Not proved yet, by cause (examples):
 
-- Comprehensions of other shapes: `get_eligible_validator_indices` (hand `for` loop).
-  `get_set_bit_count`, `get_balance_after_withdrawals`, `process_participation_flag_updates`
-  and `xor` have hand-written proofs in `Mainnet/Proofs.lean`.
 - Functions that return a tuple: the post condition is `True`, so the caller has no range facts
   for the state in the tuple (`initiate_validator_exit`).
 - Block functions with more steps: `process_withdrawal_request`, `process_consolidation_request`,

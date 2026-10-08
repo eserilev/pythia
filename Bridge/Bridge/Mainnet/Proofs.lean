@@ -218,4 +218,148 @@ theorem hand_xor : spec_xor := by
   show Except.ok _ = Except.ok _
   dsimp only
   rw [ofBytes_Bytes32, toVec_zip_xor _ _ ha hb]
+theorem zipIdx_map' {α β : Type} (f : α → β) (l : List α) (n : Nat) :
+    (l.map f).zipIdx n = (l.zipIdx n).map (fun p => (f p.1, p.2)) := by
+  induction l generalizing n with
+  | nil => rfl
+  | cons x l ih => simp [ih]
+
+/-- A hand `for` loop that appends to a list: the same as `filterMapM` of its step. -/
+theorem forIn_append {α : Type} (l : List α) (acc : List Nat)
+    (B : α → List Nat → EpochProofs.Spec.SpecM (ForInStep (List Nat)))
+    (step : α → EpochProofs.Spec.SpecM (Option Nat))
+    (hB : ∀ x a, B x a = step x >>= fun o => pure (ForInStep.yield (a ++ o.toList))) :
+    forIn l acc B = (l.filterMapM step) >>= fun r => pure (acc ++ r) := by
+  induction l generalizing acc with
+  | nil => simp [List.filterMapM_nil]
+  | cons x l ih =>
+    rw [List.forIn_cons, hB, List.filterMapM_cons]
+    cases h : step x with
+    | error e => rfl
+    | ok o =>
+      rw [ok_bind, ok_bind]
+      show forIn l (acc ++ o.toList) B = _
+      rw [ih]
+      cases o with
+      | none => simp
+      | some b =>
+        cases hr : List.filterMapM step l with
+        | error e => rfl
+        | ok r => show Except.ok _ = Except.ok _; simp
+
+theorem sim_filterMapM_gen {γ γ' δ δ' : Type} (k : δ → δ') (e : γ → γ') (F : γ → SpecM (Option δ))
+    (G : γ' → HM (Option δ')) (L : List γ) (hF : ∀ x ∈ L, Sim (Option.map k) (F x) (G (e x))) :
+    Sim (List.map k) (L.filterMapM F) ((L.map e).filterMapM G) := by
+  induction L with
+  | nil => rfl
+  | cons x L ih =>
+    rw [List.map_cons, List.filterMapM_cons, List.filterMapM_cons]
+    apply sim_bind (hF x (List.mem_cons_self ..))
+    intro o _
+    have ih' := ih (fun y hy => hF y (List.mem_cons_of_mem _ hy))
+    cases o with
+    | none => exact ih'
+    | some d =>
+      apply sim_bind ih'
+      intro r _
+      exact sim_pure _ _ _ rfl
+
+/-- The hand `for` loop that collects eligible indices, against the readable comprehension. -/
+theorem hand_get_eligible_validator_indices (h_get_previous_epoch : spec_get_previous_epoch)
+    (h_is_active_validator : spec_is_active_validator) : spec_get_eligible_validator_indices := by
+  intro state hr0
+  bridge_split
+  unfold GenMainnet.get_eligible_validator_indices EpochProofs.Spec.get_eligible_validator_indices
+  simp only [bind_pure]
+  refine simI_intro ?_ ?_
+  · apply sim_bind
+    · apply simI_sim; apply h_get_previous_epoch; assumption
+    intro e he
+    try dsimp only
+    rw [forIn_append _ _ _ (fun (p : EpochProofs.Spec.Validator × Nat) =>
+      if EpochProofs.Spec.is_active_validator p.1 e.val = true then pure (some p.2)
+      else if p.1.slashed = true then do
+        let ep ← EpochProofs.Spec.uint64Add e.val 1
+        pure (if ep < p.1.withdrawable_epoch then some p.2 else none)
+      else pure none)]
+    · simp only [List.nil_append, bind_pure]
+      have hz : (abs_BeaconState state).validators.zipIdx =
+          (state.validators.zipIdx.map fun (x : GenMainnet.Validator × Nat) => ((x.2 : Int), x.1)).map
+            (fun p => (abs_Validator p.2, p.1.toNat)) := by
+        show (state.validators.map abs_Validator).zipIdx = _
+        rw [zipIdx_map', List.map_map]
+        rfl
+      rw [hz]
+      apply sim_filterMapM_gen
+      intro x hx
+      obtain ⟨⟨v, i⟩, hm, rfl⟩ := List.mem_map.mp hx
+      have hgi := List.mk_mem_zipIdx_iff_getElem?.mp hm
+      have hvi : v ∈ state.validators := List.mem_of_getElem? hgi
+      have hil : i < state.validators.length := (List.getElem?_eq_some_iff.mp hgi).1
+      have hirv : IR_Validator v := by bridge_mem
+      have hre : e.val < 2 ^ 64 := (h_get_previous_epoch state hr0).2 e he
+      have hia := simI_sim (h_is_active_validator v e hirv hre)
+      dsimp only
+      cases hb : EpochProofs.Spec.is_active_validator (abs_Validator v) e.val with
+      | true =>
+        have hok : GenMainnet.is_active_validator v e = .ok true := by
+          unfold Sim at hia; rw [hb] at hia
+          cases h : GenMainnet.is_active_validator v e <;> rw [h] at hia <;> cases hia; rfl
+        rw [hok, ok_bind, if_pos rfl, if_pos rfl, uOf_ok _ rfl (by omega), ok_bind, Int.toNat_natCast]
+        rfl
+      | false =>
+        have hok : GenMainnet.is_active_validator v e = .ok false := by
+          unfold Sim at hia; rw [hb] at hia
+          cases h : GenMainnet.is_active_validator v e <;> rw [h] at hia <;> cases hia; rfl
+        rw [hok, ok_bind]
+        have hs' : (abs_Validator v).slashed = v.slashed.val := rfl
+        rw [hs']
+        by_cases hs : v.slashed.val = true
+        · simp only [Bool.false_eq_true, ↓reduceIte, hs]
+          have hwe : (abs_Validator v).withdrawable_epoch = v.withdrawable_epoch.val := rfl
+          rw [hwe]
+          by_cases hov : e.val + 1 < 2 ^ 64
+          · have hadd : (uOp .add (uv e) 1 : SpecM GenMainnet.Epoch) = .ok ⟨e.val + 1⟩ := by
+              rw [show uv e = ((e.val : Nat) : Int) from rfl, show (1 : Int) = ((1 : Nat) : Int) from rfl,
+                uOp_add_nat (α := GenMainnet.Epoch) rfl, if_pos hov]; rfl
+            have hadd' : EpochProofs.Spec.uint64Add e.val 1 = .ok (e.val + 1) := by
+              unfold EpochProofs.Spec.uint64Add; rw [if_pos (by simpa [EpochProofs.Spec.UINT64_SIZE] using hov)]; rfl
+            rw [hadd, ok_bind, hadd', ok_bind]
+            by_cases hlt : e.val + 1 < v.withdrawable_epoch.val
+            · have hd : decide (uv (⟨e.val + 1⟩ : GenMainnet.Epoch) < uv v.withdrawable_epoch) = true := by
+                simp [uv]; omega
+              rw [hd]
+              simp only [pure_bind, ↓reduceIte, hlt]
+              rw [uOf_ok _ rfl (by omega), ok_bind, Int.toNat_natCast]
+              rfl
+            · have hd : decide (uv (⟨e.val + 1⟩ : GenMainnet.Epoch) < uv v.withdrawable_epoch) = false := by
+                simp [uv]; omega
+              rw [hd]
+              simp only [pure_bind, Bool.false_eq_true, ↓reduceIte, hlt]
+              rfl
+          · have hadd : (uOp .add (uv e) 1 : SpecM GenMainnet.Epoch) = .error .bug := by
+              rw [show uv e = ((e.val : Nat) : Int) from rfl, show (1 : Int) = ((1 : Nat) : Int) from rfl,
+                uOp_add_nat (α := GenMainnet.Epoch) rfl, if_neg hov]
+            have hadd' : EpochProofs.Spec.uint64Add e.val 1 = .error .overflow := by
+              unfold EpochProofs.Spec.uint64Add; rw [if_neg (by simpa [EpochProofs.Spec.UINT64_SIZE] using hov)]; rfl
+            rw [hadd, err_bind, hadd', err_bind]
+            rfl
+        · simp only [Bool.false_eq_true, ↓reduceIte, hs]
+          rfl
+    · intro ⟨v, i⟩ a
+      dsimp only
+      split
+      · rfl
+      · split
+        · cases EpochProofs.Spec.uint64Add e.val 1 with
+          | error _ => rfl
+          | ok ep =>
+            show (if _ then _ else _) = _
+            by_cases hl : ep < v.withdrawable_epoch
+            · rw [if_pos hl]; show _ = (pure (if ep < v.withdrawable_epoch then some i else none) >>= _)
+              rw [if_pos hl]; rfl
+            · rw [if_neg hl]; show _ = (pure (if ep < v.withdrawable_epoch then some i else none) >>= _)
+              rw [if_neg hl]; simp
+        · simp
+  · bridge_post
 end Pythia.Bridge.Mainnet

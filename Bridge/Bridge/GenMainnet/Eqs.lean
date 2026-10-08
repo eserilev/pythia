@@ -193,9 +193,13 @@ theorem cond_get_activation_churn_limit (h_get_total_active_balance : spec_get_t
 
 theorem full_get_activation_churn_limit : spec_get_activation_churn_limit := cond_get_activation_churn_limit full_get_total_active_balance
 
-theorem full_get_balance_after_withdrawals : spec_get_balance_after_withdrawals := hand_get_balance_after_withdrawals
+theorem cond_get_balance_after_withdrawals  : spec_get_balance_after_withdrawals := hand_get_balance_after_withdrawals 
 
-theorem full_integer_squareroot : spec_integer_squareroot := hand_integer_squareroot
+theorem full_get_balance_after_withdrawals : spec_get_balance_after_withdrawals := hand_get_balance_after_withdrawals 
+
+theorem cond_integer_squareroot  : spec_integer_squareroot := hand_integer_squareroot 
+
+theorem full_integer_squareroot : spec_integer_squareroot := hand_integer_squareroot 
 
 theorem cond_get_base_reward_per_increment (h_get_total_active_balance : spec_get_total_active_balance) (h_integer_squareroot : spec_integer_squareroot) : spec_get_base_reward_per_increment := by
   intro «state» «total_active_balance» hr0 hr1
@@ -241,6 +245,10 @@ theorem cond_get_previous_epoch (h_get_current_epoch : spec_get_current_epoch) (
   bridge_main
 
 theorem full_get_previous_epoch : spec_get_previous_epoch := cond_get_previous_epoch full_get_current_epoch full_saturating_sub
+
+theorem cond_get_eligible_validator_indices (h_get_previous_epoch : spec_get_previous_epoch) (h_is_active_validator : spec_is_active_validator) : spec_get_eligible_validator_indices := hand_get_eligible_validator_indices h_get_previous_epoch h_is_active_validator
+
+theorem full_get_eligible_validator_indices : spec_get_eligible_validator_indices := hand_get_eligible_validator_indices full_get_previous_epoch full_is_active_validator
 
 theorem cond_get_finality_delay (h_get_previous_epoch : spec_get_previous_epoch) : spec_get_finality_delay := by
   intro «state» hr0
@@ -502,7 +510,9 @@ theorem cond_process_eth1_data_reset (h_get_current_epoch : spec_get_current_epo
 
 theorem full_process_eth1_data_reset : spec_process_eth1_data_reset := cond_process_eth1_data_reset full_get_current_epoch
 
-theorem full_process_participation_flag_updates : spec_process_participation_flag_updates := hand_process_participation_flag_updates
+theorem cond_process_participation_flag_updates  : spec_process_participation_flag_updates := hand_process_participation_flag_updates 
+
+theorem full_process_participation_flag_updates : spec_process_participation_flag_updates := hand_process_participation_flag_updates 
 
 theorem cond_process_randao_mixes_reset (h_get_current_epoch : spec_get_current_epoch) (h_get_randao_mix : spec_get_randao_mix) : spec_process_randao_mixes_reset := by
   intro «state» hr0
@@ -536,7 +546,9 @@ theorem cond_process_sync_committee_updates (h_get_current_epoch : spec_get_curr
   try simp only [bind_pure]
   bridge_main
 
-theorem full_xor : spec_xor := hand_xor
+theorem cond_xor  : spec_xor := hand_xor 
+
+theorem full_xor : spec_xor := hand_xor 
 
 theorem cond_eth_fast_aggregate_verify  : spec_eth_fast_aggregate_verify := by
   intro «o» «pubkeys» «message» «signature» hr0 hr1 hr2 hr3
@@ -547,7 +559,9 @@ theorem cond_eth_fast_aggregate_verify  : spec_eth_fast_aggregate_verify := by
 
 theorem full_eth_fast_aggregate_verify : spec_eth_fast_aggregate_verify := cond_eth_fast_aggregate_verify 
 
-theorem full_get_set_bit_count : spec_get_set_bit_count := hand_get_set_bit_count
+theorem cond_get_set_bit_count  : spec_get_set_bit_count := hand_get_set_bit_count 
+
+theorem full_get_set_bit_count : spec_get_set_bit_count := hand_get_set_bit_count 
 
 theorem cond_update_builder_pending_withdrawals  : spec_update_builder_pending_withdrawals := by
   intro «state» «processed_builder_withdrawals_count» hr0 hr1
@@ -638,9 +652,9 @@ theorem cond_verify_execution_payload_bid_signature (h_compute_signing_root : sp
 theorem full_verify_execution_payload_bid_signature : spec_verify_execution_payload_bid_signature := cond_verify_execution_payload_bid_signature full_compute_signing_root full_get_domain
 
 -- Mapped functions: 106, 83 without a loop, 74 of them with a statement.
--- Conditional: 46 mapped, 28 callees (74 of 115 statements without a loop).
--- Full: 45 mapped, 22 callees.
--- Not proved: add_builder_to_registry, add_flag, add_validator_to_registry, apply_pending_deposit, bytes_to_uint64, compute_committee, compute_consolidation_epoch_and_update_churn, compute_exit_epoch_and_update_churn, compute_proposer_indices, get_attestation_participation_flag_indices, get_beacon_proposer_indices, get_block_root_at_slot, get_committee_count_per_slot, get_eligible_validator_indices, get_indexed_attestation, get_next_sync_committee, get_unslashed_participating_indices, get_validator_from_deposit, initiate_validator_exit, is_slashable_attestation_data, is_valid_indexed_attestation, is_valid_indexed_payload_attestation, process_block_header, process_bls_to_execution_change, process_builder_deposit_request, process_builder_exit_request, process_consolidation_request, process_epoch, process_eth1_data, process_historical_summaries_update, process_justification_and_finalization, process_proposer_lookahead, process_ptc_window, process_randao, process_slot, process_voluntary_exit, process_withdrawal_request, process_withdrawals, settle_builder_payment, slash_validator, weigh_justification_and_finalization.
+-- Conditional: 47 mapped, 28 callees (75 of 115 statements without a loop).
+-- Full: 46 mapped, 22 callees.
+-- Not proved: add_builder_to_registry, add_flag, add_validator_to_registry, apply_pending_deposit, bytes_to_uint64, compute_committee, compute_consolidation_epoch_and_update_churn, compute_exit_epoch_and_update_churn, compute_proposer_indices, get_attestation_participation_flag_indices, get_beacon_proposer_indices, get_block_root_at_slot, get_committee_count_per_slot, get_indexed_attestation, get_next_sync_committee, get_unslashed_participating_indices, get_validator_from_deposit, initiate_validator_exit, is_slashable_attestation_data, is_valid_indexed_attestation, is_valid_indexed_payload_attestation, process_block_header, process_bls_to_execution_change, process_builder_deposit_request, process_builder_exit_request, process_consolidation_request, process_epoch, process_eth1_data, process_historical_summaries_update, process_justification_and_finalization, process_proposer_lookahead, process_ptc_window, process_randao, process_slot, process_voluntary_exit, process_withdrawal_request, process_withdrawals, settle_builder_payment, slash_validator, weigh_justification_and_finalization.
 -- Loops proved by hand (Proofs.lean): integer_squareroot.
 -- Loops (statement only): compute_balance_weighted_selection, compute_ptc, compute_shuffled_permutation, get_attesting_indices, get_builder_withdrawals, get_builders_sweep_withdrawals, get_flag_index_deltas, get_inactivity_penalty_deltas, get_index_for_new_builder, get_pending_balance_to_withdraw, get_pending_balance_to_withdraw_for_builder, get_pending_partial_withdrawals, get_validators_sweep_withdrawals, process_attestation, process_attester_slashing, process_builder_pending_payments, process_effective_balance_updates, process_inactivity_updates, process_pending_consolidations, process_proposer_slashing, process_registry_updates, process_rewards_and_penalties, process_slashings, process_sync_aggregate.
 -- No statement (parameters): apply_withdrawals, decrease_balance, increase_balance, process_block, process_execution_payload_bid, process_operations, process_payload_attestation, process_pending_deposits, process_slots, state_transition.
