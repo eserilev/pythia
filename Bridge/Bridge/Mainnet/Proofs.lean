@@ -880,4 +880,226 @@ theorem hand_process_slashings (h_get_current_epoch : spec_get_current_epoch)
   have hbal : ∀ x ∈ st.balances, x.val < 2 ^ 64 := by assumption
   exact slash_loop st e GenMainnet.EFFECTIVE_BALANCE_INCREMENT pp (by decide) hlen heb _
     (fun v i r => rfl) 0 default default st rfl hbal
+
+/-! ## Epoch processing: effective balance updates -/
+
+theorem ebu_c1 : (uOp .floorDiv (uv GenMainnet.EFFECTIVE_BALANCE_INCREMENT) (uv GenMainnet.HYSTERESIS_QUOTIENT) :
+    SpecM GenMainnet.Gwei) = .ok ⟨250000000⟩ := by rfl
+theorem ebu_c2 : (uCast GenMainnet.Uint64 (⟨250000000⟩ : GenMainnet.Gwei) : SpecM GenMainnet.Uint64) = .ok ⟨250000000⟩ := by rfl
+theorem ebu_c3 : (uOp .mul (uv (⟨250000000⟩ : GenMainnet.Uint64)) (uv GenMainnet.HYSTERESIS_DOWNWARD_MULTIPLIER) :
+    SpecM GenMainnet.Uint64) = .ok ⟨250000000⟩ := by
+  rw [show uv (⟨250000000⟩ : GenMainnet.Uint64) = ((250000000 : Nat) : Int) from rfl,
+    show uv GenMainnet.HYSTERESIS_DOWNWARD_MULTIPLIER = ((1 : Nat) : Int) from rfl,
+    uop_mul_eq (α := GenMainnet.Uint64) rfl, if_pos (by decide)]; rfl
+theorem ebu_c4 : (uOp .mul (uv (⟨250000000⟩ : GenMainnet.Uint64)) (uv GenMainnet.HYSTERESIS_UPWARD_MULTIPLIER) :
+    SpecM GenMainnet.Uint64) = .ok ⟨1250000000⟩ := by
+  rw [show uv (⟨250000000⟩ : GenMainnet.Uint64) = ((250000000 : Nat) : Int) from rfl,
+    show uv GenMainnet.HYSTERESIS_UPWARD_MULTIPLIER = ((5 : Nat) : Int) from rfl,
+    uop_mul_eq (α := GenMainnet.Uint64) rfl, if_pos (by decide)]; rfl
+theorem ebu_h1 : EpochProofs.Spec.uint64Div Hand.EFFECTIVE_BALANCE_INCREMENT Hand.HYSTERESIS_QUOTIENT = .ok 250000000 := by
+  unfold EpochProofs.Spec.uint64Div; rfl
+theorem ebu_h2 : EpochProofs.Spec.uint64Mul 250000000 Hand.HYSTERESIS_DOWNWARD_MULTIPLIER = .ok 250000000 := by
+  rw [u64mul_eq, if_pos (by decide)]; rfl
+theorem ebu_h3 : EpochProofs.Spec.uint64Mul 250000000 Hand.HYSTERESIS_UPWARD_MULTIPLIER = .ok 1250000000 := by
+  rw [u64mul_eq, if_pos (by decide)]; rfl
+
+theorem ebu_split {α : Type} (P l : List α) (i : Nat) (hP : P.length = i) (hi : i < l.length) :
+    P ++ l.drop i = P ++ l[i] :: l.drop (i + 1) := by
+  rw [List.drop_eq_getElem_cons hi]
+
+theorem ebu_lget {α : Type} (P l : List α) (i : Nat) (hP : P.length = i) (hi : i < l.length) :
+    lget (P ++ l.drop i) (i : Int) = .ok l[i] := by
+  rw [ebu_split P l i hP hi, lget_ok _ _ (by simp; omega)]
+  congr 1
+  rw [List.getElem_append_right (by omega)]
+  simp [hP]
+
+theorem ebu_lset {α : Type} (P l : List α) (i : Nat) (x : α) (hP : P.length = i) (hi : i < l.length) :
+    lset (P ++ l.drop i) (i : Int) x = .ok ((P ++ [x]) ++ l.drop (i + 1)) := by
+  rw [ebu_split P l i hP hi, lset_ok _ _ _ (by simp; omega), List.set_append_right _ _ (by omega)]
+  simp [hP]
+  rw [List.drop_eq_getElem_cons hi]; rfl
+
+theorem u64sub_le (a b : Nat) (h : b ≤ a) : EpochProofs.Spec.uint64Sub a b = .ok (a - b) := by
+  unfold EpochProofs.Spec.uint64Sub; rw [if_pos h]; rfl
+
+
+theorem uop_sub_ok {α : Type} [UintC α] (hb : UintC.bits α = 64) (a b : Nat) (hle : b ≤ a) (ha : a < 2 ^ 64) :
+    (uOp .sub (a : Int) (b : Int) : SpecM α) = .ok (UintC.ofNat (a - b)) := by
+  unfold uOp
+  simp only [erase, intArith, mapError_ok, ok_bind]
+  rw [show (a : Int) - (b : Int) = ((a - b : Nat) : Int) by omega, uOf_ok _ hb (by omega)]
+
+theorem pyMin2_ok {α : Type} [UintC α] [PyOrd α] (a b : α) :
+    pyMin [a, b] = .ok (if PyOrd.lt b a = true then b else a) := rfl
+
+/-- The readable effective balance loop against the hand `for` loop: after `i` steps the state
+holds the `i` new validators `P`, then the old validators from index `i`. -/
+theorem ebu_loop (st0 : GenMainnet.BeaconState)
+    (hlen : st0.validators.length < 2 ^ 64)
+    (hir : ∀ v ∈ st0.validators, IR_Validator v)
+    (hbal : ∀ x ∈ st0.balances, x.val < 2 ^ 64)
+    (h_gmeb : spec_get_max_effective_balance)
+    (B : EpochProofs.Spec.Validator × Nat → List EpochProofs.Spec.Validator →
+      EpochProofs.Spec.SpecM (ForInStep (List EpochProofs.Spec.Validator)))
+    (hB : ∀ v i r, B (v, i) r = match (st0.balances.map (·.val))[i]? with
+      | some balance =>
+          EpochProofs.Spec.uint64Div Hand.EFFECTIVE_BALANCE_INCREMENT Hand.HYSTERESIS_QUOTIENT >>= fun HI =>
+          EpochProofs.Spec.uint64Mul HI Hand.HYSTERESIS_DOWNWARD_MULTIPLIER >>= fun DT =>
+          EpochProofs.Spec.uint64Mul HI Hand.HYSTERESIS_UPWARD_MULTIPLIER >>= fun UT =>
+          EpochProofs.Spec.uint64Add balance DT >>= fun below =>
+          if below < v.effective_balance then
+            (EpochProofs.Spec.uint64Mod balance Hand.EFFECTIVE_BALANCE_INCREMENT >>= fun rem =>
+              EpochProofs.Spec.uint64Sub balance rem >>= fun rounded =>
+                pure (ForInStep.yield (r ++ [{ v with effective_balance := min rounded (EpochProofs.Spec.get_max_effective_balance Hand v) }])))
+          else (EpochProofs.Spec.uint64Add v.effective_balance UT >>= fun above =>
+            if decide (above < balance) = true then
+              (EpochProofs.Spec.uint64Mod balance Hand.EFFECTIVE_BALANCE_INCREMENT >>= fun rem =>
+                EpochProofs.Spec.uint64Sub balance rem >>= fun rounded =>
+                  pure (ForInStep.yield (r ++ [{ v with effective_balance := min rounded (EpochProofs.Spec.get_max_effective_balance Hand v) }])))
+            else pure (ForInStep.yield (r ++ [v])))
+      | none => .error .indexOutOfRange)
+    (i : Nat) (P : List GenMainnet.Validator) (hP : P.length = i)
+    (a b c : GenMainnet.Uint64) (d e : GenMainnet.Gwei) (st : GenMainnet.BeaconState)
+    (hst : st = { st0 with validators := P ++ st0.validators.drop i }) :
+    Sim (fun l => abs_BeaconState l.2.2.2.2.2)
+      (GenMainnet.process_effective_balance_updates.loop1 st0.validators.length i a b c d e st)
+      (forIn (((st0.validators.map abs_Validator).zipIdx).drop i) (P.map abs_Validator) B >>=
+        fun r => pure { abs_BeaconState st0 with validators := r }) := by
+  rw [GenMainnet.process_effective_balance_updates.loop1]
+  by_cases hi : i < st0.validators.length
+  · rw [dif_pos hi]
+    have hd : ((st0.validators.map abs_Validator).zipIdx).drop i =
+        (abs_Validator st0.validators[i], i) :: ((st0.validators.map abs_Validator).zipIdx).drop (i + 1) := by
+      rw [List.drop_eq_getElem_cons (by simpa using hi)]; simp
+    rw [hd, List.forIn_cons, hB]
+    subst hst
+    dsimp only
+    by_cases hb : i < st0.balances.length
+    · have hm : (List.map (fun x : GenMainnet.Gwei => x.val) st0.balances)[i]? = some st0.balances[i].val := by
+        simp [hb]
+      rw [hm, lget_ok _ _ hb, ok_bind]
+      dsimp only
+      rw [ebu_c1, ok_bind, ebu_c2, ok_bind, ebu_c3, ok_bind, ebu_c4, ok_bind, ebu_h1, ok_bind, ebu_h2, ok_bind,
+        ebu_h3, ok_bind, ebu_lget P _ i hP hi, ok_bind]
+      have hv := hir _ (List.getElem_mem hi)
+      have hg := simI_sim (h_gmeb _ hv)
+      have hbi : st0.balances[i].val < 2 ^ 64 := hbal _ (List.getElem_mem hb)
+      have hebi : st0.validators[i].effective_balance.val < 2 ^ 64 := hv.2.2.1
+      have hsame : P ++ List.drop i st0.validators = (P ++ [st0.validators[i]]) ++ List.drop (i + 1) st0.validators := by
+        rw [ebu_split P _ i hP hi]; simp
+      have hlset := fun x => ebu_lset P st0.validators i x hP hi
+      have ih := fun P' hP' a' b' c' d' e' st' hst' =>
+        ebu_loop st0 hlen hir hbal h_gmeb B hB (i + 1) P' hP' a' b' c' d' e' st' hst'
+      have hacc : ∀ v' : GenMainnet.Validator, P.map abs_Validator ++ [abs_Validator v'] = (P ++ [v']).map abs_Validator := by
+        intro v'; simp
+      rw [hsame] at *
+      generalize st0.validators[i] = v at *
+      generalize st0.balances[i] = bal at *
+      generalize GenMainnet.get_max_effective_balance v = M at hg
+      cases M with
+      | error err => cases hg
+      | ok m =>
+        have hmv : m.val = EpochProofs.Spec.get_max_effective_balance Hand (abs_Validator v) := Except.ok.inj hg
+        (repeat rw [ok_bind])
+        have hebv : (abs_Validator v).effective_balance = v.effective_balance.val := rfl
+        rw [hebv, show uv bal = ((bal.val : Nat) : Int) from rfl,
+          show uv (⟨250000000⟩ : GenMainnet.Uint64) = ((250000000 : Nat) : Int) from rfl,
+          uop_add_eq (α := GenMainnet.Gwei) rfl, u64add_eq]
+        by_cases ho : bal.val + 250000000 < 2 ^ 64
+        · rw [if_pos ho, if_pos ho]
+          (repeat rw [ok_bind])
+          by_cases hc : bal.val + 250000000 < v.effective_balance.val
+          · have d1 : decide (uv (UintC.ofNat (bal.val + 250000000) : GenMainnet.Gwei) < uv v.effective_balance) = true := by
+              simp [uv]; omega
+            rw [d1, if_pos rfl, pure_bind, if_pos rfl]
+            rw [if_pos hc]
+            (repeat rw [ok_bind])
+            rw [show uv GenMainnet.EFFECTIVE_BALANCE_INCREMENT = ((1000000000 : Nat) : Int) from rfl,
+              uOp_mod_ok (α := GenMainnet.Gwei) rfl _ _ (by decide) hbi, ok_bind,
+              show uv (UintC.ofNat (bal.val % 1000000000) : GenMainnet.Gwei) = ((bal.val % 1000000000 : Nat) : Int) from rfl,
+              uop_sub_ok (α := GenMainnet.Gwei) rfl _ _ (Nat.mod_le _ _) hbi, ok_bind, pyMin2_ok, ok_bind, hlset, ok_bind,
+              pure_bind]
+            rw [show Hand.EFFECTIVE_BALANCE_INCREMENT = 1000000000 from rfl, uint64Mod_ok _ _ (by decide), ok_bind,
+              u64sub_le _ _ (Nat.mod_le _ _), ok_bind]
+            have hmin := Except.ok.inj (sim_pyMin2 (fun _ _ => rfl) (UintC.ofNat (bal.val - bal.val % 1000000000) : GenMainnet.Gwei) m)
+            rw [← hmv, show bal.val - bal.val % 1000000000 = UintC.val (UintC.ofNat (bal.val - bal.val % 1000000000) : GenMainnet.Gwei) from rfl,
+              show m.val = UintC.val m from rfl, ← hmin]
+            have := ih (P ++ [{ v with effective_balance := if PyOrd.lt m (UintC.ofNat (bal.val - bal.val % 1000000000) : GenMainnet.Gwei) = true then m else UintC.ofNat (bal.val - bal.val % 1000000000) }])
+              (by simp [hP]) ⟨250000000⟩ ⟨250000000⟩ ⟨1250000000⟩ bal m _ rfl
+            rw [List.map_append, List.map_singleton] at this
+            exact this
+          · have d1 : ¬ decide (uv (UintC.ofNat (bal.val + 250000000) : GenMainnet.Gwei) < uv v.effective_balance) = true := by
+              simp [uv]; omega
+            rw [if_neg d1, if_neg hc]
+            (repeat rw [ok_bind])
+            rw [show uv v.effective_balance = ((v.effective_balance.val : Nat) : Int) from rfl,
+              show uv (⟨1250000000⟩ : GenMainnet.Uint64) = ((1250000000 : Nat) : Int) from rfl,
+              uop_add_eq (α := GenMainnet.Gwei) rfl, u64add_eq]
+            by_cases ho2 : v.effective_balance.val + 1250000000 < 2 ^ 64
+            · rw [if_pos ho2, if_pos ho2]
+              (repeat rw [ok_bind])
+              rw [pure_bind]
+              by_cases hc2 : v.effective_balance.val + 1250000000 < bal.val
+              · have d2 : decide (uv (UintC.ofNat (v.effective_balance.val + 1250000000) : GenMainnet.Gwei) < ((bal.val : Nat) : Int)) = true := by
+                  simp [uv]; omega
+                have d3 : decide (v.effective_balance.val + 1250000000 < bal.val) = true := by simp [hc2]
+                rw [d2, if_pos rfl, d3, if_pos rfl]
+                (repeat rw [ok_bind])
+                rw [show uv GenMainnet.EFFECTIVE_BALANCE_INCREMENT = ((1000000000 : Nat) : Int) from rfl,
+                  uOp_mod_ok (α := GenMainnet.Gwei) rfl _ _ (by decide) hbi, ok_bind,
+                  show uv (UintC.ofNat (bal.val % 1000000000) : GenMainnet.Gwei) = ((bal.val % 1000000000 : Nat) : Int) from rfl,
+                  uop_sub_ok (α := GenMainnet.Gwei) rfl _ _ (Nat.mod_le _ _) hbi, ok_bind, pyMin2_ok, ok_bind, hlset, ok_bind,
+                  pure_bind]
+                rw [show Hand.EFFECTIVE_BALANCE_INCREMENT = 1000000000 from rfl, uint64Mod_ok _ _ (by decide), ok_bind,
+                  u64sub_le _ _ (Nat.mod_le _ _), ok_bind]
+                have hmin := Except.ok.inj (sim_pyMin2 (fun _ _ => rfl) (UintC.ofNat (bal.val - bal.val % 1000000000) : GenMainnet.Gwei) m)
+                rw [← hmv, show bal.val - bal.val % 1000000000 = UintC.val (UintC.ofNat (bal.val - bal.val % 1000000000) : GenMainnet.Gwei) from rfl,
+                  show m.val = UintC.val m from rfl, ← hmin]
+                have := ih (P ++ [{ v with effective_balance := if PyOrd.lt m (UintC.ofNat (bal.val - bal.val % 1000000000) : GenMainnet.Gwei) = true then m else UintC.ofNat (bal.val - bal.val % 1000000000) }])
+                  (by simp [hP]) ⟨250000000⟩ ⟨250000000⟩ ⟨1250000000⟩ bal m _ rfl
+                rw [List.map_append, List.map_singleton] at this
+                exact this
+              · have d2 : ¬ decide (uv (UintC.ofNat (v.effective_balance.val + 1250000000) : GenMainnet.Gwei) < ((bal.val : Nat) : Int)) = true := by
+                  simp [uv]; omega
+                have d3 : ¬ decide (v.effective_balance.val + 1250000000 < bal.val) = true := by simp [hc2]
+                rw [if_neg d2, if_neg d3, pure_bind]
+                have := ih (P ++ [v]) (by simp [hP]) ⟨250000000⟩ ⟨250000000⟩ ⟨1250000000⟩ bal m _ rfl
+                rw [List.map_append, List.map_singleton] at this
+                exact this
+            · rw [if_neg ho2, if_neg ho2]
+              rfl
+        · rw [if_neg ho, if_neg ho]
+          rfl
+    · have hm : (List.map (fun x : GenMainnet.Gwei => x.val) st0.balances)[i]? = none := by
+        simp; omega
+      rw [hm, lget_err _ _ hb, err_bind]
+      rfl
+  · rw [dif_neg hi]
+    have hd : ((st0.validators.map abs_Validator).zipIdx).drop i = [] := by simp; omega
+    rw [hd]
+    show Except.ok _ = Except.ok _
+    rw [hst, List.drop_eq_nil_of_le (by omega), List.append_nil]
+    rfl
+termination_by st0.validators.length - i
+
+theorem hand_process_effective_balance_updates (h_get_max_effective_balance : spec_get_max_effective_balance) :
+    spec_process_effective_balance_updates := by
+  intro st hr
+  bridge_split
+  unfold GenMainnet.process_effective_balance_updates EpochProofs.Spec.process_effective_balance_updates
+  refine simI_intro ?_ (post_true _)
+  apply sim_bind_proj
+  have hlen : st.validators.length < 2 ^ 64 := by assumption
+  have hir : ∀ v ∈ st.validators, IR_Validator v := by assumption
+  have hbal : ∀ x ∈ st.balances, x.val < 2 ^ 64 := by assumption
+  refine ebu_loop st hlen hir hbal h_get_max_effective_balance _ ?_ 0 [] rfl
+    default default default default default st rfl
+  intro v i r
+  dsimp only [abs_BeaconState]
+  cases (List.map (fun x : GenMainnet.Gwei => x.val) st.balances)[i]?
+  · rfl
+  · dsimp only
+    simp only [pure_bind, ↓reduceIte]
+
 end Pythia.Bridge.Mainnet

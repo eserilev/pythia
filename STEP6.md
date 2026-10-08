@@ -355,9 +355,9 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 |---|---|
 | Mapped functions without a loop | 83 |
 | with a statement | 74 |
-| proved, conditional | 47 (and 28 callees) |
-| proved, full | 46 (and 22 callees) |
-| loops proved by hand (`Mainnet/Proofs.lean`) | 5 of 23 (and 2 callee loops) |
+| proved, conditional | 47 (and 31 callees) |
+| proved, full | 46 (and 27 callees) |
+| loops proved by hand (`Mainnet/Proofs.lean`) | 3 of the 23 mapped loops, and 3 callee loops |
 
 `bridge_main` has these steps in addition to the steps for binds, `if` and leaves:
 
@@ -383,6 +383,10 @@ generated proofs do. The comprehensions `get_set_bit_count`, `get_balance_after_
 `process_participation_flag_updates`, `xor` and `get_eligible_validator_indices` (a hand `for`
 loop, `forIn_append`) have hand proofs too. `integer_squareroot` is the first loop: a recursion on `x` that keeps `x ≤ n` and
 `1 ≤ y`, so the division and the addition in the loop cannot fail.
+`process_slashings` (`slash_loop`) and `process_effective_balance_updates` (`ebu_loop`) are loops
+over the validators. Each proof is a recursion on the index `i`. In `slash_loop`, only the
+balances change. In `ebu_loop`, after `i` steps the readable state holds the `i` new validators,
+then the old validators from index `i`. The hand list holds the same `i` validators.
 
 Not proved yet, by cause (examples):
 
@@ -400,14 +404,14 @@ from the spec. They are correct on mainnet.
 
 Left for later:
 
-- The 23 functions with a loop: `apply_parent_execution_payload`, `apply_withdrawals`,
+- 20 of the 23 functions with a loop: `apply_parent_execution_payload`, `apply_withdrawals`,
   `get_builders_sweep_withdrawals`, `get_builder_withdrawals`, `get_flag_index_deltas`,
   `get_inactivity_penalty_deltas`, `get_pending_partial_withdrawals`,
-  `get_validators_sweep_withdrawals`, `integer_squareroot`, `process_attestation`,
+  `get_validators_sweep_withdrawals`, `process_attestation`,
   `process_attester_slashing`, `process_builder_pending_payments`,
-  `process_effective_balance_updates`, `process_inactivity_updates`, `process_operations`,
+  `process_inactivity_updates`, `process_operations`,
   `process_pending_consolidations`, `process_pending_deposits`, `process_proposer_slashing`,
-  `process_registry_updates`, `process_rewards_and_penalties`, `process_slashings`,
+  `process_registry_updates`, `process_rewards_and_penalties`,
   `process_slots`, `process_sync_aggregate`. Those with a statement are hypotheses of their callers.
 - The 29 parameter adapters (hand functions): `process_attestation_loop`,
   `process_payload_attestation`, `process_operations`, `process_block`, `state_transition`,
