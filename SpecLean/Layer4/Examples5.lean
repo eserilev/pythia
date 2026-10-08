@@ -330,9 +330,9 @@ theorem get_active_validator_indices_l4 (sha : Oracle) (gfp : Footprint) (h : He
     | 0, hv', hd' => simp at hv' hd'; subst hv'; subst hd'; exact ⟨n, hd⟩
     | 1, hv', hd' => simp at hv' hd'; subst hv'; subst hd'; exact ⟨0, dec_flat rfl 0⟩
     | _ + 2, hv', _ => simp at hv'
-  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) gfp []
+  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) ContRun.ssz_libKeeps gfp []
     (f := Scope.Id.«get_active_validator_indices»)
-    (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec (Examples.wtree_nil h _) hwf hden
+    (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec (Examples.wtree_nil h _) hwf (fun e => absurd rfl e) hden
   refine resultMatches_mono hf (Examples.resultMatches_map
     (f := fun xs => (DRes.tree (gaviTree xs), [DV.cont Scope.Id.«BeaconState» ds, .leaf (.uint epTy' e)]))
     (E := fun (x : DRes × List DV) h' v => ERel h' [.ref r0, .uint epTy' e] x.1 v ∧

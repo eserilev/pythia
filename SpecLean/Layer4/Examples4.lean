@@ -967,7 +967,7 @@ theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
     (h38 : ds[38]? = some (.list kD (.container Scope.Id.«Builder») lD (st.builders.map bdv)))
     (hwv : ∀ w ∈ ws, w.validator_index.val < 2 ^ 64)
     (hbr : ∀ g ∈ st.balances, g.val < 2 ^ 64) (hbb : ∀ x ∈ st.builders, x.balance.val < 2 ^ 64)
-    (hw : WTree h [.ref r0, wv] awFp) :
+    (hw : WTree h [.ref r0, wv] awFp) (hcw : ContRun.CW (Scope.env sha) h) :
     ∀ fuel, 20 + ws.length ≤ fuel →
       ResultMatches gfp awFp h [.ref r0, wv]
         (fun (st' : BeaconState) h' v => v = .none ∧
@@ -989,9 +989,9 @@ theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
       | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
       | 1, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨nw, hdw⟩
       | _ + 2, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) gfp awFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) ContRun.ssz_libKeeps gfp awFp
       (f := Scope.Id.«apply_withdrawals»)
-      (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
+      (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf (fun _ => hcw) hdn
     rw [hden] at hm
     refine resultMatches_mono hf (Examples.resultMatches_map (fun st' h' v he => ⟨he.1.1, ?_⟩) hm)
     obtain ⟨-, hr⟩ := he.2

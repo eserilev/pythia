@@ -1190,7 +1190,7 @@ set_option maxHeartbeats 1000000 in
 
 set_option maxHeartbeats 1000000 in
 theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fpsGen 89)) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fpsGen 89)) (hcw : ContRun.CW (Scope.env sha) h) :
     ∀ fuel, 21 ≤ fuel →
       ResultMatches gfp (fpsGen 89) h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«decrease_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] h) (decrease_balance a_state ⟨a_index⟩ ⟨a_delta⟩) := by
@@ -1207,7 +1207,7 @@ theorem decrease_balance_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
     ∀ fuel, 21 ≤ fuel →
       ResultMatches gfp (fpsGen 89) h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«decrease_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] h) (decrease_balance a_state ⟨a_index⟩ ⟨a_delta⟩) :=
-  decrease_balance_l4 sha gfp h hwf hh hX a_state a_index a_delta r_state (bridge_BeaconState hc hy_state) hw
+  decrease_balance_l4 sha gfp h hwf hh hX a_state a_index a_delta r_state (bridge_BeaconState hc hy_state) hw hc
 
 set_option maxHeartbeats 1000000 in
 theorem get_activation_churn_limit_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) :
@@ -2938,7 +2938,7 @@ set_option maxHeartbeats 1000000 in
 
 set_option maxHeartbeats 1000000 in
 theorem increase_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fpsGen 83)) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (a_index : Nat) (a_delta : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fpsGen 83)) (hcw : ContRun.CW (Scope.env sha) h) :
     ∀ fuel, 8 ≤ fuel →
       ResultMatches gfp (fpsGen 83) h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«increase_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] h) (increase_balance a_state ⟨a_index⟩ ⟨a_delta⟩) := by
@@ -2955,7 +2955,7 @@ theorem increase_balance_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
     ∀ fuel, 8 ≤ fuel →
       ResultMatches gfp (fpsGen 83) h [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«increase_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index), (.uint (.nominal 265 64) a_delta)] h) (increase_balance a_state ⟨a_index⟩ ⟨a_delta⟩) :=
-  increase_balance_l4 sha gfp h hwf hh hX a_state a_index a_delta r_state (bridge_BeaconState hc hy_state) hw
+  increase_balance_l4 sha gfp h hwf hh hX a_state a_index a_delta r_state (bridge_BeaconState hc hy_state) hw hc
 
 set_option maxHeartbeats 1000000 in
 theorem initiate_builder_exit_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_builder_index : Nat) :
@@ -2974,7 +2974,7 @@ set_option maxHeartbeats 1000000 in
 
 set_option maxHeartbeats 1000000 in
 theorem initiate_builder_exit_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fpsGen 413)) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (a_builder_index : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fpsGen 413)) (hcw : ContRun.CW (Scope.env sha) h) :
     ∀ fuel, 33 ≤ fuel →
       ResultMatches gfp (fpsGen 413) h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«initiate_builder_exit» [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] h) (initiate_builder_exit a_state ⟨a_builder_index⟩) := by
@@ -2991,7 +2991,7 @@ theorem initiate_builder_exit_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (h
     ∀ fuel, 33 ≤ fuel →
       ResultMatches gfp (fpsGen 413) h [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«initiate_builder_exit» [(.ref r_state), (.uint (.nominal 199 64) a_builder_index)] h) (initiate_builder_exit a_state ⟨a_builder_index⟩) :=
-  initiate_builder_exit_l4 sha gfp h hwf hh hX a_state a_builder_index r_state (bridge_BeaconState hc hy_state) hw
+  initiate_builder_exit_l4 sha gfp h hwf hh hX a_state a_builder_index r_state (bridge_BeaconState hc hy_state) hw hc
 
 set_option maxHeartbeats 1000000 in
 theorem integer_squareroot_while1_swap1_2 (B : Name → Option DRes) (a b : DRes) :
@@ -3569,7 +3569,7 @@ set_option maxHeartbeats 1000000 in
 
 set_option maxHeartbeats 1000000 in
 theorem process_deposit_request_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_deposit_request : DepositRequest) (hok_deposit_request : ok_DepositRequest a_deposit_request) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_deposit_request : Nat) (hr_deposit_request : ∃ n, dec h n (.ref r_deposit_request) = some (.cont 760 (kids_DepositRequest a_deposit_request))) (hw : WTree h [(.ref r_state), (.ref r_deposit_request)] (fpsGen 54)) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_deposit_request : DepositRequest) (hok_deposit_request : ok_DepositRequest a_deposit_request) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_deposit_request : Nat) (hr_deposit_request : ∃ n, dec h n (.ref r_deposit_request) = some (.cont 760 (kids_DepositRequest a_deposit_request))) (hw : WTree h [(.ref r_state), (.ref r_deposit_request)] (fpsGen 54)) (hcw : ContRun.CW (Scope.env sha) h) :
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp (fpsGen 54) h [(.ref r_state), (.ref r_deposit_request)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«process_deposit_request» [(.ref r_state), (.ref r_deposit_request)] h) (process_deposit_request a_state a_deposit_request) := by
@@ -3586,7 +3586,7 @@ theorem process_deposit_request_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) 
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp (fpsGen 54) h [(.ref r_state), (.ref r_deposit_request)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«process_deposit_request» [(.ref r_state), (.ref r_deposit_request)] h) (process_deposit_request a_state a_deposit_request) :=
-  process_deposit_request_l4 sha gfp h hwf hh hX a_state (okb_BeaconState hy_state) a_deposit_request (okb_DepositRequest hy_deposit_request) r_state (bridge_BeaconState hc hy_state) r_deposit_request (bridge_DepositRequest hc hy_deposit_request) hw
+  process_deposit_request_l4 sha gfp h hwf hh hX a_state (okb_BeaconState hy_state) a_deposit_request (okb_DepositRequest hy_deposit_request) r_state (bridge_BeaconState hc hy_state) r_deposit_request (bridge_DepositRequest hc hy_deposit_request) hw hc
 
 set_option maxHeartbeats 1000000 in
 theorem process_randao_mixes_reset_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) :
@@ -3611,7 +3611,7 @@ set_option maxHeartbeats 1000000 in
 
 set_option maxHeartbeats 1000000 in
 theorem process_randao_mixes_reset_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state)] (fpsGen 542)) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state)] (fpsGen 542)) (hcw : ContRun.CW (Scope.env sha) h) :
     ∀ fuel, 32 ≤ fuel →
       ResultMatches gfp (fpsGen 542) h [(.ref r_state)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«process_randao_mixes_reset» [(.ref r_state)] h) (process_randao_mixes_reset a_state) := by
@@ -3628,7 +3628,7 @@ theorem process_randao_mixes_reset_l4r (sha : Oracle) (gfp : Footprint) (h : Hea
     ∀ fuel, 32 ≤ fuel →
       ResultMatches gfp (fpsGen 542) h [(.ref r_state)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«process_randao_mixes_reset» [(.ref r_state)] h) (process_randao_mixes_reset a_state) :=
-  process_randao_mixes_reset_l4 sha gfp h hwf hh hX a_state (okb_BeaconState hy_state) r_state (bridge_BeaconState hc hy_state) hw
+  process_randao_mixes_reset_l4 sha gfp h hwf hh hX a_state (okb_BeaconState hy_state) r_state (bridge_BeaconState hc hy_state) hw hc
 
 set_option maxHeartbeats 1000000 in
 theorem process_slashings_reset_den (sha : Oracle) (m : Nat) (a_state : BeaconState) :
@@ -3647,7 +3647,7 @@ set_option maxHeartbeats 1000000 in
 
 set_option maxHeartbeats 1000000 in
 theorem process_slashings_reset_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state)] (fpsGen 541)) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state)] (fpsGen 541)) (hcw : ContRun.CW (Scope.env sha) h) :
     ∀ fuel, 33 ≤ fuel →
       ResultMatches gfp (fpsGen 541) h [(.ref r_state)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«process_slashings_reset» [(.ref r_state)] h) (process_slashings_reset a_state) := by
@@ -3664,7 +3664,7 @@ theorem process_slashings_reset_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) 
     ∀ fuel, 33 ≤ fuel →
       ResultMatches gfp (fpsGen 541) h [(.ref r_state)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«process_slashings_reset» [(.ref r_state)] h) (process_slashings_reset a_state) :=
-  process_slashings_reset_l4 sha gfp h hwf hh hX a_state r_state (bridge_BeaconState hc hy_state) hw
+  process_slashings_reset_l4 sha gfp h hwf hh hX a_state r_state (bridge_BeaconState hc hy_state) hw hc
 
 set_option maxHeartbeats 1000000 in
 theorem queue_excess_active_balance_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) :
@@ -3685,7 +3685,7 @@ set_option maxHeartbeats 1000000 in
 
 set_option maxHeartbeats 1000000 in
 theorem queue_excess_active_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index)] (fpsGen 690)) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.nominal 82 64) a_index)] (fpsGen 690)) (hcw : ContRun.CW (Scope.env sha) h) :
     ∀ fuel, 12 ≤ fuel →
       ResultMatches gfp (fpsGen 690) h [(.ref r_state), (.uint (.nominal 82 64) a_index)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«queue_excess_active_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index)] h) (queue_excess_active_balance a_state ⟨a_index⟩) := by
@@ -3702,7 +3702,7 @@ theorem queue_excess_active_balance_l4r (sha : Oracle) (gfp : Footprint) (h : He
     ∀ fuel, 12 ≤ fuel →
       ResultMatches gfp (fpsGen 690) h [(.ref r_state), (.uint (.nominal 82 64) a_index)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«queue_excess_active_balance» [(.ref r_state), (.uint (.nominal 82 64) a_index)] h) (queue_excess_active_balance a_state ⟨a_index⟩) :=
-  queue_excess_active_balance_l4 sha gfp h hwf hh hX a_state (okb_BeaconState hy_state) a_index hok_index r_state (bridge_BeaconState hc hy_state) hw
+  queue_excess_active_balance_l4 sha gfp h hwf hh hX a_state (okb_BeaconState hy_state) a_index hok_index r_state (bridge_BeaconState hc hy_state) hw hc
 
 set_option maxHeartbeats 1000000 in
 theorem update_next_withdrawal_builder_index_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_processed_builders_sweep_count : Nat) :
@@ -3721,7 +3721,7 @@ set_option maxHeartbeats 1000000 in
 
 set_option maxHeartbeats 1000000 in
 theorem update_next_withdrawal_builder_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (a_processed_builders_sweep_count : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] (fpsGen 687)) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (a_processed_builders_sweep_count : Nat) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hw : WTree h [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] (fpsGen 687)) (hcw : ContRun.CW (Scope.env sha) h) :
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp (fpsGen 687) h [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«update_next_withdrawal_builder_index» [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] h) (update_next_withdrawal_builder_index a_state ⟨a_processed_builders_sweep_count⟩) := by
@@ -3738,7 +3738,7 @@ theorem update_next_withdrawal_builder_index_l4r (sha : Oracle) (gfp : Footprint
     ∀ fuel, 11 ≤ fuel →
       ResultMatches gfp (fpsGen 687) h [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«update_next_withdrawal_builder_index» [(.ref r_state), (.uint (.width 64) a_processed_builders_sweep_count)] h) (update_next_withdrawal_builder_index a_state ⟨a_processed_builders_sweep_count⟩) :=
-  update_next_withdrawal_builder_index_l4 sha gfp h hwf hh hX a_state a_processed_builders_sweep_count r_state (bridge_BeaconState hc hy_state) hw
+  update_next_withdrawal_builder_index_l4 sha gfp h hwf hh hX a_state a_processed_builders_sweep_count r_state (bridge_BeaconState hc hy_state) hw hc
 
 set_option maxHeartbeats 1000000 in
 theorem update_next_withdrawal_builder_index_den_BuilderIndex (sha : Oracle) (m : Nat) (a_state : BeaconState) (a_processed_builders_sweep_count : Nat) :
@@ -3773,7 +3773,7 @@ set_option maxHeartbeats 1000000 in
 
 set_option maxHeartbeats 1000000 in
 theorem update_next_withdrawal_index_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (a_withdrawals : List Withdrawal) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_withdrawals : Nat) (hr_withdrawals : ∃ n, dec h n (.ref r_withdrawals) = some (.list .pyList .any none (a_withdrawals.map fun z => (.cont 297 (kids_Withdrawal z))))) (hw : WTree h [(.ref r_state), (.ref r_withdrawals)] (fpsGen 683)) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (a_withdrawals : List Withdrawal) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (r_withdrawals : Nat) (hr_withdrawals : ∃ n, dec h n (.ref r_withdrawals) = some (.list .pyList .any none (a_withdrawals.map fun z => (.cont 297 (kids_Withdrawal z))))) (hw : WTree h [(.ref r_state), (.ref r_withdrawals)] (fpsGen 683)) (hcw : ContRun.CW (Scope.env sha) h) :
     ∀ fuel, 9 ≤ fuel →
       ResultMatches gfp (fpsGen 683) h [(.ref r_state), (.ref r_withdrawals)] (fun (x : BeaconState) h' v => v = .none ∧ ∃ n, dec h' n (.ref r_state) = some (.cont 733 (kids_BeaconState x)))
         (interp (Scope.env sha) fuel Scope.Id.«update_next_withdrawal_index» [(.ref r_state), (.ref r_withdrawals)] h) (update_next_withdrawal_index a_state a_withdrawals) := by

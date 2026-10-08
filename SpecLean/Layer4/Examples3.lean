@@ -1050,7 +1050,7 @@ theorem process_effective_balance_updates_l4 (sha : Oracle) (gfp : Footprint) (h
     (hv : ds[11]? = some (.list kV (.container Scope.Id.«Validator») lV (st.validators.map Examples.vdv)))
     (hb : ds[12]? = some (.list kB (.uint gwTy) lB (st.balances.map Examples.gleaf)))
     (hl : st.validators.length = st.balances.length) (hbr : ∀ g ∈ st.balances, g.val < 2 ^ 64)
-    (hw : WTree h [.ref r0] pebuFp) :
+    (hw : WTree h [.ref r0] pebuFp) (hcw : ContRun.CW (Scope.env sha) h) :
     ∀ fuel, 24 + st.validators.length ≤ fuel →
       ResultMatches gfp pebuFp h [.ref r0]
         (fun (st' : BeaconState) h' v => v = .none ∧
@@ -1071,9 +1071,9 @@ theorem process_effective_balance_updates_l4 (sha : Oracle) (gfp : Footprint) (h
       match k, hv, hd' with
       | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
       | _ + 1, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) gfp pebuFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) ContRun.ssz_libKeeps gfp pebuFp
       (f := Scope.Id.«process_effective_balance_updates»)
-      (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
+      (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf (fun _ => hcw) hdn
     rw [hden] at hm
     refine resultMatches_mono hf (Examples.resultMatches_map (fun st' h' v he => ⟨he.1.1, ?_⟩) hm)
     obtain ⟨-, hr⟩ := he.2

@@ -1,5 +1,6 @@
 import SpecLean.Layer4.EncDV
 import SpecLean.Layer4.Steps
+import SpecLean.ContRun
 
 /-!
 # Layer 4: expressions with calls agree with the interpreter
@@ -126,7 +127,7 @@ def EvF (env : Env) (fp : Footprint) (h0 : Heap) (vs : List Value) (s : DSt) (L 
 def FnOK (env : Env) (fps : Name → Footprint) (n : Nat) : Prop :=
   ∀ (fp : Footprint) (d : FunctionDef) (roots : List DV) (vs : List Value) (h : Heap)
     (r : Res (DRes × List DV)), DecArgs h vs roots → WTree h vs fp → HeapWF h →
-    (den env fps n).fn fp d roots = some r →
+    (fp ≠ [] → ContRun.CW env h) → (den env fps n).fn fp d roots = some r →
     FnRel fp h vs r (callFn env n d.params (.stmts d.body) Locals.empty vs [] h)
 
 /-- Each callee taken from a statement agrees with the interpreter's call on its body, at every
@@ -1091,7 +1092,7 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
               · obtain ⟨hall, hva, -⟩ := fn_shape hf
                 rw [callFn_pad (m + 1) d.params _ ws h2 (d.params.names.length - ws.length) hall hva
                   (by rw [← hda.1]; omega) (by rw [← hda.1]; omega)]
-                have := hF [] d _ _ h2 _ hpad (fun _ _ hp => by simp at hp) hI2.wf (by rw [hda.1] at hf; exact hf)
+                have := hF [] d _ _ h2 _ hpad (fun _ _ hp => by simp at hp) hI2.wf (fun e => absurd rfl e) (by rw [hda.1] at hf; exact hf)
                 revert this
                 cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty
                     (ws ++ List.replicate (d.params.names.length - ws.length) .none) [] h2 with
@@ -1100,7 +1101,7 @@ theorem roCall_sound {env : Env} {fps : Name → Footprint} (hlf : LibFlat env) 
               · obtain ⟨hall, hva, -⟩ := fn_shape hf
                 rw [callFn_pad (m + 1) d.params _ ws h2 (d.params.names.length - ws.length) hall hva
                   (by rw [← hda.1]; omega) (by rw [← hda.1]; omega)]
-                have := hF [] d _ _ h2 _ hpad (fun _ _ hp => by simp at hp) hI2.wf (by rw [hda.1] at hf; exact hf)
+                have := hF [] d _ _ h2 _ hpad (fun _ _ hp => by simp at hp) hI2.wf (fun e => absurd rfl e) (by rw [hda.1] at hf; exact hf)
                 revert this
                 cases callFn env (m + 1) d.params (.stmts d.body) Locals.empty
                     (ws ++ List.replicate (d.params.names.length - ws.length) .none) [] h2 with

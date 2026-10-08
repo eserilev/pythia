@@ -363,9 +363,9 @@ theorem get_current_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
     match k, hv, hd' with
     | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
     | _ + 1, hv, _ => simp at hv
-  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) gfp []
+  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) ContRun.ssz_libKeeps gfp []
     (f := Scope.Id.«get_current_epoch») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
-    hdec (Examples.wtree_nil h _) hwf hden
+    hdec (Examples.wtree_nil h _) hwf (fun e => absurd rfl e) hden
   refine resultMatches_mono hf (Examples.resultMatches_map
     (f := fun e : Epoch => (DRes.val (Value.uint epTy e.val), [DV.cont Scope.Id.«BeaconState» ds]))
     (E := fun (x : DRes × List DV) h' v => ERel h' [.ref r0] x.1 v ∧ DecArgs h' [.ref r0] x.2)
@@ -611,9 +611,9 @@ theorem get_previous_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf :
     match k, hv, hd' with
     | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
     | _ + 1, hv, _ => simp at hv
-  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) gfp []
+  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) ContRun.ssz_libKeeps gfp []
     (f := Scope.Id.«get_previous_epoch») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
-    hdec (Examples.wtree_nil h _) hwf hden
+    hdec (Examples.wtree_nil h _) hwf (fun e => absurd rfl e) hden
   refine resultMatches_mono hf (Examples.resultMatches_map
     (f := fun e : Epoch => (DRes.val (Value.uint epTy e.val), [DV.cont Scope.Id.«BeaconState» ds]))
     (E := fun (x : DRes × List DV) h' v => ERel h' [.ref r0] x.1 v ∧ DecArgs h' [.ref r0] x.2)
@@ -629,7 +629,8 @@ theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : H
     (hd : dec h n (.ref r0) = some (.cont Scope.Id.«BeaconState» ds))
     (hb : ds[12]? = some (.list k (.uint gwTy) l (st.balances.map Examples.gleaf)))
     (hbal : ∀ g ∈ st.balances, g.val < 2 ^ 64)
-    (hw : WTree h [.ref r0, .uint viTy i, .uint gwTy δ] Examples.ibFp) :
+    (hw : WTree h [.ref r0, .uint viTy i, .uint gwTy δ] Examples.ibFp)
+    (hcw : ContRun.CW (Scope.env sha) h) :
     ∀ fuel, 14 ≤ fuel →
       ResultMatches gfp Examples.ibFp h [.ref r0, .uint viTy i, .uint gwTy δ]
         (fun (st' : BeaconState) h' v => v = .none ∧
@@ -654,9 +655,9 @@ theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : H
       | 1, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨0, dec_flat rfl 0⟩
       | 2, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨0, dec_flat rfl 0⟩
       | _ + 3, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) gfp Examples.ibFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) (extOK_none _) ContRun.ssz_libKeeps gfp Examples.ibFp
       (f := Scope.Id.«decrease_balance») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
-      hdec hw hwf hdn
+      hdec hw hwf (fun _ => hcw) hdn
     rw [hden] at hm
     refine resultMatches_mono hf (Examples.resultMatches_map (fun st' h' v he => ⟨he.1.1, ?_⟩) hm)
     obtain ⟨-, hr⟩ := he.2

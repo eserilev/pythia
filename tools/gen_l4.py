@@ -1929,7 +1929,7 @@ def wrapper(m, name, params, bs, roots, rds, xs, enc, w, D, f, LENS=""):
         hdec = "(GenWrap.decArgs_cons %s %s)" % (dd, hdec)
     VS = "[%s]" % ", ".join(vs)
     fp = "(fpsGen %d)" % f["id"] if w else "[]"
-    hw = " (hw : WTree h %s %s)" % (VS, fp) if w else ""
+    hw = " (hw : WTree h %s %s) (hcw : ContRun.CW (Scope.env sha) h)" % (VS, fp) if w else ""
     hwt = "hw" if w else "(Examples.wtree_nil h _)"
     if w:
         k = [i for i, (_, pt) in enumerate(params) if pt == w][0]
@@ -1977,6 +1977,7 @@ def bridged_wrapper(m, name, params, bs, rds, xs, vs, hw, LENS, D, fp, VS, E, f)
     hyps = " ".join("(r_%s : Nat) (hy_%s : dec_%s h (.ref r_%s) = some a_%s)" % (pn, pn, pt, pn, pn)
                     for pn, pt in conts)
     args = " ".join("r_%s (bridge_%s hc hy_%s)" % (pn, pt, pn) for pn, pt in conts)
+    hw = hw.replace(" (hcw : ContRun.CW (Scope.env sha) h)", "")
     return ("\ntheorem %s_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)\n"
             "    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha))\n"
             "    (hc : GenBridge.ContWF h) %s %s%s :\n"
@@ -1985,7 +1986,7 @@ def bridged_wrapper(m, name, params, bs, rds, xs, vs, hw, LENS, D, fp, VS, E, f)
             "        (interp (Scope.env sha) fuel Scope.Id.«%s» %s h) (%s %s) :=\n"
             "  %s_l4 sha gfp h hwf hh hX %s %s%s\n"
             % (name, " ".join(bs), hyps, hw, LENS, D, fp, VS, E, name, VS, name, " ".join(rds),
-               name, " ".join(xs), args, " hw" if hw else ""))
+               name, " ".join(xs), args, " hw hc" if hw else ""))
 
 
 def check(text, tag, full=False):
@@ -2461,6 +2462,17 @@ def main():
                     texts[n] = retry2[n][0]
                     del fails[n]
                 print("%-55s %s" % (n + " (4M)", "ok" if ok else err), flush=True)
+        # A check killed at the memory cap again, alone.
+        for n in cands:
+            if "@" in n or n in proved or "memory cap" not in fails.get(n, ""):
+                continue
+            t = retry.get(n, cands[n])
+            ok, err = check(pre + t[0] + "\nend SpecLean.Layer4.Gen\n", n)
+            if ok:
+                proved[n] = t[1]
+                texts[n] = t[0]
+                del fails[n]
+            print("%-55s %s" % (n + " (alone)", "ok" if ok else err), flush=True)
         # The range lemmas of the new functions with a bytes result.
         rngc = {}
         for n in cands:

@@ -24,13 +24,14 @@ theorem l4_wrap {sha : Oracle} {fps : Name → Footprint} {gfp fp : Footprint} {
       some (g <$> r))
     {E : α → Heap → Value → Prop}
     (hE : ∀ x h' v, ERel h' vs (g x).1 v ∧ DecArgs h' vs (g x).2 → E x h' v)
-    (hX : ExtOK (Scope.env sha) := by first | assumption | exact extOK_none _) :
+    (hX : ExtOK (Scope.env sha) := by first | assumption | exact extOK_none _)
+    (hcw : fp ≠ [] → ContRun.CW (Scope.env sha) h := by first | exact fun e => absurd rfl e | (intro _; assumption)) :
     ResultMatches gfp fp h vs E (interp (Scope.env sha) n fid vs h) r := by
   cases hd : (den (Scope.env sha) fps n).fn fp d roots with
   | none => rw [hd] at hden; cases hden
   | some r0 =>
     rw [hd] at hden
-    have hm := denote_sound_calls (Scope.env sha) fps (Examples2.libFlat_ssz _ (Examples2.nmOK_scope _) hh) hX gfp fp hg hdec hw hwf hd
+    have hm := denote_sound_calls (Scope.env sha) fps (Examples2.libFlat_ssz _ (Examples2.nmOK_scope _) hh) hX ContRun.ssz_libKeeps gfp fp hg hdec hw hwf hcw hd
     simp only [Option.map_some, Option.some.injEq] at hden
     rw [hden] at hm
     exact Examples.resultMatches_map hE hm
