@@ -491,6 +491,14 @@ theorem sim_bytesOf_pure {β : Type} [BytesC β] (hl : BytesC.len β = 32) (b : 
   show Except.ok (toVec 32 (BytesC.data (BytesC.ofBytes b : β))) = Except.ok (toVec 32 b)
   rw [BytesC.data_ofBytes]
 
+/-- The last 20 bytes of a 32-byte vector, as the hand spec reads an address from credentials. -/
+theorem withdrawalAddress_toVec (l : List UInt8) (hl : l.length = 32) :
+    EpochProofs.Spec.withdrawalAddress (toVec 32 l) = toVec 20 (l.drop 12) := by
+  apply Vector.toList_inj.mp
+  rw [toVec_toList _ _ (by simp [hl])]
+  simp [EpochProofs.Spec.withdrawalAddress, Vector.toList_cast, Vector.toList_extract, toVec_toList _ _ hl]
+  rw [List.take_of_length_le (by simp [hl])]
+
 /-- A callee theorem whose hand side is equal to the goal's hand side, but not in the same form. -/
 theorem sim_hand_eq {α β : Type} {f : α → β} {r : SpecM α} {h h' : HM β} (hs : Sim f r h)
     (he : h = h') : Sim f r h' := he ▸ hs

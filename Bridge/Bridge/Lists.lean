@@ -238,4 +238,65 @@ theorem dedup_facts {α : Type} [BEq α] (xs : List α) :
 theorem ir_dedup {α : Type} [BEq α] {P : α → Prop} {xs : List α}
     (h : xs.length < 2 ^ 64 ∧ ∀ z ∈ xs, P z) : (dedup xs).length < 2 ^ 64 ∧ ∀ z ∈ dedup xs, P z :=
   ⟨Nat.lt_of_le_of_lt (dedup_facts xs).1 h.1, fun z hz => h.2 z ((dedup_facts xs).2 z hz)⟩
+/-! ## Membership and index in a list of byte values -/
+
+theorem bytes_data_inj {β : Type} [BytesC β] {x y : β} (h : BytesC.data x = BytesC.data y) : x = y := by
+  rw [← BytesC.ofBytes_data x, ← BytesC.ofBytes_data y, h]
+
+theorem mem_map_bytes {α β : Type} [BytesC β] (x : β) (vs : List α) (g : α → β) :
+    x ∈ vs.map g ↔ BytesC.data x ∈ vs.map (fun v => BytesC.data (g v)) := by
+  simp only [List.mem_map]
+  constructor
+  · rintro ⟨a, ha, rfl⟩; exact ⟨a, ha, rfl⟩
+  · rintro ⟨a, ha, h⟩; exact ⟨a, ha, bytes_data_inj h⟩
+
+theorem mem_map_toVec {α : Type} (n : Nat) (vs : List α) (f : α → List UInt8) (b : List UInt8)
+    (hb : b.length = n) (hvs : ∀ y ∈ vs, (f y).length = n) :
+    toVec n b ∈ vs.map (fun y => toVec n (f y)) ↔ b ∈ vs.map f := by
+  simp only [List.mem_map]
+  constructor
+  · rintro ⟨a, ha, h⟩; exact ⟨a, ha, (toVec_inj (hvs a ha) hb).mp h⟩
+  · rintro ⟨a, ha, h⟩; exact ⟨a, ha, by rw [h]⟩
+
+theorem idxOf_map_of_inj {α β : Type} [BEq α] [LawfulBEq α] [BEq β] [LawfulBEq β] (f : α → β) (xs : List α) (x : α)
+    (hinj : ∀ y ∈ xs, f y = f x → y = x) : (xs.map f).idxOf (f x) = xs.idxOf x := by
+  induction xs with
+  | nil => rfl
+  | cons a l ih =>
+    rw [List.map_cons, List.idxOf_cons, List.idxOf_cons]
+    have ih' := ih (fun y hy => hinj y (List.mem_cons_of_mem _ hy))
+    by_cases h : a = x
+    · subst h; simp
+    · have hf : f a ≠ f x := fun e => h (hinj a (List.mem_cons_self ..) e)
+      have e1 : (f a == f x) = false := beq_eq_false_iff_ne.mpr hf
+      have e2 : (a == x) = false := beq_eq_false_iff_ne.mpr h
+      rw [e1, e2, ih']
+
+theorem idxOf_map_bytes {α β : Type} [BytesC β] [BEq β] [LawfulBEq β] (x : β) (vs : List α) (g : α → β) :
+    (vs.map g).idxOf x = (vs.map (fun v => BytesC.data (g v))).idxOf (BytesC.data x) := by
+  have := idxOf_map_of_inj (BytesC.data (α := β)) (vs.map g) x (fun y _ h => bytes_data_inj h)
+  rw [List.map_map] at this
+  rw [← this]
+  rfl
+
+theorem idxOf_map_toVec {α : Type} (n : Nat) (vs : List α) (f : α → List UInt8) (b : List UInt8)
+    (hb : b.length = n) (hvs : ∀ y ∈ vs, (f y).length = n) :
+    (vs.map (fun y => toVec n (f y))).idxOf (toVec n b) = (vs.map f).idxOf b := by
+  have h := idxOf_map_of_inj (toVec n) (vs.map f) b (fun y hy e => by
+    obtain ⟨a, ha, rfl⟩ := List.mem_map.mp hy
+    exact (toVec_inj (hvs a ha) hb).mp e)
+  rw [List.map_map] at h
+  exact h
+
+theorem lindex_ok {α : Type} [BEq α] [LawfulBEq α] (xs : List α) (x : α) (h : x ∈ xs) :
+    lindex xs x = .ok ((xs.idxOf x : Nat) : Int) := by
+  unfold lindex
+  have : xs.findIdx? (· == x) = some (xs.idxOf x) := by
+    rw [List.findIdx?_eq_some_iff_findIdx_eq]
+    exact ⟨List.idxOf_lt_length_of_mem h, rfl⟩
+  rw [this]; rfl
+theorem toVec_bne {n : Nat} (a b : List UInt8) (ha : a.length = n) (hb : b.length = n) :
+    (toVec n a != toVec n b) = (a != b) := by
+  rw [bne, bne, toVec_beq a b ha hb]
+
 end Pythia.Bridge
