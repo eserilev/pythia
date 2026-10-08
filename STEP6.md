@@ -349,29 +349,107 @@ into `Eqs.lean`. The proofs use `bridge_main` (`Bridge/Bridge/Tactic.lean`). It 
 `do` blocks one bind at a time with the lemmas of `Sim.lean` and `Lists.lean`, and never unfolds
 `bind` with `simp`.
 
-Status (`Eqs.lean` lists the names):
+Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 
 | | Count |
 |---|---|
 | Mapped functions without a loop | 83 |
-| with a statement | 51 |
-| proved, conditional | 25 (and 8 callees) |
-| proved, full | 25 (and 8 callees) |
-| without a statement: oracle (`o : Oracle` parameter) | 20 |
-| without a statement: other parameters (adapters) | 10, and `get_expected_withdrawals`, `set_or_append_list` |
+| with a statement | 74 |
+| proved, conditional | 47 (and 31 callees) |
+| proved, full | 46 (and 27 callees) |
+| loops proved by hand (`Mainnet/Proofs.lean`) | 3 of the 23 mapped loops, and 3 callee loops |
+| loops proved by `bridge_loop` (generated) | 1 (`process_inactivity_updates`, conditional) |
 
-Not proved yet, by cause:
+`bridge_main` has these steps in addition to the steps for binds, `if` and leaves:
 
-- Comprehensions: the readable `filterMapM`/`filterMap`/`foldl` against the hand
-  `filter`/`map`/`for`: `get_active_validator_indices`, `get_eligible_validator_indices`,
-  `get_committee_indices`, `get_set_bit_count`, `get_balance_after_withdrawals`,
-  `get_unslashed_participating_indices`, `process_participation_flag_updates`, `xor`.
-- `assert` against the hand `if ¬c then throw`: `get_unslashed_participating_indices` and the
-  block functions.
-- Other steps without a lemma yet: `iOp .pow` (`add_flag`, `has_flag`), `lindex`/`contains`
-  (`process_builder_exit_request`, `is_valid_switch_to_compounding_request`), `bytesOf`
-  (`switch_to_compounding_validator`), the `.not` of an `int` (`convert_validator_index_to_builder_index`),
-  `dedup` (`get_total_active_balance`), and the steps listed per function in the trial logs.
+- Oracle: `sha256` and `hash_tree_root` then `bytesOf` against the hand oracle, the BLS calls
+  rewritten with `OracleAgrees`, and an `obtain` of the root for each SSZ object argument.
+- Callees: the callee theorem `h_f` only for a call to `f`. Other callee theorems make the
+  unifier unfold large definitions. When the hand arguments are equal only after a rewrite, the
+  step uses `sim_hand_eq` and closes the equation with `bridge_eqv` (the value facts of the
+  context, then the constants).
+- Parameter adapter: the hand functions that take `total_active_balance` get a statement with
+  the hand value and the hypothesis `get_total_active_balance … = .ok total_active_balance`
+  (`sim_of_ok`).
+- Lists: `filterMapM` over `enumerate` (`sim_filterMapM_zipIdx`, `post_filterMapM_ir`), `dedup`
+  of a list with no duplicates, `contains` and `lindex` on lists of byte values, `xs[-1]`.
+- Range facts: `lset` keeps the item facts of a list, `sumU`, `max` and `min` results, and
+  `IR_T` of a structure value with one goal per field.
+- Each `bridge_close` alternative has its own heartbeat budget (`bridge.closeHeartbeats`).
+
+Functions with a loop get hand-written proofs in `Bridge/Bridge/Mainnet/Proofs.lean`, one
+theorem `hand_f : spec_f` each. The generator reads the names and adds `full_f := hand_f` to
+`Eqs.lean`. A hand proof can take callee statements as hypotheses (`(h_g : spec_g)`), as the
+generated proofs do.
+
+### Shapes of the hand proofs
+
+`Bridge/Bridge/Loops.lean` has one generic lemma per shape. A hand proof gives only the parts
+that are not the same for all functions of its shape.
+
+| Shape | Generic lemma | Hand proofs |
+|---|---|---|
+| (a) index loop against `forIn`, with an invariant | `sim_loop`, `sim_loop0` | `process_slashings` (`slash_step`), `process_effective_balance_updates` (`ebu_step`) |
+| (b) index loop that adds amounts | `sum_loop` | `get_pending_balance_to_withdraw`, `get_pending_balance_to_withdraw_for_builder` |
+| (c) `range` comprehension | `pyRange_nat`, `pyRange_zero`, `sim_mapM_range`, `mapM_const_ok` | `process_participation_flag_updates` |
+| (d) filter comprehension against a hand `filter` or `for` loop | `forIn_append`, `sim_filterMapM_gen` | `get_eligible_validator_indices`, `get_set_bit_count`, `get_balance_after_withdrawals` |
+| (e) search loop with an early `return` | `sim_loop` (`.done` step) | `get_index_for_new_builder` (`nb_loop`, not converted yet) |
+
+`sim_loop` relates the readable loop `L i c` to the hand loop `forIn (items.drop i) r B`, then
+`K`. The caller gives an invariant `Inv i c r` on the readable loop variables `c` and the hand
+accumulator `r`, one loop step, and the end of the loop. The lemma does the recursion on `i`,
+the list split at `i`, and the termination proof. The epoch loops use two invariants:
+
+- One list field `F` of the state changes in place on both sides: the readable state is
+  `{ st0 with F := X }` and `r = X.map conv` (`process_slashings`, and next
+  `process_inactivity_updates`).
+- The hand loop builds a new list and the readable loop sets item `i`: the readable state is
+  `{ st0 with F := P ++ st0.F.drop i }` with `P.length = i`, and `r = P.map conv`
+  (`process_effective_balance_updates`). `lget_split` and `lset_split` read and write item `i`.
+
+The generator writes the proofs of the loops of the first shape (`loop_shape` and `loop_proof` in
+`tools/gen_bridge.py`). It reads the shape from the hand source: one `for` loop,
+`let mut F := state.F`, then `pure { state with F }`. The proof is the same for each function:
+
+1. `bridge_walk` walks the code before the loop and keeps the loop goal.
+2. `bridge_loop (Inv)` reads the readable loop call (the parameter `i_`, the bound before it, the
+   loop variables after it) and applies `sim_loopvₖ` for `k` loop variables. The goals left are
+   `hn`, `init`, `fin` and `step`.
+3. In `step`, `bridge_item` replaces the hand item by item `i` of the readable list. Then
+   `bridge_run` walks one loop body. At the recursive call it applies the claim `ih` for step
+   `i + 1` and closes the invariant with `bridge_inv`.
+
+`bridge_run` has three steps for loop bodies:
+
+- A callee on a state `{ s with F := X }` gets the state `s` if the callee does not read `F`
+  (`sim_bind_eq_l`). The check is `rfl`: it fails for a callee that reads `F`. So no lemma per
+  callee is necessary. The hand loop calls its callees on the old state, so this step makes both
+  sides call them on the same state.
+- A bind whose first step is a bind or an `if` is put in order first (`sim_assoc_r`,
+  `sim_ite_bind_r`, and the same on the readable side). The hand loop body has this form,
+  because it is followed by the rest of the loop.
+- A readable `contains` on a list of uints against the hand `∈` (`contains_iff_mem_val`), and a
+  fact `a = c` of the context for a goal `a = b` (`bridge_rw_fact`).
+
+`process_inactivity_updates` has a generated proof. `process_slashings` has the same shape, but
+its body calls `decrease_balance`, whose hand version takes the balances and not the state. Its
+proof is still `slash_step`. `process_effective_balance_updates` (a new list, not a field
+changed in place) is still `ebu_step`.
+
+Hand proofs with an odd shape, kept as they are:
+
+- `integer_squareroot`: a Newton recursion on `x`, not an index loop. The proof keeps
+  `x ≤ n` and `1 ≤ y`, so the division and the addition in the loop cannot fail.
+- `get_block_root_at_slot`: one readable `assert` of a chained comparison
+  (`slot < state.slot <= slot + SLOTS_PER_HISTORICAL_ROOT`) against two hand checks.
+- `xor`: a byte-wise `zip` of two `Bytes32` values against `Vector.zipWith`.
+
+Not proved yet, by cause (examples):
+
+- Functions that return a tuple: the post condition is `True`, so the caller has no range facts
+  for the state in the tuple (`initiate_validator_exit`).
+- Block functions with more steps: `process_withdrawal_request`, `process_consolidation_request`,
+  `process_builder_exit_request`, `process_voluntary_exit`, `process_randao`, `process_slot`.
 
 The hand spec has the mainnet value of four minimal-preset values:
 `PENDING_CONSOLIDATIONS_LIMIT`, `PENDING_PARTIAL_WITHDRAWALS_LIMIT`,
@@ -382,14 +460,14 @@ from the spec. They are correct on mainnet.
 
 Left for later:
 
-- The 23 functions with a loop: `apply_parent_execution_payload`, `apply_withdrawals`,
+- 20 of the 23 functions with a loop: `apply_parent_execution_payload`, `apply_withdrawals`,
   `get_builders_sweep_withdrawals`, `get_builder_withdrawals`, `get_flag_index_deltas`,
   `get_inactivity_penalty_deltas`, `get_pending_partial_withdrawals`,
-  `get_validators_sweep_withdrawals`, `integer_squareroot`, `process_attestation`,
+  `get_validators_sweep_withdrawals`, `process_attestation`,
   `process_attester_slashing`, `process_builder_pending_payments`,
-  `process_effective_balance_updates`, `process_inactivity_updates`, `process_operations`,
+  `process_inactivity_updates`, `process_operations`,
   `process_pending_consolidations`, `process_pending_deposits`, `process_proposer_slashing`,
-  `process_registry_updates`, `process_rewards_and_penalties`, `process_slashings`,
+  `process_registry_updates`, `process_rewards_and_penalties`,
   `process_slots`, `process_sync_aggregate`. Those with a statement are hypotheses of their callers.
 - The 29 parameter adapters (hand functions): `process_attestation_loop`,
   `process_payload_attestation`, `process_operations`, `process_block`, `state_transition`,
@@ -404,5 +482,5 @@ Left for later:
   `decrease_balance`, `process_slashings`, `process_slots_loop`, `process_slots`.
 
 To regenerate: `python3 tools/gen_bridge.py --trials DIR`, then
-`python3 tools/bridge_trials.py DIR` (4 runners, 8 GB each), then
+`python3 tools/bridge_trials.py DIR` (3 runners, 6 GB each), then
 `python3 tools/gen_bridge.py --proved DIR/proved.txt`, then `cd Bridge && lake build`.

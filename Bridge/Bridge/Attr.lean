@@ -12,3 +12,6 @@ register_simp_attr bridge_const
 
 /-- Casts between `Int` and `Nat` in the pure goals. -/
 register_simp_attr bridge_cast
+
+/-- The `abs_T` maps only, without the constants. -/
+register_simp_attr bridge_abs

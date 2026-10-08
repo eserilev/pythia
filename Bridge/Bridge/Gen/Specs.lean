@@ -20,13 +20,25 @@ abbrev spec_add_builder_to_registry : Prop :=
 abbrev spec_add_validator_to_registry : Prop :=
   ∀ («state» : Gen.BeaconState) («pubkey» : Gen.BLSPubkey) («withdrawal_credentials» : Gen.Bytes32) («amount» : Gen.Gwei), IR_BeaconState «state» → (fun x : Gen.BLSPubkey => x.data.length = 48) «pubkey» → (fun x : Gen.Bytes32 => x.data.length = 32) «withdrawal_credentials» → (fun x : Gen.Gwei => x.val < 2 ^ 64) «amount» → SimI (fun _ => True) abs_BeaconState (Gen.add_validator_to_registry «state» «pubkey» «withdrawal_credentials» «amount») (EpochProofs.Spec.add_validator_to_registry Hand (abs_BeaconState «state») ((fun x : Gen.BLSPubkey => toVec 48 x.data) «pubkey») ((fun x : Gen.Bytes32 => toVec 32 x.data) «withdrawal_credentials») ((fun x : Gen.Gwei => x.val) «amount»))
 
+/-- The bridge statement of `apply_pending_deposit`. -/
+abbrev spec_apply_pending_deposit : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («deposit» : Gen.PendingDeposit), OracleAgrees «o» → IR_BeaconState «state» → IR_PendingDeposit «deposit» → SimI (fun _ => True) abs_BeaconState (Gen.apply_pending_deposit «state» «deposit») (EpochProofs.Spec.apply_pending_deposit Hand «o» (abs_BeaconState «state») (abs_PendingDeposit «deposit»))
+
 /-- The bridge statement of `compute_activation_exit_epoch`. -/
 abbrev spec_compute_activation_exit_epoch : Prop :=
   ∀ («epoch» : Gen.Epoch), (fun x : Gen.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun x : Gen.Epoch => x.val < 2 ^ 64) (fun x : Gen.Epoch => x.val) (Gen.compute_activation_exit_epoch «epoch») (EpochProofs.Spec.compute_activation_exit_epoch Hand ((fun x : Gen.Epoch => x.val) «epoch»))
 
+/-- The bridge statement of `compute_consolidation_epoch_and_update_churn`. -/
+abbrev spec_compute_consolidation_epoch_and_update_churn : Prop :=
+  ∀ («state» : Gen.BeaconState) («consolidation_balance» : Gen.Gwei) («total_active_balance» : Nat), IR_BeaconState «state» → (fun x : Gen.Gwei => x.val < 2 ^ 64) «consolidation_balance» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun x : (Gen.Epoch) × (Gen.BeaconState) => (fun x : Gen.Epoch => x.val < 2 ^ 64) x.1 ∧ (fun _ => True) x.2) (fun x : (Gen.Epoch) × (Gen.BeaconState) => ((fun x : Gen.Epoch => x.val) x.1, abs_BeaconState x.2)) (Gen.compute_consolidation_epoch_and_update_churn «state» «consolidation_balance») (EpochProofs.Spec.compute_consolidation_epoch_and_update_churn Hand «total_active_balance» (abs_BeaconState «state») ((fun x : Gen.Gwei => x.val) «consolidation_balance»))
+
 /-- The bridge statement of `compute_epoch_at_slot`. -/
 abbrev spec_compute_epoch_at_slot : Prop :=
   ∀ («slot» : Gen.Slot), (fun x : Gen.Slot => x.val < 2 ^ 64) «slot» → SimI (fun x : Gen.Epoch => x.val < 2 ^ 64) (fun x : Gen.Epoch => x.val) (Gen.compute_epoch_at_slot «slot») (EpochProofs.Spec.compute_epoch_at_slot Hand ((fun x : Gen.Slot => x.val) «slot»))
+
+/-- The bridge statement of `compute_exit_epoch_and_update_churn`. -/
+abbrev spec_compute_exit_epoch_and_update_churn : Prop :=
+  ∀ («state» : Gen.BeaconState) («exit_balance» : Gen.Gwei) («total_active_balance» : Nat), IR_BeaconState «state» → (fun x : Gen.Gwei => x.val < 2 ^ 64) «exit_balance» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun x : (Gen.Epoch) × (Gen.BeaconState) => (fun x : Gen.Epoch => x.val < 2 ^ 64) x.1 ∧ (fun _ => True) x.2) (fun x : (Gen.Epoch) × (Gen.BeaconState) => ((fun x : Gen.Epoch => x.val) x.1, abs_BeaconState x.2)) (Gen.compute_exit_epoch_and_update_churn «state» «exit_balance») (EpochProofs.Spec.compute_exit_epoch_and_update_churn Hand «total_active_balance» (abs_BeaconState «state») ((fun x : Gen.Gwei => x.val) «exit_balance»))
 
 /-- The bridge statement of `compute_start_slot_at_epoch`. -/
 abbrev spec_compute_start_slot_at_epoch : Prop :=
@@ -36,13 +48,29 @@ abbrev spec_compute_start_slot_at_epoch : Prop :=
 abbrev spec_convert_builder_index_to_validator_index : Prop :=
   ∀ («builder_index» : Gen.BuilderIndex), (fun x : Gen.BuilderIndex => x.val < 2 ^ 64) «builder_index» → SimI (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) (fun x : Gen.ValidatorIndex => x.val) (Gen.convert_builder_index_to_validator_index «builder_index») (pure (EpochProofs.Spec.convert_builder_index_to_validator_index ((fun x : Gen.BuilderIndex => x.val) «builder_index»)))
 
+/-- The bridge statement of `get_activation_churn_limit`. -/
+abbrev spec_get_activation_churn_limit : Prop :=
+  ∀ («state» : Gen.BeaconState) («total_active_balance» : Nat), IR_BeaconState «state» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun x : Gen.Gwei => x.val < 2 ^ 64) (fun x : Gen.Gwei => x.val) (Gen.get_activation_churn_limit «state») (EpochProofs.Spec.get_activation_churn_limit Hand «total_active_balance»)
+
 /-- The bridge statement of `get_active_validator_indices`. -/
 abbrev spec_get_active_validator_indices : Prop :=
-  ∀ («state» : Gen.BeaconState) («epoch» : Gen.Epoch), IR_BeaconState «state» → (fun x : Gen.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun _ => True) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.get_active_validator_indices «state» «epoch») (pure (EpochProofs.Spec.get_active_validator_indices (abs_BeaconState «state») ((fun x : Gen.Epoch => x.val) «epoch»)))
+  ∀ («state» : Gen.BeaconState) («epoch» : Gen.Epoch), IR_BeaconState «state» → (fun x : Gen.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.get_active_validator_indices «state» «epoch») (pure (EpochProofs.Spec.get_active_validator_indices (abs_BeaconState «state») ((fun x : Gen.Epoch => x.val) «epoch»)))
 
 /-- The bridge statement of `get_balance_after_withdrawals`. -/
 abbrev spec_get_balance_after_withdrawals : Prop :=
   ∀ («state» : Gen.BeaconState) («validator_index» : Gen.ValidatorIndex) («withdrawals» : List (Gen.Withdrawal)), IR_BeaconState «state» → (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) «validator_index» → (fun xs : List (Gen.Withdrawal) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, IR_Withdrawal y) «withdrawals» → SimI (fun x : Gen.Gwei => x.val < 2 ^ 64) (fun x : Gen.Gwei => x.val) (Gen.get_balance_after_withdrawals «state» «validator_index» «withdrawals») (EpochProofs.Spec.get_balance_after_withdrawals (abs_BeaconState «state») ((fun x : Gen.ValidatorIndex => x.val) «validator_index») ((List.map abs_Withdrawal) «withdrawals»))
+
+/-- The bridge statement of `get_base_reward`. -/
+abbrev spec_get_base_reward : Prop :=
+  ∀ («state» : Gen.BeaconState) («index» : Gen.ValidatorIndex) («total_active_balance» : Nat), IR_BeaconState «state» → (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) «index» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun x : Gen.Gwei => x.val < 2 ^ 64) (fun x : Gen.Gwei => x.val) (Gen.get_base_reward «state» «index») (EpochProofs.Spec.get_base_reward Hand «total_active_balance» (abs_BeaconState «state») ((fun x : Gen.ValidatorIndex => x.val) «index»))
+
+/-- The bridge statement of `get_base_reward_per_increment`. -/
+abbrev spec_get_base_reward_per_increment : Prop :=
+  ∀ («state» : Gen.BeaconState) («total_active_balance» : Nat), IR_BeaconState «state» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun x : Gen.Gwei => x.val < 2 ^ 64) (fun x : Gen.Gwei => x.val) (Gen.get_base_reward_per_increment «state») (EpochProofs.Spec.get_base_reward_per_increment Hand «total_active_balance»)
+
+/-- The bridge statement of `get_builder_payment_quorum_threshold`. -/
+abbrev spec_get_builder_payment_quorum_threshold : Prop :=
+  ∀ («state» : Gen.BeaconState) («total_active_balance» : Nat), IR_BeaconState «state» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun x : Gen.Gwei => x.val < 2 ^ 64) (fun x : Gen.Gwei => x.val) (Gen.get_builder_payment_quorum_threshold «state») (EpochProofs.Spec.get_builder_payment_quorum_threshold Hand «total_active_balance»)
 
 /-- The bridge statement of `get_builders_sweep_withdrawals`. -/
 abbrev spec_get_builders_sweep_withdrawals : Prop :=
@@ -58,15 +86,23 @@ abbrev spec_get_current_epoch : Prop :=
 
 /-- The bridge statement of `get_eligible_validator_indices`. -/
 abbrev spec_get_eligible_validator_indices : Prop :=
-  ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun _ => True) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.get_eligible_validator_indices «state») (EpochProofs.Spec.get_eligible_validator_indices Hand (abs_BeaconState «state»))
+  ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.get_eligible_validator_indices «state») (EpochProofs.Spec.get_eligible_validator_indices Hand (abs_BeaconState «state»))
+
+/-- The bridge statement of `get_exit_churn_limit`. -/
+abbrev spec_get_exit_churn_limit : Prop :=
+  ∀ («state» : Gen.BeaconState) («total_active_balance» : Nat), IR_BeaconState «state» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun x : Gen.Gwei => x.val < 2 ^ 64) (fun x : Gen.Gwei => x.val) (Gen.get_exit_churn_limit «state») (EpochProofs.Spec.get_exit_churn_limit Hand «total_active_balance»)
 
 /-- The bridge statement of `get_finality_delay`. -/
 abbrev spec_get_finality_delay : Prop :=
   ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun x : Gen.Epoch => x.val < 2 ^ 64) (fun x : Gen.Epoch => x.val) (Gen.get_finality_delay «state») (EpochProofs.Spec.get_finality_delay Hand (abs_BeaconState «state»))
 
+/-- The bridge statement of `get_flag_index_deltas`. -/
+abbrev spec_get_flag_index_deltas : Prop :=
+  ∀ («state» : Gen.BeaconState) («flag_index» : Int) («total_active_balance» : Nat), IR_BeaconState «state» → (fun x : Int => 0 ≤ x) «flag_index» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun x : (List (Gen.Gwei)) × (List (Gen.Gwei)) => (fun xs : List (Gen.Gwei) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.Gwei => x.val < 2 ^ 64) y) x.1 ∧ (fun xs : List (Gen.Gwei) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.Gwei => x.val < 2 ^ 64) y) x.2) (fun x : (List (Gen.Gwei)) × (List (Gen.Gwei)) => ((List.map (fun x : Gen.Gwei => x.val)) x.1, (List.map (fun x : Gen.Gwei => x.val)) x.2)) (Gen.get_flag_index_deltas «state» «flag_index») (EpochProofs.Spec.get_flag_index_deltas Hand «total_active_balance» (abs_BeaconState «state») (Int.toNat «flag_index»))
+
 /-- The bridge statement of `get_inactivity_penalty_deltas`. -/
 abbrev spec_get_inactivity_penalty_deltas : Prop :=
-  ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun _ => True) (fun x : (List (Gen.Gwei)) × (List (Gen.Gwei)) => ((List.map (fun x : Gen.Gwei => x.val)) x.1, (List.map (fun x : Gen.Gwei => x.val)) x.2)) (Gen.get_inactivity_penalty_deltas «state») (EpochProofs.Spec.get_inactivity_penalty_deltas Hand (abs_BeaconState «state»))
+  ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun x : (List (Gen.Gwei)) × (List (Gen.Gwei)) => (fun xs : List (Gen.Gwei) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.Gwei => x.val < 2 ^ 64) y) x.1 ∧ (fun xs : List (Gen.Gwei) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.Gwei => x.val < 2 ^ 64) y) x.2) (fun x : (List (Gen.Gwei)) × (List (Gen.Gwei)) => ((List.map (fun x : Gen.Gwei => x.val)) x.1, (List.map (fun x : Gen.Gwei => x.val)) x.2)) (Gen.get_inactivity_penalty_deltas «state») (EpochProofs.Spec.get_inactivity_penalty_deltas Hand (abs_BeaconState «state»))
 
 /-- The bridge statement of `get_index_for_new_validator`. -/
 abbrev spec_get_index_for_new_validator : Prop :=
@@ -94,7 +130,7 @@ abbrev spec_get_total_balance : Prop :=
 
 /-- The bridge statement of `get_unslashed_participating_indices`. -/
 abbrev spec_get_unslashed_participating_indices : Prop :=
-  ∀ («state» : Gen.BeaconState) («flag_index» : Int) («epoch» : Gen.Epoch), IR_BeaconState «state» → (fun x : Int => 0 ≤ x) «flag_index» → (fun x : Gen.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun _ => True) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.get_unslashed_participating_indices «state» «flag_index» «epoch») (EpochProofs.Spec.get_unslashed_participating_indices Hand (abs_BeaconState «state») (Int.toNat «flag_index») ((fun x : Gen.Epoch => x.val) «epoch»))
+  ∀ («state» : Gen.BeaconState) («flag_index» : Int) («epoch» : Gen.Epoch), IR_BeaconState «state» → (fun x : Int => 0 ≤ x) «flag_index» → (fun x : Gen.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.get_unslashed_participating_indices «state» «flag_index» «epoch») (EpochProofs.Spec.get_unslashed_participating_indices Hand (abs_BeaconState «state») (Int.toNat «flag_index») ((fun x : Gen.Epoch => x.val) «epoch»))
 
 /-- The bridge statement of `get_validator_from_deposit`. -/
 abbrev spec_get_validator_from_deposit : Prop :=
@@ -111,6 +147,10 @@ abbrev spec_has_flag : Prop :=
 /-- The bridge statement of `initiate_builder_exit`. -/
 abbrev spec_initiate_builder_exit : Prop :=
   ∀ («state» : Gen.BeaconState) («builder_index» : Gen.BuilderIndex), IR_BeaconState «state» → (fun x : Gen.BuilderIndex => x.val < 2 ^ 64) «builder_index» → SimI (fun _ => True) abs_BeaconState (Gen.initiate_builder_exit «state» «builder_index») (EpochProofs.Spec.initiate_builder_exit Hand (abs_BeaconState «state») ((fun x : Gen.BuilderIndex => x.val) «builder_index»))
+
+/-- The bridge statement of `initiate_validator_exit`. -/
+abbrev spec_initiate_validator_exit : Prop :=
+  ∀ («state» : Gen.BeaconState) («index» : Gen.ValidatorIndex) («total_active_balance» : Nat), IR_BeaconState «state» → (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) «index» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun _ => True) abs_BeaconState (Gen.initiate_validator_exit «state» «index») (EpochProofs.Spec.initiate_validator_exit Hand «total_active_balance» (abs_BeaconState «state») ((fun x : Gen.ValidatorIndex => x.val) «index»))
 
 /-- The bridge statement of `integer_squareroot`. -/
 abbrev spec_integer_squareroot : Prop :=
@@ -152,9 +192,37 @@ abbrev spec_is_partially_withdrawable_validator : Prop :=
 abbrev spec_is_slashable_validator : Prop :=
   ∀ («validator» : Gen.Validator) («epoch» : Gen.Epoch), IR_Validator «validator» → (fun x : Gen.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun _ => True) (fun x : Bool => x) (Gen.is_slashable_validator «validator» «epoch») (pure (EpochProofs.Spec.is_slashable_validator (abs_Validator «validator») ((fun x : Gen.Epoch => x.val) «epoch»)))
 
+/-- The bridge statement of `is_valid_deposit_signature`. -/
+abbrev spec_is_valid_deposit_signature : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («pubkey» : Gen.BLSPubkey) («withdrawal_credentials» : Gen.Bytes32) («amount» : Gen.Gwei) («signature» : Gen.BLSSignature), OracleAgrees «o» → (fun x : Gen.BLSPubkey => x.data.length = 48) «pubkey» → (fun x : Gen.Bytes32 => x.data.length = 32) «withdrawal_credentials» → (fun x : Gen.Gwei => x.val < 2 ^ 64) «amount» → (fun x : Gen.BLSSignature => x.data.length = 96) «signature» → SimI (fun _ => True) (fun x : Bool => x) (Gen.is_valid_deposit_signature «pubkey» «withdrawal_credentials» «amount» «signature») (pure (EpochProofs.Spec.is_valid_deposit_signature Hand «o» ((fun x : Gen.BLSPubkey => toVec 48 x.data) «pubkey») ((fun x : Gen.Bytes32 => toVec 32 x.data) «withdrawal_credentials») ((fun x : Gen.Gwei => x.val) «amount») ((fun x : Gen.BLSSignature => toVec 96 x.data) «signature»)))
+
+/-- The bridge statement of `process_attestation`. -/
+abbrev spec_process_attestation : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («attestation» : Gen.Attestation) («parent_slot» : Gen.Slot), OracleAgrees «o» → IR_BeaconState «state» → IR_Attestation «attestation» → (fun x : Gen.Slot => x.val < 2 ^ 64) «parent_slot» → SimI (fun _ => True) abs_BeaconState (Gen.process_attestation «state» «attestation» «parent_slot») (EpochProofs.Spec.process_attestation Hand «o» (abs_BeaconState «state») (abs_Attestation «attestation») ((fun x : Gen.Slot => x.val) «parent_slot»))
+
+/-- The bridge statement of `process_attester_slashing`. -/
+abbrev spec_process_attester_slashing : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («attester_slashing» : Gen.AttesterSlashing), OracleAgrees «o» → IR_BeaconState «state» → IR_AttesterSlashing «attester_slashing» → SimI (fun _ => True) abs_BeaconState (Gen.process_attester_slashing «state» «attester_slashing») (EpochProofs.Spec.process_attester_slashing Hand «o» (abs_BeaconState «state») (abs_AttesterSlashing «attester_slashing»))
+
+/-- The bridge statement of `process_block_header`. -/
+abbrev spec_process_block_header : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («block» : Gen.BeaconBlock), OracleAgrees «o» → IR_BeaconState «state» → IR_BeaconBlock «block» → SimI (fun _ => True) abs_BeaconState (Gen.process_block_header «state» «block») (EpochProofs.Spec.process_block_header Hand «o» (abs_BeaconState «state») (abs_BeaconBlock «block»))
+
+/-- The bridge statement of `process_bls_to_execution_change`. -/
+abbrev spec_process_bls_to_execution_change : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («signed_address_change» : Gen.SignedBLSToExecutionChange), OracleAgrees «o» → IR_BeaconState «state» → IR_SignedBLSToExecutionChange «signed_address_change» → SimI (fun _ => True) abs_BeaconState (Gen.process_bls_to_execution_change «state» «signed_address_change») (EpochProofs.Spec.process_bls_to_execution_change Hand «o» (abs_BeaconState «state») (abs_SignedBLSToExecutionChange «signed_address_change»))
+
+/-- The bridge statement of `process_builder_deposit_request`. -/
+abbrev spec_process_builder_deposit_request : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («request» : Gen.BuilderDepositRequest), OracleAgrees «o» → IR_BeaconState «state» → IR_BuilderDepositRequest «request» → SimI (fun _ => True) abs_BeaconState (Gen.process_builder_deposit_request «state» «request») (EpochProofs.Spec.process_builder_deposit_request Hand «o» (abs_BeaconState «state») (abs_BuilderDepositRequest «request»))
+
 /-- The bridge statement of `process_builder_exit_request`. -/
 abbrev spec_process_builder_exit_request : Prop :=
   ∀ («state» : Gen.BeaconState) («request» : Gen.BuilderExitRequest), IR_BeaconState «state» → IR_BuilderExitRequest «request» → SimI (fun _ => True) abs_BeaconState (Gen.process_builder_exit_request «state» «request») (EpochProofs.Spec.process_builder_exit_request Hand (abs_BeaconState «state») (abs_BuilderExitRequest «request»))
+
+/-- The bridge statement of `process_builder_pending_payments`. -/
+abbrev spec_process_builder_pending_payments : Prop :=
+  ∀ («state» : Gen.BeaconState) («total_active_balance» : Nat), IR_BeaconState «state» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun _ => True) abs_BeaconState (Gen.process_builder_pending_payments «state») (EpochProofs.Spec.process_builder_pending_payments Hand «total_active_balance» (abs_BeaconState «state»))
 
 /-- The bridge statement of `process_consolidation_request`. -/
 abbrev spec_process_consolidation_request : Prop :=
@@ -168,6 +236,10 @@ abbrev spec_process_deposit_request : Prop :=
 abbrev spec_process_effective_balance_updates : Prop :=
   ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun _ => True) abs_BeaconState (Gen.process_effective_balance_updates «state») (EpochProofs.Spec.process_effective_balance_updates Hand (abs_BeaconState «state»))
 
+/-- The bridge statement of `process_epoch`. -/
+abbrev spec_process_epoch : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState), OracleAgrees «o» → IR_BeaconState «state» → SimI (fun _ => True) abs_BeaconState (Gen.process_epoch «state») (EpochProofs.Spec.process_epoch Hand «o» (abs_BeaconState «state»))
+
 /-- The bridge statement of `process_eth1_data`. -/
 abbrev spec_process_eth1_data : Prop :=
   ∀ («state» : Gen.BeaconState) («body» : Gen.BeaconBlockBody), IR_BeaconState «state» → IR_BeaconBlockBody «body» → SimI (fun _ => True) abs_BeaconState (Gen.process_eth1_data «state» «body») (EpochProofs.Spec.process_eth1_data Hand (abs_BeaconState «state») (abs_BeaconBlockBody «body»))
@@ -175,6 +247,10 @@ abbrev spec_process_eth1_data : Prop :=
 /-- The bridge statement of `process_eth1_data_reset`. -/
 abbrev spec_process_eth1_data_reset : Prop :=
   ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun _ => True) abs_BeaconState (Gen.process_eth1_data_reset «state») (EpochProofs.Spec.process_eth1_data_reset Hand (abs_BeaconState «state»))
+
+/-- The bridge statement of `process_historical_summaries_update`. -/
+abbrev spec_process_historical_summaries_update : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState), OracleAgrees «o» → IR_BeaconState «state» → SimI (fun _ => True) abs_BeaconState (Gen.process_historical_summaries_update «state») (EpochProofs.Spec.process_historical_summaries_update Hand «o» (abs_BeaconState «state»))
 
 /-- The bridge statement of `process_inactivity_updates`. -/
 abbrev spec_process_inactivity_updates : Prop :=
@@ -192,13 +268,57 @@ abbrev spec_process_participation_flag_updates : Prop :=
 abbrev spec_process_pending_consolidations : Prop :=
   ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun _ => True) abs_BeaconState (Gen.process_pending_consolidations «state») (EpochProofs.Spec.process_pending_consolidations Hand (abs_BeaconState «state»))
 
+/-- The bridge statement of `process_proposer_lookahead`. -/
+abbrev spec_process_proposer_lookahead : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState), OracleAgrees «o» → IR_BeaconState «state» → SimI (fun _ => True) abs_BeaconState (Gen.process_proposer_lookahead «state») (EpochProofs.Spec.process_proposer_lookahead Hand «o» (abs_BeaconState «state»))
+
+/-- The bridge statement of `process_proposer_slashing`. -/
+abbrev spec_process_proposer_slashing : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («proposer_slashing» : Gen.ProposerSlashing), OracleAgrees «o» → IR_BeaconState «state» → IR_ProposerSlashing «proposer_slashing» → SimI (fun _ => True) abs_BeaconState (Gen.process_proposer_slashing «state» «proposer_slashing») (EpochProofs.Spec.process_proposer_slashing Hand «o» (abs_BeaconState «state») (abs_ProposerSlashing «proposer_slashing»))
+
+/-- The bridge statement of `process_ptc_window`. -/
+abbrev spec_process_ptc_window : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState), OracleAgrees «o» → IR_BeaconState «state» → SimI (fun _ => True) abs_BeaconState (Gen.process_ptc_window «state») (EpochProofs.Spec.process_ptc_window Hand «o» (abs_BeaconState «state»))
+
+/-- The bridge statement of `process_randao`. -/
+abbrev spec_process_randao : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («body» : Gen.BeaconBlockBody), OracleAgrees «o» → IR_BeaconState «state» → IR_BeaconBlockBody «body» → SimI (fun _ => True) abs_BeaconState (Gen.process_randao «state» «body») (EpochProofs.Spec.process_randao Hand «o» (abs_BeaconState «state») (abs_BeaconBlockBody «body»))
+
 /-- The bridge statement of `process_randao_mixes_reset`. -/
 abbrev spec_process_randao_mixes_reset : Prop :=
   ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun _ => True) abs_BeaconState (Gen.process_randao_mixes_reset «state») (EpochProofs.Spec.process_randao_mixes_reset Hand (abs_BeaconState «state»))
 
+/-- The bridge statement of `process_registry_updates`. -/
+abbrev spec_process_registry_updates : Prop :=
+  ∀ («state» : Gen.BeaconState) («total_active_balance» : Nat), IR_BeaconState «state» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun _ => True) abs_BeaconState (Gen.process_registry_updates «state») (EpochProofs.Spec.process_registry_updates Hand «total_active_balance» (abs_BeaconState «state»))
+
+/-- The bridge statement of `process_rewards_and_penalties`. -/
+abbrev spec_process_rewards_and_penalties : Prop :=
+  ∀ («state» : Gen.BeaconState) («total_active_balance» : Nat), IR_BeaconState «state» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun _ => True) abs_BeaconState (Gen.process_rewards_and_penalties «state») (EpochProofs.Spec.process_rewards_and_penalties Hand «total_active_balance» (abs_BeaconState «state»))
+
+/-- The bridge statement of `process_slashings`. -/
+abbrev spec_process_slashings : Prop :=
+  ∀ («state» : Gen.BeaconState) («total_active_balance» : Nat), IR_BeaconState «state» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun _ => True) abs_BeaconState (Gen.process_slashings «state») (EpochProofs.Spec.process_slashings Hand «total_active_balance» (abs_BeaconState «state»))
+
 /-- The bridge statement of `process_slashings_reset`. -/
 abbrev spec_process_slashings_reset : Prop :=
   ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun _ => True) abs_BeaconState (Gen.process_slashings_reset «state») (EpochProofs.Spec.process_slashings_reset Hand (abs_BeaconState «state»))
+
+/-- The bridge statement of `process_slot`. -/
+abbrev spec_process_slot : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState), OracleAgrees «o» → IR_BeaconState «state» → SimI (fun _ => True) abs_BeaconState (Gen.process_slot «state») (EpochProofs.Spec.process_slot Hand «o» (abs_BeaconState «state»))
+
+/-- The bridge statement of `process_sync_aggregate`. -/
+abbrev spec_process_sync_aggregate : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («sync_aggregate» : Gen.SyncAggregate), OracleAgrees «o» → IR_BeaconState «state» → IR_SyncAggregate «sync_aggregate» → SimI (fun _ => True) abs_BeaconState (Gen.process_sync_aggregate «state» «sync_aggregate») (EpochProofs.Spec.process_sync_aggregate Hand «o» (abs_BeaconState «state») (abs_SyncAggregate «sync_aggregate»))
+
+/-- The bridge statement of `process_sync_committee_updates`. -/
+abbrev spec_process_sync_committee_updates : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState), OracleAgrees «o» → IR_BeaconState «state» → SimI (fun _ => True) abs_BeaconState (Gen.process_sync_committee_updates «state») (EpochProofs.Spec.process_sync_committee_updates Hand «o» (abs_BeaconState «state»))
+
+/-- The bridge statement of `process_voluntary_exit`. -/
+abbrev spec_process_voluntary_exit : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («signed_voluntary_exit» : Gen.SignedVoluntaryExit), OracleAgrees «o» → IR_BeaconState «state» → IR_SignedVoluntaryExit «signed_voluntary_exit» → SimI (fun _ => True) abs_BeaconState (Gen.process_voluntary_exit «state» «signed_voluntary_exit») (EpochProofs.Spec.process_voluntary_exit Hand «o» (abs_BeaconState «state») (abs_SignedVoluntaryExit «signed_voluntary_exit»))
 
 /-- The bridge statement of `process_withdrawal_request`. -/
 abbrev spec_process_withdrawal_request : Prop :=
@@ -219,6 +339,10 @@ abbrev spec_saturating_sub : Prop :=
 /-- The bridge statement of `settle_builder_payment`. -/
 abbrev spec_settle_builder_payment : Prop :=
   ∀ («state» : Gen.BeaconState) («payment_index» : Gen.Uint64), IR_BeaconState «state» → (fun x : Gen.Uint64 => x.val < 2 ^ 64) «payment_index» → SimI (fun _ => True) abs_BeaconState (Gen.settle_builder_payment «state» «payment_index») (EpochProofs.Spec.settle_builder_payment (abs_BeaconState «state») ((fun x : Gen.Uint64 => x.val) «payment_index»))
+
+/-- The bridge statement of `slash_validator`. -/
+abbrev spec_slash_validator : Prop :=
+  ∀ («state» : Gen.BeaconState) («slashed_index» : Gen.ValidatorIndex) («whistleblower_index» : Option (Gen.ValidatorIndex)), IR_BeaconState «state» → (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) «slashed_index» → (fun o : Option (Gen.ValidatorIndex) => ∀ y ∈ o, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) «whistleblower_index» → SimI (fun _ => True) abs_BeaconState (Gen.slash_validator «state» «slashed_index» «whistleblower_index») (EpochProofs.Spec.slash_validator Hand (abs_BeaconState «state») ((fun x : Gen.ValidatorIndex => x.val) «slashed_index») ((Option.map (fun x : Gen.ValidatorIndex => x.val)) «whistleblower_index»))
 
 /-- The bridge statement of `switch_to_compounding_validator`. -/
 abbrev spec_switch_to_compounding_validator : Prop :=
@@ -248,6 +372,10 @@ abbrev spec_update_payload_expected_withdrawals : Prop :=
 abbrev spec_update_pending_partial_withdrawals : Prop :=
   ∀ («state» : Gen.BeaconState) («processed_partial_withdrawals_count» : Gen.Uint64), IR_BeaconState «state» → (fun x : Gen.Uint64 => x.val < 2 ^ 64) «processed_partial_withdrawals_count» → SimI (fun _ => True) abs_BeaconState (Gen.update_pending_partial_withdrawals «state» «processed_partial_withdrawals_count») (pure (EpochProofs.Spec.update_pending_partial_withdrawals (abs_BeaconState «state») ((fun x : Gen.Uint64 => x.val) «processed_partial_withdrawals_count»)))
 
+/-- The bridge statement of `verify_block_signature`. -/
+abbrev spec_verify_block_signature : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («signed_block» : Gen.SignedBeaconBlock), OracleAgrees «o» → IR_BeaconState «state» → IR_SignedBeaconBlock «signed_block» → SimI (fun _ => True) (fun x : Bool => x) (Gen.verify_block_signature «state» «signed_block») (EpochProofs.Spec.verify_block_signature Hand «o» (abs_BeaconState «state») (abs_SignedBeaconBlock «signed_block»))
+
 /-- The bridge statement of `weigh_justification_and_finalization`. -/
 abbrev spec_weigh_justification_and_finalization : Prop :=
   ∀ («state» : Gen.BeaconState) («total_active_balance» : Gen.Gwei) («previous_epoch_target_balance» : Gen.Gwei) («current_epoch_target_balance» : Gen.Gwei), IR_BeaconState «state» → (fun x : Gen.Gwei => x.val < 2 ^ 64) «total_active_balance» → (fun x : Gen.Gwei => x.val < 2 ^ 64) «previous_epoch_target_balance» → (fun x : Gen.Gwei => x.val < 2 ^ 64) «current_epoch_target_balance» → SimI (fun _ => True) abs_BeaconState (Gen.weigh_justification_and_finalization «state» «total_active_balance» «previous_epoch_target_balance» «current_epoch_target_balance») (EpochProofs.Spec.weigh_justification_and_finalization Hand (abs_BeaconState «state») ((fun x : Gen.Gwei => x.val) «total_active_balance») ((fun x : Gen.Gwei => x.val) «previous_epoch_target_balance») ((fun x : Gen.Gwei => x.val) «current_epoch_target_balance»))
@@ -272,6 +400,22 @@ abbrev spec_has_compounding_withdrawal_credential : Prop :=
 abbrev spec_is_builder_withdrawal_credential : Prop :=
   ∀ («withdrawal_credentials» : Gen.Bytes32), (fun x : Gen.Bytes32 => x.data.length = 32) «withdrawal_credentials» → SimI (fun _ => True) (fun x : Bool => x) (Gen.is_builder_withdrawal_credential «withdrawal_credentials») (pure (EpochProofs.Spec.is_builder_withdrawal_credential ((fun x : Gen.Bytes32 => toVec 32 x.data) «withdrawal_credentials»)))
 
+/-- The bridge statement of `compute_fork_data_root`. -/
+abbrev spec_compute_fork_data_root : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («current_version» : Gen.Version) («genesis_validators_root» : Gen.Root), OracleAgrees «o» → (fun x : Gen.Version => x.data.length = 4) «current_version» → (fun x : Gen.Root => x.data.length = 32) «genesis_validators_root» → SimI (fun x : Gen.Root => x.data.length = 32) (fun x : Gen.Root => toVec 32 x.data) (Gen.compute_fork_data_root «current_version» «genesis_validators_root») (pure (EpochProofs.Spec.compute_fork_data_root «o» ((fun x : Gen.Version => toVec 4 x.data) «current_version») ((fun x : Gen.Root => toVec 32 x.data) «genesis_validators_root»)))
+
+/-- The bridge statement of `compute_domain`. -/
+abbrev spec_compute_domain : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («domain_type» : Gen.DomainType) («fork_version» : Option (Gen.Version)) («genesis_validators_root» : Option (Gen.Root)), OracleAgrees «o» → (fun x : Gen.DomainType => x.data.length = 4) «domain_type» → (fun o : Option (Gen.Version) => ∀ y ∈ o, (fun x : Gen.Version => x.data.length = 4) y) «fork_version» → (fun o : Option (Gen.Root) => ∀ y ∈ o, (fun x : Gen.Root => x.data.length = 32) y) «genesis_validators_root» → SimI (fun x : Gen.Domain => x.data.length = 32) (fun x : Gen.Domain => toVec 32 x.data) (Gen.compute_domain «domain_type» «fork_version» «genesis_validators_root») (pure (EpochProofs.Spec.compute_domain Hand «o» ((fun x : Gen.DomainType => toVec 4 x.data) «domain_type») ((Option.map (fun x : Gen.Version => toVec 4 x.data)) «fork_version») ((Option.map (fun x : Gen.Root => toVec 32 x.data)) «genesis_validators_root»)))
+
+/-- The bridge statement of `compute_signing_root`. -/
+abbrev spec_compute_signing_root : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («ssz_object» : SszObj) («r» : List UInt8) («domain» : Gen.Domain), OracleAgrees «o» → htrObj «ssz_object» = .ok «r» → «r».length = 32 → «domain».data.length = 32 → SimI (fun x : Gen.Root => x.data.length = 32) (fun x : Gen.Root => toVec 32 x.data) (Gen.compute_signing_root «ssz_object» «domain») (pure (EpochProofs.Spec.compute_signing_root «o» (toVec 32 «r») (toVec 32 «domain».data)))
+
+/-- The bridge statement of `is_valid_builder_deposit_signature`. -/
+abbrev spec_is_valid_builder_deposit_signature : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («request» : Gen.BuilderDepositRequest), OracleAgrees «o» → IR_BuilderDepositRequest «request» → SimI (fun _ => True) (fun x : Bool => x) (Gen.is_valid_builder_deposit_signature «request») (pure (EpochProofs.Spec.is_valid_builder_deposit_signature Hand «o» (abs_BuilderDepositRequest «request»)))
+
 /-- The bridge statement of `get_pending_balance_to_withdraw_for_builder`. -/
 abbrev spec_get_pending_balance_to_withdraw_for_builder : Prop :=
   ∀ («state» : Gen.BeaconState) («builder_index» : Gen.BuilderIndex), IR_BeaconState «state» → (fun x : Gen.BuilderIndex => x.val < 2 ^ 64) «builder_index» → SimI (fun x : Gen.Gwei => x.val < 2 ^ 64) (fun x : Gen.Gwei => x.val) (Gen.get_pending_balance_to_withdraw_for_builder «state» «builder_index») (EpochProofs.Spec.get_pending_balance_to_withdraw_for_builder (abs_BeaconState «state») ((fun x : Gen.BuilderIndex => x.val) «builder_index»))
@@ -279,6 +423,10 @@ abbrev spec_get_pending_balance_to_withdraw_for_builder : Prop :=
 /-- The bridge statement of `is_active_builder`. -/
 abbrev spec_is_active_builder : Prop :=
   ∀ («state» : Gen.BeaconState) («builder_index» : Gen.BuilderIndex), IR_BeaconState «state» → (fun x : Gen.BuilderIndex => x.val < 2 ^ 64) «builder_index» → SimI (fun _ => True) (fun x : Bool => x) (Gen.is_active_builder «state» «builder_index») (EpochProofs.Spec.is_active_builder (abs_BeaconState «state») ((fun x : Gen.BuilderIndex => x.val) «builder_index»))
+
+/-- The bridge statement of `get_consolidation_churn_limit`. -/
+abbrev spec_get_consolidation_churn_limit : Prop :=
+  ∀ («state» : Gen.BeaconState) («total_active_balance» : Nat), IR_BeaconState «state» → EpochProofs.Spec.get_total_active_balance Hand (abs_BeaconState «state») = .ok «total_active_balance» → SimI (fun x : Gen.Gwei => x.val < 2 ^ 64) (fun x : Gen.Gwei => x.val) (Gen.get_consolidation_churn_limit «state») (EpochProofs.Spec.get_consolidation_churn_limit Hand «total_active_balance»)
 
 /-- The bridge statement of `get_pending_balance_to_withdraw`. -/
 abbrev spec_get_pending_balance_to_withdraw : Prop :=
@@ -308,6 +456,26 @@ abbrev spec_bytes_to_uint64 : Prop :=
 abbrev spec_can_builder_cover_bid : Prop :=
   ∀ («state» : Gen.BeaconState) («builder_index» : Gen.BuilderIndex) («bid_amount» : Gen.Gwei), IR_BeaconState «state» → (fun x : Gen.BuilderIndex => x.val < 2 ^ 64) «builder_index» → (fun x : Gen.Gwei => x.val < 2 ^ 64) «bid_amount» → SimI (fun _ => True) (fun x : Bool => x) (Gen.can_builder_cover_bid «state» «builder_index» «bid_amount») (EpochProofs.Spec.can_builder_cover_bid (abs_BeaconState «state») ((fun x : Gen.BuilderIndex => x.val) «builder_index») ((fun x : Gen.Gwei => x.val) «bid_amount»))
 
+/-- The bridge statement of `compute_shuffled_permutation`. -/
+abbrev spec_compute_shuffled_permutation : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («index_count» : Gen.Uint64) («seed» : Gen.Bytes32), OracleAgrees «o» → (fun x : Gen.Uint64 => x.val < 2 ^ 64) «index_count» → (fun x : Gen.Bytes32 => x.data.length = 32) «seed» → SimI (fun xs : List (Gen.Uint64) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.Uint64 => x.val < 2 ^ 64) y) (List.map (fun x : Gen.Uint64 => x.val)) (Gen.compute_shuffled_permutation «index_count» «seed») (EpochProofs.Spec.compute_shuffled_permutation Hand «o» ((fun x : Gen.Uint64 => x.val) «index_count») ((fun x : Gen.Bytes32 => toVec 32 x.data) «seed»))
+
+/-- The bridge statement of `compute_shuffled_index`. -/
+abbrev spec_compute_shuffled_index : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («index» : Gen.Uint64) («index_count» : Gen.Uint64) («seed» : Gen.Bytes32), OracleAgrees «o» → (fun x : Gen.Uint64 => x.val < 2 ^ 64) «index» → (fun x : Gen.Uint64 => x.val < 2 ^ 64) «index_count» → (fun x : Gen.Bytes32 => x.data.length = 32) «seed» → SimI (fun x : Gen.Uint64 => x.val < 2 ^ 64) (fun x : Gen.Uint64 => x.val) (Gen.compute_shuffled_index «index» «index_count» «seed») (EpochProofs.Spec.compute_shuffled_index Hand «o» ((fun x : Gen.Uint64 => x.val) «index») ((fun x : Gen.Uint64 => x.val) «index_count») ((fun x : Gen.Bytes32 => toVec 32 x.data) «seed»))
+
+/-- The bridge statement of `compute_balance_weighted_selection`. -/
+abbrev spec_compute_balance_weighted_selection : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («indices» : List (Gen.ValidatorIndex)) («seed» : Gen.Bytes32) («size» : Gen.Uint64) («shuffle_indices» : Bool), OracleAgrees «o» → IR_BeaconState «state» → (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) «indices» → (fun x : Gen.Bytes32 => x.data.length = 32) «seed» → (fun x : Gen.Uint64 => x.val < 2 ^ 64) «size» → SimI (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.compute_balance_weighted_selection «state» «indices» «seed» «size» «shuffle_indices») (EpochProofs.Spec.compute_balance_weighted_selection Hand «o» (abs_BeaconState «state») ((List.map (fun x : Gen.ValidatorIndex => x.val)) «indices») ((fun x : Gen.Bytes32 => toVec 32 x.data) «seed») ((fun x : Gen.Uint64 => x.val) «size») ((fun x : Bool => x) «shuffle_indices»))
+
+/-- The bridge statement of `compute_committee`. -/
+abbrev spec_compute_committee : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («indices» : List (Gen.ValidatorIndex)) («seed» : Gen.Bytes32) («index» : Gen.Uint64) («count» : Gen.Uint64), OracleAgrees «o» → (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) «indices» → (fun x : Gen.Bytes32 => x.data.length = 32) «seed» → (fun x : Gen.Uint64 => x.val < 2 ^ 64) «index» → (fun x : Gen.Uint64 => x.val < 2 ^ 64) «count» → SimI (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.compute_committee «indices» «seed» «index» «count») (EpochProofs.Spec.compute_committee Hand «o» ((List.map (fun x : Gen.ValidatorIndex => x.val)) «indices») ((fun x : Gen.Bytes32 => toVec 32 x.data) «seed») ((fun x : Gen.Uint64 => x.val) «index») ((fun x : Gen.Uint64 => x.val) «count»))
+
+/-- The bridge statement of `compute_proposer_indices`. -/
+abbrev spec_compute_proposer_indices : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («epoch» : Gen.Epoch) («seed» : Gen.Bytes32) («indices» : List (Gen.ValidatorIndex)), OracleAgrees «o» → IR_BeaconState «state» → (fun x : Gen.Epoch => x.val < 2 ^ 64) «epoch» → (fun x : Gen.Bytes32 => x.data.length = 32) «seed» → (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) «indices» → SimI (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.compute_proposer_indices «state» «epoch» «seed» «indices») (EpochProofs.Spec.compute_proposer_indices Hand «o» (abs_BeaconState «state») ((fun x : Gen.Epoch => x.val) «epoch») ((fun x : Gen.Bytes32 => toVec 32 x.data) «seed») ((List.map (fun x : Gen.ValidatorIndex => x.val)) «indices»))
+
 /-- The bridge statement of `get_committee_count_per_slot`. -/
 abbrev spec_get_committee_count_per_slot : Prop :=
   ∀ («state» : Gen.BeaconState) («epoch» : Gen.Epoch), IR_BeaconState «state» → (fun x : Gen.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun x : Gen.Uint64 => x.val < 2 ^ 64) (fun x : Gen.Uint64 => x.val) (Gen.get_committee_count_per_slot «state» «epoch») (EpochProofs.Spec.get_committee_count_per_slot Hand (abs_BeaconState «state») ((fun x : Gen.Epoch => x.val) «epoch»))
@@ -315,6 +483,22 @@ abbrev spec_get_committee_count_per_slot : Prop :=
 /-- The bridge statement of `get_randao_mix`. -/
 abbrev spec_get_randao_mix : Prop :=
   ∀ («state» : Gen.BeaconState) («epoch» : Gen.Epoch), IR_BeaconState «state» → (fun x : Gen.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun x : Gen.Bytes32 => x.data.length = 32) (fun x : Gen.Bytes32 => toVec 32 x.data) (Gen.get_randao_mix «state» «epoch») (EpochProofs.Spec.get_randao_mix Hand (abs_BeaconState «state») ((fun x : Gen.Epoch => x.val) «epoch»))
+
+/-- The bridge statement of `get_seed`. -/
+abbrev spec_get_seed : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («epoch» : Gen.Epoch) («domain_type» : Gen.DomainType), OracleAgrees «o» → IR_BeaconState «state» → (fun x : Gen.Epoch => x.val < 2 ^ 64) «epoch» → (fun x : Gen.DomainType => x.data.length = 4) «domain_type» → SimI (fun x : Gen.Bytes32 => x.data.length = 32) (fun x : Gen.Bytes32 => toVec 32 x.data) (Gen.get_seed «state» «epoch» «domain_type») (EpochProofs.Spec.get_seed Hand «o» (abs_BeaconState «state») ((fun x : Gen.Epoch => x.val) «epoch») ((fun x : Gen.DomainType => toVec 4 x.data) «domain_type»))
+
+/-- The bridge statement of `get_beacon_committee`. -/
+abbrev spec_get_beacon_committee : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («slot» : Gen.Slot) («index» : Gen.CommitteeIndex), OracleAgrees «o» → IR_BeaconState «state» → (fun x : Gen.Slot => x.val < 2 ^ 64) «slot» → (fun x : Gen.CommitteeIndex => x.val < 2 ^ 64) «index» → SimI (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.get_beacon_committee «state» «slot» «index») (EpochProofs.Spec.get_beacon_committee Hand «o» (abs_BeaconState «state») ((fun x : Gen.Slot => x.val) «slot») ((fun x : Gen.CommitteeIndex => x.val) «index»))
+
+/-- The bridge statement of `compute_ptc`. -/
+abbrev spec_compute_ptc : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («slot» : Gen.Slot), OracleAgrees «o» → IR_BeaconState «state» → (fun x : Gen.Slot => x.val < 2 ^ 64) «slot» → SimI (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.compute_ptc «state» «slot») (EpochProofs.Spec.compute_ptc Hand «o» (abs_BeaconState «state») ((fun x : Gen.Slot => x.val) «slot»))
+
+/-- The bridge statement of `eth_fast_aggregate_verify`. -/
+abbrev spec_eth_fast_aggregate_verify : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («pubkeys» : List (Gen.BLSPubkey)) («message» : Gen.Bytes32) («signature» : Gen.BLSSignature), OracleAgrees «o» → (fun xs : List (Gen.BLSPubkey) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.BLSPubkey => x.data.length = 48) y) «pubkeys» → (fun x : Gen.Bytes32 => x.data.length = 32) «message» → (fun x : Gen.BLSSignature => x.data.length = 96) «signature» → SimI (fun _ => True) (fun x : Bool => x) (Gen.eth_fast_aggregate_verify «pubkeys» «message» «signature») (pure (EpochProofs.Spec.eth_fast_aggregate_verify «o» ((List.map (fun x : Gen.BLSPubkey => toVec 48 x.data)) «pubkeys») ((fun x : Gen.Bytes32 => toVec 32 x.data) «message») ((fun x : Gen.BLSSignature => toVec 96 x.data) «signature»)))
 
 /-- The bridge statement of `get_block_root_at_slot`. -/
 abbrev spec_get_block_root_at_slot : Prop :=
@@ -334,11 +518,35 @@ abbrev spec_get_attestation_participation_flag_indices : Prop :=
 
 /-- The bridge statement of `get_committee_indices`. -/
 abbrev spec_get_committee_indices : Prop :=
-  ∀ («committee_bits» : List (Boolean)), (fun xs : List (Boolean) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun _ => True) y) «committee_bits» → SimI (fun _ => True) (List.map (fun x : Gen.CommitteeIndex => x.val)) (Gen.get_committee_indices «committee_bits») (pure (EpochProofs.Spec.get_committee_indices ((List.map Boolean.val) «committee_bits»)))
+  ∀ («committee_bits» : List (Boolean)), (fun xs : List (Boolean) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun _ => True) y) «committee_bits» → SimI (fun xs : List (Gen.CommitteeIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.CommitteeIndex => x.val < 2 ^ 64) y) (List.map (fun x : Gen.CommitteeIndex => x.val)) (Gen.get_committee_indices «committee_bits») (pure (EpochProofs.Spec.get_committee_indices ((List.map Boolean.val) «committee_bits»)))
+
+/-- The bridge statement of `get_attesting_indices`. -/
+abbrev spec_get_attesting_indices : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («attestation» : Gen.Attestation), OracleAgrees «o» → IR_BeaconState «state» → IR_Attestation «attestation» → SimI (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.get_attesting_indices «state» «attestation») (EpochProofs.Spec.get_attesting_indices Hand «o» (abs_BeaconState «state») (abs_Attestation «attestation»))
 
 /-- The bridge statement of `get_beacon_proposer_index`. -/
 abbrev spec_get_beacon_proposer_index : Prop :=
   ∀ («state» : Gen.BeaconState), IR_BeaconState «state» → SimI (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) (fun x : Gen.ValidatorIndex => x.val) (Gen.get_beacon_proposer_index «state») (EpochProofs.Spec.get_beacon_proposer_index Hand (abs_BeaconState «state»))
+
+/-- The bridge statement of `get_beacon_proposer_indices`. -/
+abbrev spec_get_beacon_proposer_indices : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («epoch» : Gen.Epoch), OracleAgrees «o» → IR_BeaconState «state» → (fun x : Gen.Epoch => x.val < 2 ^ 64) «epoch» → SimI (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.get_beacon_proposer_indices «state» «epoch») (EpochProofs.Spec.get_beacon_proposer_indices Hand «o» (abs_BeaconState «state») ((fun x : Gen.Epoch => x.val) «epoch»))
+
+/-- The bridge statement of `get_domain`. -/
+abbrev spec_get_domain : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («domain_type» : Gen.DomainType) («epoch» : Option (Gen.Epoch)), OracleAgrees «o» → IR_BeaconState «state» → (fun x : Gen.DomainType => x.data.length = 4) «domain_type» → (fun o : Option (Gen.Epoch) => ∀ y ∈ o, (fun x : Gen.Epoch => x.val < 2 ^ 64) y) «epoch» → SimI (fun x : Gen.Domain => x.data.length = 32) (fun x : Gen.Domain => toVec 32 x.data) (Gen.get_domain «state» «domain_type» «epoch») (EpochProofs.Spec.get_domain Hand «o» (abs_BeaconState «state») ((fun x : Gen.DomainType => toVec 4 x.data) «domain_type») ((Option.map (fun x : Gen.Epoch => x.val)) «epoch»))
+
+/-- The bridge statement of `get_indexed_attestation`. -/
+abbrev spec_get_indexed_attestation : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («attestation» : Gen.Attestation), OracleAgrees «o» → IR_BeaconState «state» → IR_Attestation «attestation» → SimI (fun _ => True) abs_IndexedAttestation (Gen.get_indexed_attestation «state» «attestation») (EpochProofs.Spec.get_indexed_attestation Hand «o» (abs_BeaconState «state») (abs_Attestation «attestation»))
+
+/-- The bridge statement of `get_next_sync_committee_indices`. -/
+abbrev spec_get_next_sync_committee_indices : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState), OracleAgrees «o» → IR_BeaconState «state» → SimI (fun xs : List (Gen.ValidatorIndex) => xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, (fun x : Gen.ValidatorIndex => x.val < 2 ^ 64) y) (List.map (fun x : Gen.ValidatorIndex => x.val)) (Gen.get_next_sync_committee_indices «state») (EpochProofs.Spec.get_next_sync_committee_indices Hand «o» (abs_BeaconState «state»))
+
+/-- The bridge statement of `get_next_sync_committee`. -/
+abbrev spec_get_next_sync_committee : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState), OracleAgrees «o» → IR_BeaconState «state» → SimI (fun _ => True) abs_SyncCommittee (Gen.get_next_sync_committee «state») (EpochProofs.Spec.get_next_sync_committee Hand «o» (abs_BeaconState «state»))
 
 /-- The bridge statement of `get_set_bit_count`. -/
 abbrev spec_get_set_bit_count : Prop :=
@@ -347,6 +555,18 @@ abbrev spec_get_set_bit_count : Prop :=
 /-- The bridge statement of `is_slashable_attestation_data`. -/
 abbrev spec_is_slashable_attestation_data : Prop :=
   ∀ («data_1» : Gen.AttestationData) («data_2» : Gen.AttestationData), IR_AttestationData «data_1» → IR_AttestationData «data_2» → SimI (fun _ => True) (fun x : Bool => x) (Gen.is_slashable_attestation_data «data_1» «data_2») (pure (EpochProofs.Spec.is_slashable_attestation_data (abs_AttestationData «data_1») (abs_AttestationData «data_2»)))
+
+/-- The bridge statement of `is_valid_indexed_attestation`. -/
+abbrev spec_is_valid_indexed_attestation : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («indexed_attestation» : Gen.IndexedAttestation), OracleAgrees «o» → IR_BeaconState «state» → IR_IndexedAttestation «indexed_attestation» → SimI (fun _ => True) (fun x : Bool => x) (Gen.is_valid_indexed_attestation «state» «indexed_attestation») (EpochProofs.Spec.is_valid_indexed_attestation Hand «o» (abs_BeaconState «state») (abs_IndexedAttestation «indexed_attestation»))
+
+/-- The bridge statement of `is_valid_indexed_payload_attestation`. -/
+abbrev spec_is_valid_indexed_payload_attestation : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («attestation» : Gen.IndexedPayloadAttestation), OracleAgrees «o» → IR_BeaconState «state» → IR_IndexedPayloadAttestation «attestation» → SimI (fun _ => True) (fun x : Bool => x) (Gen.is_valid_indexed_payload_attestation «state» «attestation») (EpochProofs.Spec.is_valid_indexed_payload_attestation Hand «o» (abs_BeaconState «state») (abs_IndexedPayloadAttestation «attestation»))
+
+/-- The bridge statement of `verify_execution_payload_bid_signature`. -/
+abbrev spec_verify_execution_payload_bid_signature : Prop :=
+  ∀ («o» : EpochProofs.Spec.Oracle) («state» : Gen.BeaconState) («signed_bid» : Gen.SignedExecutionPayloadBid), OracleAgrees «o» → IR_BeaconState «state» → IR_SignedExecutionPayloadBid «signed_bid» → SimI (fun _ => True) (fun x : Bool => x) (Gen.verify_execution_payload_bid_signature «state» «signed_bid») (EpochProofs.Spec.verify_execution_payload_bid_signature Hand «o» (abs_BeaconState «state») (abs_SignedExecutionPayloadBid «signed_bid»))
 
 /-- The bridge statement of `xor`. -/
 abbrev spec_xor : Prop :=
