@@ -530,6 +530,14 @@ A footprint names objects that are changed in place:
   it);
 - a list whose element is set, that gets an append, or that gets a slice assignment.
 
+A root is a container class or a list type. A function that writes a list argument, such as
+`set_or_append_list(list, index, value)`, has a pattern rooted at the list itself. A list object
+has no class name in the heap, so its root type is the key of its kind and element type
+(`listRoot`, `Encode.lean`), without the limit. Each key is above every class name, so a list
+root never names a container. `RootTy` holds for an argument that is a container of the class,
+or a list of the key. At a call, the caller's footprint names the same list by its path, such
+as `BeaconState.validators`.
+
 Rebinding a field puts the container that holds the field in the footprint, not the old or new
 object in the field. So `state.previous_justified_checkpoint = …` puts `BeaconState` in the
 footprint, not `Checkpoint`.

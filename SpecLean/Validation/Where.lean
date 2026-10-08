@@ -82,7 +82,7 @@ theorem wtree_ne {h : Heap} {vs : List Value} {fp : Footprint} (hw : WTree h vs 
 
 theorem rootTy_of {h : Heap} {vs : List Value} {k : Nat} {a : Nat} {ty : Name} {fs : List Value}
     (hv : vs[k]? = some (.ref a)) (ho : h.objs a = some (.container ty fs)) :
-    RootTy h vs k ty := ⟨a, fs, hv, ho⟩
+    RootTy h vs k ty := rootTy_container hv ho
 
 theorem atFp_of {h : Heap} {vs : List Value} {fp : Footprint} {k : Nat} {pat : FPat}
     (hk : pat ∈ fp) (hty : RootTy h vs k pat.ty) {q : List Nat} (hq : Matches pat.steps q)
