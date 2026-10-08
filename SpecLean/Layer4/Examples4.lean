@@ -159,10 +159,10 @@ theorem cvb_call (sha : Oracle) (fp : Footprint) (m vi : Nat) (hv : vi < 2 ^ 64)
   have hl : (Scope.env sha).globals.lookup 199 = some (.type (.uint biTy)) := by
     simp only [Scope.env, Validation.Tactic.lookup_lit]
   rw [show m + 5 = (m + 4) + 1 by omega, den_expr]
-  simp only [exprStep, hhead]
+  simp only [exprStep, hhead, allKw_pos, Bool.false_eq_true, ↓reduceIte]
   simp only [argsOf]
   rw [ha, dm_bind_ok, dm_ok, dm_bind_ok, dm_ok, dm_bind_ok]
-  simp only [dCallRO, hl]
+  simp only [dCallRO, padNone, hl]
   exact hc
 
 theorem cvb_den (sha : Oracle) (fp : Footprint) (m vi : Nat) (hv : vi < 2 ^ 64) :
@@ -300,14 +300,15 @@ theorem e_callfn {sha : Oracle} {fp : Footprint} {s : DSt} {n : Nat} {l l' : Lin
     (hloc : s.loc g = none)
     (ha : argsOf ((den (Scope.env sha) fpsEx (n + 1)).expr fp s) args = some (.ok rs))
     (hr : rs.mapM (argRoot s) = some rg)
-    (hf : (den (Scope.env sha) fpsEx (n + 1)).fn [] d rg = some (.ok (.val v, rg'))) (hflat : Flat v = true) :
+    (hf : (den (Scope.env sha) fpsEx (n + 1)).fn [] d rg = some (.ok (.val v, rg'))) (hflat : Flat v = true)
+    (hlen : rg.length = d.params.names.length := by simp) :
     (den (Scope.env sha) fpsEx (n + 2)).expr fp s (.call l (.name l' g) args) = some (.ok (.val v)) := by
   have hh : callHead (Scope.env sha) s (.call l (.name l' g) args) = some (g, args) := by
     simp [callHead, hloc, callable, hl]
   rw [den_expr]
-  simp only [exprStep, hh]
+  simp only [exprStep, hh, allKw_of_argsOf _ _ ha, Bool.false_eq_true, ↓reduceIte]
   rw [ha, dm_bind_ok]
-  simp only [dCallRO, hl, hfp, if_true, hr, hf, dm_bind_ok, hflat]
+  simp only [dCallRO, padNone_full hlen, hl, hfp, if_true, hr, hf, dm_bind_ok, hflat]
   rfl
 
 
@@ -398,7 +399,7 @@ theorem c_sat_err (m : Nat) (hc : ACtx s ds kB lB bals kD lD bs kW lW ws) {bi : 
       (.pos (.attr 1944 (.name 1944 85) 5))]) := by
     simp [callHead, h88, callable, Scope.env, Validation.Tactic.lookup_lit]
   rw [show m + 9 = (m + 8) + 1 by omega, den_expr]
-  simp only [exprStep, hh]
+  simp only [exprStep, hh, allKw_pos, Bool.false_eq_true, ↓reduceIte]
   simp only [argsOf]
   rw [ha]
   rfl
@@ -486,7 +487,7 @@ theorem s_else (M : Nat) (hc : ACtx s ds kB lB bals kD lD bs kW lW ws) {i : Nat}
   rw [den_stmt]
   simp only [stmtStep]
   rw [show M + 15 = (M + 14) + 1 by omega, den_call]
-  simp only [callStep, hh]
+  simp only [callStep, appendOf, hh, allKw_pos, Bool.false_eq_true, ↓reduceIte]
   rw [ha, dm_bind_ok]
   rw [fps89] at hcov
   have hmap : List.mapM (argRoot s) [DRes.place 0 [], .val (.uint viTy ws[i].validator_index.val),
@@ -956,7 +957,8 @@ theorem apply_withdrawals_denote (sha : Oracle) (M : Nat) (ds : List DV) (kB : L
 
 /-- SPEC 9.2 for `apply_withdrawals`: a loop over a parameter list, with a write-back call
 (`decrease_balance(state, ...)`) and a write through an index (`state.builders[i].balance`). -/
-theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (r0 n nw : Nat) (wv : Value)
+theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : HtrDec (Scope.env sha)) (r0 n nw : Nat) (wv : Value)
     (ds : List DV) (kB : ListKind) (lB : Option Nat) (kD : ListKind) (lD : Option Nat) (kW : ListKind)
     (lW : Option Nat) (st : BeaconState) (ws : List Withdrawal)
     (hd : dec h n (.ref r0) = some (.cont Scope.Id.«BeaconState» ds))
@@ -987,7 +989,7 @@ theorem apply_withdrawals_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
       | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
       | 1, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨nw, hdw⟩
       | _ + 2, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp awFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp awFp
       (f := Scope.Id.«apply_withdrawals»)
       (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
     rw [hden] at hm

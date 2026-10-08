@@ -19,11 +19,6 @@ namespace SpecLean.Layer4
 
 open SpecLean SpecLean.Encode SpecLean.Validation.Where
 
-/-- Every old object keeps its shape. New objects come at free addresses. -/
-def Skel (h h' : Heap) : Prop :=
-  h.next ≤ h'.next ∧ (HeapWF h → HeapWF h') ∧ ∀ a, a < h.next → h'.objs a = h.objs a ∨
-    ∃ o o', h.objs a = some o ∧ h'.objs a = some o' ∧ SameSkel o o'
-
 /-- No old object changes. New objects come at free addresses. -/
 def Ext (h h' : Heap) : Prop :=
   h.next ≤ h'.next ∧ (HeapWF h → HeapWF h') ∧ ∀ a, a < h.next → h'.objs a = h.objs a
@@ -37,16 +32,11 @@ theorem follow_nonref_ref {h : Heap} {v : Value} (hv : ∀ b, v ≠ .ref b) {q :
   | nil => simp [follow] at e; exact hv b e
   | cons i q => rw [follow_nonref hv] at e; cases e
 
-theorem Skel_refl (h : Heap) : Skel h h := ⟨Nat.le_refl _, id, fun _ _ => .inl rfl⟩
-
 theorem Ext_refl (h : Heap) : Ext h h := ⟨Nat.le_refl _, id, fun _ _ => rfl⟩
 
 theorem Ext_trans {h1 h2 h3 : Heap} (a : Ext h1 h2) (b : Ext h2 h3) : Ext h1 h3 :=
   ⟨Nat.le_trans a.1 b.1, fun w => b.2.1 (a.2.1 w),
     fun x hx => (b.2.2 x (Nat.lt_of_lt_of_le hx a.1)).trans (a.2.2 x hx)⟩
-
-theorem Skel_of_Ext {h h' : Heap} (e : Ext h h') : Skel h h' :=
-  ⟨e.1, e.2.1, fun a ha => .inl (e.2.2 a ha)⟩
 
 theorem refEq_trans {x y z : Value} (a : RefEq x y) (b : RefEq y z) : RefEq x z :=
   fun c => (a c).trans (b c)
@@ -71,26 +61,6 @@ theorem sameSkel_trans {o o' o'' : HeapObj} (a : SameSkel o o') (b : SameSkel o'
       skelList_trans a.2.2.2.1 a.2.2.2.2 b.2.2.2.1 b.2.2.2.2⟩
   · exact ⟨a.1.trans b.1, a.2.1.trans b.2.1, skelList_trans a.2.1 a.2.2 b.2.1 b.2.2⟩
 
-theorem Skel_trans {h1 h2 h3 : Heap} (a : Skel h1 h2) (b : Skel h2 h3) : Skel h1 h3 := by
-  refine ⟨Nat.le_trans a.1 b.1, fun w => b.2.1 (a.2.1 w), fun x hx => ?_⟩
-  have hx2 : x < h2.next := Nat.lt_of_lt_of_le hx a.1
-  rcases a.2.2 x hx with e1 | ⟨o, o', h1o, h2o, s1⟩ <;> rcases b.2.2 x hx2 with e2 | ⟨p, p', h2p, h3p, s2⟩
-  · exact .inl (e2.trans e1)
-  · rw [e1] at h2p; exact .inr ⟨p, p', h2p, h3p, s2⟩
-  · rw [← e2] at h2o; exact .inr ⟨o, o', h1o, h2o, s1⟩
-  · rw [h2o] at h2p; cases h2p; exact .inr ⟨o, p', h1o, h3p, sameSkel_trans s1 s2⟩
-
-theorem Skel_set {h : Heap} {a : Nat} {o o' : HeapObj} (ho : h.objs a = some o)
-    (hs : SameSkel o o') : Skel h (h.set a o') := by
-  refine ⟨by simp [Heap.set], fun hwf b hb => ?_, fun b _ => ?_⟩
-  · have hb' : h.next ≤ b := by simpa [Heap.set] using hb
-    by_cases hba : b = a
-    · subst hba; rw [hwf b hb'] at ho; cases ho
-    · simp [hba, hwf b hb']
-  · by_cases hb : b = a
-    · subst hb; exact .inr ⟨o, o', ho, by simp, hs⟩
-    · exact .inl (by simp [hb])
-
 theorem Ext_alloc (h : Heap) (o : HeapObj) : Ext h (h.alloc o).2 := by
   refine ⟨by simp [Heap.alloc], fun hwf b hb => ?_, fun b hb => ?_⟩
   · simp only [Heap.alloc] at hb ⊢
@@ -102,69 +72,249 @@ theorem below_child {h : Heap} {c : Nat} {xs : List Value} (hk : okids (h.objs c
     {j : Nat} {x : Value} (hx : xs[j]? = some x) (hb : Below h (.ref c)) : Below h x :=
   fun q a e => hb (j :: q) a (by rw [follow_ref_cons, hk]; simp [hx, e])
 
-/-- After a run that keeps the shape, every path to a reference from a value below `next`
-reads the same. -/
-theorem follow_Skel {h h' : Heap} (hs : Skel h h') :
-    ∀ q v w, RefEq v w → Below h w → ∀ b, follow h' v q = some (.ref b) ↔ follow h w q = some (.ref b) := by
+/-- The arguments reach only objects below `next`. -/
+abbrev BelowArgs (h : Heap) (vs : List Value) : Prop := ∀ (k : Nat) (v : Value), vs[k]? = some v → Below h v
+
+
+/-- Every reference that `v` reaches in `h` is new (at `lo` or above) and below `next`. -/
+def NewIn (lo : Nat) (h : Heap) (v : Value) : Prop :=
+  ∀ q b, follow h v q = some (.ref b) → lo ≤ b ∧ b < h.next
+
+/-- An old object after a run: the same shape and the same references, but a list may grow at
+its end, by items that reach only objects new from `lo`. -/
+def GrowSkel (lo : Nat) (h' : Heap) : HeapObj → HeapObj → Prop
+  | .container ty fs, .container ty' fs' =>
+    ty = ty' ∧ fs.length = fs'.length ∧ ∀ (i : Nat) x y, fs[i]? = some x → fs'[i]? = some y → RefEq x y
+  | .list k e l xs, .list k' e' l' xs' =>
+    k = k' ∧ e = e' ∧ l = l' ∧ xs.length ≤ xs'.length ∧
+      (∀ (i : Nat) x y, xs[i]? = some x → xs'[i]? = some y → RefEq x y) ∧
+      ∀ (i : Nat) y, xs.length ≤ i → xs'[i]? = some y → NewIn lo h' y
+  | _, _ => False
+
+/-- Every old object keeps its shape, or a list of it grows by new items (new from `lo`). New
+objects come at free addresses. -/
+def SkelL (lo : Nat) (h h' : Heap) : Prop :=
+  h.next ≤ h'.next ∧ (HeapWF h → HeapWF h') ∧ ∀ a, a < h.next → h'.objs a = h.objs a ∨
+    ∃ o o', h.objs a = some o ∧ h'.objs a = some o' ∧ GrowSkel lo h' o o'
+
+/-- A run from `h`: lists may grow by objects that the run made. -/
+abbrev Skel (h h' : Heap) : Prop := SkelL h.next h h'
+
+theorem follow_refEq {h : Heap} {v w : Value} (hvw : RefEq v w) :
+    ∀ q b, follow h v q = some (.ref b) ↔ follow h w q = some (.ref b) := by
+  intro q b
+  by_cases hv : ∃ c, v = .ref c
+  · obtain ⟨c, rfl⟩ := hv
+    have hw : w = .ref c := (hvw c).mp rfl
+    subst hw; exact Iff.rfl
+  · have hv' : ∀ c, v ≠ .ref c := fun c e => hv ⟨c, e⟩
+    have hw' : ∀ c, w ≠ .ref c := fun c e => hv' c ((hvw c).mpr e)
+    cases q with
+    | nil => simp only [follow, Option.some.injEq]; exact hvw b
+    | cons j q => rw [follow_nonref hv', follow_nonref hw']
+
+theorem newIn_mono {lo lo' : Nat} {h : Heap} {v : Value} (hle : lo' ≤ lo) (hv : NewIn lo h v) :
+    NewIn lo' h v := fun q b e => ⟨Nat.le_trans hle (hv q b e).1, (hv q b e).2⟩
+
+theorem growSkel_mono {lo lo' : Nat} {h' : Heap} {o o' : HeapObj} (hle : lo' ≤ lo)
+    (hs : GrowSkel lo h' o o') : GrowSkel lo' h' o o' := by
+  cases o <;> cases o' <;> simp only [GrowSkel] at hs ⊢ <;> try exact hs
+  exact ⟨hs.1, hs.2.1, hs.2.2.1, hs.2.2.2.1, hs.2.2.2.2.1,
+    fun i y hi hy => newIn_mono hle (hs.2.2.2.2.2 i y hi hy)⟩
+
+theorem growSkel_of_same {lo : Nat} {h' : Heap} {o o' : HeapObj} (hs : SameSkel o o') :
+    GrowSkel lo h' o o' := by
+  cases o <;> cases o' <;> simp only [SameSkel, GrowSkel] at hs ⊢ <;> try exact hs
+  refine ⟨hs.1, hs.2.1, hs.2.2.1, Nat.le_of_eq hs.2.2.2.1, hs.2.2.2.2, fun i y hi hy => ?_⟩
+  have := (List.getElem?_eq_some_iff.mp hy).1; omega
+
+/-- The children of an old object before and after: a prefix with the same references, and new
+items at the end. -/
+def KidsGrow (lo : Nat) (h' : Heap) (xs ys : List Value) : Prop :=
+  xs.length ≤ ys.length ∧ (∀ (i : Nat) x y, xs[i]? = some x → ys[i]? = some y → RefEq x y) ∧
+    ∀ (i : Nat) y, xs.length ≤ i → ys[i]? = some y → NewIn lo h' y
+
+theorem kidsGrow_refl (lo : Nat) (h' : Heap) (xs : List Value) : KidsGrow lo h' xs xs :=
+  ⟨Nat.le_refl _, fun i x y hx hy => by rw [hx] at hy; cases hy; exact RefEq.refl x,
+    fun i y hi hy => by have := (List.getElem?_eq_some_iff.mp hy).1; omega⟩
+
+theorem kids_SkelL {lo : Nat} {h h' : Heap} (hs : SkelL lo h h') {c : Nat} (hc : c < h.next) :
+    (okids (h.objs c) = none ∧ okids (h'.objs c) = none) ∨
+      ∃ xs ys, okids (h.objs c) = some xs ∧ okids (h'.objs c) = some ys ∧ KidsGrow lo h' xs ys := by
+  rcases hs.2.2 c hc with e | ⟨o, o', ho, ho', sk⟩
+  · rw [e]
+    cases hk : okids (h.objs c) with
+    | none => exact .inl ⟨rfl, rfl⟩
+    | some xs => exact .inr ⟨xs, xs, rfl, rfl, kidsGrow_refl lo h' xs⟩
+  · rw [ho, ho']
+    match o, o', sk with
+    | .container _ fs, .container _ fs', sk =>
+      exact .inr ⟨fs, fs', rfl, rfl, Nat.le_of_eq sk.2.1, sk.2.2, fun i y hi hy => by
+        have h1 := (List.getElem?_eq_some_iff.mp hy).1; have h2 := sk.2.1; omega⟩
+    | .list _ _ _ xs, .list _ _ _ xs', sk =>
+      exact .inr ⟨xs, xs', rfl, rfl, sk.2.2.2.1, sk.2.2.2.2.1, sk.2.2.2.2.2⟩
+
+/-- An old path to a reference still reads the same. -/
+theorem follow_SkelL_fwd {lo : Nat} {h h' : Heap} (hs : SkelL lo h h') :
+    ∀ q v w, RefEq v w → Below h w → ∀ b, follow h w q = some (.ref b) → follow h' v q = some (.ref b) := by
   intro q
   induction q with
-  | nil => intro v w hvw _ b; simp only [follow, Option.some.injEq]; exact hvw b
+  | nil => intro v w hvw _ b e; simp only [follow, Option.some.injEq] at e ⊢; exact (hvw b).mpr e
   | cons j q ih =>
-    intro v w hvw hbw b
+    intro v w hvw hbw b e
     by_cases hv : ∃ c, v = .ref c
     · obtain ⟨c, rfl⟩ := hv
       have hw : w = .ref c := (hvw c).mp rfl
       subst hw
       have hc : c < h.next := hbw [] c rfl
-      simp only [follow]
-      have step : ∀ (xs ys : List Value), okids (h.objs c) = some xs → xs.length = ys.length →
-          (∀ (i : Nat) x y, xs[i]? = some x → ys[i]? = some y → RefEq x y) →
-          ((ys[j]?.bind fun x => follow h' x q) = some (.ref b) ↔
-            (xs[j]?.bind fun x => follow h x q) = some (.ref b)) := by
-        intro xs ys hk hl hr
-        cases hy : ys[j]? with
-        | none =>
-          have : xs[j]? = none := by rw [List.getElem?_eq_none_iff] at hy ⊢; omega
-          simp [this]
-        | some y =>
-          cases hx : xs[j]? with
-          | none =>
-            exfalso; rw [List.getElem?_eq_none_iff] at hx
-            have := (List.getElem?_eq_some_iff.mp hy).1; omega
-          | some x =>
-            simp only [Option.bind_some]
-            exact ih y x (refEq_symm (hr j x y hx hy)) (below_child hk hx hbw) b
-      rcases hs.2.2 c hc with e | ⟨o, o', ho, ho', sk⟩
-      · rw [e]
-        cases hoc : h.objs c with
-        | none => simp
-        | some o =>
-          cases o with
-          | container ty fs =>
-            exact step fs fs (by simp [okids, hoc]) rfl (fun i x y hx hy => by rw [hx] at hy; cases hy; exact RefEq.refl x)
-          | list k e l xs =>
-            exact step xs xs (by simp [okids, hoc]) rfl (fun i x y hx hy => by rw [hx] at hy; cases hy; exact RefEq.refl x)
-          | _ => simp
-      · rw [ho, ho']
-        cases o <;> cases o' <;> simp only [SameSkel] at sk <;> try exact sk.elim
-        · exact step _ _ (by simp [okids, ho]) sk.2.2.2.1 sk.2.2.2.2
-        · exact step _ _ (by simp [okids, ho]) sk.2.1 sk.2.2
+      rw [follow_ref_cons] at e ⊢
+      rcases kids_SkelL hs hc with ⟨h1, -⟩ | ⟨xs, ys, hx, hy, hl, hr, -⟩
+      · rw [h1] at e; cases e
+      · rw [hx] at e; rw [hy]
+        simp only [Option.bind_some] at e ⊢
+        cases hxj : xs[j]? with
+        | none => rw [hxj] at e; cases e
+        | some x =>
+          rw [hxj] at e
+          simp only [Option.bind_some] at e
+          have hj : j < ys.length := by have := (List.getElem?_eq_some_iff.mp hxj).1; omega
+          rw [List.getElem?_eq_getElem hj]
+          simp only [Option.bind_some]
+          exact ih _ x (refEq_symm (hr j x _ hxj (List.getElem?_eq_getElem hj)))
+            (below_child hx hxj hbw) b e
     · have hv' : ∀ c, v ≠ .ref c := fun c e => hv ⟨c, e⟩
       have hw' : ∀ c, w ≠ .ref c := fun c e => hv' c ((hvw c).mpr e)
-      rw [follow_nonref hv', follow_nonref hw']
+      rw [follow_nonref hw'] at e; cases e
 
-/-- The arguments reach only objects below `next`. -/
-abbrev BelowArgs (h : Heap) (vs : List Value) : Prop := ∀ (k : Nat) (v : Value), vs[k]? = some v → Below h v
+/-- A new path to a reference reads an old path, or reaches a new object. -/
+theorem follow_SkelL_back {lo : Nat} {h h' : Heap} (hs : SkelL lo h h') :
+    ∀ q v w, RefEq v w → Below h w → ∀ b, follow h' v q = some (.ref b) →
+      follow h w q = some (.ref b) ∨ (lo ≤ b ∧ b < h'.next) := by
+  intro q
+  induction q with
+  | nil => intro v w hvw _ b e; simp only [follow, Option.some.injEq] at e ⊢; exact .inl ((hvw b).mp e)
+  | cons j q ih =>
+    intro v w hvw hbw b e
+    by_cases hv : ∃ c, v = .ref c
+    · obtain ⟨c, rfl⟩ := hv
+      have hw : w = .ref c := (hvw c).mp rfl
+      subst hw
+      have hc : c < h.next := hbw [] c rfl
+      rw [follow_ref_cons] at e ⊢
+      rcases kids_SkelL hs hc with ⟨-, h2⟩ | ⟨xs, ys, hx, hy, hl, hr, hn⟩
+      · rw [h2] at e; cases e
+      · rw [hy] at e; rw [hx]
+        simp only [Option.bind_some] at e ⊢
+        cases hyj : ys[j]? with
+        | none => rw [hyj] at e; cases e
+        | some y =>
+          rw [hyj] at e
+          simp only [Option.bind_some] at e
+          by_cases hj : j < xs.length
+          · rw [List.getElem?_eq_getElem hj]
+            simp only [Option.bind_some]
+            exact ih y _ (refEq_symm (hr j _ y (List.getElem?_eq_getElem hj) hyj))
+              (below_child hx (List.getElem?_eq_getElem hj) hbw) b e
+          · exact .inr (hn j y (by omega) hyj q b e)
+    · have hv' : ∀ c, v ≠ .ref c := fun c e => hv ⟨c, e⟩
+      rw [follow_nonref hv'] at e; cases e
 
-theorem at?_Skel {h h' : Heap} (hs : Skel h h') {vs : List Value} (hb : BelowArgs h vs)
+theorem newIn_SkelL {lo lo' : Nat} {h h' : Heap} (hs : SkelL lo' h h') (hle : lo ≤ lo') {y : Value}
+    (hy : NewIn lo h y) : NewIn lo h' y := by
+  intro q b e
+  rcases follow_SkelL_back hs q y y (RefEq.refl y) (fun q' b' e' => (hy q' b' e').2) b e with e' | ⟨h1, h2⟩
+  · exact ⟨(hy q b e').1, Nat.lt_of_lt_of_le (hy q b e').2 hs.1⟩
+  · exact ⟨Nat.le_trans hle h1, h2⟩
+
+theorem growSkel_SkelL {lo lo' : Nat} {h' h'' : Heap} (hs : SkelL lo' h' h'') (hle : lo ≤ lo')
+    {o o' : HeapObj} (g : GrowSkel lo h' o o') : GrowSkel lo h'' o o' := by
+  cases o <;> cases o' <;> simp only [GrowSkel] at g ⊢ <;> try exact g
+  exact ⟨g.1, g.2.1, g.2.2.1, g.2.2.2.1, g.2.2.2.2.1,
+    fun i y hi hy => newIn_SkelL hs hle (g.2.2.2.2.2 i y hi hy)⟩
+
+theorem newIn_refEq {lo : Nat} {h : Heap} {v w : Value} (hvw : RefEq v w) (hv : NewIn lo h v) :
+    NewIn lo h w := fun q b e => hv q b ((follow_refEq hvw q b).mpr e)
+
+theorem growSkel_trans {lo lo' : Nat} {h2 h3 : Heap} (hs : SkelL lo' h2 h3) (hle : lo ≤ lo')
+    {o o' o'' : HeapObj} (a : GrowSkel lo h2 o o') (b : GrowSkel lo' h3 o' o'') :
+    GrowSkel lo h3 o o'' := by
+  match o, o', o'', a, b with
+  | .container _ fs, .container _ fs', .container _ fs'', a, b =>
+    exact ⟨a.1.trans b.1, a.2.1.trans b.2.1, skelList_trans a.2.1 a.2.2 b.2.1 b.2.2⟩
+  | .list _ _ _ xs, .list _ _ _ xs', .list _ _ _ xs'', a, b =>
+    refine ⟨a.1.trans b.1, a.2.1.trans b.2.1, a.2.2.1.trans b.2.2.1,
+      Nat.le_trans a.2.2.2.1 b.2.2.2.1, fun i x z hx hz => ?_, fun i y hi hy => ?_⟩
+    · have hi : i < _ := Nat.lt_of_lt_of_le (List.getElem?_eq_some_iff.mp hx).1 a.2.2.2.1
+      exact refEq_trans (a.2.2.2.2.1 i x _ hx (List.getElem?_eq_getElem hi))
+        (b.2.2.2.2.1 i _ z (List.getElem?_eq_getElem hi) hz)
+    · by_cases hi' : i < xs'.length
+      · have hy' := List.getElem?_eq_getElem hi'
+        exact newIn_refEq (b.2.2.2.2.1 i _ y hy' hy) (newIn_SkelL hs hle (a.2.2.2.2.2 i _ hi hy'))
+      · exact newIn_mono hle (b.2.2.2.2.2 i y (by omega) hy)
+
+theorem SkelL_refl (lo : Nat) (h : Heap) : SkelL lo h h := ⟨Nat.le_refl _, id, fun _ _ => .inl rfl⟩
+
+theorem SkelL_of_Ext {h h' : Heap} (e : Ext h h') (lo : Nat) : SkelL lo h h' :=
+  ⟨e.1, e.2.1, fun a ha => .inl (e.2.2 a ha)⟩
+
+theorem SkelL_mono {lo lo' : Nat} {h h' : Heap} (hle : lo' ≤ lo) (hs : SkelL lo h h') : SkelL lo' h h' :=
+  ⟨hs.1, hs.2.1, fun a ha => (hs.2.2 a ha).imp id fun ⟨o, o', ho, ho', g⟩ => ⟨o, o', ho, ho', growSkel_mono hle g⟩⟩
+
+theorem SkelL_trans {lo lo' : Nat} {h1 h2 h3 : Heap} (a : SkelL lo h1 h2) (b : SkelL lo' h2 h3)
+    (hle : lo ≤ lo') : SkelL lo h1 h3 := by
+  refine ⟨Nat.le_trans a.1 b.1, fun w => b.2.1 (a.2.1 w), fun x hx => ?_⟩
+  have hx2 : x < h2.next := Nat.lt_of_lt_of_le hx a.1
+  rcases a.2.2 x hx with e1 | ⟨o, o', h1o, h2o, s1⟩ <;> rcases b.2.2 x hx2 with e2 | ⟨p, p', h2p, h3p, s2⟩
+  · exact .inl (e2.trans e1)
+  · rw [e1] at h2p; exact .inr ⟨p, p', h2p, h3p, growSkel_mono hle s2⟩
+  · rw [← e2] at h2o; exact .inr ⟨o, o', h1o, h2o, growSkel_SkelL b hle s1⟩
+  · rw [h2o] at h2p; cases h2p; exact .inr ⟨o, p', h1o, h3p, growSkel_trans b hle s1 s2⟩
+
+theorem SkelL_set {lo : Nat} {h : Heap} {a : Nat} {o o' : HeapObj} (ho : h.objs a = some o)
+    (hs : GrowSkel lo (h.set a o') o o') : SkelL lo h (h.set a o') := by
+  refine ⟨by simp [Heap.set], fun hwf b hb => ?_, fun b _ => ?_⟩
+  · have hb' : h.next ≤ b := by simpa [Heap.set] using hb
+    by_cases hba : b = a
+    · subst hba; rw [hwf b hb'] at ho; cases ho
+    · simp [hba, hwf b hb']
+  · by_cases hb : b = a
+    · subst hb; exact .inr ⟨o, o', ho, by simp, hs⟩
+    · exact .inl (by simp [hb])
+
+/-- A run that changes no old object keeps every path to a reference. -/
+theorem follow_Ext {h h' : Heap} (e : Ext h h') (q : List Nat) {v : Value} (hb : Below h v) (b : Nat) :
+    follow h' v q = some (.ref b) ↔ follow h v q = some (.ref b) := by
+  constructor
+  · intro e'
+    rcases follow_SkelL_back (SkelL_of_Ext e h'.next) q v v (RefEq.refl v) hb b e' with r | ⟨h1, h2⟩
+    · exact r
+    · omega
+  · exact follow_SkelL_fwd (SkelL_of_Ext e 0) q v v (RefEq.refl v) hb b
+
+theorem at?_Ext {h h' : Heap} (e : Ext h h') {vs : List Value} (hb : BelowArgs h vs)
     (k : Nat) (q : List Nat) (b : Nat) : at? h' vs k q = some (.ref b) ↔ at? h vs k q = some (.ref b) := by
   unfold at?
   cases hv : vs[k]? with
   | none => simp
-  | some v => simpa using follow_Skel hs q v v (RefEq.refl v) (hb k v hv) b
+  | some v => simpa using follow_Ext e q (hb k v hv) b
 
-theorem rootTy_Skel {h h' : Heap} (hs : Skel h h') {vs : List Value} (hb : BelowArgs h vs) (k : Nat)
-    (ty : Name) : RootTy h' vs k ty ↔ RootTy h vs k ty := by
+theorem at?_SkelL_fwd {lo : Nat} {h h' : Heap} (hs : SkelL lo h h') {vs : List Value} (hb : BelowArgs h vs)
+    (k : Nat) (q : List Nat) (b : Nat) : at? h vs k q = some (.ref b) → at? h' vs k q = some (.ref b) := by
+  unfold at?
+  cases hv : vs[k]? with
+  | none => simp
+  | some v => simpa using follow_SkelL_fwd hs q v v (RefEq.refl v) (hb k v hv) b
+
+theorem at?_SkelL_back {lo : Nat} {h h' : Heap} (hs : SkelL lo h h') {vs : List Value} (hb : BelowArgs h vs)
+    (k : Nat) (q : List Nat) (b : Nat) : at? h' vs k q = some (.ref b) →
+      at? h vs k q = some (.ref b) ∨ (lo ≤ b ∧ b < h'.next) := by
+  unfold at?
+  cases hv : vs[k]? with
+  | none => simp
+  | some v => simpa using follow_SkelL_back hs q v v (RefEq.refl v) (hb k v hv) b
+
+theorem rootTy_SkelL {lo : Nat} {h h' : Heap} (hs : SkelL lo h h') {vs : List Value} (hb : BelowArgs h vs)
+    (k : Nat) (ty : Name) : RootTy h' vs k ty ↔ RootTy h vs k ty := by
   constructor
   · rintro ⟨c, fs, hc, hoc⟩
     have hlt : c < h.next := hb k _ hc [] c rfl
@@ -173,7 +323,7 @@ theorem rootTy_Skel {h h' : Heap} (hs : Skel h h') {vs : List Value} (hb : Below
     · rw [ho'] at hoc; cases hoc
       cases o with
       | container ty' fs' => obtain ⟨rfl, -⟩ := sk; exact ⟨c, fs', hc, ho⟩
-      | _ => exact absurd sk (by simp only [SameSkel]; exact id)
+      | _ => exact absurd sk (by simp only [GrowSkel]; exact id)
   · rintro ⟨c, fs, hc, hoc⟩
     have hlt : c < h.next := hb k _ hc [] c rfl
     rcases hs.2.2 c hlt with e | ⟨o, o', ho, ho', sk⟩
@@ -181,13 +331,73 @@ theorem rootTy_Skel {h h' : Heap} (hs : Skel h h') {vs : List Value} (hb : Below
     · rw [hoc] at ho; cases ho
       cases o' with
       | container ty' fs' => obtain ⟨rfl, -⟩ := sk; exact ⟨c, fs', hc, ho'⟩
-      | _ => exact absurd sk (by simp only [SameSkel]; exact id)
+      | _ => exact absurd sk (by simp only [GrowSkel]; exact id)
 
-theorem Fresh_of_Skel {h h' : Heap} (hs : Skel h h') : Fresh h h' := ⟨hs.1, hs.2.1⟩
+theorem Fresh_of_SkelL {lo : Nat} {h h' : Heap} (hs : SkelL lo h h') : Fresh h h' := ⟨hs.1, hs.2.1⟩
+
+theorem Reach_of_SkelL {lo : Nat} {h h' : Heap} (hs : SkelL lo h h') (hlo : h.next ≤ lo) {vs : List Value}
+    (hb : BelowArgs h vs) : Reach h h' vs :=
+  fun k q b e => (at?_SkelL_back hs hb k q b e).imp id fun ⟨h1, _⟩ => Nat.le_trans hlo h1
+
+
+/-- A path that reaches a new object: an old path to an old list, an index past its old end,
+then a path from the new item. -/
+theorem follow_new_split {lo : Nat} {h h' : Heap} (hs : SkelL lo h h') :
+    ∀ q v, Below h v → ∀ b, follow h' v q = some (.ref b) → h.next ≤ b →
+      ∃ q0 c j rest y xs ys, q = q0 ++ j :: rest ∧ follow h v q0 = some (.ref c) ∧ c < h.next ∧
+        okids (h.objs c) = some xs ∧ okids (h'.objs c) = some ys ∧ xs.length ≤ j ∧
+        ys[j]? = some y ∧ follow h' y rest = some (.ref b) := by
+  intro q
+  induction q with
+  | nil =>
+    intro v hb b e hn
+    simp only [follow, Option.some.injEq] at e; subst e
+    have := hb [] b rfl; omega
+  | cons j q ih =>
+    intro v hb b e hn
+    by_cases hv : ∃ c, v = .ref c
+    · obtain ⟨c, rfl⟩ := hv
+      have hc : c < h.next := hb [] c rfl
+      rw [follow_ref_cons] at e
+      rcases kids_SkelL hs hc with ⟨-, h2⟩ | ⟨xs, ys, hx, hy, hl, hr, -⟩
+      · rw [h2] at e; cases e
+      · rw [hy] at e
+        simp only [Option.bind_some] at e
+        cases hyj : ys[j]? with
+        | none => rw [hyj] at e; cases e
+        | some y =>
+          rw [hyj] at e
+          simp only [Option.bind_some] at e
+          by_cases hj : j < xs.length
+          · have hxj := List.getElem?_eq_getElem hj
+            have hrxy := hr j _ y hxj hyj
+            have e' : follow h' xs[j] q = some (.ref b) := (follow_refEq (refEq_symm hrxy) q b).mp e
+            obtain ⟨q0, c', j', rest, y', xs', ys', rfl, h1, h2, h3, h4, h5, h6, h7⟩ :=
+              ih xs[j] (below_child hx hxj hb) b e' hn
+            refine ⟨j :: q0, c', j', rest, y', xs', ys', rfl, ?_, h2, h3, h4, h5, h6, h7⟩
+            rw [follow_ref_cons, hx]; simp [hxj, h1]
+          · exact ⟨[], c, j, q, y, xs, ys, rfl, rfl, hc, hx, hy, by omega, hyj, e⟩
+    · have hv' : ∀ c, v ≠ .ref c := fun c e => hv ⟨c, e⟩
+      rw [follow_nonref hv'] at e; cases e
+
+theorem Skel_refl (h : Heap) : Skel h h := SkelL_refl _ h
+
+theorem Skel_of_Ext {h h' : Heap} (e : Ext h h') : Skel h h' := SkelL_of_Ext e _
+
+theorem Skel_trans {h1 h2 h3 : Heap} (a : Skel h1 h2) (b : Skel h2 h3) : Skel h1 h3 :=
+  SkelL_trans a b a.1
+
+theorem Skel_set {h : Heap} {a : Nat} {o o' : HeapObj} (ho : h.objs a = some o)
+    (hs : SameSkel o o') : Skel h (h.set a o') :=
+  SkelL_set ho (growSkel_of_same hs)
+
+theorem rootTy_Skel {h h' : Heap} (hs : Skel h h') {vs : List Value} (hb : BelowArgs h vs) (k : Nat)
+    (ty : Name) : RootTy h' vs k ty ↔ RootTy h vs k ty := rootTy_SkelL hs hb k ty
+
+theorem Fresh_of_Skel {h h' : Heap} (hs : Skel h h') : Fresh h h' := Fresh_of_SkelL hs
 
 theorem Reach_of_Skel {h h' : Heap} (hs : Skel h h') {vs : List Value} (hb : BelowArgs h vs) :
-    Reach h h' vs :=
-  fun k q b e => .inl ((at?_Skel hs hb k q b).mp e)
+    Reach h h' vs := Reach_of_SkelL hs (Nat.le_refl _) hb
 
 /-! ## Decoding after a run that keeps the shape -/
 
@@ -288,6 +498,27 @@ theorem decArgs_below {h : Heap} (hwf : HeapWF h) {vs : List Value} {roots : Lis
   exact dec_below hwf n v _ hn
 
 /-- A value that reaches no changed object decodes the same. -/
+theorem follow_unchanged {h h' : Heap} :
+    ∀ (q : List Nat) (v : Value), (∀ q a, follow h v q = some (.ref a) → h'.objs a = h.objs a) →
+      follow h' v q = follow h v q
+  | [], v, _ => rfl
+  | j :: q, v, hv => by
+    by_cases hr : ∃ b, v = .ref b
+    · obtain ⟨b, rfl⟩ := hr
+      have hb : h'.objs b = h.objs b := hv [] b rfl
+      rw [follow_ref_cons, follow_ref_cons, hb]
+      cases hk : okids (h.objs b) with
+      | none => rfl
+      | some xs =>
+        simp only [Option.bind_some]
+        cases hx : xs[j]? with
+        | none => rfl
+        | some x =>
+          simp only [Option.bind_some]
+          exact follow_unchanged q x fun q' a e => hv (j :: q') a (by rw [follow_ref_cons, hk]; simp [hx, e])
+    · have hr' : ∀ b, v ≠ .ref b := fun b e => hr ⟨b, e⟩
+      rw [follow_nonref hr', follow_nonref hr']
+
 theorem dec_unchanged {h h' : Heap} :
     ∀ (n : Nat) (v : Value), (∀ q a, follow h v q = some (.ref a) → h'.objs a = h.objs a) →
       dec h' n v = dec h n v

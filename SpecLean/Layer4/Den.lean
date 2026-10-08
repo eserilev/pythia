@@ -77,13 +77,33 @@ def onePlace : List DRes → Option (Nat × Nat × List Nat)
 
 /-- An SSZ class whose constructor on flat values needs no heap. -/
 def ctorFlat : SszTy → Bool
-  | .uint _ | .boolean => true
+  | .uint _ | .boolean | .bytes _ _ => true
   | _ => false
 
 def allVals : List DRes → Option (List Value)
   | [] => some []
   | .val v :: rs => (allVals rs).map (v :: ·)
   | _ => none
+
+/-! ## A decoded tree as a heap value -/
+
+mutual
+/-- A new heap object for each node of a tree, children first. -/
+def encDV : DV → Heap → Value × Heap
+  | .leaf v, h => (v, h)
+  | .cont ty ds, h =>
+    let r := encDVs ds h
+    (.ref r.2.next, (r.2.alloc (.container ty r.1)).2)
+  | .list k e l ds, h =>
+    let r := encDVs ds h
+    (.ref r.2.next, (r.2.alloc (.list k e l r.1)).2)
+def encDVs : List DV → Heap → List Value × Heap
+  | [], h => ([], h)
+  | d :: ds, h =>
+    let r := encDV d h
+    let rs := encDVs ds r.2
+    (r.1 :: rs.1, rs.2)
+end
 
 /-! ## The parts at one fuel -/
 
@@ -118,6 +138,10 @@ structure Sem where
   loop : Footprint → DSt → Target → LSrc → Nat → List Stmt → DM (DOut × DSt)
   /-- `compItems`: the items of a list comprehension from item `i`, one fuel unit per item. -/
   items : Footprint → DSt → Target → List Expr → Expr → LSrc → Nat → DM (List DV)
+  /-- `expr` at the fuel below: the receiver `o` of a method call `o.m(args)`. -/
+  sub : Footprint → DSt → Expr → DM DRes
+  /-- `execWhile`: a `while` loop, one fuel unit per test. -/
+  whl : Footprint → DSt → Expr → List Stmt → DM (DOut × DSt)
 
 def blockOf (stmt : DSt → Stmt → DM (DOut × DSt)) : DSt → List Stmt → DM (DOut × DSt)
   | s, [] => .ok (.normal, s)
@@ -179,8 +203,27 @@ def dCtor (env : Env) (t : SszTy) (rs : List DRes) : DM DRes :=
     | none => none
   else none
 
-/-- `min`, `max` of two or more flat values, and `len` of a list at a place. -/
-def dBuiltin (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
+/-- The values of a list of leaves. -/
+def leafVals : List DV → Option (List Value)
+  | [] => some []
+  | .leaf v :: ds => (leafVals ds).map (v :: ·)
+  | _ :: _ => none
+
+/-- `sum(xs)` of a list of flat values that is not a byte list. -/
+def dSum (kd : ListKind) (el : SszTy) (ds : List DV) : DM DRes :=
+  if isByteList kd el then none else
+  match leafVals ds with
+  | some xs => DM.bind (lift (xs.foldlM (binopVal .add) (.int 0))) fun w => if Flat w then .ok (.val w) else none
+  | none => none
+
+/-- `hash_tree_root` of a tree: the oracle on the tree as a new heap value. -/
+def dHtr (env : Env) (d : DV) : DM DRes :=
+  DM.bind (lift (env.hashTreeRoot (encDV d Heap.empty).2 (encDV d Heap.empty).1)) fun r =>
+    .ok (.val (.bytes env.nm.root r))
+
+/-- `min`, `max` of two or more flat values, `len` of a list, `sum` of a list of flat
+values, and `hash_tree_root` of an object. -/
+def dBuiltin (env : Env) (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
   match b with
   | .min | .max =>
     match allVals rs with
@@ -193,8 +236,44 @@ def dBuiltin (s : DSt) (b : Builtin) (rs : List DRes) : DM DRes :=
       match s.deref k p with
       | some (.list _ _ _ ds) => .ok (.val (.int ds.length))
       | _ => none
+    | [.tree (.list _ _ _ ds)] => .ok (.val (.int ds.length))
+    | _ => none
+  | .sum =>
+    match rs with
+    | [.place k p] =>
+      match s.deref k p with
+      | some (.list kd el _ ds) => dSum kd el ds
+      | _ => none
+    | [.tree (.list kd el _ ds)] => dSum kd el ds
+    | _ => none
+  | .sha256 =>
+    match rs with
+    | [.val (.bytes _ bs)] => .ok (.val (.bytes env.nm.bytes32 (env.sha256 bs)))
+    | _ => none
+  | .sszSerialize =>
+    match rs with
+    | [.val (.uint t n)] => .ok (.val (.bytes env.bytesName (Prim.serializeUint n (t.bits / 8))))
+    | _ => none
+  | .hashTreeRoot =>
+    match rs with
+    | [.place k p] =>
+      match s.deref k p with
+      | some d => dHtr env d
+      | none => none
+    | [.tree d] => dHtr env d
     | _ => none
   | _ => none
+
+/-- The trees of the arguments of a call that leaves out trailing arguments: `None` for each.
+The callee checks that their defaults are `None`. -/
+def padNone (d : FunctionDef) (rg : List DV) : Option (List DV) :=
+  if rg.length ≤ d.params.names.length ∧ d.params.names.length ≤ rg.length + d.params.defaults.length then
+    some (rg ++ List.replicate (d.params.names.length - rg.length) (.leaf .none))
+  else none
+
+theorem padNone_full {d : FunctionDef} {rg : List DV} (h : rg.length = d.params.names.length) :
+    padNone d rg = some rg := by
+  unfold padNone; rw [if_pos (by omega)]; simp [h]
 
 /-- A call that writes nothing. `fn` is the callee body at the fuel of the call. -/
 def dCallRO (env : Env) (fps : Name → Footprint)
@@ -204,15 +283,18 @@ def dCallRO (env : Env) (fps : Name → Footprint)
   | some (.fn d) =>
     if (fps g).isEmpty then
       match rs.mapM (argRoot s) with
-      | some rg => DM.bind (fn [] d rg) fun (r, _) =>
-          match r with
-          | .val v => if Flat v then .ok (.val v) else none
-          | .tree t => .ok (.tree t)
-          | .place _ _ => none
+      | some rg =>
+        match padNone d rg with
+        | some rg' => DM.bind (fn [] d rg') fun (r, _) =>
+            match r with
+            | .val v => if Flat v then .ok (.val v) else none
+            | .tree t => .ok (.tree t)
+            | .place _ _ => none
+        | none => none
       | none => none
     else none
   | some (.type t) => dCtor env t rs
-  | some (.builtin b) => dBuiltin s b rs
+  | some (.builtin b) => dBuiltin env s b rs
   | _ => none
 
 /-- A call at statement level: it may write through its one place argument. -/
@@ -244,6 +326,8 @@ def callable (env : Env) (g : Name) : Bool :=
   match env.globals.lookup g with
   | some (.fn _) | some (.type _) => true
   | some (.builtin .min) | some (.builtin .max) | some (.builtin .len) => true
+  | some (.builtin .sum) | some (.builtin .hashTreeRoot) | some (.builtin .sha256)
+  | some (.builtin .sszSerialize) => true
   | _ => false
 
 /-- Bind the loop target at fuel `n`, as `assignTarget n`. -/
@@ -286,12 +370,90 @@ def itemsStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ifs :
       | none => none
   | _ => none
 
+/-- Every argument is a keyword argument, and there is at least one. -/
+def allKw : List Arg → Bool
+  | [] => false
+  | as => as.all fun a => match a with | .kw _ _ => true | _ => false
+
+@[simp] theorem allKw_nil : allKw [] = false := Eq.trans rfl rfl
+@[simp] theorem allKw_pos (e : Expr) (as : List Arg) : allKw (.pos e :: as) = false := Eq.trans rfl rfl
+@[simp] theorem allKw_starred (e : Expr) (as : List Arg) : allKw (.starred e :: as) = false :=
+  Eq.trans rfl rfl
+
+/-- The keyword arguments, each a flat value, in order. -/
+def kwsOf (ev : Expr → DM DRes) : List Arg → DM (List (Name × Value))
+  | [] => .ok []
+  | .kw k e :: as =>
+    DM.bind (ev e) fun r =>
+      match r with
+      | .val v => DM.bind (kwsOf ev as) fun rest => .ok ((k, v) :: rest)
+      | _ => none
+  | _ => none
+
+/-- A field type whose values are flat. -/
+def flatTy : SszTy → Bool
+  | .uint _ | .boolean | .bytes _ _ => true
+  | _ => false
+
+/-- The field values of a container from its keyword arguments: every field given, of a flat
+type, with a flat value, coerced as a field. -/
+def kwFields (kvs : List (Name × Value)) : List (Name × SszTy) → DM (List Value)
+  | [] => .ok []
+  | (f, ft) :: fs =>
+    match kvs.lookup f with
+    | some v =>
+      if flatTy ft && Flat v then
+        DM.bind (lift (coerceField ft v)) fun w =>
+          if Flat w then DM.bind (kwFields kvs fs) fun ws => .ok (w :: ws) else none
+      else none
+    | none => none
+
+/-- `T(f=v, ...)` for a container class `T`: a new container of flat fields. -/
+def kwCtor (env : Env) (g : Name) (kvs : List (Name × Value)) : DM DRes :=
+  match env.globals.lookup g with
+  | some (.type (.container ty)) =>
+    match env.containers.lookup ty with
+    | some fs =>
+      if kvs.all (fun kv => (fs.map (·.1)).contains kv.1) then
+        DM.bind (kwFields kvs fs) fun ws => .ok (.tree (.cont ty (ws.map .leaf)))
+      else none
+    | none => none
+  | _ => none
+
 /-- A call expression `g(args)` to a callable global that no local hides. The interpreter looks
 the name up before it evaluates the arguments. -/
 def callHead (env : Env) (s : DSt) : Expr → Option (Name × List Arg)
   | .call _ (.name _ g) args =>
     if (s.loc g).isNone && callable env g then some (g, args) else none
   | _ => none
+
+/-- `int.from_bytes(args)`: the arguments, when no local hides `int`. -/
+def fromBytesOf (env : Env) (s : DSt) : Expr → Option (List Arg)
+  | .call _ (.attr _ (.name _ g) f) args =>
+    match env.globals.lookup g with
+    | some (.builtin .int) => if (s.loc g).isNone && f == env.nm.fromBytes then some args else none
+    | _ => none
+  | _ => none
+
+/-- `bls.f(args)`: the method and the arguments, when no local hides `bls`. -/
+def blsOf (env : Env) (s : DSt) : Expr → Option (Name × List Arg)
+  | .call _ (.attr _ (.name _ g) f) args =>
+    match env.globals.lookup g with
+    | some (.module .bls) => if (s.loc g).isNone then some (f, args) else none
+    | _ => none
+  | _ => none
+
+/-- A BLS oracle call on flat values. -/
+def dBls (env : Env) (f : Name) (rs : List DRes) : DM DRes :=
+  match allVals rs with
+  | some vs => DM.bind (lift (env.bls f Heap.empty vs)) fun v => if Flat v then .ok (.val v) else none
+  | none => none
+
+/-- `int.from_bytes` of flat values. -/
+def dFromBytes (env : Env) (rs : List DRes) : DM DRes :=
+  match allVals rs with
+  | some vs => DM.bind (lift (fromBytes env vs)) fun v => if Flat v then .ok (.val v) else none
+  | none => none
 
 def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Footprint)
     (s : DSt) : Expr → DM DRes
@@ -342,15 +504,68 @@ def exprStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Fo
   | e@(.call _ _ _) =>
     match n, callHead env s e with
     | _ + 1, some (g, args) =>
-      DM.bind (argsOf (P.expr fp s) args) fun rs => dCallRO env fps P.fn s g rs
+      if allKw args then DM.bind (kwsOf (P.expr fp s) args) fun kvs => kwCtor env g kvs
+      else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallRO env fps P.fn s g rs
+    | _ + 2, none =>
+      match fromBytesOf env s e with
+      | some args => DM.bind (argsOf (P.expr fp s) args) fun rs => dFromBytes env rs
+      | none =>
+        match blsOf env s e with
+        | some (f, args) => DM.bind (argsOf (P.expr fp s) args) fun rs => dBls env f rs
+        | none => none
     | _, _ => none
   | _ => none
 
+/-- `o.append(a)`: the receiver and the argument. -/
+def appendOf (env : Env) : Expr → Option (Expr × Expr)
+  | .call _ (.attr _ o m) [.pos a] => if m = env.nm.append then some (o, a) else none
+  | _ => none
+
+/-- An SSZ list that takes `append` with the item rules of the core: a `List` or a
+`ProgressiveList`, not a byte list. -/
+def appendable (k : ListKind) (e : SszTy) : Bool :=
+  decide ((k = .list ∨ k = .progressiveList) ∧ e ≠ .any ∧ ¬ (k = .list ∧ e = .uint (.width 8)))
+
+/-- The tree of an appended item: a flat value, coerced as an item, or a new container from
+keyword arguments. -/
+def appendItemD (env : Env) (s : DSt) (el : SszTy) (a : Expr) : DRes → DM DV
+  | .val v => DM.bind (dCoerce env false el v) fun v' => if Flat v' then .ok (.leaf v') else none
+  | .tree (.cont ty ds) =>
+    match callHead env s a, el with
+    | some (_, cargs), .container ty' => if allKw cargs && ty' == ty then .ok (.cont ty ds) else none
+    | _, _ => none
+  | _ => none
+
+/-- `o.append(a)` at fuel `n + 1`: the list at a place in the footprint gains an item at its end. -/
+def appendStep (env : Env) (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (o a : Expr) :
+    DM (DRes × List DV) :=
+  match n with
+  | 0 => none
+  | _ + 1 =>
+    DM.bind (P.sub fp s o) fun ro =>
+      match ro with
+      | .place k p =>
+        match s.deref k p, s.roots[k]? with
+        | some (.list kd el l ds), some dk =>
+          if appendable kd el && fpOk fp s.roots k p then
+            DM.bind (P.expr fp s a) fun ra =>
+              DM.bind (appendItemD env s el a ra) fun d =>
+                DM.bind (lift (Ssz.checkLength kd l (ds.length + 1))) fun _ =>
+                  .ok (.val .none, s.roots.set k (setAt p dk (.list kd el l (ds ++ [d]))))
+          else none
+        | _, _ => none
+      | _ => none
+
 def callStep (env : Env) (fps : Name → Footprint) (n : Nat) (P : Sem) (fp : Footprint)
     (s : DSt) (e : Expr) : DM (DRes × List DV) :=
+  match appendOf env e with
+  | some (o, a) => appendStep env n P fp s o a
+  | none =>
   match n, callHead env s e with
   | _ + 1, some (g, args) =>
-    DM.bind (argsOf (P.expr fp s) args) fun rs => dCallW env fps P.fn fp s g rs
+    if allKw args then
+      DM.bind (DM.bind (kwsOf (P.expr fp s) args) fun kvs => kwCtor env g kvs) fun r => .ok (r, s.roots)
+    else DM.bind (argsOf (P.expr fp s) args) fun rs => dCallW env fps P.fn fp s g rs
   | _, _ => (exprStep env fps n P fp s e).map (·.map (·, s.roots))
 
 def targetStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) :
@@ -432,6 +647,34 @@ def loopStep (n : Nat) (P : Sem) (fp : Footprint) (s : DSt) (t : Target) (ls : L
       | none => none
   | _ => none
 
+/-- `execWhile (n + 1)`: the test and the body at fuel `n`, then the loop again at fuel `n`. -/
+def whileStep (P : Sem) (fp : Footprint) (s : DSt) (c : Expr) (body : List Stmt) : DM (DOut × DSt) :=
+  DM.bind (P.expr fp s c) fun r =>
+    match r with
+    | .val v =>
+      DM.bind (lift (truthy v)) fun b =>
+        if b then
+          DM.bind (P.block fp s body) fun (o, s1) =>
+            match o with
+            | .brk => .ok (.normal, s1)
+            | .ret v => .ok (.ret v, s1)
+            | _ => P.whl fp s1 c body
+        else .ok (.normal, s)
+    | _ => none
+
+/-- `x op= e` for a local `x` that holds a flat value: `x = x op e`. -/
+def augName (P : Sem) (fp : Footprint) (s : DSt) (x : Name) (op : BinOp) (e : Expr) :
+    DM (DOut × DSt) :=
+  match s.loc x with
+  | some (.val cur) =>
+    DM.bind (P.expr fp s e) fun r =>
+      match r with
+      | .val rv =>
+        DM.bind (lift (binopVal op cur rv)) fun v =>
+          if Flat v then .ok (.normal, { s with loc := setLoc s.loc x (.val v) }) else none
+      | _ => none
+  | _ => none
+
 /-- `obj[i] op= e`, with the parts at the fuel below. -/
 def augStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) (o ie : Expr) (op : BinOp)
     (e : Expr) : DM (DOut × DSt) :=
@@ -463,6 +706,7 @@ def stmtStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) : Stmt → DM (DOu
     DM.bind (P.call fp s e) fun (r, rs) => P.target fp { s with roots := rs } t r
   | .annAssign _ t e =>
     DM.bind (P.call fp s e) fun (r, rs) => P.target fp { s with roots := rs } t r
+  | .augAssign _ (.name _ x) op e => augName P fp s x op e
   | .augAssign _ (.index _ o ie) op e => augStep env P fp s o ie op e
   | .exprStmt _ e => DM.bind (P.call fp s e) fun (_, rs) => .ok (.normal, { s with roots := rs })
   | .ifStmt _ c thn els =>
@@ -486,12 +730,22 @@ def stmtStep (env : Env) (P : Sem) (fp : Footprint) (s : DSt) : Stmt → DM (DOu
       | _ => none
   | .pass _ => .ok (.normal, s)
   | .forStmt _ t it body => DM.bind (P.iter fp s it) fun ls => P.loop fp s t ls 0 body
+  | .whileStmt _ c body => P.whl fp s c body
   | _ => none
+
+def isNoneLit : Expr → Bool
+  | .noneLit _ => true
+  | _ => false
+
+/-- Defaults that are all `None`, in a function with a body: given every argument, a call does
+not use them. -/
+def noneDefaults (d : FunctionDef) : Bool :=
+  d.params.defaults.isEmpty || (d.params.defaults.all isNoneLit && !d.body.isEmpty)
 
 /-- `callFn (n + 1)`: bind the parameters, run the body at fuel `n`. -/
 def fnStep (P : Sem) (fp : Footprint) (d : FunctionDef) (roots : List DV) :
     DM (DRes × List DV) :=
-  if d.params.defaults = [] ∧ d.params.vararg = none ∧ d.params.names.length = roots.length then
+  if noneDefaults d = true ∧ d.params.vararg = none ∧ d.params.names.length = roots.length then
     let s0 : DSt := { roots, loc := initLoc roots (fun _ => none) d.params.names.zipIdx }
     DM.bind (P.block fp s0 d.body) fun (o, s1) =>
       match o with
@@ -504,7 +758,7 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
   | 0 => { expr := fun _ _ _ => none, call := fun _ _ _ => none, target := fun _ _ _ _ => none,
            stmt := fun _ _ _ => none, fn := fun _ _ _ => none, iter := fun _ _ _ => none,
            items := fun _ _ _ _ _ _ _ => none,
-           loop := fun _ _ _ _ _ _ => none }
+           loop := fun _ _ _ _ _ _ => none, sub := fun _ _ _ => none, whl := fun _ _ _ _ => none }
   | n + 1 =>
     let P := den env fps n
     { expr := exprStep env fps n P
@@ -514,7 +768,9 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
       fn := fnStep P
       iter := iterStep env fps n P
       loop := loopStep n P
-      items := itemsStep n P }
+      items := itemsStep n P
+      sub := P.expr
+      whl := whileStep P }
 
 /-! Each part one fuel up, without unfolding the others. -/
 
@@ -534,5 +790,9 @@ def den (env : Env) (fps : Name → Footprint) : Nat → Sem
     (den env fps (n + 1)).loop = loopStep n (den env fps n) := rfl
 @[simp] theorem den_items (env : Env) (fps : Name → Footprint) (n : Nat) :
     (den env fps (n + 1)).items = itemsStep n (den env fps n) := rfl
+@[simp] theorem den_sub (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).sub = (den env fps n).expr := rfl
+@[simp] theorem den_whl (env : Env) (fps : Name → Footprint) (n : Nat) :
+    (den env fps (n + 1)).whl = whileStep (den env fps n) := rfl
 
 end SpecLean.Layer4

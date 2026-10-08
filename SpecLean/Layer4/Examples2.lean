@@ -38,12 +38,204 @@ theorem bind_pair (h : Heap) (W : Res Value) :
 
 theorem constructFlat_ssz (env : Env) : ConstructFlat env := by
   intro h t vs hc hv
-  cases t <;> simp [ctorFlat] at hc <;> simp only [LibModel.construct, Ssz.construct] <;>
-    split <;> first | rfl | exact bind_pair h _ | contradiction | (simp_all; done) | (exfalso; simp_all)
+  cases t
+  case bytes ty len =>
+    simp only [LibModel.construct, Ssz.construct]
+    match vs, hv with
+    | [], _ => rfl
+    | [v], hv =>
+      have hfv : Flat v = true := hv v (by simp)
+      cases v <;> simp [Flat] at hfv <;> simp [iterElems, iterBase] <;> (try split) <;> rfl
+    | a :: b :: c, _ => split <;> first | rfl | (simp_all; done) | (exfalso; simp_all)
+  all_goals (simp [ctorFlat] at hc <;> simp only [LibModel.construct, Ssz.construct] <;>
+    split <;> first | rfl | exact bind_pair h _ | contradiction | (simp_all; done) | (exfalso; simp_all))
 
-theorem libFlat_ssz (env : Env) : LibFlat env :=
+theorem coerceH_flat2 (env : Env) (b : Bool) (d : Nat) (h : Heap) (t : SszTy) (v : Value)
+    (ht : ∀ ty, t ≠ .container ty) (hl : ∀ k e l, t ≠ .list k e l) (ha : t ≠ .any)
+    (hv : ∀ a, v ≠ .ref a) (hv' : ∀ xs, v ≠ .tuple xs) :
+    Ssz.coerceH env b (d + 1) h t v =
+      (fun x => (x, h)) <$> (if b then coerceField t v else coerceElem t v) := by
+  rw [Ssz.coerceH.eq_def]
+  cases t <;> first
+    | exact absurd rfl (ht _) | exact absurd rfl (hl _ _ _) | exact absurd rfl ha
+    | (cases v <;> first | exact absurd rfl (hv _) | exact absurd rfl (hv' _) |
+        (cases b <;> simp <;> rfl))
+
+/-- The fields of a container from keyword arguments, as `construct` builds them. -/
+theorem build_kw (env : Env) (h : Heap) (kvs : List (Name × Value)) :
+    ∀ (fs : List (Name × SszTy)) (r : Res (List Value)), kwFields kvs fs = some r →
+      Ssz.construct.build env h (fs.zip (fs.map fun f => kwArg kvs f.1)) = (fun ws => (ws, h)) <$> r
+  | [], r, hk => by simp [kwFields, DM.ok] at hk; subst hk; rfl
+  | (f, ft) :: fs, r, hk => by
+    simp only [kwFields] at hk
+    split at hk
+    · next v hv =>
+      split at hk
+      · next hft =>
+        simp only [Bool.and_eq_true] at hft
+        obtain ⟨hft, hfv⟩ := hft
+        have hc : Ssz.coerceH env true depthBound h ft v = (fun x => (x, h)) <$> coerceField ft v := by
+          have := coerceH_flat2 env true 63 h ft v
+            (by intro ty e; subst e; simp [flatTy] at hft) (by intro k e l e'; subst e'; simp [flatTy] at hft)
+            (by intro e; subst e; simp [flatTy] at hft) (flat_nonref hfv)
+            (by intro xs e; subst e; simp [Flat] at hfv)
+          simpa [depthBound] using this
+        have hv' : kwArg kvs f = some v := hv
+        simp only [List.map_cons, List.zip_cons_cons, Ssz.construct.build, hv', hc]
+        rcases bind_case hk with ⟨err, hl, rfl⟩ | ⟨w, hl, hk2⟩
+        · obtain ⟨hr, -⟩ := lift_some hl
+          rw [← hr]; rfl
+        · obtain ⟨hr, -⟩ := lift_some hl
+          rw [← hr]
+          split at hk2
+          · rcases bind_case hk2 with ⟨err, hl2, rfl⟩ | ⟨ws, hl2, hk3⟩
+            · simp only [show ((fun x => (x, h)) <$> (Except.ok w : Except SpecError Value)) = .ok (w, h)
+                from rfl, Except.bind_ok']
+              rw [build_kw env h kvs fs _ hl2]; rfl
+            · simp [DM.ok] at hk3; subst hk3
+              simp only [show ((fun x => (x, h)) <$> (Except.ok w : Except SpecError Value)) = .ok (w, h)
+                from rfl, Except.bind_ok']
+              rw [build_kw env h kvs fs _ hl2]; rfl
+          · cases hk2
+      · cases hk
+    · cases hk
+
+theorem kwctor_ssz (env : Env) (h : Heap) (ty : Name) (fs : List (Name × SszTy))
+    (kvs : List (Name × Value)) (r : Res (List Value)) (hfs : env.containers.lookup ty = some fs)
+    (hall : kvs.all (fun kv => (fs.map (·.1)).contains kv.1) = true) (hk : kwFields kvs fs = some r) :
+    LibModel.construct env h (.container ty) [] kvs =
+      (fun ws => (Value.ref (h.alloc (.container ty ws)).1, (h.alloc (.container ty ws)).2)) <$> r := by
+  show Ssz.construct env h (.container ty) [] kvs = _
+  have hcf : ctorFields (fs.map (·.1)) [] kvs = .ok (fs.map fun f => kwArg kvs f.1) := by
+    have hany : kvs.any (fun kv => !(fs.map (·.1)).contains kv.1) = false := by
+      simpa [List.all_eq, List.any_eq] using hall
+    simp only [ctorFields, List.length_nil, List.length_map, Nat.not_lt_zero, ↓reduceIte]
+    simp only [List.any_eq_false, Bool.not_eq_true'] at hany
+    have : (kvs.any fun x => !(fs.map (·.1)).contains x.1) = false := by
+      simpa [List.any_eq_false] using hany
+    rw [this]
+    simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq]
+    apply List.ext_getElem? ; intro i
+    simp [List.getElem?_map, List.getElem?_zipIdx]
+    cases fs[i]? <;> rfl
+  simp only [Ssz.construct, hfs, hcf, Except.bind_ok', build_kw env h kvs fs r hk]
+  cases r <;> rfl
+
+/-! The arity of the callees of the examples. -/
+
+@[simp] theorem exlen_apply_withdrawals : Scope.fn_apply_withdrawals.params.names.length = 2 := Eq.trans rfl rfl
+@[simp] theorem exdef_apply_withdrawals : Scope.fn_apply_withdrawals.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_compute_epoch_at_slot : Scope.fn_compute_epoch_at_slot.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_compute_epoch_at_slot : Scope.fn_compute_epoch_at_slot.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_convert_validator_index_to_builder_index : Scope.fn_convert_validator_index_to_builder_index.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_convert_validator_index_to_builder_index : Scope.fn_convert_validator_index_to_builder_index.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_decrease_balance : Scope.fn_decrease_balance.params.names.length = 3 := Eq.trans rfl rfl
+@[simp] theorem exdef_decrease_balance : Scope.fn_decrease_balance.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_get_active_validator_indices : Scope.fn_get_active_validator_indices.params.names.length = 2 := Eq.trans rfl rfl
+@[simp] theorem exdef_get_active_validator_indices : Scope.fn_get_active_validator_indices.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_get_current_epoch : Scope.fn_get_current_epoch.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_get_current_epoch : Scope.fn_get_current_epoch.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_get_max_effective_balance : Scope.fn_get_max_effective_balance.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_get_max_effective_balance : Scope.fn_get_max_effective_balance.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_get_previous_epoch : Scope.fn_get_previous_epoch.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_get_previous_epoch : Scope.fn_get_previous_epoch.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_has_compounding_withdrawal_credential : Scope.fn_has_compounding_withdrawal_credential.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_has_compounding_withdrawal_credential : Scope.fn_has_compounding_withdrawal_credential.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_increase_balance : Scope.fn_increase_balance.params.names.length = 3 := Eq.trans rfl rfl
+@[simp] theorem exdef_increase_balance : Scope.fn_increase_balance.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_is_active_validator : Scope.fn_is_active_validator.params.names.length = 2 := Eq.trans rfl rfl
+@[simp] theorem exdef_is_active_validator : Scope.fn_is_active_validator.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_is_builder_index : Scope.fn_is_builder_index.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_is_builder_index : Scope.fn_is_builder_index.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_is_compounding_withdrawal_credential : Scope.fn_is_compounding_withdrawal_credential.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_is_compounding_withdrawal_credential : Scope.fn_is_compounding_withdrawal_credential.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_process_effective_balance_updates : Scope.fn_process_effective_balance_updates.params.names.length = 1 := Eq.trans rfl rfl
+@[simp] theorem exdef_process_effective_balance_updates : Scope.fn_process_effective_balance_updates.params.defaults.length = 0 := Eq.trans rfl rfl
+@[simp] theorem exlen_saturating_sub : Scope.fn_saturating_sub.params.names.length = 2 := Eq.trans rfl rfl
+@[simp] theorem exdef_saturating_sub : Scope.fn_saturating_sub.params.defaults.length = 0 := Eq.trans rfl rfl
+
+/-- The method names that the SSZ model checks before `append` differ from it. -/
+def NmOK (env : Env) : Prop :=
+  env.nm.append ≠ env.nm.extend ∧ env.nm.append ≠ env.nm.copy ∧ env.nm.append ≠ env.nm.hashTreeRoot
+
+theorem append_ssz (env : Env) (hn : NmOK env) (h : Heap) (a : Nat) (k : ListKind) (e : SszTy)
+    (l : Option Nat) (xs : List Value) (v : Value) (ho : h.objs a = some (.list k e l xs))
+    (hap : appendable k e = true) :
+    applyMethod env h (.ref a) env.nm.append [v] =
+      (coerceWith env false h e v).bind fun x =>
+        (Ssz.checkLength k l (xs.length + 1)).bind fun _ =>
+          .ok (.none, x.2.set a (.list k e l (xs ++ [x.1]))) := by
+  obtain ⟨n1, n2, n3⟩ := hn
+  simp only [appendable, decide_eq_true_eq] at hap
+  obtain ⟨hk, he, hb⟩ := hap
+  have hpy : k ≠ .pyList := by rcases hk with rfl | rfl <;> simp
+  have hm : LibModel.method env h (.ref a) env.nm.append [v] = none := by
+    show Ssz.method env h (.ref a) env.nm.append [v] = none
+    simp [Ssz.method, ho, n1, n2, n3]
+  have hc : coerceWith env false h e v = Ssz.coerceH env false depthBound h e v := by
+    unfold coerceWith
+    show (match Ssz.coerce env false h e v with | some r => r | none => .ok (v, h)) = _
+    cases e <;> first | exact absurd rfl he | rfl
+  have happ : appendItem env h a v =
+      (coerceWith env false h e v).bind fun x =>
+        (Ssz.checkLength k l (xs.length + 1)).bind fun _ => .ok (x.2.set a (.list k e l (xs ++ [x.1]))) := by
+    unfold appendItem
+    show (match Ssz.append env h a v with | some r => r | none => _) = _
+    rw [hc]
+    rcases hk with rfl | rfl
+    · have : ¬ (e = .uint (.width 8)) := fun h' => hb ⟨rfl, h'⟩
+      simp only [Ssz.append, ho]
+      split
+      · simp_all
+      · rfl
+    · simp only [Ssz.append, ho]; rfl
+  unfold applyMethod
+  rw [hm]
+  simp only [ho]
+  split
+  · next heq =>
+    simp only [Option.some.injEq, HeapObj.list.injEq] at heq
+    exact absurd ⟨heq.1, heq.2.1⟩ hb
+  · next heq =>
+    simp only [Option.some.injEq, HeapObj.list.injEq] at heq
+    obtain ⟨-, -, -, rfl⟩ := heq
+    simp only [if_true, happ]
+    cases coerceWith env false h e v with
+    | error _ => rfl
+    | ok x =>
+      cases Ssz.checkLength k l (xs.length + 1) <;> rfl
+  all_goals (simp_all <;> (exfalso; rename_i hx; exact hx _ _ _ _ rfl rfl rfl rfl))
+
+theorem coerceCont_ssz (env : Env) (h : Heap) (b : Nat) (ty : Name) (fs : List Value)
+    (ho : h.objs b = some (.container ty fs)) :
+    coerceWith env false h (.container ty) (.ref b) = .ok (.ref b, h) := by
+  show (match Ssz.coerce env false h (.container ty) (.ref b) with
+    | some r => r | none => Except.ok (Value.ref b, h)) = _
+  simp only [Ssz.coerce]
+  rw [show depthBound = 63 + 1 from rfl, Ssz.coerceH]
+  simp [ho]
+
+theorem nmOK_scope (sha : Oracle) : NmOK (Scope.env sha) := by
+  simp only [NmOK, Scope.env]; decide
+
+/-- The oracles read only content: `hash_tree_root` the decoded tree of a value, BLS its flat
+arguments. -/
+def HtrDec (env : Env) : Prop :=
+  (∀ h v h' v' n n' d, dec h n v = some d → dec h' n' v' = some d →
+    env.hashTreeRoot h v = env.hashTreeRoot h' v') ∧
+  ∀ h f vs, (∀ v ∈ vs, Flat v = true) → env.bls f h vs = env.bls f Heap.empty vs
+
+theorem libFlat_ssz (env : Env) (hn : NmOK env) (hh : HtrDec env) : LibFlat env :=
   ⟨Examples.coerceFlat_ssz env, constructFlat_ssz env, fun h b args kws hb => by
-    rcases hb with rfl | rfl | rfl | rfl <;> simp [LibModel.builtin, Ssz.builtin]⟩
+    rcases hb with rfl | rfl | rfl | rfl | rfl | rfl <;> simp [LibModel.builtin, Ssz.builtin],
+   fun h ty fs kvs r hfs hall hk => kwctor_ssz env h ty fs kvs r hfs hall hk,
+   fun h a k e l xs v ho hap => append_ssz env hn h a k e l xs v ho hap,
+   fun h g args hg => by show Ssz.method env h (.glob g) env.nm.fromBytes args = none; simp [Ssz.method, hg],
+   fun h g f args hg => by show Ssz.method env h (.glob g) f args = none; simp [Ssz.method, hg],
+   hh.2,
+   fun h t n => rfl,
+   fun h v => rfl, hh.1,
+   fun h b ty fs ho => coerceCont_ssz env h b ty fs ho⟩
 
 -- The value rules as the denotation and the interpreter see them.
 attribute [local instance high] LibModel.toLibValues
@@ -81,9 +273,9 @@ theorem ceas_den (sha : Oracle) (fp : Footprint) (m a : Nat) (ha : a < 2 ^ 64) :
       some (.ok (.val (.uint slotTy (a / 8)))) := dBinop_eval (div_slot a ha) rfl
   have hc : dCtor (Scope.env sha) (.uint (.nominal 140 64)) [.val (.uint slotTy (a / 8))] =
       some (.ok (.val (.uint epTy (a / 8)))) := dCtor_eval rfl rfl (ctor_epoch _ _ _ hd) rfl
-  simp [fnStep, Scope.fn_compute_epoch_at_slot, Sem.block, blockOf, stmtStep, exprStep, callHead,
+  simp [fnStep, noneDefaults, Scope.fn_compute_epoch_at_slot, Sem.block, blockOf, stmtStep, exprStep, callHead,
     callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc, setLoc, slot,
-    argsOf, dCallRO, dGlobal, hb, hc, Flat]
+    argsOf, dCallRO, padNone, dGlobal, hb, hc, Flat]
 
 theorem gce_den (sha : Oracle) (fp : Footprint) (m : Nat) (ds : List DV) (a : Nat)
     (hs : ds[2]? = some (.leaf (.uint slotTy a))) (ha : a < 2 ^ 64) :
@@ -92,9 +284,9 @@ theorem gce_den (sha : Oracle) (fp : Footprint) (m : Nat) (ds : List DV) (a : Na
   have hc := ceas_den sha [] (m + 1) a ha
   rw [show m + 1 + 8 = m + 9 by omega] at hc
   rw [den_fn]
-  simp [-den_fn, hc, fnStep, Scope.fn_get_current_epoch, Sem.block, blockOf, stmtStep, exprStep, callHead,
+  simp [-den_fn, hc, fnStep, noneDefaults, Scope.fn_get_current_epoch, Sem.block, blockOf, stmtStep, exprStep, callHead,
     callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc, setLoc, slot,
-    argsOf, dCallRO, dAttr, DSt.deref, subAt, DV.kids, hs, ofChild, fpsEx, argRoot, Scope.Id.«decrease_balance»,
+    argsOf, dCallRO, padNone, dAttr, DSt.deref, subAt, DV.kids, hs, ofChild, fpsEx, argRoot, Scope.Id.«decrease_balance»,
     Validation.Tactic.fieldIndex_lit, Flat]
 
 theorem uOf_ok [UintC α] (n : Nat) (hn : n < 2 ^ UintC.bits α) :
@@ -155,7 +347,8 @@ theorem resultMatches_mono {env : Env} {gfp fp : Footprint} {h : Heap} {vs : Lis
   rw [SpecLean.Mono.interp_fuel_mono env n fuel hf f vs h hne]; exact hm
 
 /-- SPEC 9.2 for `get_current_epoch`, through its call of `compute_epoch_at_slot`. -/
-theorem get_current_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (r0 n : Nat)
+theorem get_current_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : HtrDec (Scope.env sha)) (r0 n : Nat)
     (ds : List DV) (st : BeaconState) (hd : dec h n (.ref r0) = some (.cont Scope.Id.«BeaconState» ds))
     (hs : ds[2]? = some (.leaf (.uint slotTy st.slot.val))) (ha : st.slot.val < 2 ^ 64) :
     ∀ fuel, 12 ≤ fuel →
@@ -170,7 +363,7 @@ theorem get_current_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
     match k, hv, hd' with
     | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
     | _ + 1, hv, _ => simp at hv
-  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp []
+  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp []
     (f := Scope.Id.«get_current_epoch») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
     hdec (Examples.wtree_nil h _) hwf hden
   refine resultMatches_mono hf (Examples.resultMatches_map
@@ -220,12 +413,12 @@ theorem sat_den_ei (sha : Oracle) (fp : Footprint) (m x : Nat) (hx : x < 2 ^ 64)
   by_cases h1 : 1 < x
   · have hb : dBinop .sub (.val (.uint epTy x)) (.val (.int 1)) = some (.ok (.val (.uint epTy (x - 1)))) :=
       dBinop_eval (sub_ui epTy rfl x h1 hx) rfl
-    simp [fnStep, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
+    simp [fnStep, noneDefaults, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
       initLoc, setLoc, slot, cmpOf, hc, hb, h1, truthy_lift (truthy_b true), Flat]
   · have hb : dBinop .sub (.val (.uint epTy x)) (.val (.uint epTy x)) = some (.ok (.val (.uint epTy 0))) := by
       have := dBinop_eval (sub_uu epTy rfl (by simp [resolveUint]) x x (Nat.le_refl x) hx) rfl
       simpa using this
-    simp [fnStep, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
+    simp [fnStep, noneDefaults, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
       initLoc, setLoc, slot, cmpOf, hc, hb, h1, truthy_lift (truthy_b false), Flat]
 
 /-! ## `get_previous_epoch` -/
@@ -238,9 +431,9 @@ theorem gpe_den (sha : Oracle) (fp : Footprint) (m : Nat) (ds : List DV) (a : Na
   have hsat := sat_den_ei sha [] (m + 5) (a / 8) (by omega)
   rw [show m + 5 + 8 = m + 13 by omega] at hsat
   rw [den_fn]
-  simp [-den_fn, hg, hsat, fnStep, Scope.fn_get_previous_epoch, Sem.block, blockOf, stmtStep,
+  simp [-den_fn, hg, hsat, fnStep, noneDefaults, Scope.fn_get_previous_epoch, Sem.block, blockOf, stmtStep,
     exprStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc, setLoc,
-    slot, argsOf, dCallRO, fpsEx, argRoot, Scope.Id.«decrease_balance», DSt.deref, subAt, Flat]
+    slot, argsOf, dCallRO, padNone, fpsEx, argRoot, Scope.Id.«decrease_balance», DSt.deref, subAt, Flat]
 
 theorem sat_read_i (x : Nat) (hx : x < 2 ^ 64) :
     saturating_sub (⟨x⟩ : Uint64) (1 : Int) = .ok ⟨if 1 < x then x - 1 else 0⟩ := by
@@ -302,13 +495,13 @@ theorem sat_den_gg (sha : Oracle) (fp : Footprint) (m b d : Nat) (hb : b < 2 ^ 6
   · have hs : dBinop .sub (.val (.uint gwTy b)) (.val (.uint gwTy d)) =
         some (.ok (.val (.uint gwTy (b - d)))) :=
       dBinop_eval (sub_uu gwTy rfl hr b d (by omega) hb) rfl
-    simp [fnStep, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
+    simp [fnStep, noneDefaults, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
       initLoc, setLoc, slot, cmpOf, hc, hs, h1, truthy_lift (truthy_b true), Flat]
   · have hs : dBinop .sub (.val (.uint gwTy b)) (.val (.uint gwTy b)) =
         some (.ok (.val (.uint gwTy 0))) := by
       have := dBinop_eval (sub_uu gwTy rfl hr b b (Nat.le_refl b) hb) rfl
       simpa using this
-    simp [fnStep, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
+    simp [fnStep, noneDefaults, Scope.fn_saturating_sub, Sem.block, blockOf, stmtStep, exprStep, DM.bind, DM.ok,
       initLoc, setLoc, slot, cmpOf, hc, hs, h1, truthy_lift (truthy_b false), Flat]
 
 theorem dCoerce_gwei (sha : Oracle) (n : Nat) :
@@ -328,9 +521,9 @@ theorem dbal_den_ok (sha : Oracle) (m : Nat) (ds : List DV) (k : ListKind) (l : 
   have hm : (List.map Examples.gleaf bal)[i]? = some (.leaf (.uint gwTy bal[i].val)) := by
     simp [List.getElem?_eq_getElem hi, Examples.gleaf]
   rw [den_fn]
-  simp [-den_fn, hsat, fnStep, Scope.fn_decrease_balance, Sem.block, blockOf, stmtStep,
-    exprStep, callStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
-    setLoc, slot, argsOf, dCallRO, dCallW, fpsEx, argRoot, Scope.Id.«decrease_balance»,
+  simp [-den_fn, hsat, fnStep, noneDefaults, Scope.fn_decrease_balance, Sem.block, blockOf, stmtStep,
+    exprStep, callStep, appendOf, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
+    setLoc, slot, argsOf, dCallRO, padNone, dCallW, fpsEx, argRoot, Scope.Id.«decrease_balance»,
     Scope.Id.«saturating_sub», DSt.deref, subAt, DV.kids, dAttr, dIndex, ofChild, hb, hm,
     Validation.Tactic.fieldIndex_lit, isByteList, normIndex_nat, hi, targetStep, dCoerce_gwei,
     dWriteD, dWrite, Except.map, Flat, fpOk, Examples.ibFp, rootIs, matchesB, leafAt, updAt, List.map_set, Examples.gleaf]
@@ -342,8 +535,8 @@ theorem dbal_den_idx (sha : Oracle) (m : Nat) (ds : List DV) (k : ListKind) (l :
         [.cont Scope.Id.«BeaconState» ds, .leaf (.uint viTy i), .leaf (.uint gwTy δ)] =
       some (.error .indexError) := by
   rw [den_fn]
-  simp [-den_fn, fnStep, Scope.fn_decrease_balance, Sem.block, blockOf, stmtStep,
-    exprStep, callStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
+  simp [-den_fn, fnStep, noneDefaults, Scope.fn_decrease_balance, Sem.block, blockOf, stmtStep,
+    exprStep, callStep, appendOf, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
     setLoc, slot, argsOf, DSt.deref, subAt, DV.kids, dAttr, dIndex, ofChild, hb,
     Validation.Tactic.fieldIndex_lit, isByteList, normIndex_nat, hi]
 
@@ -402,7 +595,8 @@ theorem decrease_balance_denote (sha : Oracle) (m : Nat) (ds : List DV) (k : Lis
   · rw [dbal_den_idx sha m ds k l st.balances i δ hb hi, dbal_read_idx st i δ hi]; rfl
 
 /-- SPEC 9.2 for `get_previous_epoch`: nested calls, and the state passed as a place. -/
-theorem get_previous_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (r0 n : Nat)
+theorem get_previous_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : HtrDec (Scope.env sha)) (r0 n : Nat)
     (ds : List DV) (st : BeaconState) (hd : dec h n (.ref r0) = some (.cont Scope.Id.«BeaconState» ds))
     (hs : ds[2]? = some (.leaf (.uint slotTy st.slot.val))) (ha : st.slot.val < 2 ^ 64) :
     ∀ fuel, 16 ≤ fuel →
@@ -417,7 +611,7 @@ theorem get_previous_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf :
     match k, hv, hd' with
     | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
     | _ + 1, hv, _ => simp at hv
-  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp []
+  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp []
     (f := Scope.Id.«get_previous_epoch») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
     hdec (Examples.wtree_nil h _) hwf hden
   refine resultMatches_mono hf (Examples.resultMatches_map
@@ -429,7 +623,8 @@ theorem get_previous_epoch_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf :
 
 /-- SPEC 9.2 for `decrease_balance`: a write under `WTree`, after a call. The result heap decodes
 to the state tree with the readable result's balances, every other field unchanged. -/
-theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h) (r0 n : Nat)
+theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : HtrDec (Scope.env sha)) (r0 n : Nat)
     (ds : List DV) (k : ListKind) (l : Option Nat) (st : BeaconState) (i δ : Nat)
     (hd : dec h n (.ref r0) = some (.cont Scope.Id.«BeaconState» ds))
     (hb : ds[12]? = some (.list k (.uint gwTy) l (st.balances.map Examples.gleaf)))
@@ -459,7 +654,7 @@ theorem decrease_balance_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : H
       | 1, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨0, dec_flat rfl 0⟩
       | 2, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨0, dec_flat rfl 0⟩
       | _ + 3, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp Examples.ibFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp Examples.ibFp
       (f := Scope.Id.«decrease_balance») (by simp only [Scope.env, Validation.Tactic.lookup_lit])
       hdec hw hwf hdn
     rw [hden] at hm

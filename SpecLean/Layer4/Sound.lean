@@ -66,7 +66,7 @@ theorem sDep_pos (s : Stmt) : 1 ≤ sDep s := by
 theorem dWrite_sound {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} {L : Locals}
     (hI : SInv fp h0 h vs s L) {k : Nat} {p : List Nat} {a : Nat}
     (hat : at? h vs k p = some (.ref a)) {i : Nat} {v' : Value} {res : Res (Outcome × DSt)}
-    (hw : dWrite fp s k p i v' = some res) {o : HeapObj} (ho : h.objs a = some o) :
+    (hw : dWrite fp s k p i v' = some res) {o : HeapObj} (ho : h.objs a = some o) (hwf0 : HeapWF h0) :
     StmtOK fp h0 vs res (.ok (.normal, L, h.set a (o.setChild i v'))) := by
   unfold dWrite at hw
   cases hrk : s.roots[k]? with
@@ -79,14 +79,14 @@ theorem dWrite_sound {fp : Footprint} {h0 h : Heap} {vs : List Value} {s : DSt} 
       simp [DM.ok] at hw; subst hw
       simp only [Bool.and_eq_true] at hc
       obtain ⟨⟨hf, hfp⟩, hl⟩ := hc
-      exact ⟨rfl, write_inv hI hat hrk hf hfp hl ho⟩
+      exact ⟨rfl, write_inv hI hat hrk hf hfp hl ho hwf0⟩
     · rw [if_neg hc] at hw; cases hw
 
 /-- Assignment to a target, after the value is evaluated. -/
 theorem assign_sound (env : Env) (hcf : CoerceFlat env) {fp : Footprint} {h0 h : Heap}
     {vs : List Value} {s : DSt} {L : Locals} (hI : SInv fp h0 h vs s L) (t : Target) {r : DRes}
     {w : Value} (hr : ERel h vs r w) {res : Res (Outcome × DSt)}
-    (hd : dAssign env fp s t r = some res) (n : Nat) (hdep : tDep t ≤ n) :
+    (hd : dAssign env fp s t r = some res) (n : Nat) (hdep : tDep t ≤ n) (hwf0 : HeapWF h0) :
     StmtOK fp h0 vs res ((assignTarget env n L h t w).bind fun p => pure (.normal, p.1, p.2)) := by
   obtain ⟨m, rfl⟩ : ∃ m, n = m + 1 := ⟨n - 1, by have := tDep_pos t; omega⟩
   have hE := expr_sound env hI.r m
@@ -140,7 +140,7 @@ theorem assign_sound (env : Env) (hcf : CoerceFlat env) {fp : Footprint} {h0 h :
         simp [hco, stmtOK_err hne]
       · obtain ⟨-, h2⟩ := dCoerce_some hcf hv hc h
         simp only [h2 v' rfl, exb_ok, Except.bind_ok']
-        exact dWrite_sound hI hat hd3 (o := .container ty fs) ho
+        exact dWrite_sound hI hat hd3 (o := .container ty fs) ho hwf0
   | index l o ie =>
     simp only [tDep] at hdep
     cases r with
@@ -209,7 +209,7 @@ theorem assign_sound (env : Env) (hcf : CoerceFlat env) {fp : Footprint} {h0 h :
               simp; exact stmtOK_err (by decide)
             | some mi =>
               simp only [hni] at hd5 ⊢
-              exact dWrite_sound hI hat hd5 (o := .list kd el ll xs) ho
+              exact dWrite_sound hI hat hd5 (o := .list kd el ll xs) ho hwf0
   | _ => simp [dAssign] at hd
 
 /-- `obj[i] op= e`. -/
@@ -217,7 +217,7 @@ theorem aug_sound (env : Env) (hcf : CoerceFlat env) {fp : Footprint} {h0 h : He
     {vs : List Value} {s : DSt} {L : Locals} (hI : SInv fp h0 h vs s L) (l l' : Line) (o ie : Expr)
     (op : BinOp) (e : Expr) {res : Res (Outcome × DSt)}
     (hd : dAugIndex env fp s o ie op e = some res) (n : Nat)
-    (hdep : max (eDep o) (eDep ie) ≤ n) (hdep2 : eDep e ≤ n) :
+    (hdep : max (eDep o) (eDep ie) ≤ n) (hdep2 : eDep e ≤ n) (hwf0 : HeapWF h0) :
     StmtOK fp h0 vs res (execStmt env (n + 1) L h (.augAssign l (.index l' o ie) op e)) := by
   have hE := expr_sound env hI.r n
   rw [execStmt]
@@ -312,7 +312,7 @@ theorem aug_sound (env : Env) (hcf : CoerceFlat env) {fp : Footprint} {h0 h : He
                 simp [hco, stmtOK_err hne]
               · obtain ⟨-, h2⟩ := dCoerce_some hcf hv hcv h
                 simp only [h2 v' rfl, exb_ok, hni]
-                exact dWrite_sound hI hat hd7 (o := .list kd el ll xs) ho
+                exact dWrite_sound hI hat hd7 (o := .list kd el ll xs) ho hwf0
             · rw [if_neg hv] at hd6; cases hd6
 
 /-- Statements at fuel `n`. -/
@@ -352,10 +352,10 @@ theorem block_sound {env : Env} {fp : Footprint} {h0 : Heap} {vs : List Value} {
         | _ => simp [DM.ok] at hd2; subst hd2; exact ⟨rfl, hI1⟩
 
 theorem stmt_sound (env : Env) (hcf : CoerceFlat env) (fp : Footprint) (h0 : Heap)
-    (vs : List Value) : ∀ n, SOK env fp h0 vs n
+    (vs : List Value) (hwf0 : HeapWF h0) : ∀ n, SOK env fp h0 vs n
   | 0, st, _, _, _, _, _, _, hdep => absurd hdep (by have := sDep_pos st; omega)
   | n + 1, st, s, L, h, r, hI, hd, hdep => by
-    have hB := block_sound (stmt_sound env hcf fp h0 vs n)
+    have hB := block_sound (stmt_sound env hcf fp h0 vs hwf0 n)
     have hE := expr_sound env hI.r n
     cases st with
     | assign l ts e =>
@@ -369,7 +369,7 @@ theorem stmt_sound (env : Env) (hcf : CoerceFlat env) (fp : Footprint) (h0 : Hea
           simp [hi, stmtOK_err hne]
         · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE e _ he (by omega))
           simp only [hi, exb_ok, Except.bind_ok']
-          have := assign_sound env hcf hI t hrel hd2 n (by omega)
+          have := assign_sound env hcf hI t hrel hd2 n (by omega) hwf0
           revert this
           cases assignTarget env n L h t w with
           | error e' => simp
@@ -385,7 +385,7 @@ theorem stmt_sound (env : Env) (hcf : CoerceFlat env) (fp : Footprint) (h0 : Hea
         simp [hi, stmtOK_err hne]
       · obtain ⟨w, hi, hrel⟩ := exprOK_ok (hE e _ he (by omega))
         simp only [hi, exb_ok, Except.bind_ok']
-        have := assign_sound env hcf hI t hrel hd2 n (by omega)
+        have := assign_sound env hcf hI t hrel hd2 n (by omega) hwf0
         revert this
         cases assignTarget env n L h t w with
         | error e' => simp
@@ -395,7 +395,7 @@ theorem stmt_sound (env : Env) (hcf : CoerceFlat env) (fp : Footprint) (h0 : Hea
       | index l' o ie =>
         simp only [dStmt] at hd
         simp only [sDep, tDep] at hdep
-        exact aug_sound env hcf hI l l' o ie op e hd n (by omega) (by omega)
+        exact aug_sound env hcf hI l l' o ie op e hd n (by omega) (by omega) hwf0
       | _ => simp [dStmt] at hd
     | ifStmt l c thn els =>
       simp only [dStmt] at hd

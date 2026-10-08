@@ -62,12 +62,21 @@ theorem blockOf_one {stmt : DSt → Stmt → DM (DOut × DSt)} {s : DSt} {st : S
     simp [blockOf, h, DM.bind, DM.ok]
 
 /-- A call in a statement that writes nothing is the expression. -/
+theorem allKw_of_argsOf {ev : Expr → DM DRes} :
+    ∀ (args : List Arg) (r : Res (List DRes)), argsOf ev args = some r → allKw args = false
+  | [], _, _ => rfl
+  | .pos _ :: _, _, _ => rfl
+  | .starred _ :: _, _, h => by simp [argsOf] at h
+  | .kw _ _ :: _, _, h => by simp [argsOf] at h
+
 theorem call_ro {env : Env} {fps : Name → Footprint} {n : Nat} {P : Sem} {fp : Footprint}
     {s : DSt} {e : Expr}
     (h : ∀ g args, callHead env s e = some (g, args) →
-      (fps g).isEmpty = true ∨ ∃ t, env.globals.lookup g = some (.type t)) :
+      (fps g).isEmpty = true ∨ ∃ t, env.globals.lookup g = some (.type t))
+    (hap : appendOf env e = none) :
     callStep env fps n P fp s e = (exprStep env fps n P fp s e).map (·.map (·, s.roots)) := by
   unfold callStep
+  simp only [hap]
   split
   · next m g args hch =>
     obtain hro := h g args hch
@@ -79,9 +88,15 @@ theorem call_ro {env : Env} {fps : Name → Footprint} {n : Nat} {P : Sem} {fp :
     simp only [exprStep, hch]
     rw [show (fun rs => dCallW env fps P.fn fp s g rs) = fun rs =>
         (dCallRO env fps P.fn s g rs).map (·.map (·, s.roots)) from ?_]
-    · cases argsOf (P.expr fp s) args with
-      | none => rfl
-      | some r => cases r <;> rfl
+    · by_cases hk : allKw args = true
+      · simp only [hk, ↓reduceIte]
+        cases DM.bind (kwsOf (P.expr fp s) args) (fun kvs => kwCtor env g kvs) with
+        | none => rfl
+        | some r => cases r <;> rfl
+      · simp only [hk, Bool.false_eq_true, ↓reduceIte]
+        cases argsOf (P.expr fp s) args with
+        | none => rfl
+        | some r => cases r <;> rfl
     · funext rs
       unfold dCallW
       rcases hro with he | ⟨t, ht⟩

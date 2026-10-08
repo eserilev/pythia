@@ -37,7 +37,7 @@ theorem icwc_den (sha : Oracle) (fp : Footprint) (m : Nat) (wc : List UInt8) :
     (den (Scope.env sha) fpsEx (m + 8)).fn fp Scope.fn_is_compounding_withdrawal_credential
         [.leaf (.bytes b32 wc)] =
       some (.ok (.val (.bool (wc.take 1 == [2])), [.leaf (.bytes b32 wc)])) := by
-  simp [fnStep, Scope.fn_is_compounding_withdrawal_credential, Sem.block, blockOf, stmtStep,
+  simp [fnStep, noneDefaults, Scope.fn_is_compounding_withdrawal_credential, Sem.block, blockOf, stmtStep,
     exprStep, DM.bind, DM.ok, initLoc, setLoc, slot, cmpOf, optOf, dGlobal,
     Validation.Tactic.lookup_lit, Flat, cmpF_eq_bytes, take_bound]
   by_cases h2 : List.take 1 wc = [2] <;> simp [h2]
@@ -51,9 +51,9 @@ theorem hcwc_den (sha : Oracle) (fp : Footprint) (m : Nat) (x : Validator) :
   have hc := icwc_den sha [] (m + 1) (bd x.withdrawal_credentials)
   rw [show m + 1 + 8 = m + 9 by omega] at hc
   rw [den_fn]
-  simp [-den_fn, hc, fnStep, Scope.fn_has_compounding_withdrawal_credential, Sem.block, blockOf,
+  simp [-den_fn, hc, fnStep, noneDefaults, Scope.fn_has_compounding_withdrawal_credential, Sem.block, blockOf,
     stmtStep, exprStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
-    setLoc, slot, argsOf, dCallRO, fpsEx, argRoot, dAttr, DSt.deref, subAt, DV.kids, ofChild,
+    setLoc, slot, argsOf, dCallRO, padNone, fpsEx, argRoot, dAttr, DSt.deref, subAt, DV.kids, ofChild,
     Validation.Tactic.fieldIndex_lit, Examples.vdv, Flat, comp]
 
 theorem slot_vdv (x : Validator) : slot [Examples.vdv x] 0 = .place 0 [] := rfl
@@ -68,9 +68,9 @@ theorem gmeb_den (sha : Oracle) (fp : Footprint) (m : Nat) (x : Validator) :
   rw [show m + 1 + 12 = m + 13 by omega] at hc
   rw [den_fn]
   cases hcx : comp x <;>
-  simp [-den_fn, hc, hcx, fnStep, Scope.fn_get_max_effective_balance, Sem.block, blockOf,
+  simp [-den_fn, hc, hcx, fnStep, noneDefaults, Scope.fn_get_max_effective_balance, Sem.block, blockOf,
     stmtStep, exprStep, callHead, callable, Validation.Tactic.lookup_lit, DM.bind, DM.ok, initLoc,
-    setLoc, slot_vdv, argsOf, dCallRO, fpsEx, argRoot, DSt.deref, subAt, Flat, meb, dGlobal,
+    setLoc, slot_vdv, argsOf, dCallRO, padNone, fpsEx, argRoot, DSt.deref, subAt, Flat, meb, dGlobal,
     truthy_lift (truthy_b true), truthy_lift (truthy_b false)]
 
 theorem icwc_read (wc : Bytes32) :
@@ -116,8 +116,8 @@ theorem mod_gw (a : Nat) :
 /-- The new effective balance. -/
 def newEb (b M : Nat) : Nat := if M < b - b % 1000000000 then M else b - b % 1000000000
 
-theorem min_gw (s : DSt) (v M : Nat) :
-    dBuiltin s .min [.val (.uint gwTy v), .val (.uint gwTy M)] =
+theorem min_gw (env : Env) (s : DSt) (v M : Nat) :
+    dBuiltin env s .min [.val (.uint gwTy v), .val (.uint gwTy M)] =
       some (.ok (.val (.uint gwTy (if M < v then M else v)))) := by
   have hl : @cmpVal LibModel.toLibValues .lt (.uint gwTy M) (.uint gwTy v) = .ok (decide (M < v)) := by
     show (do let _ ← resolveUint gwTy gwTy; pure (cmpInt .lt (M : Int) v) : Res Bool) = _
@@ -210,7 +210,7 @@ theorem e_hi (h32 : s.loc 32 = none) (h211 : s.loc 211 = none) (h527 : s.loc 527
       (.call 1242 (.name 1242 32) [(.pos (.binop 1242 .floorDiv (.name 1242 211) (.name 1242 527)))]) =
       some (.ok (.val (.uint u64 250000000))) := by
   simp [exprStep, DM.bind, DM.ok, callHead, callable, Validation.Tactic.lookup_lit, h32, h211, h527,
-    argsOf, dGlobal, Flat, dCallRO, c_div, c_ctor sha]
+    argsOf, dGlobal, Flat, dCallRO, padNone, c_div, c_ctor sha]
 
 theorem e_mul (x c r : Nat) (h526 : s.loc 526 = some (.val (.uint u64 250000000))) (hx : s.loc x = none)
     (hc : (Scope.env sha).globals.lookup x = some (.const (.uint u64 c)))
@@ -228,7 +228,7 @@ theorem e_meb (hc : Ctx s ds kV lV kB lB vals bals) {i : Nat} (hi : i < vals.len
   have hv : (vals.map Examples.vdv)[i]? = some (Examples.vdv vals[i]) := by
     simp [List.getElem?_eq_getElem hi]
   simp [-den_fn, exprStep, DM.bind, DM.ok, callHead, callable, Validation.Tactic.lookup_lit, h361,
-    h25, argsOf, dCallRO, fpsEx, argRoot, DSt.deref, subAt, DV.kids, hc.roots, pebuRoot,
+    h25, argsOf, dCallRO, padNone, fpsEx, argRoot, DSt.deref, subAt, DV.kids, hc.roots, pebuRoot,
     List.getElem?_set, hc.l11, hv, hg, Flat]
 
 
@@ -259,7 +259,7 @@ theorem e_min {b M : Nat} (hb : b < 2 ^ 64) (h213 : s.loc 213 = none) (h211 : s.
       some (.ok (.val (.uint gwTy (b - b % 1000000000)))) :=
     dBinop_eval (sub_uu gwTy rfl (by simp [resolveUint]) b _ (Nat.mod_le _ _) hb) rfl
   simp [exprStep, DM.bind, DM.ok, callHead, callable, Validation.Tactic.lookup_lit, h213, h211,
-    h9, h397, argsOf, dGlobal, Flat, dCallRO, hmod, hsub, min_gw, newEb]
+    h9, h397, argsOf, dGlobal, Flat, dCallRO, padNone, hmod, hsub, min_gw, newEb]
 theorem e_eb (n : Nat) (hc : Ctx s ds kV lV kB lB vals bals) {i : Nat} (hi : i < vals.length)
     (h25 : s.loc 25 = some (.place 0 [11, i])) :
     (den (Scope.env sha) fpsEx (n + 2)).expr pebuFp s (.attr l (.name l' 25) 113) =
@@ -370,9 +370,10 @@ end body
 theorem call_of_expr {sha : Oracle} {n : Nat} {fp : Footprint} {s : DSt} {e : Expr} {r : Res DRes}
     (hro : ∀ g args, callHead (Scope.env sha) s e = some (g, args) →
       (fpsEx g).isEmpty = true ∨ ∃ t, (Scope.env sha).globals.lookup g = some (.type t))
-    (h : (den (Scope.env sha) fpsEx (n + 1)).expr fp s e = some r) :
+    (h : (den (Scope.env sha) fpsEx (n + 1)).expr fp s e = some r)
+    (hap : appendOf (Scope.env sha) e = none := by simp [appendOf]) :
     (den (Scope.env sha) fpsEx (n + 1)).call fp s e = some (r.map (·, s.roots)) := by
-  rw [den_call, call_ro hro]
+  rw [den_call, call_ro hro hap]
   rw [den_expr] at h
   rw [h]; rfl
 
@@ -1043,6 +1044,7 @@ theorem process_effective_balance_updates_denote (sha : Oracle) (m : Nat) (ds : 
 /-- SPEC 9.2 for `process_effective_balance_updates`: a loop over a live list, with a write
 through the loop variable. -/
 theorem process_effective_balance_updates_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : HtrDec (Scope.env sha))
     (r0 n : Nat) (ds : List DV) (kV : ListKind) (lV : Option Nat) (kB : ListKind) (lB : Option Nat)
     (st : BeaconState) (hd : dec h n (.ref r0) = some (.cont Scope.Id.«BeaconState» ds))
     (hv : ds[11]? = some (.list kV (.container Scope.Id.«Validator») lV (st.validators.map Examples.vdv)))
@@ -1069,7 +1071,7 @@ theorem process_effective_balance_updates_l4 (sha : Oracle) (gfp : Footprint) (h
       match k, hv, hd' with
       | 0, hv, hd' => simp at hv hd'; subst hv; subst hd'; exact ⟨n, hd⟩
       | _ + 1, hv, _ => simp at hv
-    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp pebuFp
+    have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp pebuFp
       (f := Scope.Id.«process_effective_balance_updates»)
       (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec hw hwf hdn
     rw [hden] at hm

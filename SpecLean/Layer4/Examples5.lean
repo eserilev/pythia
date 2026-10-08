@@ -113,9 +113,9 @@ theorem c_vi (sha : Oracle) (fp : Footprint) (n : Nat) {s : DSt} {j : Nat} (hj :
   have hc := dCtor_eval (env := Scope.env sha) (t := .uint viTy) (rs := [.val (.int (j : Int))]) rfl rfl
     (ctor_vi_int _ _ j hj) rfl
   rw [show n + 3 = (n + 2) + 1 by omega, den_expr]
-  simp only [exprStep, hh]
+  simp only [exprStep, hh, allKw_pos, Bool.false_eq_true, ↓reduceIte]
   rw [args1 a1, dm_bind_ok]
-  simp only [dCallRO, hl]
+  simp only [dCallRO, padNone, hl]
   exact hc
 
 /-- The active indices of `xs`, numbered from `j`. -/
@@ -311,6 +311,7 @@ theorem get_active_validator_indices_denote (sha : Oracle) (M : Nat) (ds : List 
 /-- SPEC 9.2 for `get_active_validator_indices`: the result is a new list. The interpreter's
 result decodes to the readable list, and the state is unchanged. -/
 theorem get_active_validator_indices_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
+    (hh : HtrDec (Scope.env sha))
     (r0 n : Nat) (ds : List DV) (kV : ListKind) (lV : Option Nat) (st : BeaconState) (e : Nat)
     (hd : dec h n (.ref r0) = some (.cont Scope.Id.«BeaconState» ds))
     (hv : ds[11]? = some (.list kV (.container Scope.Id.«Validator») lV (st.validators.map Examples.vdv)))
@@ -329,7 +330,7 @@ theorem get_active_validator_indices_l4 (sha : Oracle) (gfp : Footprint) (h : He
     | 0, hv', hd' => simp at hv' hd'; subst hv'; subst hd'; exact ⟨n, hd⟩
     | 1, hv', hd' => simp at hv' hd'; subst hv'; subst hd'; exact ⟨0, dec_flat rfl 0⟩
     | _ + 2, hv', _ => simp at hv'
-  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _) gfp []
+  have hm := denote_sound_calls (Scope.env sha) fpsEx (libFlat_ssz _ (nmOK_scope _) hh) gfp []
     (f := Scope.Id.«get_active_validator_indices»)
     (by simp only [Scope.env, Validation.Tactic.lookup_lit]) hdec (Examples.wtree_nil h _) hwf hden
   refine resultMatches_mono hf (Examples.resultMatches_map
