@@ -153,4 +153,69 @@ theorem hand_get_balance_after_withdrawals : spec_get_balance_after_withdrawals 
       try dsimp only
       bridge_run []
   · bridge_post
+/-- `range(n)` and a list of zero flags, one per validator. -/
+theorem pyRange_zero (n : Nat) : pyRange 0 (n : Int) 1 = .ok ((List.range n).map fun (i : Nat) => (i : Int)) := by
+  unfold pyRange
+  rw [if_neg (by decide)]
+  simp; rfl
+
+theorem mapM_const_ok {α β : Type} (xs : List α) (b : β) :
+    xs.mapM (fun _ => (Except.ok b : SpecM β)) = .ok (List.replicate xs.length b) := by
+  induction xs with
+  | nil => rfl
+  | cons x xs ih => rw [List.mapM_cons, ih]; rfl
+
+theorem hand_process_participation_flag_updates : spec_process_participation_flag_updates := by
+  intro state hr0
+  unfold GenMainnet.process_participation_flag_updates EpochProofs.Spec.process_participation_flag_updates
+  have e1 : (uOf GenMainnet.ParticipationFlags (0 : Int) : SpecM GenMainnet.ParticipationFlags) = .ok ⟨0⟩ := rfl
+  simp only [Int.ofNat_eq_natCast, pyRange_zero, e1, mapM_const_ok, ok_bind, bind_pure, lfrom_none,
+    List.length_map, List.length_range]
+  refine ⟨?_, post_true _⟩
+  show Except.ok _ = Except.ok _
+  simp [abs_BeaconState]
+/-- The byte-wise xor: a `mapM` of integer xor over the zipped bytes. -/
+theorem xor_mapM (F : Int × Int → SpecM Int) (hF : ∀ x y : Int, F (x, y) = iOp .bitXor x y)
+    (a b : List UInt8) :
+    ((a.map fun x => (x.toNat : Int)).zip (b.map fun x => (x.toNat : Int))).mapM F =
+      .ok ((a.zip b).map fun p => ((p.1.toNat ^^^ p.2.toNat : Nat) : Int)) := by
+  induction a generalizing b with
+  | nil => rfl
+  | cons x a ih =>
+    cases b with
+    | nil => rfl
+    | cons y b =>
+      simp only [List.map_cons, List.zip_cons_cons, List.mapM_cons]
+      rw [ih b, hF]
+      rfl
+
+theorem uint8_xor_ofNat (x y : UInt8) : UInt8.ofNat (x.toNat ^^^ y.toNat) = x ^^^ y := by
+  apply UInt8.toNat.inj
+  rw [UInt8.toNat_ofNat', UInt8.toNat_xor]
+  apply Nat.mod_eq_of_lt
+  exact Nat.xor_lt_two_pow (n := 8) x.toNat_lt y.toNat_lt
+
+theorem toVec_zip_xor (a b : List UInt8) (ha : a.length = 32) (hb : b.length = 32) :
+    toVec 32 ((a.zip b).map fun p => UInt8.ofNat ((((p.1.toNat ^^^ p.2.toNat : Nat) : Int)).toNat)) =
+      Vector.zipWith (fun x1 x2 => x1 ^^^ x2) (toVec 32 a) (toVec 32 b) := by
+  apply Vector.toList_inj.mp
+  rw [toVec_toList _ _ (by simp [ha, hb]), Vector.toList_zipWith, toVec_toList _ _ ha,
+    toVec_toList _ _ hb, List.map_zip_eq_zipWith]
+  congr 1
+  funext x y
+  simp only [Function.curry, Int.toNat_natCast, uint8_xor_ofNat]
+
+theorem hand_xor : spec_xor := by
+  intro a b ha hb
+  unfold GenMainnet.xor EpochProofs.Spec.xor
+  rw [xor_mapM _ (fun _ _ => by simp only [bind_pure]) _ _, ok_bind]
+  have hl : ((a.data.zip b.data).map fun p =>
+      UInt8.ofNat ((((p.1.toNat ^^^ p.2.toNat : Nat) : Int)).toNat)).length = BytesC.len GenMainnet.Bytes32 := by
+    simp [ha, hb]
+  simp only [List.map_map, Function.comp_def, bd, data_Bytes32]
+  rw [bytesOf_ok _ hl]
+  refine ⟨?_, fun x hx => by cases hx; rw [ofBytes_Bytes32]; simpa using hl⟩
+  show Except.ok _ = Except.ok _
+  dsimp only
+  rw [ofBytes_Bytes32, toVec_zip_xor _ _ ha hb]
 end Pythia.Bridge.Mainnet

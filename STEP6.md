@@ -355,8 +355,8 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 |---|---|
 | Mapped functions without a loop | 83 |
 | with a statement | 74 |
-| proved, conditional | 45 (and 27 callees) |
-| proved, full | 44 (and 21 callees) |
+| proved, conditional | 46 (and 28 callees) |
+| proved, full | 45 (and 22 callees) |
 | loops proved by hand (`Mainnet/Proofs.lean`) | 1 (`integer_squareroot`) |
 
 `bridge_main` has these steps in addition to the steps for binds, `if` and leaves:
@@ -383,9 +383,9 @@ theorem `hand_f : spec_f` each. The generator reads the names and adds `full_f :
 
 Not proved yet, by cause (examples):
 
-- Comprehensions of other shapes: `get_eligible_validator_indices` (hand `for` loop),
-  `get_set_bit_count`, `get_balance_after_withdrawals`, `process_participation_flag_updates`,
-  `xor`.
+- Comprehensions of other shapes: `get_eligible_validator_indices` (hand `for` loop).
+  `get_set_bit_count`, `get_balance_after_withdrawals`, `process_participation_flag_updates`
+  and `xor` have hand-written proofs in `Mainnet/Proofs.lean`.
 - Functions that return a tuple: the post condition is `True`, so the caller has no range facts
   for the state in the tuple (`initiate_validator_exit`).
 - Block functions with more steps: `process_withdrawal_request`, `process_consolidation_request`,
