@@ -110,3 +110,37 @@ end SpecLean.Validation.Tactic
 macro_rules
   | `(tactic| rd_finish) =>
     `(tactic| (exact fun e => SpecLean.Validation.HtrBridge.OracleHtr.noOof ‹_› _ _ (e ▸ ‹_›)))
+
+/-- The end of a write of one item into a list argument: the new items and their range. -/
+macro "rd_item_write_end" : tactic => `(tactic| (
+  refine ⟨_, rfl, rfl, ?_⟩
+  intro y hy
+  first
+  | (rcases List.mem_or_eq_of_mem_set hy with hy | hy)
+  | (rcases hy with hy | hy)
+  all_goals first
+    | (have hyr := ‹∀ (y : _), y ∈ _ → _› y hy; simp only [Nat.reducePow] at hyr ⊢; exact hyr)
+    | (have hyr := ‹_ < 2 ^ _›; rw [hy]; simp only [Nat.reducePow] at hyr ⊢; exact hyr)))
+
+/-- A list argument is at a pattern rooted at its list type. -/
+macro "rd_atfp_list" : tactic => `(tactic| first
+  | exact ⟨0, _, [], List.mem_singleton_self _, SpecLean.Encode.rootTy_list rfl ‹_›, trivial, rfl⟩
+  | exact ⟨1, _, [], List.mem_singleton_self _, SpecLean.Encode.rootTy_list rfl ‹_›, trivial, rfl⟩
+  | exact ⟨2, _, [], List.mem_singleton_self _, SpecLean.Encode.rootTy_list rfl ‹_›, trivial, rfl⟩)
+
+macro_rules | `(tactic| rd_finish) => `(tactic| rd_item_write_end)
+macro_rules | `(tactic| rd_finish) => `(tactic| rd_atfp_list)
+
+namespace SpecLean.Validation
+
+/-- A product in a fuel bound, opaque: `omega` reads it as one number, so the bounds stay
+linear. Fuel only has to be large enough (`mul_le_bigProd`). -/
+@[irreducible] def bigProd (a b : Nat) : Nat := a * b
+
+theorem mul_le_bigProd (a b : Nat) : a * b ≤ bigProd a b := by
+  unfold bigProd; exact Nat.le_refl _
+
+theorem bigProd_mono {a b c d : Nat} (hac : a ≤ c) (hbd : b ≤ d) : bigProd a b ≤ bigProd c d := by
+  unfold bigProd; exact Nat.mul_le_mul hac hbd
+
+end SpecLean.Validation

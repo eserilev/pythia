@@ -35,6 +35,15 @@ attribute [local rd_dec] dec_Uint64 dec_Root dec_Slot dec_Version dec_Epoch dec_
 
 attribute [local rd_simp] encUint encBytesN encBoolean enc_Uint64 enc_Root enc_Slot enc_Version enc_Epoch enc_ValidatorIndex enc_Hash32 enc_BLSPubkey enc_Bytes32 enc_Gwei enc_ParticipationFlags enc_WithdrawalIndex enc_BLSSignature enc_Uint8 enc_ExecutionAddress enc_BuilderIndex enc_KZGCommitment enc_Domain enc_DomainType enc_CommitteeIndex enc_Uint32 enc_LogsBloom enc_Uint256 enc_Bytes1
 
+theorem set_or_append_list_pBalances_full : set_or_append_list_pBalances_stmt sha :=
+  set_or_append_list_pBalances_run sha
+
+theorem set_or_append_list_pEpochParticipation_full : set_or_append_list_pEpochParticipation_stmt sha :=
+  set_or_append_list_pEpochParticipation_run sha
+
+theorem set_or_append_list_pInactivityScores_full : set_or_append_list_pInactivityScores_stmt sha :=
+  set_or_append_list_pInactivityScores_run sha
+
 theorem eth_fast_aggregate_verify_full : eth_fast_aggregate_verify_stmt sha :=
   eth_fast_aggregate_verify_run sha
 
