@@ -359,8 +359,15 @@ theorem callee_fp (hI : CInv fp h0 h vs s L) (hrel : ERels h vs rs ws)
       ∀ k' q', at? h vs k' q' = some (.ref b) → k' = k ∧ q' = p ++ q := by
   obtain ⟨rfl, a, hwi, hat, hpq⟩ := callee_path hrel hone hb
   refine ⟨rfl, ?_⟩
-  -- The argument tree has the class of the callee pattern.
-  obtain ⟨c, fs, hc, hoc⟩ := hty
+  -- The callee pattern has a container root (`coversAll` checks it), so the argument tree has
+  -- its class.
+  have hcr : Nat.blt pg.ty listRootBase = true := by
+    have := List.all_eq_true.mp hcov pg hpg
+    simp only [Bool.and_eq_true] at this
+    exact this.1
+  obtain ⟨c, hc, ⟨fs, hoc⟩ | ⟨kd, e, l, xs, hty', -⟩⟩ := hty
+  rotate_left
+  · rw [hty'] at hcr; exact absurd (Nat.blt_eq.mp hcr) (listRoot_not_lt kd e)
   rw [hwi] at hc; cases hc
   obtain ⟨nn, hn⟩ := deref_dec hI.i.r hat hdk
   have hdkty : rootIs pg.ty (some dk) = true := by
@@ -373,7 +380,7 @@ theorem callee_fp (hI : CInv fp h0 h vs s L) (hrel : ERels h vs rs ws)
     | none => simp [hm] at hn
     | some ds => simp [hm] at hn; subst hn; simp [rootIs]
   have hall := List.all_eq_true.mp hcov pg hpg
-  simp only [hdkty, Bool.not_true, Bool.false_or] at hall
+  simp only [hcr, hdkty, Bool.true_and, Bool.not_true, Bool.false_or] at hall
   obtain ⟨cpat, hcp, hcb⟩ := List.any_eq_true.mp hall
   simp only [Bool.and_eq_true] at hcb
   obtain ⟨hroot, hcov'⟩ := hcb
