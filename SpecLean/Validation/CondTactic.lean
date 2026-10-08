@@ -144,3 +144,78 @@ theorem bigProd_mono {a b c d : Nat} (hac : a ≤ c) (hbd : b ≤ d) : bigProd a
   unfold bigProd; exact Nat.mul_le_mul hac hbd
 
 end SpecLean.Validation
+
+/-- Object `a` is at no path of the footprint: each pattern with exact steps reaches one object
+per argument, and the facts show it is another object. -/
+macro "rd_not_atfp" : tactic => `(tactic| (
+  rintro ⟨k, pat, q, hmem, ⟨c, hc, -⟩, hm, hat⟩
+  simp only [List.mem_cons, List.mem_nil_iff, or_false] at hmem
+  (repeat' (first | (rcases hmem with rfl | hmem) | subst hmem)) <;>
+    rcases q with _ | ⟨q0, _ | ⟨q1, _ | ⟨q2, q⟩⟩⟩ <;>
+    simp only [SpecLean.Encode.Matches, and_true, true_and, and_false, false_and] at hm <;>
+    (try subst hm) <;>
+    (try (obtain ⟨rfl, rfl⟩ := hm)) <;>
+    rcases k with _ | _ | _ | _ | _ | k <;>
+    simp only [List.getElem?_cons_zero, List.getElem?_cons_succ, List.getElem?_nil,
+      reduceCtorEq, Option.some.injEq, SpecLean.Value.ref.injEq] at hc <;>
+    (try subst hc) <;>
+    simp only [SpecLean.Encode.at?, SpecLean.Encode.follow, List.getElem?_cons_zero,
+      List.getElem?_cons_succ, Option.bind_some, Option.bind] at hat <;>
+    simp_all))
+
+namespace SpecLean.Validation.Tactic
+open Lean Meta Elab Tactic
+
+/-- A read `h'.objs a` after a callee that writes (`Frame h h' vs fp`, with `fp` not empty):
+an object of `h` at no path of `fp` keeps its contents. -/
+elab "rd_frame_fp" : tactic => do
+  let g ← getMainGoal
+  let found : Option Lean.Expr ← g.withContext do
+    let lctx ← getLCtx
+    let mut frames : Array LocalDecl := #[]
+    for d in lctx do
+      if d.isImplementationDetail then continue
+      if (← instantiateMVars d.type).isAppOfArity ``SpecLean.Encode.Frame 4 then
+        frames := frames.push d
+    let mut texts : Array Lean.Expr := #[← instantiateMVars (← g.getType)]
+    for d in lctx do
+      if d.isImplementationDetail then continue
+      texts := texts.push (← instantiateMVars d.type)
+    for f in frames do
+      let fty ← instantiateMVars f.type
+      let h0 := fty.getArg! 0
+      let h1 := fty.getArg! 1
+      for t in texts do
+        for rd in findAllApps (fun e => e.isAppOfArity ``SpecLean.Heap.objs 2 && !e.hasLooseBVars) t do
+          unless ← withReducible (isDefEq (rd.getArg! 0) h1) do continue
+          let a := rd.getArg! 1
+          for d in lctx do
+            if d.isImplementationDetail then continue
+            let ty ← instantiateMVars d.type
+            let some (_, l, _) := ty.eq? | continue
+            unless l.isAppOfArity ``SpecLean.Heap.objs 2 do continue
+            unless ← withReducible (isDefEq (l.getArg! 0) h0) do continue
+            unless ← withReducible (isDefEq (l.getArg! 1) a) do continue
+            unless (ty.getArg! 2).isAppOfArity ``Option.some 2 do continue
+            let s ← saveState
+            try
+              let notAt ← mkFreshExprMVar (← mkArrow
+                (← mkAppM ``SpecLean.Encode.AtFp #[h0, fty.getArg! 2, fty.getArg! 3, a])
+                (mkConst ``False))
+              let stx ← `(tactic| rd_not_atfp)
+              let gs ← Tactic.run notAt.mvarId! (evalTactic stx)
+              unless gs.isEmpty do throwError "not at"
+              let neN ← mkFreshExprMVar (← mkAppM ``Ne #[l, ← mkAppOptM ``Option.none #[some (mkConst ``SpecLean.HeapObj)]])
+              let stx2 ← `(tactic| (rw [$(← Term.exprToSyntax d.toExpr):term]; exact Option.some_ne_none _))
+              let gs2 ← Tactic.run neN.mvarId! (evalTactic stx2)
+              unless gs2.isEmpty do throwError "ne none"
+              let eq ← mkAppM' f.toExpr #[a, neN, notAt]
+              return some (← mkEqTrans eq d.toExpr)
+            catch _ => restoreState s
+    return none
+  let some pf := found | throwError "rd_frame_fp: none"
+  let (_, g1) ← (← g.assert `hfo (← inferType pf) pf).intro1P
+  replaceMainGoal [g1]
+  evalTactic (← `(tactic| simp only [$(mkIdent `hfo):ident] at *))
+
+end SpecLean.Validation.Tactic

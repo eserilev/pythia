@@ -1982,6 +1982,9 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
         if callees:
             # An object read after a call: the call kept it, so the fact of the entry heap holds.
             alts.append("(rd_frame_objs; try rd_step)")
+        if callees and getattr(self, "stmt_only", False):
+            # The same after a callee that writes: an object at no path of its footprint.
+            alts.append("(rd_frame_fp; try rd_step)")
         if callees and (sig.mutated or ret[0] == "container"):
             # A field read that a split left open: the field index and the item from the facts.
             alts.append("(rd_fieldidx; try rd_step)")
