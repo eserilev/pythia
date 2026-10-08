@@ -199,4 +199,51 @@ theorem writer_fnRel {env : Env} {h h' : Heap} {vs : List Value} {roots roots' :
   ⟨⟨rfl, rfl⟩, trivial, hda, hfr, writer_skel hdec hfr hfs hnf hfk hrb hlk hcw hcw' hT,
     fun e => absurd e hfpne, hno⟩
 
+/-! ## A callee that returns a new list of flat items -/
+
+theorem mapM_dec_flat {h : Heap} (m : Nat) : ∀ (xs : List Value), (∀ x ∈ xs, Flat x = true) →
+    xs.mapM (dec h m) = some (xs.map DV.leaf)
+  | [], _ => rfl
+  | x :: xs, hf => by
+    simp only [List.mapM_cons, List.map_cons, dec_flat (hf x (by simp)) m,
+      mapM_dec_flat m xs (fun y hy => hf y (by simp [hy]))]
+    rfl
+
+theorem follow_flatList {h : Heap} {a : Nat} {xs : List Value}
+    (ho : h.objs a = some (.list .pyList .any none xs)) (hf : ∀ x ∈ xs, Flat x = true) :
+    ∀ q b, follow h (.ref a) q = some (.ref b) → q = [] ∧ b = a := by
+  intro q b e
+  cases q with
+  | nil => simp [follow] at e; exact ⟨rfl, e.symm⟩
+  | cons j q =>
+    rw [follow_ref_cons, ho] at e
+    simp only [okids, Option.bind_some] at e
+    cases hx : xs[j]? with
+    | none => simp [hx] at e
+    | some x =>
+      simp only [hx, Option.bind_some] at e
+      have hfx := hf x (List.mem_of_getElem? hx)
+      exact absurd e (fun e' => follow_nonref_ref (fun c ec => by subst ec; simp [Flat] at hfx) e')
+
+/-- The result of a callee that returns a new list of flat items (`ListRes`) is its tree. -/
+theorem listRes_rel {α : Type} {h h' : Heap} {vs : List Value} {roots : List DV} {w : Value}
+    (r : List α) (f : α → Value) (hf : ∀ y, Flat (f y) = true)
+    (hl : Validation.Steps.ListRes h h' w (r.map f)) (hwf : HeapWF h) (hdec : DecArgs h vs roots)
+    (hba : BelowArgs h vs) (he : Ext h h') :
+    ERel h' vs (.tree (.list .pyList .any none (r.map fun y => DV.leaf (f y)))) w ∧
+      TLo h.next h' (.tree (.list .pyList .any none (r.map fun y => DV.leaf (f y)))) w := by
+  obtain ⟨a, rfl, hge, ho⟩ := hl
+  have hfl : ∀ x ∈ r.map f, Flat x = true := by
+    intro x hx; obtain ⟨y, -, rfl⟩ := List.mem_map.mp hx; exact hf y
+  have hd : dec h' 1 (.ref a) = some (.list .pyList .any none (r.map fun y => DV.leaf (f y))) := by
+    rw [dec_ref_succ, ho]
+    simp only [mapM_dec_flat 0 _ hfl, List.map_map]
+    rfl
+  refine ⟨⟨⟨1, hd⟩, fun q b e k p ep => ?_⟩, fun q b e => ?_⟩
+  · obtain ⟨-, rfl⟩ := follow_flatList ho hfl q b e
+    have := at?_below0 hwf hdec ((at?_Ext he hba k p b).mp ep)
+    omega
+  · obtain ⟨-, rfl⟩ := follow_flatList ho hfl q b e
+    exact hge
+
 end SpecLean.Layer4.ExtBridge

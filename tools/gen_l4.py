@@ -609,6 +609,9 @@ def parse_runf(m, path="SpecLean/Validation/Gen/Loops.lean"):
             rkind = "uint"
         elif pred.startswith("v = .bool r") and rt == "Bool":
             rkind = "bool"
+        elif (re.match(r"ListRes h h' v \(r\.map fun x => Value\.uint (.*?) x\.val\)", pred)
+              and re.fullmatch(r"\(List (\w+)\)", rt) and re.fullmatch(r"\(List (\w+)\)", rt).group(1) in m.uint):
+            rkind = "list"
         else:
             continue
         lens = {}
@@ -654,7 +657,13 @@ def ext_text(m):
     for c, o in sorted(OPAQUE.items()):
         rs, scr, pat, conds = ext_args(o)
         rt = o["rt"]
-        enc = ("DRes.val (.uint %s y.val)" % m.uint_ty(rt)) if o["rkind"] == "uint" else "DRes.val (.bool y)"
+        if o["rkind"] == "uint":
+            enc = "DRes.val (.uint %s y.val)" % m.uint_ty(rt)
+        elif o["rkind"] == "list":
+            enc = "DRes.tree (.list .pyList .any none (y.map fun z => DV.leaf (.uint %s z.val)))" % m.uint_ty(
+                re.fullmatch(r"\(List (\w+)\)", rt).group(1))
+        else:
+            enc = "DRes.val (.bool y)"
         cond = " ∧ ".join(conds) if conds else "True"
         out.append("def ext_%s : ExtFn where\n"
                    "  bound := fun rs => match rs with\n"
@@ -2163,11 +2172,17 @@ def ext_entry(m, c, o):
     L.append("        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr")
     L.append("        rintro ⟨hw, hfr, hfresh, -⟩")
     L.append("        have he : Ext h h' := ext_of_frame hfr hfresh (NoFill.callFn_noFill _ NoFill.ssz_libKeeps hc)")
+    tlo = "trivial"
     if o["rkind"] == "uint":
         erel = "⟨by have := hw.1; simp only [enc_%s, encUint] at this; exact this, rfl⟩" % o["rt"]
+    elif o["rkind"] == "list":
+        el = re.fullmatch(r"\(List (\w+)\)", o["rt"]).group(1)
+        L.append("        have hLR := ExtBridge.listRes_rel y (fun z : %s => Value.uint %s z.val) (fun _ => rfl) hw.1 hwf hdec hba he"
+                 % (el, m.uint_ty(el)))
+        erel, tlo = "hLR.1", "hLR.2"
     else:
         erel = "⟨hw.1, rfl⟩"
-    L.append("        refine ⟨%s, trivial, ⟨rfl, fun j w' d' hw' hd' => ?_⟩," % erel)
+    L.append("        refine ⟨%s, %s, ⟨rfl, fun j w' d' hw' hd' => ?_⟩," % (erel, tlo))
     L.append("          hfr, Skel_of_Ext he, fun _ => he, fun kg q b kg' q' hab hle _ => ?_⟩")
     L.append("        · match j, hw', hd' with")
     for (k, ty, i) in o["args"]:
