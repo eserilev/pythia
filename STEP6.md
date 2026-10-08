@@ -355,10 +355,10 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 |---|---|
 | Mapped functions without a loop | 83 |
 | with a statement | 74 |
-| proved, conditional | 47 (and 31 callees) |
-| proved, full | 46 (and 27 callees) |
+| proved, conditional | 48 (and 31 callees) |
+| proved, full | 47 (and 27 callees) |
 | loops proved by hand (`Mainnet/Proofs.lean`) | 3 of the 23 mapped loops, and 3 callee loops |
-| loops proved by `bridge_loop` (generated) | 1 (`process_inactivity_updates`, conditional) |
+| loops proved by `bridge_loop` (generated) | 1 (`process_inactivity_updates`, full) |
 
 `bridge_main` has these steps in addition to the steps for binds, `if` and leaves:
 
@@ -430,6 +430,26 @@ The generator writes the proofs of the loops of the first shape (`loop_shape` an
   because it is followed by the rest of the loop.
 - A readable `contains` on a list of uints against the hand `∈` (`contains_iff_mem_val`), and a
   fact `a = c` of the context for a goal `a = b` (`bridge_rw_fact`).
+
+`bridge_run` also has the steps of shape (d), filter comprehensions:
+
+- A readable `filterMapM` against a hand `for` loop that appends to an empty list
+  (`sim_filterMapM_forIn`). The hand loop runs on a hand list `H`. A fact `List.map f xs = H`
+  of the context (from the callee that made `xs`) rewrites `H` first. Then each item is one
+  `Sim` goal: the readable step gives `some x` or `none`, and the hand step appends `f x` or not.
+- A readable `filterM` is first written as a `filterMapM` (`filterM_eq_filterMapM`).
+- `dedup` of such a list: the list has no duplicates (`bridge_nodup`). A `filterM` or a
+  `filterMapM` that keeps only its own items gives a sublist of its input, so the proof goes
+  back to the list of the callee and `nodup_get_active`. `bridge_sub_ir` gives the range facts
+  the same way.
+- A readable `assert` of a `contains` on two values against the hand `!(a || b)`
+  (`sim_assert_bool`, `contains_pair_val`).
+- A readable `if` with no hand `if`: decided by a fact of the context, or split
+  (`sim_ite_l`). A hand `if` inside the arguments of a hand step: decided by a fact.
+- A readable call that ran before with the same arguments: its result is the result of the
+  first call.
+
+`get_unslashed_participating_indices` has a generated proof with these steps.
 
 `process_inactivity_updates` has a generated proof. `process_slashings` has the same shape, but
 its body calls `decrease_balance`, whose hand version takes the balances and not the state. Its

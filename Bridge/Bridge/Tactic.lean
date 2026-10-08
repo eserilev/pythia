@@ -64,6 +64,52 @@ theorem contains_iff_mem_val {α : Type} [UintC α] [DecidableEq α] (xs : List 
     have : b = a := by rw [← UintC.ofNat_val b, he, UintC.ofNat_val]
     exact this ▸ hb
 
+/-- A readable `assert c` against the hand `if !b then throw` with a `Bool` condition. -/
+theorem sim_assert_bool {β β' : Type} {g : β → β'} (c b : Bool)
+    {K : Unit → SpecM β} {L : PUnit → HM β'} (hc : c = b) (hK : b = true → Sim g (K ()) (L ())) :
+    Sim g (assert c >>= K)
+      (if (!b) = true then (throw .assertionFailed >>= L) else (pure PUnit.unit >>= L)) := by
+  subst hc
+  cases c
+  · rfl
+  · exact hK rfl
+
+theorem sim_of_bind_pure_r {α β : Type} {f : α → β} {A : SpecM α} {H : HM β}
+    (hs : Sim f A (H >>= pure)) : Sim f A H := by
+  have : (H >>= pure) = H := by cases H <;> rfl
+  rw [this] at hs; exact hs
+
+/-- A readable `if` with no hand `if` to pair with: split it. -/
+theorem sim_ite_l {β β' : Type} {g : β → β'} (c : Prop) [Decidable c] {A B : SpecM β} {H : HM β'}
+    (h1 : c → Sim g A H) (h2 : ¬c → Sim g B H) : Sim g (if c then A else B) H := by
+  by_cases h : c
+  · rw [if_pos h]; exact h1 h
+  · rw [if_neg h]; exact h2 h
+
+theorem sim_pure_ite_l {β β' : Type} {g : β → β'} (c : Prop) [Decidable c] (a b : β) {H : HM β'}
+    (hs : Sim g (if c then pure a else pure b) H) : Sim g (pure (if c then a else b)) H := by
+  by_cases h : c
+  · rw [if_pos h] at hs ⊢; exact hs
+  · rw [if_neg h] at hs ⊢; exact hs
+
+theorem uv_beq_val {α β : Type} [UintC α] [UintC β] (a : α) (b : β) :
+    (uv a == uv b) = (UintC.val a == UintC.val b) := by
+  unfold uv
+  rw [Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq]
+  constructor <;> intro h <;> omega
+
+/-- `[a, b].contains x` on uints: the values are equal to one of the two. -/
+theorem contains_pair_val {α : Type} [UintC α] [DecidableEq α] (a b x : α) :
+    [a, b].contains x = (UintC.val x == UintC.val a || UintC.val x == UintC.val b) := by
+  have inj : ∀ u v : α, (u == v) = (UintC.val u == UintC.val v) := by
+    intro u v
+    by_cases h : u = v
+    · subst h; simp
+    · have : UintC.val u ≠ UintC.val v := fun he => h (by rw [← UintC.ofNat_val u, he, UintC.ofNat_val])
+      rw [beq_eq_false_iff_ne.mpr h, beq_eq_false_iff_ne.mpr this]
+  simp only [List.contains_cons, List.contains_nil, Bool.or_false]
+  rw [inj x a, inj x b]
+
 theorem uOp_range {α : Type} [UintC α] {op : BinOp} {a b : Int} {x : α}
     (h : (uOp op a b : SpecM α) = .ok x) : UintC.val x < 2 ^ UintC.bits α := by
   unfold uOp at h
@@ -916,6 +962,35 @@ def frameCall (a : Lean.Expr) : MetaM (Option Lean.Expr) := do
     | none => out := out.push arg
   return if changed then some (mkAppN a.getAppFn out) else none
 
+/-- `l.Nodup` for a list `l` that a `filterM` or a `filterMapM` keeps from a list with no
+duplicates, back to a fact `List.map f l = H` with `H` a hand list of known indices. -/
+syntax "bridge_nodup" : tactic
+syntax "bridge_nodup_map" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_nodup_map) => withMainContext do
+    let t := (← instantiateMVars (← getMainTarget)).consumeMData
+    unless t.isAppOfArity ``List.Nodup 2 do throwError "bridge_nodup_map: not Nodup"
+    let l := (t.getArg! 1).consumeMData
+    for d in (← getLCtx) do
+      if d.isImplementationDetail then continue
+      let ty := (← instantiateMVars d.type).consumeMData
+      unless ty.isAppOfArity ``Eq 3 do continue
+      let lhs := (ty.getArg! 1).consumeMData.headBeta
+      unless lhs.isAppOfArity ``List.map 4 && lhs.getArg! 3 == l do continue
+      let s ← saveState
+      try
+        let fS ← Term.exprToSyntax (lhs.getArg! 2)
+        let hS ← Term.exprToSyntax d.toExpr
+        evalTactic (← `(tactic| (refine nodup_of_map $fS ?_; rw [$hS:term]; first | exact nodup_get_active _ _ | exact nodup_filter_zipIdx_snd _ _ | bridge_nodup)))
+        if (← getUnsolvedGoals).isEmpty then return
+      catch _ => pure ()
+      s.restore
+    throwError "bridge_nodup_map: no fact"
+
+/-- The range facts of a list that `dedup`, a `filterM` or a `filterMapM` keeps from a list. -/
+syntax "bridge_sub_ir" : tactic
 /-- Close the invariant of a loop step (`sim_loop`). The default is the invariant of a loop that
 changes one list field: `∃ X, state = { st0 with F := X } ∧ r = X.map conv ∧ ∀ y ∈ X, P y`. -/
 syntax "bridge_inv" : tactic
@@ -986,6 +1061,12 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
         let mut out := []
         for g' in gs do out := out ++ (← bridgeGoal hs g')
         return out
+    let xS ← g.withContext (Term.exprToSyntax x)
+    let tacN : TacticM Unit := evalTactic (← `(tactic| rw [dedup_of_nodup $xS (by bridge_nodup)]))
+    if let some gs ← tryAt tacN g then
+      let mut out := []
+      for g' in gs do out := out ++ (← bridgeGoal hs g')
+      return out
   if bridge.debug.get (← getOptions) then
     logInfo m!"bridge: {r.getAppFn} {r.getAppNumArgs} | {h.getAppFn} {h.getAppNumArgs}"
   let isBind (e : Lean.Expr) := e.isAppOfArity ``Bind.bind 6
@@ -1002,6 +1083,56 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
         for g'' in gs' do
           rest := rest ++ (← bridgeGoal hs g'')
       return some rest
+  -- a readable `pure (if c then a else b)` against a hand `if`
+  if isPure r && isIte (r.getArg! 3).consumeMData.headBeta && isIte h then
+    if let some gs ← tryAt (evalTactic (← `(tactic| apply sim_pure_ite_l))) g then
+      let mut out := []
+      for g' in gs do out := out ++ (← bridgeGoal hs g')
+      return out
+  -- a hand `if` inside the arguments of the first hand step: decide it with the facts
+  if isBind h then
+    let b := (h.getArg! 4).consumeMData
+    if !(isIte b) then
+      if let some it := b.getAppArgs.find? (fun e => e.consumeMData.isAppOfArity ``ite 5) then
+        let c := (it.consumeMData.getArg! 1)
+        let cS ← g.withContext (Term.exprToSyntax c)
+        let tacI : TacticM Unit := evalTactic (← `(tactic| first
+          | rw [if_pos (show $cS from by first | bridge_close | (simp only [uv_beq_val] at *; assumption))]
+          | rw [if_neg (show ¬ $cS from by first | bridge_close | (simp only [uv_beq_val] at *; assumption))]))
+        if let some gs ← continueWith (← tryAt tacI g) then return gs
+  -- a readable `filterM`: the same as a `filterMapM`
+  if isBind r && (r.getArg! 4).consumeMData.isAppOfArity ``List.filterM 5 then
+    if let some gs ← tryAt (evalTactic (← `(tactic| rw [filterM_eq_filterMapM]))) g then
+      let mut out := []
+      for g' in gs do out := out ++ (← bridgeGoal hs g')
+      return out
+  -- a readable `filterMapM` against a hand `for` loop that appends (`sim_filterMapM_forIn`)
+  if isBind r && (r.getArg! 4).consumeMData.isAppOfArity ``List.filterMapM 6 then
+    let hf := if isBind h then (h.getArg! 4).consumeMData else h
+    if hf.getAppFn.constName? == some ``ForIn.forIn && hf.getAppNumArgs ≥ 3 then
+      let hl := (hf.getArg! (hf.getAppNumArgs - 3)).consumeMData
+      let mut fS? : Option Lean.Term := none
+      let mut rw? : Option Lean.Term := none
+      if hl.isAppOfArity ``List.map 4 then
+        fS? := some (← g.withContext (Term.exprToSyntax (hl.getArg! 2)))
+      else
+        for d in (← g.getDecl).lctx do
+          if d.isImplementationDetail then continue
+          let ty := (← instantiateMVars d.type).consumeMData
+          unless ty.isAppOfArity ``Eq 3 do continue
+          let lhs := (ty.getArg! 1).consumeMData.headBeta
+          unless lhs.isAppOfArity ``List.map 4 do continue
+          unless ← g.withContext (withReducible (isDefEq (ty.getArg! 2) hl)) do continue
+          fS? := some (← g.withContext (Term.exprToSyntax (lhs.getArg! 2)))
+          rw? := some (← g.withContext (Term.exprToSyntax d.toExpr))
+          break
+      if let some fS := fS? then
+        let tacF : TacticM Unit := do
+          if let some hS := rw? then evalTactic (← `(tactic| rw [← $hS:term]))
+          unless isBind h do evalTactic (← `(tactic| apply sim_of_bind_pure_r))
+          evalTactic (← `(tactic| refine sim_bind
+            (sim_congr (fun _ => List.nil_append _) (sim_filterMapM_forIn $fS $fS _ _ _ [] ?_)) ?_))
+        if let some gs ← continueWith (← tryAt tacF g) then return gs
   -- a hand `pure (if c then a else b)`: split it
   if isPure h && isIte (h.getArg! 3).consumeMData.headBeta then
     if let some gs ← continueWith (← tryAt (evalTactic (← `(tactic| apply sim_pure_ite))) g) then
@@ -1089,8 +1220,26 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
       onTag `hc (← `(tactic| bridge_close))
       onTag `hK (← `(tactic| intro _))
     if let some gs ← continueWith (← tryAt tacA g) then return gs
+    let tacB : TacticM Unit := do
+      evalTactic (← `(tactic| apply sim_assert_bool))
+      onTag `hc (← `(tactic| first | exact contains_pair_val _ _ _ | bridge_close))
+      onTag `hK (← `(tactic| intro _))
+    if let some gs ← continueWith (← tryAt tacB g) then return gs
   if isBind r then
     let a := (r.getArg! 4).consumeMData
+    -- a readable call that ran before with the same arguments: use its result
+    if isGenFn (a.getAppFn.constName?.getD .anonymous) then
+      let mut known := false
+      for d in (← g.getDecl).lctx do
+        if d.isImplementationDetail then continue
+        let ty := (← instantiateMVars d.type).consumeMData
+        if ty.isAppOfArity ``Eq 3 && (ty.getArg! 1).consumeMData == a &&
+            (ty.getArg! 2).consumeMData.isAppOfArity ``Except.ok 3 then
+          known := true
+      if known then
+        let tacK : TacticM Unit :=
+          evalTactic (← `(tactic| refine sim_bind_l _ (by assumption) ?_))
+        if let some gs ← continueWith (← tryAt tacK g) then return gs
     -- `lindex xs x` with `x ∈ xs` from a negated `contains` check before
     if a.isAppOfArity ``SpecLean.Rd.lindex 4 then
       let xS ← g.withContext (Term.exprToSyntax (a.getArg! 3))
@@ -1205,6 +1354,18 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
       onTag `h1 (← `(tactic| intro _ _))
       onTag `h2 (← `(tactic| intro _ _))
     if let some gs ← continueWith (← tryAt tac g) then return gs
+  if isIte r && !isIte h then
+    -- decided by a fact of the context (the same test ran before)
+    let cS ← g.withContext (Term.exprToSyntax (r.getArg! 1))
+    let tacD : TacticM Unit := evalTactic (← `(tactic| first
+      | rw [if_pos (show $cS from by assumption)]
+      | rw [if_neg (show ¬ $cS from by assumption)]))
+    if let some gs ← continueWith (← tryAt tacD g) then return gs
+    let tac : TacticM Unit := do
+      evalTactic (← `(tactic| apply sim_ite_l))
+      onTag `h1 (← `(tactic| intro _))
+      onTag `h2 (← `(tactic| intro _))
+    if let some gs ← continueWith (← tryAt tac g) then return gs
   -- a leaf on its own, with the abs map of the goal
   let leafAs : TacticM Unit := do
     evalTactic (← `(tactic| apply sim_congr))
@@ -1260,7 +1421,7 @@ partial def bridgePost (g : MVarId) : TacticM (List MVarId) := do
     if let some gs ← step (← `(tactic| (apply post_ite <;> intro _))) then return gs
   if r.isAppOfArity ``Pure.pure 4 then
     if let some gs ← tryAt (evalTactic (← `(tactic|
-        (apply post_pure; (try dsimp only); bridge_range)))) g then return gs
+        (apply post_pure; (try dsimp only); bridge_sub_ir)))) g then return gs
   if isGenFn (r.getAppFn.constName?.getD .anonymous) then
     setGoals [g]
     for h in ← specHypsFor (r.getAppFn.constName?.getD .anonymous) do
@@ -1312,5 +1473,44 @@ elab_rules : tactic
       unless rest.isEmpty do
         throwError "bridge_main: {rest.length} goals left\n{Lean.MessageData.joinSep (rest.map Lean.MessageData.ofGoal) "\n"}"
     | _ => throwError "bridge_main: not a SimI goal"
+
+/-- `Post (fun o => ∀ d ∈ o, d = x) (F x)` for a step that returns `some x` or `none`. -/
+syntax "bridge_post_self" : tactic
+open Lean Meta Elab Tactic in
+partial def postSelf (g : MVarId) : TacticM Unit := do
+  let gs ← evalTacticAt (← `(tactic| try dsimp only)) g
+  for g in gs do
+    let t := (← instantiateMVars (← g.getType)).consumeMData
+    unless t.isAppOfArity ``Post 3 do throwError "bridge_post_self: not a Post goal"
+    let r := (t.getArg! 2).headBeta.consumeMData
+    if r.isAppOfArity ``Pure.pure 4 then
+      let _ ← evalTacticAt (← `(tactic| (apply post_pure; intro _ hd; first | (cases hd; rfl) | cases hd | (split at hd <;> first | (cases hd; rfl) | cases hd)))) g
+    else if r.isAppOfArity ``ite 5 then
+      for g' in ← evalTacticAt (← `(tactic| (apply post_ite <;> intro _))) g do postSelf g'
+    else if r.isAppOfArity ``Bind.bind 6 then
+      for g' in ← evalTacticAt (← `(tactic| (apply post_bind; intro _ _))) g do postSelf g'
+    else
+      let _ ← evalTacticAt (← `(tactic| exact post_throw _)) g
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_post_self) => do
+    let g ← getMainGoal
+    postSelf g
+    setGoals []
+
+macro_rules
+  | `(tactic| bridge_nodup) => `(tactic| first
+    | exact nodup_get_active _ _
+    | bridge_nodup_map
+    | (refine nodup_of_filterM (by assumption) ?_; bridge_nodup)
+    | (refine nodup_of_filterMapM_self (by assumption) (fun _ _ => by bridge_post_self) ?_; bridge_nodup))
+
+macro_rules
+  | `(tactic| bridge_sub_ir) => `(tactic| first
+    | (refine ir_dedup ?_; bridge_sub_ir)
+    | (refine ir_of_filterM (by assumption) ?_; bridge_sub_ir)
+    | (refine ir_of_filterMapM_self (by assumption) (fun _ _ => by bridge_post_self) ?_; bridge_sub_ir)
+    | bridge_range)
 
 end Pythia.Bridge

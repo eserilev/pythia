@@ -771,7 +771,7 @@ def write_eqs(stmts, why, loops, callees, proved, outdir, fp, hand=None, m=None)
     out.append(f"-- Loops proved by bridge_loop: {', '.join(gl) or 'none'}.")
     out.append(f"-- Loops proved by hand (Proofs.lean): {', '.join(hl) or 'none'}.")
     out.append(f"-- Loops (statement only): "
-               f"{', '.join(sorted(n for n in stmts if n in loops and n not in hand))}.")
+               f"{', '.join(sorted(n for n in stmts if n in loops and n not in hand and n not in tried))}.")
     for reason in sorted(set(why[n] for n in mapped if n in why)):
         out.append(f"-- No statement ({reason}): "
                    f"{', '.join(sorted(n for n in mapped if why.get(n) == reason))}.")

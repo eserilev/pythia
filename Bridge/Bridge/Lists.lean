@@ -248,6 +248,151 @@ theorem dedup_facts {α : Type} [BEq α] (xs : List α) :
 theorem ir_dedup {α : Type} [BEq α] {P : α → Prop} {xs : List α}
     (h : xs.length < 2 ^ 64 ∧ ∀ z ∈ xs, P z) : (dedup xs).length < 2 ^ 64 ∧ ∀ z ∈ dedup xs, P z :=
   ⟨Nat.lt_of_le_of_lt (dedup_facts xs).1 h.1, fun z hz => h.2 z ((dedup_facts xs).2 z hz)⟩
+
+/-! ## Filter comprehensions against a hand `for` loop that appends -/
+
+theorem filterAuxM_eq {α : Type} (p : α → SpecM Bool) (L acc : List α) :
+    List.filterAuxM p L acc =
+      (L.filterMapM fun x => p x >>= fun b => pure (if b then some x else none)) >>=
+        fun r => pure (r.reverse ++ acc) := by
+  induction L generalizing acc with
+  | nil => rfl
+  | cons x L ih =>
+    rw [List.filterAuxM, List.filterMapM_cons]
+    cases hp : p x with
+    | error e => rfl
+    | ok b =>
+      cases b with
+      | false =>
+        show List.filterAuxM p L acc = _
+        rw [ih]
+        rfl
+      | true =>
+        show List.filterAuxM p L (x :: acc) =
+          ((List.filterMapM (fun x => p x >>= fun b => pure (if b = true then some x else none)) L >>=
+            fun r => pure (x :: r)) >>= fun r => pure (r.reverse ++ acc))
+        rw [ih]
+        cases List.filterMapM (fun x => p x >>= fun b => pure (if b = true then some x else none)) L with
+        | error e => rfl
+        | ok r => show Except.ok _ = Except.ok _; simp
+
+/-- A readable `filterM` is a `filterMapM` that keeps the items that pass. -/
+theorem filterM_eq_filterMapM {α : Type} (p : α → SpecM Bool) (L : List α) :
+    L.filterM p = L.filterMapM fun x => p x >>= fun b => pure (if b then some x else none) := by
+  unfold List.filterM
+  rw [filterAuxM_eq]
+  cases List.filterMapM (fun x => p x >>= fun b => pure (if b = true then some x else none)) L with
+  | error e => rfl
+  | ok r => show Except.ok _ = Except.ok _; simp
+
+/-- A readable `filterMapM` against a hand `for` loop that appends the hand item of each kept
+item to its accumulator. -/
+theorem sim_filterMapM_forIn {γ γ' δ δ' : Type} (k : δ → δ') (e : γ → γ') (F : γ → SpecM (Option δ))
+    (B : γ' → List δ' → HM (ForInStep (List δ'))) (L : List γ) (acc : List δ')
+    (hF : ∀ x ∈ L, ∀ a, Sim (fun o => ForInStep.yield (a ++ (o.map k).toList)) (F x) (B (e x) a)) :
+    Sim (fun r => acc ++ r.map k) (L.filterMapM F) (forIn (L.map e) acc B) := by
+  induction L generalizing acc with
+  | nil => show Except.ok _ = Except.ok _; simp
+  | cons x L ih =>
+    rw [List.filterMapM_cons, List.map_cons, List.forIn_cons]
+    have h1 := hF x (List.mem_cons_self ..) acc
+    have ih' := fun a => ih a (fun y hy => hF y (List.mem_cons_of_mem _ hy))
+    unfold Sim at h1
+    cases hfx : F x with
+    | error err =>
+      rw [hfx] at h1
+      cases hb : B (e x) acc with
+      | error err' =>
+        rw [hb] at h1
+        rw [err_bind, err_bind]
+        simp only [Except.map, Except.mapError] at h1
+        cases h1; rfl
+      | ok s => rw [hb] at h1; cases h1
+    | ok o =>
+      rw [hfx] at h1
+      cases hb : B (e x) acc with
+      | error err' => rw [hb] at h1; cases h1
+      | ok s =>
+        rw [hb] at h1
+        cases h1
+        rw [ok_bind, ok_bind]
+        cases o with
+        | none =>
+          have := ih' (acc ++ (none.map k).toList)
+          simpa using this
+        | some d =>
+          have := ih' (acc ++ [k d])
+          unfold Sim at this ⊢
+          show Except.map _ (List.filterMapM F L >>= fun r => pure (d :: r)) =
+            Except.mapError errClass (forIn (L.map e) (acc ++ [k d]) B)
+          rw [← this]
+          cases List.filterMapM F L with
+          | error _ => rfl
+          | ok r => show Except.ok _ = Except.ok _; simp
+
+theorem filterMapM_sublist {α β : Type} (F : α → SpecM (Option β)) (g : β → α) (L : List α)
+    (hF : ∀ x ∈ L, ∀ o, F x = .ok o → ∀ d ∈ o, g d = x) (y : List β)
+    (h : L.filterMapM F = .ok y) : (y.map g).Sublist L := by
+  induction L generalizing y with
+  | nil => cases h; simp
+  | cons x L ih =>
+    rw [List.filterMapM_cons] at h
+    cases hfx : F x with
+    | error e => rw [hfx] at h; cases h
+    | ok o =>
+      rw [hfx, ok_bind] at h
+      have ih' := fun y' h' => ih (fun z hz => hF z (List.mem_cons_of_mem _ hz)) y' h'
+      cases o with
+      | none => exact (ih' y h).cons x
+      | some d =>
+        cases hr : List.filterMapM F L with
+        | error e => rw [hr] at h; cases h
+        | ok r =>
+          rw [hr] at h
+          cases h
+          have hd := hF x (List.mem_cons_self ..) _ hfx d rfl
+          simp only [List.map_cons, hd]
+          exact (ih' r hr).cons₂ x
+
+theorem filterM_sublist {α : Type} (p : α → SpecM Bool) (L y : List α)
+    (h : L.filterM p = .ok y) : y.Sublist L := by
+  rw [filterM_eq_filterMapM] at h
+  have := filterMapM_sublist _ id L (fun x _ o ho d hd => by
+    cases hp : p x with
+    | error e => rw [hp] at ho; cases ho
+    | ok b =>
+      rw [hp, ok_bind] at ho
+      have ho' := Except.ok.inj ho
+      subst ho'
+      cases b <;> simp_all) y h
+  simpa using this
+
+theorem nodup_of_filterM {α : Type} {p : α → SpecM Bool} {L y : List α}
+    (h : L.filterM p = .ok y) (hL : L.Nodup) : y.Nodup :=
+  hL.sublist (filterM_sublist p L y h)
+
+/-- A `filterMapM` that keeps some items and drops the others. -/
+theorem nodup_of_filterMapM_self {α : Type} {F : α → SpecM (Option α)} {L y : List α}
+    (h : L.filterMapM F = .ok y) (hF : ∀ x ∈ L, Post (fun o => ∀ d ∈ o, d = x) (F x))
+    (hL : L.Nodup) : y.Nodup := by
+  have := hL.sublist (filterMapM_sublist F id L (fun x hx o ho d hd => hF x hx o ho d hd) y h)
+  simpa using this
+
+theorem ir_of_sublist {α : Type} {P : α → Prop} {y L : List α} (hs : y.Sublist L)
+    (h : L.length < 2 ^ 64 ∧ ∀ z ∈ L, P z) : y.length < 2 ^ 64 ∧ ∀ z ∈ y, P z :=
+  ⟨Nat.lt_of_le_of_lt hs.length_le h.1, fun z hz => h.2 z (hs.subset hz)⟩
+
+theorem ir_of_filterM {α : Type} {P : α → Prop} {p : α → SpecM Bool} {L y : List α}
+    (h : L.filterM p = .ok y) (hL : L.length < 2 ^ 64 ∧ ∀ z ∈ L, P z) :
+    y.length < 2 ^ 64 ∧ ∀ z ∈ y, P z :=
+  ir_of_sublist (filterM_sublist p L y h) hL
+
+theorem ir_of_filterMapM_self {α : Type} {P : α → Prop} {F : α → SpecM (Option α)} {L y : List α}
+    (h : L.filterMapM F = .ok y) (hF : ∀ x ∈ L, Post (fun o => ∀ d ∈ o, d = x) (F x))
+    (hL : L.length < 2 ^ 64 ∧ ∀ z ∈ L, P z) : y.length < 2 ^ 64 ∧ ∀ z ∈ y, P z := by
+  have := filterMapM_sublist F id L (fun x hx o ho d hd => hF x hx o ho d hd) y h
+  exact ir_of_sublist (by simpa using this) hL
+
 /-! ## Membership and index in a list of byte values -/
 
 theorem bytes_data_inj {β : Type} [BytesC β] {x y : β} (h : BytesC.data x = BytesC.data y) : x = y := by
