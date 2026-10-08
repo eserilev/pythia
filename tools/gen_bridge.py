@@ -454,6 +454,7 @@ def statement(m, name, rsigs, hsigs):
         return None, "readable return"
     rret = strip_parens(rm.group(1))
     args, used = [], set()
+    extra_bs, extra_hs = [], []
     for n, t in hbs:
         if t == "Preset":
             args.append("Hand")
@@ -462,6 +463,13 @@ def statement(m, name, rsigs, hsigs):
             args.append("o")
             oracle = True
             continue
+        # The hand spec takes the total active balance of the state as a parameter; the readable
+        # function computes it. The statement takes the hand value and its computation.
+        if n == "total_active_balance" and n not in rmap and "state" in rmap:
+            extra_bs.append((n, "Nat"))
+            extra_hs.append(f"{HNS}.get_total_active_balance Hand (abs_BeaconState «state») = .ok {q(n)}")
+            args.append(q(n))
+            continue
         if n not in rmap:
             return None, "parameters"
         c = m.conv(rmap[n], t)
@@ -469,6 +477,8 @@ def statement(m, name, rsigs, hsigs):
             return None, f"type of {n}"
         args.append(f"({c} {q(n)})")
         used.add(n)
+    if extra_bs:
+        used.add("state")
     if set(rmap) != used:
         return None, "parameters"
     hm = re.fullmatch(r"SpecM (.+)", hret)
@@ -477,12 +487,13 @@ def statement(m, name, rsigs, hsigs):
     rc = m.conv(rret, hret_t)
     if rc is None:
         return None, "return type"
-    binders = [(n, m.rty(t)) for n, t in rbs]
+    binders = [(n, m.rty(t)) for n, t in rbs] + extra_bs
     irs = []
     for n, t in rbs:
         ir = m.ir(t)
         if ir != "(fun _ => True)":
             irs.append(f"{ir} {q(n)}")
+    irs += extra_hs
     rd_call = f"Gen.{name} " + " ".join(q(n) for n, _ in rbs) if rbs else f"Gen.{name}"
     hd_call = f"{HNS}.{name} " + " ".join(args) if args else f"{HNS}.{name}"
     elem = strip_parens(rret[5:]) if rret.startswith("List ") else None

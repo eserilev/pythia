@@ -349,29 +349,41 @@ into `Eqs.lean`. The proofs use `bridge_main` (`Bridge/Bridge/Tactic.lean`). It 
 `do` blocks one bind at a time with the lemmas of `Sim.lean` and `Lists.lean`, and never unfolds
 `bind` with `simp`.
 
-Status (`Eqs.lean` lists the names):
+Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 
 | | Count |
 |---|---|
 | Mapped functions without a loop | 83 |
-| with a statement | 51 |
-| proved, conditional | 25 (and 8 callees) |
-| proved, full | 25 (and 8 callees) |
-| without a statement: oracle (`o : Oracle` parameter) | 20 |
-| without a statement: other parameters (adapters) | 10, and `get_expected_withdrawals`, `set_or_append_list` |
+| with a statement | 74 |
+| proved, conditional | 42 (and 24 callees) |
+| proved, full | 41 (and 20 callees) |
 
-Not proved yet, by cause:
+`bridge_main` has these steps in addition to the steps for binds, `if` and leaves:
 
-- Comprehensions: the readable `filterMapM`/`filterMap`/`foldl` against the hand
-  `filter`/`map`/`for`: `get_active_validator_indices`, `get_eligible_validator_indices`,
-  `get_committee_indices`, `get_set_bit_count`, `get_balance_after_withdrawals`,
-  `get_unslashed_participating_indices`, `process_participation_flag_updates`, `xor`.
-- `assert` against the hand `if ¬c then throw`: `get_unslashed_participating_indices` and the
-  block functions.
-- Other steps without a lemma yet: `iOp .pow` (`add_flag`, `has_flag`), `lindex`/`contains`
-  (`process_builder_exit_request`, `is_valid_switch_to_compounding_request`), `bytesOf`
-  (`switch_to_compounding_validator`), the `.not` of an `int` (`convert_validator_index_to_builder_index`),
-  `dedup` (`get_total_active_balance`), and the steps listed per function in the trial logs.
+- Oracle: `sha256` and `hash_tree_root` then `bytesOf` against the hand oracle, the BLS calls
+  rewritten with `OracleAgrees`, and an `obtain` of the root for each SSZ object argument.
+- Callees: the callee theorem `h_f` only for a call to `f`. Other callee theorems make the
+  unifier unfold large definitions. When the hand arguments are equal only after a rewrite, the
+  step uses `sim_hand_eq` and closes the equation with `bridge_eqv` (the value facts of the
+  context, then the constants).
+- Parameter adapter: the hand functions that take `total_active_balance` get a statement with
+  the hand value and the hypothesis `get_total_active_balance … = .ok total_active_balance`
+  (`sim_of_ok`).
+- Lists: `filterMapM` over `enumerate` (`sim_filterMapM_zipIdx`, `post_filterMapM_ir`), `dedup`
+  of a list with no duplicates, `contains` and `lindex` on lists of byte values, `xs[-1]`.
+- Range facts: `lset` keeps the item facts of a list, `sumU`, `max` and `min` results, and
+  `IR_T` of a structure value with one goal per field.
+- Each `bridge_close` alternative has its own heartbeat budget (`bridge.closeHeartbeats`).
+
+Not proved yet, by cause (examples):
+
+- Comprehensions of other shapes: `get_eligible_validator_indices` (hand `for` loop),
+  `get_set_bit_count`, `get_balance_after_withdrawals`, `process_participation_flag_updates`,
+  `xor`.
+- Functions that return a tuple: the post condition is `True`, so the caller has no range facts
+  for the state in the tuple (`initiate_validator_exit`).
+- Block functions with more steps: `process_withdrawal_request`, `process_consolidation_request`,
+  `process_builder_exit_request`, `process_voluntary_exit`, `process_randao`, `process_slot`.
 
 The hand spec has the mainnet value of four minimal-preset values:
 `PENDING_CONSOLIDATIONS_LIMIT`, `PENDING_PARTIAL_WITHDRAWALS_LIMIT`,
@@ -404,5 +416,5 @@ Left for later:
   `decrease_balance`, `process_slashings`, `process_slots_loop`, `process_slots`.
 
 To regenerate: `python3 tools/gen_bridge.py --trials DIR`, then
-`python3 tools/bridge_trials.py DIR` (4 runners, 8 GB each), then
+`python3 tools/bridge_trials.py DIR` (3 runners, 6 GB each), then
 `python3 tools/gen_bridge.py --proved DIR/proved.txt`, then `cd Bridge && lake build`.

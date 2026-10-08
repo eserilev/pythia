@@ -18,6 +18,9 @@ def isGenFn (n : Lean.Name) : Bool :=
 register_option bridge.stepHeartbeats : Nat := {
   defValue := 2000000, descr := "the heartbeat budget of one bridge_run step" }
 
+register_option bridge.closeHeartbeats : Nat := {
+  defValue := 250000, descr := "the heartbeat budget of one bridge_close alternative" }
+
 register_option bridge.debug : Bool := { defValue := false, descr := "log the steps of bridge_run" }
 
 
@@ -236,7 +239,9 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
       else if fn == ``SpecLean.Rd.uOf then some ``uOf_range'
       else if fn == ``SpecLean.Rd.bytesOf then some ``bytesOf_len
       else if fn == ``SpecLean.Rd.lset then some ``lset_length
-      else if fn == ``SpecLean.Rd.sumU then some ``sumU_range else none
+      else if fn == ``SpecLean.Rd.sumU then some ``sumU_range
+      else if fn == ``SpecLean.Rd.pyMax then some ``pyMax2_val
+      else if fn == ``SpecLean.Rd.pyMin then some ``pyMin2_val else none
     if let some lem := lem then
       try
         let pf ← mkAppM lem #[d.toExpr]
@@ -294,7 +299,11 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
               | _ => s.restore
             catch _ => s.restore
         let (_, g') ← (← g.assert nm (← inferType pf) pf).intro1P
-        let gs ← try evalTacticAt (← `(tactic| try simp only [bridge_ir] at $(mkIdent nm):ident)) g'
+        let simpT ← if lem == ``pyMax2_val || lem == ``pyMin2_val then
+            -- constants as numbers, so `omega` can bound the result
+            `(tactic| try simp only [bridge_ir, bridge_const, bridge_simp] at $(mkIdent nm):ident)
+          else `(tactic| try simp only [bridge_ir] at $(mkIdent nm):ident)
+        let gs ← try evalTacticAt simpT g'
           catch _ => pure [g']
         g := gs.headD g'
       catch _ => pure ()
@@ -397,6 +406,29 @@ elab_rules : tactic
       catch _ => s.restore
     throwError "bridge_from_not: no hypothesis"
 
+/-- Close `f x = .ok ?b` with a hypothesis `f y = .ok b` of the same head `f`. `assumption` tries
+every hypothesis and can unfold large definitions. -/
+syntax "bridge_ok_hyp" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_ok_hyp) => withMainContext do
+    let t := (← instantiateMVars (← getMainTarget)).consumeMData
+    unless t.isAppOfArity ``Eq 3 do throwError "bridge_ok_hyp: not an equation"
+    let f := (t.getArg! 1).consumeMData.getAppFn
+    for d in ← getLCtx do
+      if d.isImplementationDetail then continue
+      let ty := (← instantiateMVars d.type).consumeMData
+      unless ty.isAppOfArity ``Eq 3 do continue
+      unless (ty.getArg! 1).consumeMData.getAppFn == f do continue
+      let s ← saveState
+      try
+        let hS ← Term.exprToSyntax d.toExpr
+        evalTactic (← `(tactic| exact $hS))
+        return
+      catch _ => s.restore
+    throwError "bridge_ok_hyp: no hypothesis"
+
 /-- Close `IR_T ⟨…⟩` for a structure value: one goal per field, each from the context. -/
 syntax "bridge_ir_struct" : tactic
 
@@ -443,7 +475,73 @@ macro_rules | `(tactic| bridge_range) => `(tactic| first
   | (bridge_facts
      simp only [bridge_ir, uv, bridge_simp, bridge_cast, decide_eq_true_eq, gt_iff_lt]
      bridge_nat
+     omega)
+  | (simp only [decide_eq_true_eq, gt_iff_lt, Int.ofNat_eq_coe, Int.natCast_pos, ne_eq] at *
+     bridge_nat
      omega))
+
+open Lean Meta in
+/-- The hypothesis `OracleAgrees o` of the goal, if any. -/
+def findOracle (g : MVarId) : MetaM (Option Lean.Expr) := do
+  for d in (← g.getDecl).lctx do
+    if d.isImplementationDetail then continue
+    let ty := (← instantiateMVars d.type).consumeMData
+    if ty.getAppFn.constName?.map (·.getString!) == some "OracleAgrees" then return some d.toExpr
+  return none
+
+/-- Close `a = b` where `a` is the readable side after the oracle rewrite: normalize the byte
+reads, rewrite with the facts `toVec n x = v` of the context, then the constants. -/
+syntax "bridge_eqv" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_eqv) => withMainContext do
+    let mut facts : Array Lean.Term := #[]
+    for d in (← getLCtx) do
+      if d.isImplementationDetail then continue
+      let t := (← instantiateMVars d.type).consumeMData
+      unless t.isAppOfArity ``Eq 3 do continue
+      let lhs := (t.getArg! 1).consumeMData.headBeta
+      let lhsFn := lhs.getAppFn.constName?
+      -- `x.val` or `UintC.val x` of a variable
+      let isVal := lhs.isApp && lhs.appArg!.isFVar &&
+        (lhsFn.map (·.getString! == "val")).getD false
+      if lhsFn == some ``toVec || lhsFn == some ``List.map || isVal ||
+          (lhs.isFVar && !(← inferType lhs).isProp) then
+        facts := facts.push (← Term.exprToSyntax d.toExpr)
+    let args ← facts.mapM fun f => `(Lean.Parser.Tactic.simpLemma| $f:term)
+    -- the facts first in their own form, then again after the goal is normalized
+    unless facts.isEmpty do
+      evalTactic (← `(tactic| try simp only [$args,*]))
+      if (← getUnsolvedGoals).isEmpty then return
+    evalTactic (← `(tactic| try simp only [bd, bridge_cast, List.map_map, Function.comp_def]))
+    if (← getUnsolvedGoals).isEmpty then return
+    unless facts.isEmpty do
+      evalTactic (← `(tactic| try simp only [$args,*]))
+    if (← getUnsolvedGoals).isEmpty then return
+    evalTactic (← `(tactic| try simp only [bridge_const, Option.map_some, Option.map_none]))
+    if (← getUnsolvedGoals).isEmpty then return
+    evalTactic (← `(tactic| try simp only [bridge_abs, bridge_cast, Bool.and_assoc, Bool.or_assoc, gt_iff_lt, ge_iff_le]))
+    if (← getUnsolvedGoals).isEmpty then return
+    evalTactic (← `(tactic| first | with_reducible rfl | (simp [bridge_simp, bridge_cast, uv, apply_ite]; done)))
+
+/-- Rewrite a readable oracle call to the hand oracle with `OracleAgrees`, then close with
+`bridge_eqv`. -/
+syntax "bridge_oracle" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_oracle) => withMainContext do
+    let some ho ← findOracle (← getMainGoal) | throwError "bridge_oracle: no OracleAgrees"
+    let hoS ← Term.exprToSyntax ho
+    evalTactic (← `(tactic| first
+      | refine (($hoS).bls_Verify _ _ _ ?_ ?_ ?_).trans ?_
+      | refine (($hoS).bls_FastAggregateVerify _ _ _ ?_ ?_ ?_).trans ?_
+      | refine (($hoS).bls_KeyValidate _ ?_).trans ?_))
+    evalTactic (← `(tactic| all_goals first
+      | (guard_target =~ List.length _ = _; bridge_range)
+      | (guard_target =~ ∀ _, _; first | bridge_range | (simp only [List.forall_mem_map, bd, bridge_cast]; simp_all))
+      | bridge_eqv))
 
 /-- Close a pure goal: the alternatives below, tried in order. -/
 syntax "bridge_close" : tactic
@@ -453,6 +551,7 @@ elab_rules : tactic
   | `(tactic| bridge_close) => do
     let alts : Array (Lean.TSyntax `tactic) := #[
       ← `(tactic| with_reducible rfl),
+      ← `(tactic| (simp only [uv, bridge_cast, Int.ofNat_eq_coe, gt_iff_lt]; bridge_eqv)),
       ← `(tactic| (simp (disch := first | assumption | (intro _ _; bridge_mem)) only [bridge_abs, bd, bridge_cast, List.map_map, Function.comp_def, List.contains_eq_mem, Bool.not_eq_true', decide_eq_false_iff_not, mem_map_bytes, mem_map_toVec, toVec_bne, toVec_beq]; done)),
       ← `(tactic| (bridge_facts; simp (disch := first | assumption | (simp only [List.length_drop]; omega) | (intro _ _; bridge_mem)) only [bridge_abs, bd, bridge_cast, withdrawalAddress_toVec, toVec_bne, toVec_beq]; done)),
       ← `(tactic| (simp only [bridge_const]; done)),
@@ -482,10 +581,15 @@ elab_rules : tactic
       ← `(tactic| (simp_all [bridge_simp, uv]; done))
     ]
     let debug := bridge.debug.get (← getOptions)
+    let closeBudget := bridge.closeHeartbeats.get (← getOptions) * 1000
     for (alt, i) in alts.toList.zipIdx do
       let s ← saveState
+      let hb0 ← IO.getNumHeartbeats
+      if debug then IO.eprintln s!"bridge_close: alternative {i} starts at {hb0 / 1000}"
       let ok ← tryCatchRuntimeEx
-        (do
+        -- each alternative has its own budget, so one slow failure does not starve the others
+        (withCurrHeartbeats <| withTheReader Core.Context
+            (fun c => { c with maxHeartbeats := closeBudget }) do
           evalTactic alt
           pure (← getUnsolvedGoals).isEmpty)
         (fun e => do
@@ -540,57 +644,6 @@ def tryAt (tac : TacticM Unit) (g : MVarId) : TacticM (Option (List MVarId)) := 
         logInfo m!"bridge: step failed: {msg.take 600}"
       return none)
 
-open Lean Meta in
-/-- The hypothesis `OracleAgrees o` of the goal, if any. -/
-def findOracle (g : MVarId) : MetaM (Option Lean.Expr) := do
-  for d in (← g.getDecl).lctx do
-    if d.isImplementationDetail then continue
-    let ty := (← instantiateMVars d.type).consumeMData
-    if ty.getAppFn.constName?.map (·.getString!) == some "OracleAgrees" then return some d.toExpr
-  return none
-
-/-- Close `a = b` where `a` is the readable side after the oracle rewrite: normalize the byte
-reads, rewrite with the facts `toVec n x = v` of the context, then the constants. -/
-syntax "bridge_eqv" : tactic
-
-open Lean Meta Elab Tactic in
-elab_rules : tactic
-  | `(tactic| bridge_eqv) => withMainContext do
-    let mut facts : Array Lean.Term := #[]
-    for d in (← getLCtx) do
-      if d.isImplementationDetail then continue
-      let t := (← instantiateMVars d.type).consumeMData
-      let lhsFn := (t.getArg! 1).consumeMData.headBeta.getAppFn.constName?
-      if t.isAppOfArity ``Eq 3 && (lhsFn == some ``toVec || lhsFn == some ``List.map) then
-        facts := facts.push (← Term.exprToSyntax d.toExpr)
-    evalTactic (← `(tactic| try simp only [bd, bridge_cast, List.map_map, Function.comp_def]))
-    if (← getUnsolvedGoals).isEmpty then return
-    unless facts.isEmpty do
-      let args ← facts.mapM fun f => `(Lean.Parser.Tactic.simpLemma| $f:term)
-      evalTactic (← `(tactic| try simp only [$args,*]))
-    if (← getUnsolvedGoals).isEmpty then return
-    evalTactic (← `(tactic| try simp only [bridge_const, Option.map_some, Option.map_none]))
-    if (← getUnsolvedGoals).isEmpty then return
-    evalTactic (← `(tactic| first | rfl | (simp [bridge_simp, bridge_cast, uv, apply_ite]; done)))
-
-/-- Rewrite a readable oracle call to the hand oracle with `OracleAgrees`, then close with
-`bridge_eqv`. -/
-syntax "bridge_oracle" : tactic
-
-open Lean Meta Elab Tactic in
-elab_rules : tactic
-  | `(tactic| bridge_oracle) => withMainContext do
-    let some ho ← findOracle (← getMainGoal) | throwError "bridge_oracle: no OracleAgrees"
-    let hoS ← Term.exprToSyntax ho
-    evalTactic (← `(tactic| first
-      | refine (($hoS).bls_Verify _ _ _ ?_ ?_ ?_).trans ?_
-      | refine (($hoS).bls_FastAggregateVerify _ _ _ ?_ ?_ ?_).trans ?_
-      | refine (($hoS).bls_KeyValidate _ ?_).trans ?_))
-    evalTactic (← `(tactic| all_goals first
-      | (guard_target =~ List.length _ = _; bridge_range)
-      | (guard_target =~ ∀ _, _; first | bridge_range | (simp only [List.forall_mem_map, bd, bridge_cast]; simp_all))
-      | bridge_eqv))
-
 open Lean Meta Elab Tactic in
 /-- The tactics that may relate the readable step `a` to its hand step, by the head of `a`. -/
 def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax) := do
@@ -622,7 +675,9 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
       | ``SpecLean.BinOp.mod => some (mkIdent ``sim_uOp_mod)
       | _ => none
     match lem with
-    | some l => return #[← `(tactic| (apply $l:ident; $close))]
+    | some l => return #[← `(tactic| (apply $l:ident; $close)),
+        -- the same when the hand operands are equal only after a rewrite (`length (map f xs)`)
+        ← `(tactic| (apply sim_hand_eq; (focus (apply $l:ident; $close)); first | (simp only [bridge_abs, List.length_map, uv, bridge_cast]; done) | bridge_eqv))]
     | none => return #[]
   if fn == ``SpecLean.Rd.bytesOf && handPure then
     return #[← `(tactic| (apply sim_bytesOf_pure; all_goals first | with_reducible rfl | bridge_decide | (guard_target =~ toVec _ _ = _; bridge_facts; simp only [bridge_const, bridge_cast, bd, lslice_take_lit] at *; rw [toVec_domain _ _ (by assumption) (by assumption)]; bridge_eqv) | bridge_range | bridge_close))]
@@ -633,11 +688,14 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
   if fn == ``List.filterMapM then
     return #[← `(tactic| (apply sim_filterMapM_zipIdx (hM := fun _ _ => rfl); intro _ _ _ _ _; (try dsimp only); bridge_run [$hs,*]))]
   if fn == ``SpecLean.Rd.sumU then return #[← `(tactic| (apply sim_sumU; $close))]
+  if fn == ``SpecLean.Rd.pyMin then
+    return #[← `(tactic| (apply sim_pyMin2; intro _ _; rfl)),
+      ← `(tactic| (refine sim_hand_eq (sim_pyMin2 (fun _ _ => rfl) _ _) ?_; simp only [bridge_const, bridge_cast]))]
   if fn == ``SpecLean.Rd.pyMax then
     return #[← `(tactic| (apply sim_pyMax2; intro _ _; rfl)),
       ← `(tactic| (refine sim_hand_eq (sim_pyMax2 (fun _ _ => rfl) _ _) ?_; simp only [bridge_const, bridge_cast]))]
-  if fn == ``SpecLean.Rd.lget then
-    let mut out := #[← `(tactic| apply sim_lget)]
+  if fn == ``SpecLean.Rd.lget && a.getAppNumArgs == 3 then
+    let mut out := #[← `(tactic| apply sim_lget), ← `(tactic| apply sim_lget_last)]
     -- the same with the index rewritten: the item map is `abs_T` for the item type `T`
     if let some tn := (a.getArg! 0).consumeMData.getAppFn.constName? then
       let env ← getEnv
@@ -652,13 +710,17 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
     let k := (a.getArg! 5).consumeMData
     let kb := if k.isLambda then k.bindingBody!.consumeMData else k
     if kb.getAppFn.constName? == some ``SpecLean.Rd.uCast then
-      return #[← `(tactic| (apply sim_bind_cast; all_goals first | with_reducible rfl | bridge_decide | bridge_leaf [$hs,*]))]
+      return #[← `(tactic| (apply sim_bind_cast; all_goals first | with_reducible rfl | bridge_decide | bridge_leaf [$hs,*])),
+        ← `(tactic| (apply sim_hand_eq; (focus (apply sim_bind_cast; all_goals first | with_reducible rfl | bridge_decide | bridge_leaf [$hs,*])); bridge_eqv))]
     return #[]
   if isGenFn fn then
     let mut out := #[]
     let own ← specHypsFor fn
     for h in hs ++ own do
       out := out.push (← `(tactic| (apply simI_sim; apply $h:ident; all_goals bridge_range)))
+    -- the hand spec has the callee's result as a parameter, with a hypothesis `call = .ok b`
+    for h in hs ++ own do
+      out := out.push (← `(tactic| (apply sim_of_ok; (focus (apply simI_sim; apply $h:ident; all_goals bridge_range)); bridge_ok_hyp)))
     -- the same, when the hand arguments are equal to the callee's only after a rewrite
     for h in hs ++ own do
       out := out.push (← `(tactic| (apply sim_hand_eq; (focus (apply simI_sim; apply $h:ident; all_goals bridge_range)); first | with_reducible rfl | (simp only [Option.map_some, Option.map_none, uv, bridge_cast, decide_eq_true_eq, Int.ofNat_lt, apply_ite, bridge_simp]; done) | (congr 1 <;> bridge_eqv))))
@@ -674,17 +736,20 @@ elab_rules : tactic
     let tacs ← leafTacs hs.getElems (t.getArg! 3).headBeta (t.getArg! 4).headBeta
     for tac in tacs do
       let s ← saveState
-      try
-        evalTactic tac
-        if (← getUnsolvedGoals).isEmpty then return
-        if bridge.debug.get (← getOptions) then
-          for g' in ← getUnsolvedGoals do
-            IO.eprintln s!"bridge_leaf: goal left: {((← ppGoal g').pretty).takeRight 600}"
-        s.restore
-      catch e =>
-        if bridge.debug.get (← getOptions) then
-          IO.eprintln s!"bridge_leaf: alternative failed: {((← e.toMessageData.toString).replace "\n" " ").take 400}"
-        s.restore
+      let ok ← tryCatchRuntimeEx
+        (do
+          evalTactic tac
+          if (← getUnsolvedGoals).isEmpty then return true
+          if bridge.debug.get (← getOptions) then
+            for g' in ← getUnsolvedGoals do
+              IO.eprintln s!"bridge_leaf: goal left: {((← ppGoal g').pretty).takeRight 600}"
+          return false)
+        (fun _ => do
+          if bridge.debug.get (← getOptions) then
+            IO.eprintln s!"bridge_leaf: alternative failed"
+          return false)
+      if ok then return
+      s.restore
     throwError "bridge_leaf: no lemma fits"
 
 open Lean Meta Elab Tactic in
@@ -767,7 +832,7 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
       return gs
     return [g]
   -- `sha256` then `bytesOf`, against the hand `hash`
-  if isPure h && r.getAppFn.constName? == some ``SpecLean.Rd.bytesOf &&
+  if isPure h && r.isAppOfArity ``SpecLean.Rd.bytesOf 3 &&
       (r.getArg! 2).consumeMData.getAppFn.constName? == some ``SpecLean.Rd.Spec.sha256 then
     if let some ho ← findOracle g then
       let hoS ← g.withContext (Term.exprToSyntax ho)
@@ -836,7 +901,7 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
   if isBind r then
     let a := (r.getArg! 4).consumeMData
     -- `lindex xs x` with `x ∈ xs` from a negated `contains` check before
-    if a.getAppFn.constName? == some ``SpecLean.Rd.lindex then
+    if a.isAppOfArity ``SpecLean.Rd.lindex 4 then
       let xS ← g.withContext (Term.exprToSyntax (a.getArg! 3))
       let xsS ← g.withContext (Term.exprToSyntax (a.getArg! 2))
       let tacI : TacticM Unit := evalTactic (← `(tactic| (have hmem : $xS ∈ $xsS := (by bridge_from_not); have := List.idxOf_lt_length_of_mem hmem; refine sim_bind_l _ (lindex_ok _ _ hmem) ?_)))
@@ -874,11 +939,11 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
     -- a readable call whose hand side is a plain value
     let aFn := a.getAppFn.constName?.getD .anonymous
     let tac2 : TacticM Unit := do
-      unless isGenFn aFn || aFn == ``SpecLean.Rd.uOp || aFn == ``SpecLean.Rd.pyMax do
+      unless isGenFn aFn || aFn == ``SpecLean.Rd.uOp || aFn == ``SpecLean.Rd.pyMax || aFn == ``SpecLean.Rd.pyMin do
         throwError "bridge: not a call"
       let k := (r.getArg! 5).consumeMData
       let kb := if k.isLambda then k.bindingBody!.consumeMData else k
-      if kb.getAppFn.constName? == some ``SpecLean.Rd.uCast && aFn != ``SpecLean.Rd.pyMax then
+      if kb.getAppFn.constName? == some ``SpecLean.Rd.uCast && aFn != ``SpecLean.Rd.pyMax && aFn != ``SpecLean.Rd.pyMin then
         throwError "bridge: a cast follows"
       evalTactic (← `(tactic| apply sim_bind_val))
       onTag `hA (← `(tactic| bridge_callee [$hs,*]))
@@ -886,7 +951,9 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
     if let some gs ← continueWith (← tryAt tac2 g) then return gs
     -- a readable `mod` or `//` by a nonzero value: it cannot fail, so it may come before or after
     -- the hand step
-    if aFn == ``SpecLean.Rd.uOp && isBind h then
+    let hFn := h.getAppFn.constName?.getD .anonymous
+    if aFn == ``SpecLean.Rd.uOp &&
+        !(hFn == ``EpochProofs.Spec.uint64Div || hFn == ``EpochProofs.Spec.uint64Mod) then
       let tac7 : TacticM Unit :=
         evalTactic (← `(tactic| first
           | refine sim_bind_l _ (uOp_mod_ok (by decide) _ _ (by bridge_range) (by bridge_range)) ?_

@@ -499,6 +499,12 @@ theorem withdrawalAddress_toVec (l : List UInt8) (hl : l.length = 32) :
   simp [EpochProofs.Spec.withdrawalAddress, Vector.toList_cast, Vector.toList_extract, toVec_toList _ _ hl]
   rw [List.take_of_length_le (by simp [hl])]
 
+/-- A callee theorem whose hand side is known to succeed with `b`: the hand spec takes `b` as a
+parameter in place of the call. -/
+theorem sim_of_ok {α β : Type} {f : α → β} {A : SpecM α} {B : HM β} {b : β} (hs : Sim f A B)
+    (hb : B = .ok b) : Sim f A (pure b) := by
+  rw [hb] at hs; exact hs
+
 /-- A callee theorem whose hand side is equal to the goal's hand side, but not in the same form. -/
 theorem sim_hand_eq {α β : Type} {f : α → β} {r : SpecM α} {h h' : HM β} (hs : Sim f r h)
     (he : h = h') : Sim f r h' := he ▸ hs

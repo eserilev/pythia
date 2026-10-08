@@ -62,6 +62,16 @@ theorem sim_sumU {α : Type} [UintC α] (hb : UintC.bits α = 64) (s : α) (hs :
   · rw [if_pos h, if_pos h, map_val_ofNat]; rfl
   · rw [if_neg h, if_neg h]; rfl
 
+theorem sim_pyMin2 {α : Type} [UintC α] [PyOrd α] (hlt : ∀ a b : α, PyOrd.lt a b = decide (UintC.val a < UintC.val b))
+    (a b : α) : Sim UintC.val (pyMin [a, b]) (pure (min (UintC.val a) (UintC.val b))) := by
+  unfold Sim
+  show Except.ok (UintC.val (if PyOrd.lt b a = true then b else a)) =
+    Except.ok (min (UintC.val a) (UintC.val b))
+  rw [hlt]
+  by_cases h : UintC.val b < UintC.val a
+  · rw [if_pos (by simpa using h), Nat.min_eq_right (Nat.le_of_lt h)]
+  · rw [if_neg (by simpa using h), Nat.min_eq_left (by omega)]
+
 theorem sim_pyMax2 {α : Type} [UintC α] [PyOrd α] (hlt : ∀ a b : α, PyOrd.lt a b = decide (UintC.val a < UintC.val b))
     (a b : α) : Sim UintC.val (pyMax [a, b]) (pure (max (UintC.val a) (UintC.val b))) := by
   unfold Sim
@@ -298,5 +308,65 @@ theorem lindex_ok {α : Type} [BEq α] [LawfulBEq α] (xs : List α) (x : α) (h
 theorem toVec_bne {n : Nat} (a b : List UInt8) (ha : a.length = n) (hb : b.length = n) :
     (toVec n a != toVec n b) = (a != b) := by
   rw [bne, bne, toVec_beq a b ha hb]
+
+/-- `xs[-1]`: the last item, against the hand `listGet` at `length - 1`. -/
+theorem sim_lget_last {α β : Type} (g : α → β) (xs : List α) :
+    Sim g (lget xs (-1)) (EpochProofs.Spec.listGet (xs.map g) ((xs.map g).length - 1)) := by
+  rw [List.length_map]
+  cases xs with
+  | nil => rfl
+  | cons x xs =>
+    have := sim_lget g (x :: xs) ((x :: xs).length - 1)
+    unfold Sim lget Rd.pyIndex at *
+    simp only [List.length_cons] at *
+    rw [if_pos (by omega), if_pos (by omega)]
+    rw [if_neg (by omega), if_pos (by omega)] at this
+    have e : ((-1 : Int) + ((xs.length + 1 : Nat) : Int)).toNat = ((xs.length + 1 - 1 : Nat) : Int).toNat := by omega
+    rw [e]
+    exact this
+/-- `max` and `min` pick one of their arguments. -/
+theorem pick_mem {α : Type} (better : α → α → Id Bool) (best : α) (xs : List α) :
+    Id.run (Prim.pick better best xs) ∈ best :: xs := by
+  induction xs generalizing best with
+  | nil => exact List.mem_cons_self ..
+  | cons x xs ih =>
+    simp only [Prim.pick]
+    show Id.run (Prim.pick better (if Id.run (better x best) then x else best) xs) ∈ best :: x :: xs
+    by_cases hb : Id.run (better x best) = true
+    · rw [if_pos hb]
+      rcases List.mem_cons.mp (ih x) with h | h
+      · rw [h]; exact List.mem_cons_of_mem _ (List.mem_cons_self ..)
+      · exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ h)
+    · rw [if_neg hb]
+      rcases List.mem_cons.mp (ih best) with h | h
+      · rw [h]; exact List.mem_cons_self ..
+      · exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ h)
+
+theorem pyMax_mem {α : Type} [PyOrd α] {xs : List α} {x : α} (h : pyMax xs = .ok x) : x ∈ xs := by
+  cases xs with
+  | nil => cases h
+  | cons a xs =>
+    unfold pyMax at h
+    cases h
+    exact pick_mem _ _ _
+
+theorem pyMin_mem {α : Type} [PyOrd α] {xs : List α} {x : α} (h : pyMin xs = .ok x) : x ∈ xs := by
+  cases xs with
+  | nil => cases h
+  | cons a xs =>
+    unfold pyMin at h
+    cases h
+    exact pick_mem _ _ _
+theorem pyMax2_val {α : Type} [PyOrd α] [UintC α] {a b x : α} (h : pyMax [a, b] = .ok x) :
+    UintC.val x = UintC.val a ∨ UintC.val x = UintC.val b := by
+  rcases List.mem_cons.mp (pyMax_mem h) with h1 | h1
+  · exact Or.inl (h1 ▸ rfl)
+  · exact Or.inr ((List.mem_singleton.mp h1) ▸ rfl)
+
+theorem pyMin2_val {α : Type} [PyOrd α] [UintC α] {a b x : α} (h : pyMin [a, b] = .ok x) :
+    UintC.val x = UintC.val a ∨ UintC.val x = UintC.val b := by
+  rcases List.mem_cons.mp (pyMin_mem h) with h1 | h1
+  · exact Or.inl (h1 ▸ rfl)
+  · exact Or.inr ((List.mem_singleton.mp h1) ▸ rfl)
 
 end Pythia.Bridge

@@ -20,7 +20,9 @@ def run(f, timeout):
            "timeout", str(timeout), "lake", "env", "lean", str(f)]
     r = subprocess.run(cmd, cwd=ROOT / "Bridge", capture_output=True, text=True,
                        env={**__import__("os").environ, "LEAN_NUM_THREADS": "4"})
-    out = (r.stdout + r.stderr)[-20000:]
+    out = r.stdout + r.stderr
+    if len(out) > 20000:
+        out = out[:8000] + "\n[...]\n" + out[-12000:]
     f.with_suffix(".log").write_text(out)
     ok = r.returncode == 0 and "sorry" not in out and "error" not in out
     return f.stem, ok
