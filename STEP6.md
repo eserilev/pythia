@@ -355,10 +355,10 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 |---|---|
 | Mapped functions without a loop | 83 |
 | with a statement | 74 |
-| proved, conditional | 48 (and 31 callees) |
-| proved, full | 47 (and 27 callees) |
-| loops proved by hand (`Mainnet/Proofs.lean`) | 3 of the 23 mapped loops, and 3 callee loops |
-| loops proved by `bridge_loop` (generated) | 1 (`process_inactivity_updates`, full) |
+| proved, conditional | 50 (and 31 callees) |
+| proved, full | 49 (and 27 callees) |
+| loops proved by hand (`Mainnet/Proofs.lean`) | 2 of the 23 mapped loops, and 3 callee loops |
+| loops proved by `bridge_loop` (generated) | 2 (`process_inactivity_updates`, `process_slashings`) |
 
 `bridge_main` has these steps in addition to the steps for binds, `if` and leaves:
 
@@ -446,15 +446,35 @@ The generator writes the proofs of the loops of the first shape (`loop_shape` an
   (`sim_assert_bool`, `contains_pair_val`).
 - A readable `if` with no hand `if`: decided by a fact of the context, or split
   (`sim_ite_l`). A hand `if` inside the arguments of a hand step: decided by a fact.
-- A readable call that ran before with the same arguments: its result is the result of the
-  first call.
+- A readable step that ran before with the same arguments (a call, or a read of a list): its
+  result is the result of the first step.
+- A branch with a fact `false = true` (a readable test against a test that ran before) closes.
+- A readable bind against one hand call: the hand call gets `>>= pure`.
 
 `get_unslashed_participating_indices` has a generated proof with these steps.
 
-`process_inactivity_updates` has a generated proof. `process_slashings` has the same shape, but
-its body calls `decrease_balance`, whose hand version takes the balances and not the state. Its
-proof is still `slash_step`. `process_effective_balance_updates` (a new list, not a field
-changed in place) is still `ebu_step`.
+`process_inactivity_updates` and `process_slashings` have generated proofs.
+`process_effective_balance_updates` (a new list, not a field changed in place) is still
+`ebu_step`.
+
+### Field adapters
+
+Some hand functions take one list field of the state where the readable function takes the
+state (`decrease_balance (balances : List Gwei) …`, `increase_balance`). The hand function
+returns the new field, and the readable function returns the new state. The generator writes
+one statement form for all of them (`statement` in `tools/gen_bridge.py`):
+
+```lean
+SimI (fun s => s = { state with F := s.F } ∧ ∀ y ∈ s.F, P y)   -- the other fields stay
+     (fun s => s.F.map conv)                                    -- the field, as hand values
+     (Gen.f state …) (Hand.f (state.F.map conv) …)
+```
+
+The precondition is only the range of the field, because the function reads only the field.
+`bridge_main` proves these statements like any other function. In a loop body, the readable
+call is related to the hand call with the field as the hand accumulator. The post condition
+gives the new state as `{ st0 with F := X' }` for the loop invariant (`bridge_inv` with
+`bridge_facts` and `bridge_conj_assumption`).
 
 Hand proofs with an odd shape, kept as they are:
 

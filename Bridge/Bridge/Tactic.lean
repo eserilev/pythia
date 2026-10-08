@@ -991,11 +991,44 @@ elab_rules : tactic
 
 /-- The range facts of a list that `dedup`, a `filterM` or a `filterMapM` keeps from a list. -/
 syntax "bridge_sub_ir" : tactic
+/-- Close the goal with a conjunct of a hypothesis (a callee post condition). -/
+syntax "bridge_conj_assumption" : tactic
+
+open Lean Meta in
+partial def conjParts (pf ty : Lean.Expr) (depth : Nat) : MetaM (List Lean.Expr) := do
+  let ty ← whnfR ty
+  if depth > 0 && ty.isAppOfArity ``And 2 then
+    let l ← conjParts (← mkAppM ``And.left #[pf]) (ty.getArg! 0) (depth - 1)
+    let r ← conjParts (← mkAppM ``And.right #[pf]) (ty.getArg! 1) (depth - 1)
+    return l ++ r
+  return [pf]
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_conj_assumption) => withMainContext do
+    let g ← getMainGoal
+    let target ← instantiateMVars (← g.getType)
+    for d in (← getLCtx) do
+      if d.isImplementationDetail then continue
+      let ty ← instantiateMVars d.type
+      unless (← whnfR ty).isAppOfArity ``And 2 do continue
+      for pf in ← conjParts d.toExpr ty 3 do
+        let s ← saveState
+        if ← isDefEq (← inferType pf) target then
+          g.assign pf
+          replaceMainGoal []
+          return
+        s.restore
+    throwError "bridge_conj_assumption: no conjunct fits"
+
 /-- Close the invariant of a loop step (`sim_loop`). The default is the invariant of a loop that
 changes one list field: `∃ X, state = { st0 with F := X } ∧ r = X.map conv ∧ ∀ y ∈ X, P y`. -/
 syntax "bridge_inv" : tactic
 macro_rules
   | `(tactic| bridge_inv) => `(tactic| (refine ⟨_, rfl, rfl, ?_⟩; bridge_range))
+macro_rules
+  | `(tactic| bridge_inv) => `(tactic| (bridge_facts; refine ⟨_, ?_, rfl, ?_⟩ <;>
+      first | bridge_conj_assumption | bridge_range))
 
 open Lean Meta Elab Tactic in
 /-- Prove one `Sim` goal step by step. Returns the goals it could not prove. -/
@@ -1007,6 +1040,13 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
       for g' in gs do out := out ++ (← bridgeGoal hs g')
       return out
   let some (r, h) ← g.withContext (simSides g) | return [g]
+  -- a branch that the facts rule out: a hypothesis `false = true`
+  for d in (← g.getDecl).lctx do
+    if d.isImplementationDetail then continue
+    let ty := (← instantiateMVars d.type).consumeMData
+    if ty.isAppOfArity ``Eq 3 && (ty.getArg! 1).isConstOf ``Bool.false && (ty.getArg! 2).isConstOf ``Bool.true then
+      let hS ← g.withContext (Term.exprToSyntax d.toExpr)
+      if let some gs ← tryAt (evalTactic (← `(tactic| exact absurd $hS Bool.false_ne_true))) g then return gs
   -- the next step of a loop (`sim_loop`): the claim `ih` for step `i + 1`
   if let some fnName := r.getAppFn.constName? then
     if fnName.isStr && fnName.getString!.startsWith "loop" then
@@ -1227,19 +1267,20 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
     if let some gs ← continueWith (← tryAt tacB g) then return gs
   if isBind r then
     let a := (r.getArg! 4).consumeMData
-    -- a readable call that ran before with the same arguments: use its result
-    if isGenFn (a.getAppFn.constName?.getD .anonymous) then
-      let mut known := false
-      for d in (← g.getDecl).lctx do
-        if d.isImplementationDetail then continue
-        let ty := (← instantiateMVars d.type).consumeMData
-        if ty.isAppOfArity ``Eq 3 && (ty.getArg! 1).consumeMData == a &&
-            (ty.getArg! 2).consumeMData.isAppOfArity ``Except.ok 3 then
-          known := true
-      if known then
-        let tacK : TacticM Unit :=
-          evalTactic (← `(tactic| refine sim_bind_l _ (by assumption) ?_))
-        if let some gs ← continueWith (← tryAt tacK g) then return gs
+    -- a readable step that ran before with the same arguments (a call, a read of a list): use
+    -- its result
+    let mut fact? : Option Lean.Expr := none
+    for d in (← g.getDecl).lctx do
+      if d.isImplementationDetail then continue
+      let ty := (← instantiateMVars d.type).consumeMData
+      if ty.isAppOfArity ``Eq 3 && (ty.getArg! 2).consumeMData.isAppOfArity ``Except.ok 3 then
+        if ← g.withContext (withReducible (isDefEq (ty.getArg! 1) a)) then
+          fact? := some d.toExpr
+          break
+    if let some fact := fact? then
+      let fS ← g.withContext (Term.exprToSyntax fact)
+      let tacK : TacticM Unit := evalTactic (← `(tactic| refine sim_bind_l _ $fS ?_))
+      if let some gs ← continueWith (← tryAt tacK g) then return gs
     -- `lindex xs x` with `x ∈ xs` from a negated `contains` check before
     if a.isAppOfArity ``SpecLean.Rd.lindex 4 then
       let xS ← g.withContext (Term.exprToSyntax (a.getArg! 3))
@@ -1366,6 +1407,10 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
       onTag `h1 (← `(tactic| intro _))
       onTag `h2 (← `(tactic| intro _))
     if let some gs ← continueWith (← tryAt tac g) then return gs
+  -- a readable bind against one hand call (a function that returns its last call): add `>>= pure`
+  if isBind r && !isBind h && !isPure h && !isIte h then
+    if let some gs ← continueWith (← tryAt (evalTactic (← `(tactic| apply sim_of_bind_pure_r))) g) then
+      return gs
   -- a leaf on its own, with the abs map of the goal
   let leafAs : TacticM Unit := do
     evalTactic (← `(tactic| apply sim_congr))
@@ -1421,7 +1466,7 @@ partial def bridgePost (g : MVarId) : TacticM (List MVarId) := do
     if let some gs ← step (← `(tactic| (apply post_ite <;> intro _))) then return gs
   if r.isAppOfArity ``Pure.pure 4 then
     if let some gs ← tryAt (evalTactic (← `(tactic|
-        (apply post_pure; (try dsimp only); bridge_sub_ir)))) g then return gs
+        (apply post_pure; (try dsimp only); first | (refine ⟨rfl, ?_⟩; bridge_sub_ir) | bridge_sub_ir)))) g then return gs
   if isGenFn (r.getAppFn.constName?.getD .anonymous) then
     setGoals [g]
     for h in ← specHypsFor (r.getAppFn.constName?.getD .anonymous) do
@@ -1509,6 +1554,7 @@ macro_rules
 macro_rules
   | `(tactic| bridge_sub_ir) => `(tactic| first
     | (refine ir_dedup ?_; bridge_sub_ir)
+    | (refine lset_forall (by assumption) ?_ ?_ <;> first | assumption | bridge_range)
     | (refine ir_of_filterM (by assumption) ?_; bridge_sub_ir)
     | (refine ir_of_filterMapM_self (by assumption) (fun _ _ => by bridge_post_self) ?_; bridge_sub_ir)
     | bridge_range)

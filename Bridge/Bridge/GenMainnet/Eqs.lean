@@ -73,6 +73,15 @@ theorem cond_get_max_effective_balance (h_has_compounding_withdrawal_credential 
 
 theorem full_get_max_effective_balance : spec_get_max_effective_balance := cond_get_max_effective_balance full_has_compounding_withdrawal_credential
 
+theorem cond_increase_balance  : spec_increase_balance := by
+  intro «state» «index» «delta» hr0 hr1 hr2
+  bridge_split
+  unfold GenMainnet.increase_balance EpochProofs.Spec.increase_balance
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_increase_balance : spec_increase_balance := cond_increase_balance 
+
 theorem cond_compute_fork_data_root  : spec_compute_fork_data_root := by
   intro «o» «current_version» «genesis_validators_root» hr0 hr1 hr2
   bridge_split
@@ -188,6 +197,24 @@ theorem cond_convert_builder_index_to_validator_index  : spec_convert_builder_in
 
 theorem full_convert_builder_index_to_validator_index : spec_convert_builder_index_to_validator_index := cond_convert_builder_index_to_validator_index 
 
+theorem cond_saturating_sub  : spec_saturating_sub := by
+  intro «a» «b» hr0 hr1
+  bridge_split
+  unfold GenMainnet.saturating_sub EpochProofs.Spec.saturating_sub
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_saturating_sub : spec_saturating_sub := cond_saturating_sub 
+
+theorem cond_decrease_balance (h_saturating_sub : spec_saturating_sub) : spec_decrease_balance := by
+  intro «state» «index» «delta» hr0 hr1 hr2
+  bridge_split
+  unfold GenMainnet.decrease_balance EpochProofs.Spec.decrease_balance
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_decrease_balance : spec_decrease_balance := cond_decrease_balance full_saturating_sub
+
 theorem cond_get_activation_churn_limit (h_get_total_active_balance : spec_get_total_active_balance) : spec_get_activation_churn_limit := by
   intro «state» «total_active_balance» hr0 hr1
   bridge_split
@@ -231,15 +258,6 @@ theorem cond_get_builder_payment_quorum_threshold (h_get_total_active_balance : 
   bridge_main
 
 theorem full_get_builder_payment_quorum_threshold : spec_get_builder_payment_quorum_threshold := cond_get_builder_payment_quorum_threshold full_get_total_active_balance
-
-theorem cond_saturating_sub  : spec_saturating_sub := by
-  intro «a» «b» hr0 hr1
-  bridge_split
-  unfold GenMainnet.saturating_sub EpochProofs.Spec.saturating_sub
-  try simp only [bind_pure]
-  bridge_main
-
-theorem full_saturating_sub : spec_saturating_sub := cond_saturating_sub 
 
 theorem cond_get_previous_epoch (h_get_current_epoch : spec_get_current_epoch) (h_saturating_sub : spec_saturating_sub) : spec_get_previous_epoch := by
   intro «state» hr0
@@ -597,9 +615,30 @@ theorem cond_process_randao_mixes_reset (h_get_current_epoch : spec_get_current_
 
 theorem full_process_randao_mixes_reset : spec_process_randao_mixes_reset := cond_process_randao_mixes_reset full_get_current_epoch full_get_randao_mix
 
-theorem cond_process_slashings (h_get_current_epoch : spec_get_current_epoch) (h_get_total_active_balance : spec_get_total_active_balance) : spec_process_slashings := hand_process_slashings h_get_current_epoch h_get_total_active_balance
+theorem cond_process_slashings (h_decrease_balance : spec_decrease_balance) (h_get_current_epoch : spec_get_current_epoch) (h_get_total_active_balance : spec_get_total_active_balance) : spec_process_slashings := by
+  intro «state» «total_active_balance» hr0 hr1
+  bridge_split
+  unfold GenMainnet.process_slashings EpochProofs.Spec.process_slashings
+  refine simI_intro ?_ (post_true _)
+  bridge_walk [h_decrease_balance, h_get_current_epoch, h_get_total_active_balance]
+  all_goals
+    bridge_loop (fun _ v1 v2 v3 r => ∃ X, v3 = { «state» with balances := X } ∧ r = X.map (fun x : GenMainnet.Gwei => x.val) ∧ ∀ y ∈ X, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y)
+    case hn => simp [bridge_abs]
+    case init => exact ⟨_, rfl, rfl, by first | assumption | bridge_range⟩
+    case fin =>
+      intro v1 v2 v3 r ⟨X, hs, hr, _⟩
+      subst hs hr
+      rw [GenMainnet.process_slashings.loop1, dif_neg (Nat.lt_irrefl _)]
+      rfl
+    case step =>
+      intro i x v1 v2 v3 r hi hx hinv ih
+      obtain ⟨X, rfl, rfl, hX⟩ := hinv
+      bridge_item hi hx
+      rw [GenMainnet.process_slashings.loop1, dif_pos hi]
+      dsimp only
+      bridge_run [h_decrease_balance, h_get_current_epoch, h_get_total_active_balance]
 
-theorem full_process_slashings : spec_process_slashings := hand_process_slashings full_get_current_epoch full_get_total_active_balance
+theorem full_process_slashings : spec_process_slashings := cond_process_slashings full_decrease_balance full_get_current_epoch full_get_total_active_balance
 
 theorem cond_process_slashings_reset (h_get_current_epoch : spec_get_current_epoch) : spec_process_slashings_reset := by
   intro «state» hr0
@@ -731,14 +770,14 @@ theorem cond_verify_execution_payload_bid_signature (h_compute_signing_root : sp
 
 theorem full_verify_execution_payload_bid_signature : spec_verify_execution_payload_bid_signature := cond_verify_execution_payload_bid_signature full_compute_signing_root full_get_domain
 
--- Mapped functions: 106, 83 without a loop, 74 of them with a statement.
--- Conditional: 48 mapped, 31 callees (79 of 115 statements without a loop).
--- Full: 47 mapped, 27 callees.
+-- Mapped functions: 106, 83 without a loop, 76 of them with a statement.
+-- Conditional: 50 mapped, 31 callees (81 of 117 statements without a loop).
+-- Full: 49 mapped, 27 callees.
 -- Not proved: add_builder_to_registry, add_flag, add_validator_to_registry, apply_pending_deposit, bytes_to_uint64, compute_consolidation_epoch_and_update_churn, compute_exit_epoch_and_update_churn, compute_proposer_indices, get_attestation_participation_flag_indices, get_beacon_proposer_indices, get_indexed_attestation, get_next_sync_committee, get_validator_from_deposit, initiate_validator_exit, is_slashable_attestation_data, is_valid_indexed_attestation, is_valid_indexed_payload_attestation, process_block_header, process_bls_to_execution_change, process_builder_deposit_request, process_builder_exit_request, process_consolidation_request, process_epoch, process_eth1_data, process_historical_summaries_update, process_justification_and_finalization, process_proposer_lookahead, process_ptc_window, process_randao, process_slot, process_voluntary_exit, process_withdrawal_request, process_withdrawals, settle_builder_payment, slash_validator, weigh_justification_and_finalization.
--- Loops proved by bridge_loop: process_inactivity_updates.
--- Loops proved by hand (Proofs.lean): get_index_for_new_builder, get_pending_balance_to_withdraw, get_pending_balance_to_withdraw_for_builder, integer_squareroot, process_effective_balance_updates, process_slashings.
+-- Loops proved by bridge_loop: process_inactivity_updates, process_slashings.
+-- Loops proved by hand (Proofs.lean): get_index_for_new_builder, get_pending_balance_to_withdraw, get_pending_balance_to_withdraw_for_builder, integer_squareroot, process_effective_balance_updates.
 -- Loops (statement only): compute_balance_weighted_selection, compute_ptc, compute_shuffled_permutation, get_attesting_indices, get_builder_withdrawals, get_builders_sweep_withdrawals, get_flag_index_deltas, get_inactivity_penalty_deltas, get_pending_partial_withdrawals, get_validators_sweep_withdrawals, process_attestation, process_attester_slashing, process_builder_pending_payments, process_pending_consolidations, process_proposer_slashing, process_registry_updates, process_rewards_and_penalties, process_sync_aggregate.
--- No statement (parameters): apply_withdrawals, decrease_balance, increase_balance, process_block, process_execution_payload_bid, process_operations, process_payload_attestation, process_pending_deposits, process_slots, state_transition.
+-- No statement (parameters): apply_withdrawals, process_block, process_execution_payload_bid, process_operations, process_payload_attestation, process_pending_deposits, process_slots, state_transition.
 -- No statement (return type): apply_parent_execution_payload, get_expected_withdrawals, process_parent_execution_payload.
 -- No statement (type of list): set_or_append_list.
 

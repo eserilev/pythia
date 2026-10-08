@@ -455,6 +455,7 @@ def statement(m, name, rsigs, hsigs):
     rret = strip_parens(rm.group(1))
     args, used = [], set()
     extra_bs, extra_hs = [], []
+    field = None
     for n, t in hbs:
         if t == "Preset":
             args.append("Hand")
@@ -470,6 +471,19 @@ def statement(m, name, rsigs, hsigs):
             extra_hs.append(f"{HNS}.get_total_active_balance Hand (abs_BeaconState «state») = .ok {q(n)}")
             args.append(q(n))
             continue
+        # Field adapter: the hand function takes one list field of the state, where the readable
+        # function takes the state, and returns the new field, where the readable function
+        # returns the new state.
+        rfields = dict(m.rd.get("BeaconState", []))
+        if (n not in rmap and rmap.get("state") == "BeaconState" and n in rfields
+                and field is None and strip_parens(re.sub(r"^SpecM ", "", hret)) == strip_parens(t)):
+            c = m.conv(rfields[n], t)
+            if c is None:
+                return None, f"type of {n}"
+            args.append(f"({c} «state».{n})")
+            field = (n, rfields[n], c)
+            used.add("state")
+            continue
         if n not in rmap:
             return None, "parameters"
         c = m.conv(rmap[n], t)
@@ -484,19 +498,32 @@ def statement(m, name, rsigs, hsigs):
     hm = re.fullmatch(r"SpecM (.+)", hret)
     pure = hm is None
     hret_t = strip_parens(hret if pure else hm.group(1))
-    rc = m.conv(rret, hret_t)
+    if field is not None:
+        if rret != "BeaconState":
+            return None, "return type"
+        fn, ft, fc = field
+        rc = f"(fun s : Gen.BeaconState => {fc} s.{fn})"
+    else:
+        rc = m.conv(rret, hret_t)
     if rc is None:
         return None, "return type"
     binders = [(n, m.rty(t)) for n, t in rbs] + extra_bs
     irs = []
     for n, t in rbs:
         ir = m.ir(t)
+        if field is not None and n == "state":
+            # the readable function reads only the field
+            irs.append(f"(∀ y ∈ «state».{field[0]}, {m.ir(field[1][5:])} y)")
+            continue
         if ir != "(fun _ => True)":
             irs.append(f"{ir} {q(n)}")
     irs += extra_hs
     rd_call = f"Gen.{name} " + " ".join(q(n) for n, _ in rbs) if rbs else f"Gen.{name}"
     hd_call = f"{HNS}.{name} " + " ".join(args) if args else f"{HNS}.{name}"
     post = post_ir(m, rret)
+    if field is not None:
+        post = (f"(fun s : Gen.BeaconState => s = {{ «state» with {fn} := s.{fn} }} ∧ "
+                f"∀ y ∈ s.{fn}, {m.ir(ft[5:])} y)")
     if oracle:
         binders = [("o", "EpochProofs.Spec.Oracle")] + binders
         irs = ["OracleAgrees «o»"] + irs
