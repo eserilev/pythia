@@ -60,11 +60,11 @@ theorem alloc_contract (gfp fpf : Footprint) {h : Heap} {vs : List Value} (o : H
   have hat := at?_alloc (o := o) hwf haw
   refine ⟨⟨frame_alloc (Frame_refl _ _ _) hwf (Fresh_refl _), fresh_alloc (Fresh_refl _),
     noNewPaths_of_reach fun k q b e => .inl (by rw [← hat]; exact e), ?_⟩, ?_⟩
-  · rintro k ty ⟨a, fs, hk, ho⟩
+  · rintro k ty ⟨a, hk, ho⟩
     have e : at? h vs k [] = some (.ref a) := by simp [at?, hk, follow]
     have hne : a ≠ h.next := fun ea => haw k [] a e (hwf a (by omega))
     rw [objs_alloc_ne hne] at ho
-    exact ⟨a, fs, hk, ho⟩
+    exact ⟨a, hk, ho⟩
   · intro k q k' q' b hb _ e _
     rw [hat] at e
     exact absurd (hwf b hb) (haw k q b e)

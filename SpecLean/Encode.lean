@@ -114,7 +114,8 @@ def Matches : List PStep → List Nat → Prop
   | .any :: ps, _ :: qs => Matches ps qs
   | _, _ => False
 
-/-- A path pattern rooted at an SSZ container type, for example `BeaconState.validators[*]`. -/
+/-- A path pattern rooted at an SSZ type, for example `BeaconState.validators[*]`. The root is
+a container class, or a list type (`listRoot`), for a function that writes a list argument. -/
 structure FPat where
   ty : Name
   steps : List PStep
@@ -122,9 +123,62 @@ structure FPat where
 /-- A footprint: a set of path patterns. -/
 abbrev Footprint := List FPat
 
-/-- Argument `k` is a container of class `ty`. A pattern applies to every root of its type. -/
+/-- Cantor's pairing. -/
+def natPair (a b : Nat) : Nat := (a + b) * (a + b + 1) / 2 + b
+
+def kindCode : ListKind → Nat
+  | .list => 0 | .vector => 1 | .progressiveList => 2 | .bitlist => 3 | .bitvector => 4
+  | .progressiveBitlist => 5 | .pyList => 6
+
+def tyCode : SszTy → Nat
+  | .uint (.width b) => natPair 0 (natPair 0 b)
+  | .uint (.nominal n b) => natPair 0 (natPair (n + 1) b)
+  | .boolean => natPair 1 0
+  | .bytes ty len => natPair 2 (natPair ty len)
+  | .container ty => natPair 3 ty
+  | .list k e l => natPair 4 (natPair (kindCode k) (natPair (tyCode e) (l.map (· + 1) |>.getD 0)))
+  | .any => natPair 5 0
+
+/-- The first list root: above every class name. A literal, so a comparison with it does not
+compute a power. -/
+abbrev listRootBase : Nat := 1099511627776
+
+/-- The root type of a list of kind `k` and element type `e`: above every class name, so it
+never names a container. The limit is not part of it. -/
+def listRoot (k : ListKind) (e : SszTy) : Name := listRootBase + natPair (kindCode k) (tyCode e)
+
+/-- Every pattern of the footprint is rooted at a container. Layer 4's call rule checks it
+(`coversAll`): it does not cover callees that write a list argument. -/
+def ContainerRooted (fp : Footprint) : Prop := ∀ pg ∈ fp, pg.ty < listRootBase
+
+theorem listRoot_not_lt (k : ListKind) (e : SszTy) : ¬ listRoot k e < listRootBase :=
+  Nat.not_lt.mpr (Nat.le_add_right _ _)
+
+/-- Argument `k` is a container of class `ty`, or a list whose type is `ty` (`listRoot`). A
+pattern applies to every root of its type. -/
 def RootTy (h : Heap) (vs : List Value) (k : Nat) (ty : Name) : Prop :=
-  ∃ a fs, vs[k]? = some (.ref a) ∧ h.objs a = some (.container ty fs)
+  ∃ a, vs[k]? = some (.ref a) ∧ ((∃ fs, h.objs a = some (.container ty fs)) ∨
+    ∃ kd e l xs, ty = listRoot kd e ∧ h.objs a = some (.list kd e l xs))
+
+theorem rootTy_container {h : Heap} {vs : List Value} {k a : Nat} {ty : Name} {fs : List Value}
+    (hv : vs[k]? = some (.ref a)) (ho : h.objs a = some (.container ty fs)) :
+    RootTy h vs k ty := ⟨a, hv, .inl ⟨fs, ho⟩⟩
+
+theorem rootTy_list {h : Heap} {vs : List Value} {k a : Nat} {kd : ListKind} {e : SszTy}
+    {l : Option Nat} {xs : List Value} (hv : vs[k]? = some (.ref a))
+    (ho : h.objs a = some (.list kd e l xs)) : RootTy h vs k (listRoot kd e) :=
+  ⟨a, hv, .inr ⟨kd, e, l, xs, rfl, ho⟩⟩
+
+/-- The root object keeps its root type when its new contents have the same kind and type. -/
+theorem rootTy_of_objs {h h' : Heap} {vs : List Value} {k : Nat} {ty : Name}
+    (hr : RootTy h vs k ty)
+    (hc : ∀ a fs, h.objs a = some (.container ty fs) → ∃ fs', h'.objs a = some (.container ty fs'))
+    (hl : ∀ a kd e l xs, h.objs a = some (.list kd e l xs) →
+      ∃ l' xs', h'.objs a = some (.list kd e l' xs')) :
+    RootTy h' vs k ty := by
+  obtain ⟨a, hv, ⟨fs, ho⟩ | ⟨kd, e, l, xs, rfl, ho⟩⟩ := hr
+  · obtain ⟨fs', h'o⟩ := hc a fs ho; exact rootTy_container hv h'o
+  · obtain ⟨l', xs', h'o⟩ := hl a kd e l xs ho; exact rootTy_list hv h'o
 
 /-- Object `a` is at a footprint path from the arguments. -/
 def AtFp (h : Heap) (vs : List Value) (fp : Footprint) (a : Nat) : Prop :=

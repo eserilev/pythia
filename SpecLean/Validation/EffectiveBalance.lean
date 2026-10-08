@@ -153,7 +153,7 @@ theorem peb_inv_update {h0 Ly i s L h L'} (hp : PebInv h0 Ly i s L h)
     simp [peb_fp]
   have hfp' : (⟨Id.BeaconState, [PStep.exact fValidators, .any]⟩ : FPat) ∈ peb_fp := by
     simp [peb_fp]
-  have hty : RootTy h [.ref Ly.root] 0 Id.BeaconState := ⟨Ly.root, Ly.fs, rfl, hl.1⟩
+  have hty : RootTy h [.ref Ly.root] 0 Id.BeaconState := rootTy_container rfl hl.1
   have hm' : Matches [PStep.exact fValidators, .any] [fValidators, i] := ⟨rfl, trivial⟩
   have ati := atj i _ hr
   have hrr : Ly.root ≠ r := wtree_ne hw hfp hty hm' ati atr (by simp)
@@ -173,11 +173,11 @@ theorem peb_inv_update {h0 Ly i s L h L'} (hp : PebInv h0 Ly i s L h)
       intro b; constructor <;> intro e <;> cases e
     · rw [List.getElem?_set_ne (Ne.symm hj), hx] at hy; cases hy; exact RefEq.refl _
   have hmono : ∀ a, AtFp h [.ref Ly.root] peb_fp a → AtFp h0 [.ref Ly.root] peb_fp a := by
-    rintro a ⟨k, pat, q, hpat, ⟨c, fs, hc, -⟩, hq, hat⟩
+    rintro a ⟨k, pat, q, hpat, ⟨c, hc, -⟩, hq, hat⟩
     refine ⟨k, pat, q, hpat, ?_, hq, ha k q a hat⟩
     simp [peb_fp] at hpat; subst hpat
     match k, hc with
-    | 0, hc => simp at hc; subst hc; exact ⟨Ly.root, Ly.fs, rfl, hl0.1⟩
+    | 0, hc => simp at hc; subst hc; exact rootTy_container rfl hl0.1
     | _ + 1, hc => simp at hc
   refine ⟨hl', ?_, hL, WTree_skel hvo skel hw,
     Frame_trans hf (Frame_set ⟨0, _, [fValidators, i], hfp', hty, hm', ati⟩) hmono,

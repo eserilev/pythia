@@ -1,4 +1,5 @@
 import SpecLean.Layer4.Denote
+import SpecLean.RootKey
 
 /-!
 # Layer 4: the denotation with calls, by fuel
@@ -45,8 +46,8 @@ def coversB : List PStep → List Nat → List PStep → Bool
 `(k, p)` lies in the caller footprint `fp`. -/
 def coversAll (fp : Footprint) (roots : List DV) (k : Nat) (p : List Nat) (dk : DV)
     (fpG : Footprint) : Bool :=
-  fpG.all fun pg => !(rootIs pg.ty (some dk)) ||
-    fp.any fun pat => rootIs pat.ty roots[k]? && coversB pat.steps p pg.steps
+  fpG.all fun pg => Nat.blt pg.ty listRootBase && (!(rootIs pg.ty (some dk)) ||
+    fp.any fun pat => rootIs pat.ty roots[k]? && coversB pat.steps p pg.steps)
 
 /-- Replace the subtree at a path. -/
 def setAt : List Nat → DV → DV → DV

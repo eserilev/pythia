@@ -1,0 +1,19 @@
+name = "pythia_bridge"
+defaultTargets = ["Bridge"]
+
+# Pythia: the generated readable Lean (SpecLean.Gen.Readable). Built in place in ../.lake.
+[[require]]
+name = "ConsensusSpecsLean"
+path = ".."
+
+# The hand-written Lean spec of the Lighthouse epoch proofs, taken as source only. Its own
+# lakefile requires Aeneas and Mathlib, but the Spec modules import only core Lean, so this
+# library compiles them here without those packages. The path assumes that the two checkouts
+# are siblings under the same parent directory.
+[[lean_lib]]
+name = "EpochSpec"
+srcDir = "../../lighthouse-epoch-proofs/consensus/state_processing/proofs"
+globs = ["EpochProofs.Spec.+"]
+
+[[lean_lib]]
+name = "Bridge"

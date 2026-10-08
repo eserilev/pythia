@@ -316,22 +316,28 @@ theorem at?_SkelL_back {lo : Nat} {h h' : Heap} (hs : SkelL lo h h') {vs : List 
 theorem rootTy_SkelL {lo : Nat} {h h' : Heap} (hs : SkelL lo h h') {vs : List Value} (hb : BelowArgs h vs)
     (k : Nat) (ty : Name) : RootTy h' vs k ty ↔ RootTy h vs k ty := by
   constructor
-  · rintro ⟨c, fs, hc, hoc⟩
+  · rintro ⟨c, hc, hoc⟩
     have hlt : c < h.next := hb k _ hc [] c rfl
+    refine ⟨c, hc, ?_⟩
     rcases hs.2.2 c hlt with e | ⟨o, o', ho, ho', sk⟩
-    · exact ⟨c, fs, hc, e ▸ hoc⟩
-    · rw [ho'] at hoc; cases hoc
-      cases o with
-      | container ty' fs' => obtain ⟨rfl, -⟩ := sk; exact ⟨c, fs', hc, ho⟩
-      | _ => exact absurd sk (by simp only [GrowSkel]; exact id)
-  · rintro ⟨c, fs, hc, hoc⟩
+    · rwa [e] at hoc
+    · rw [ho'] at hoc; rw [ho]
+      cases o <;> cases o' <;> simp only [GrowSkel] at sk <;>
+        first
+        | exact absurd sk id
+        | (obtain ⟨rfl, rfl, -⟩ := sk; simpa using hoc)
+        | (obtain ⟨rfl, -⟩ := sk; simpa using hoc)
+  · rintro ⟨c, hc, hoc⟩
     have hlt : c < h.next := hb k _ hc [] c rfl
+    refine ⟨c, hc, ?_⟩
     rcases hs.2.2 c hlt with e | ⟨o, o', ho, ho', sk⟩
-    · exact ⟨c, fs, hc, e.trans hoc⟩
-    · rw [hoc] at ho; cases ho
-      cases o' with
-      | container ty' fs' => obtain ⟨rfl, -⟩ := sk; exact ⟨c, fs', hc, ho'⟩
-      | _ => exact absurd sk (by simp only [GrowSkel]; exact id)
+    · rwa [e]
+    · rw [ho] at hoc; rw [ho']
+      cases o <;> cases o' <;> simp only [GrowSkel] at sk <;>
+        first
+        | exact absurd sk id
+        | (obtain ⟨rfl, rfl, -⟩ := sk; simpa using hoc)
+        | (obtain ⟨rfl, -⟩ := sk; simpa using hoc)
 
 theorem Fresh_of_SkelL {lo : Nat} {h h' : Heap} (hs : SkelL lo h h') : Fresh h h' := ⟨hs.1, hs.2.1⟩
 

@@ -121,24 +121,20 @@ theorem at?_skel {h : Heap} {a : Nat} {o o' : HeapObj} (ho : h.objs a = some o)
 theorem rootTy_skel {h : Heap} {a : Nat} {o o' : HeapObj} (ho : h.objs a = some o)
     (hs : SameSkel o o') (vs : List Value) (k : Nat) (ty : Name) :
     RootTy (h.set a o') vs k ty ↔ RootTy h vs k ty := by
+  have key : ∀ c, ((∃ fs, (h.set a o').objs c = some (.container ty fs)) ∨
+      ∃ kd e l xs, ty = listRoot kd e ∧ (h.set a o').objs c = some (.list kd e l xs)) ↔
+      ((∃ fs, h.objs c = some (.container ty fs)) ∨
+      ∃ kd e l xs, ty = listRoot kd e ∧ h.objs c = some (.list kd e l xs)) := by
+    intro c
+    by_cases hca : c = a
+    · subst hca
+      simp only [Heap.set_objs, ↓reduceIte, ho, Option.some.injEq]
+      cases o <;> cases o' <;> simp only [SameSkel] at hs <;>
+        first | exact absurd hs id | (obtain ⟨rfl, rfl, -⟩ := hs; simp; done) |
+          (obtain ⟨rfl, -⟩ := hs; simp; done)
+    · simp [hca]
   unfold RootTy
-  constructor
-  · rintro ⟨c, fs, hc, hoc⟩
-    by_cases hca : c = a
-    · subst hca
-      simp only [Heap.set_objs, ↓reduceIte, Option.some.injEq] at hoc; subst hoc
-      cases o with
-      | container ty' fs' => obtain ⟨rfl, -⟩ := hs; exact ⟨c, fs', hc, ho⟩
-      | _ => exact absurd hs (by simp only [SameSkel]; exact id)
-    · exact ⟨c, fs, hc, by simpa [hca] using hoc⟩
-  · rintro ⟨c, fs, hc, hoc⟩
-    by_cases hca : c = a
-    · subst hca
-      rw [ho] at hoc; cases hoc
-      cases o' with
-      | container ty' fs' => obtain ⟨rfl, -⟩ := hs; exact ⟨c, fs', hc, by simp⟩
-      | _ => exact absurd hs (by simp only [SameSkel]; exact id)
-    · exact ⟨c, fs, hc, by simp [hca, hoc]⟩
+  simp only [key]
 
 theorem WTree_skel {h : Heap} {a : Nat} {o o' : HeapObj} (ho : h.objs a = some o)
     (hs : SameSkel o o') {vs : List Value} {fp : Footprint} (hw : WTree h vs fp) :
@@ -165,8 +161,8 @@ theorem WTree_append_nonref {h : Heap} {vs : List Value} {fp : Footprint} {v : V
         | cons j q => simp [follow_nonref hv] at hk
       | succ m => rw [hkk] at hk; simp at hk
   have keyTy : ∀ k ty, RootTy h (vs ++ [v]) k ty → RootTy h vs k ty := by
-    rintro k ty ⟨c, fs, hc, hoc⟩
-    refine ⟨c, fs, ?_, hoc⟩
+    rintro k ty ⟨c, hc, hoc⟩
+    refine ⟨c, ?_, hoc⟩
     by_cases hlt : k < vs.length
     · rwa [List.getElem?_append_left hlt] at hc
     · rw [List.getElem?_append_right (by omega)] at hc

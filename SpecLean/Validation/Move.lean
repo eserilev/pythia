@@ -26,7 +26,7 @@ theorem root_unique {h : Heap} {vs : List Value} {k0 r0 : Nat} {ty : Name} {fs :
     (hr0 : h.objs r0 = some (.container ty fs)) {k : Nat} {p : List Nat}
     (e : at? h vs k p = some (.ref r0)) : k = k0 ∧ p = [] := by
   have e0 : at? h vs k0 [] = some (.ref r0) := by simp [at?, hk0, follow]
-  exact hw k0 ⟨ty, []⟩ (by simp) ⟨r0, fs, hk0, hr0⟩ [] trivial r0 e0 k p e
+  exact hw k0 ⟨ty, []⟩ (by simp) (rootTy_container hk0 hr0) [] trivial r0 e0 k p e
 
 /-- Below an old object that is not the root, the moved heap reads as the old one. -/
 theorem follow_moved {h : Heap} {vs : List Value} {k0 r0 fx : Nat} {ty : Name}

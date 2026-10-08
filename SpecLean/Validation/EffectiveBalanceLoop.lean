@@ -72,12 +72,12 @@ theorem pebI_step {h0 Ly i s L h i' s' L' h'} (hp : PebI h0 Ly i s L h)
   obtain ⟨hl', hd', hL', hw', hf, hfr, hl, hrest, ha⟩ := hq
   refine ⟨⟨hf, hfr, noNewPaths_of_reach fun k q b e => .inl (ha k q b e), ?_⟩,
     hl', hd', hL', hw', StateRest_trans hp.2.2.2.2 hrest⟩
-  rintro k ty ⟨a, fs, hk, ho⟩
+  rintro k ty ⟨a, hk, ho⟩
   match k, hk with
   | 0, hk =>
     simp at hk; subst hk
-    rw [hl'.1] at ho; cases ho
-    exact ⟨Ly.root, Ly.fs, rfl, hl.1⟩
+    rcases ho with ⟨fs, ho⟩ | ⟨kd, e, l, xs, -, ho⟩ <;> rw [hl'.1] at ho <;> cases ho
+    exact rootTy_container rfl hl.1
 
 /-- `process_effective_balance_updates_run`, with the loop through `for_enum_sim`. -/
 theorem process_effective_balance_updates_run' (k : Nat) (h : Heap) (root : Nat)

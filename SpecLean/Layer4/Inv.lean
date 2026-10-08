@@ -133,7 +133,7 @@ theorem rootTy_of_dec {h : Heap} {vs : List Value} {k : Nat} {v : Value} (hv : v
     {n : Nat} {ty : Name} {ds : List DV} (hd : dec h n v = some (.cont ty ds)) :
     RootTy h vs k ty := by
   obtain ⟨a, m, fs, rfl, -, ho, -⟩ := dec_cont hd
-  exact ⟨a, fs, hv, ho⟩
+  exact rootTy_container hv ho
 
 /-- `Frame_trans` where the monotone step is needed only for old objects. -/
 theorem Frame_trans' {h1 h2 h3 : Heap} {vs : List Value} {fpf : Footprint}

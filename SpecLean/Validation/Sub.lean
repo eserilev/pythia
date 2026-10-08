@@ -44,8 +44,8 @@ theorem at?_sub {h : Heap} {vs' vs : List Value} {σ : Nat → Nat} (hs : SubArg
 
 theorem rootTy_sub {h : Heap} {vs' vs : List Value} {σ : Nat → Nat} (hs : SubArgs vs' vs σ)
     {k : Nat} {ty : Name} (hr : RootTy h vs' k ty) : RootTy h vs (σ k) ty := by
-  obtain ⟨a, fs, hk, ho⟩ := hr
-  exact ⟨a, fs, hs k a hk, ho⟩
+  obtain ⟨a, hk, ho⟩ := hr
+  exact ⟨a, hs k a hk, ho⟩
 
 /-- `WTree` of the caller gives `WTree` of the callee over a part of the footprint. `σ` must be
 one to one on the `ref` arguments of the callee. -/

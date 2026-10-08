@@ -61,7 +61,7 @@ theorem decrease_balance_run (k : Nat) (h : Heap) (root : Nat) (state : Readable
   have hfp : (⟨Id.BeaconState, [PStep.exact fBalances]⟩ : FPat) ∈ decrease_balance_fp := by
     simp [decrease_balance_fp]
   have hty : RootTy h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val] 0
-      Id.BeaconState := ⟨root, fs, rfl, hroot⟩
+      Id.BeaconState := rootTy_container rfl hroot
   have hm : Matches [PStep.exact fBalances] [fBalances] := ⟨rfl, trivial⟩
   have atb : at? h [.ref root, .uint vidxTy index.val, .uint gweiTy delta.val] 0 [fBalances] = some (.ref ba) := by simp [at?, follow, hroot, hfb]
   have hrb : root ≠ ba := wtree_ne hw hfp hty hm atb (q' := []) (k' := 0) (by simp [at?, follow])
