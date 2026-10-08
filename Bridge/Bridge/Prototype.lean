@@ -1,5 +1,4 @@
-import SpecLean.Gen.Readable
-import EpochProofs.Spec.Slashings
+import Bridge.Sim
 
 /-!
 # Step 6 prototype: the hand-written spec equals the readable Lean
@@ -16,34 +15,7 @@ namespace Pythia.Bridge
 
 open SpecLean SpecLean.Rd
 
-abbrev Hand := EpochProofs.Spec.Preset.minimal
-
-def errClass : EpochProofs.Spec.SpecError → Fail
-  | .indexOutOfRange | .assertionFailed => .invalid
-  | .overflow | .divisionByZero => .bug
-
 variable [Spec] [Gen.Cfg]
-
-theorem fdiv_nat (a b : Nat) : (a : Int).fdiv (b : Int) = ((a / b : Nat) : Int) := by
-  rw [Int.fdiv_eq_ediv, if_pos (.inl (Int.natCast_nonneg b))]
-  simp only [Int.sub_zero]
-  exact (Int.natCast_ediv a b).symm
-
-theorem uOf_ok {α : Type} [UintC α] (n : Nat) (hb : UintC.bits α = 64) (hn : n < 2 ^ 64) :
-    (uOf α (n : Int) : SpecM α) = .ok (UintC.ofNat n) := by
-  unfold uOf
-  rw [if_pos ⟨Int.natCast_nonneg n, by rw [hb]; exact_mod_cast hn⟩]
-  rfl
-
--- Unfolding `bind` with `simp` makes the kernel fail with deep recursion. These `rfl` lemmas
--- rewrite one bind at a time.
-theorem ok_bind {ε α β : Type} (a : α) (f : α → Except ε β) : (Except.ok a >>= f) = f a := rfl
-
-theorem mapError_ok {ε ε' α : Type} (g : ε → ε') (a : α) :
-    (Except.ok a : Except ε α).mapError g = .ok a := rfl
-
-theorem err_bind {ε α β : Type} (e : ε) (f : α → Except ε β) : (Except.error e >>= f) = .error e :=
-  rfl
 
 theorem rd_compute_epoch_at_slot (n : Nat) (hn : n < 2 ^ 64) :
     Gen.compute_epoch_at_slot ⟨n⟩ = .ok ⟨n / 8⟩ := by
