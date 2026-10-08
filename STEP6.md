@@ -379,14 +379,44 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 Functions with a loop get hand-written proofs in `Bridge/Bridge/Mainnet/Proofs.lean`, one
 theorem `hand_f : spec_f` each. The generator reads the names and adds `full_f := hand_f` to
 `Eqs.lean`. A hand proof can take callee statements as hypotheses (`(h_g : spec_g)`), as the
-generated proofs do. The comprehensions `get_set_bit_count`, `get_balance_after_withdrawals`,
-`process_participation_flag_updates`, `xor` and `get_eligible_validator_indices` (a hand `for`
-loop, `forIn_append`) have hand proofs too. `integer_squareroot` is the first loop: a recursion on `x` that keeps `x ≤ n` and
-`1 ≤ y`, so the division and the addition in the loop cannot fail.
-`process_slashings` (`slash_loop`) and `process_effective_balance_updates` (`ebu_loop`) are loops
-over the validators. Each proof is a recursion on the index `i`. In `slash_loop`, only the
-balances change. In `ebu_loop`, after `i` steps the readable state holds the `i` new validators,
-then the old validators from index `i`. The hand list holds the same `i` validators.
+generated proofs do.
+
+### Shapes of the hand proofs
+
+`Bridge/Bridge/Loops.lean` has one generic lemma per shape. A hand proof gives only the parts
+that are not the same for all functions of its shape.
+
+| Shape | Generic lemma | Hand proofs |
+|---|---|---|
+| (a) index loop against `forIn`, with an invariant | `sim_loop`, `sim_loop0` | `process_slashings` (`slash_step`), `process_effective_balance_updates` (`ebu_step`) |
+| (b) index loop that adds amounts | `sum_loop` | `get_pending_balance_to_withdraw`, `get_pending_balance_to_withdraw_for_builder` |
+| (c) `range` comprehension | `pyRange_nat`, `pyRange_zero`, `sim_mapM_range`, `mapM_const_ok` | `process_participation_flag_updates` |
+| (d) filter comprehension against a hand `filter` or `for` loop | `forIn_append`, `sim_filterMapM_gen` | `get_eligible_validator_indices`, `get_set_bit_count`, `get_balance_after_withdrawals` |
+| (e) search loop with an early `return` | `sim_loop` (`.done` step) | `get_index_for_new_builder` (`nb_loop`, not converted yet) |
+
+`sim_loop` relates the readable loop `L i c` to the hand loop `forIn (items.drop i) r B`, then
+`K`. The caller gives an invariant `Inv i c r` on the readable loop variables `c` and the hand
+accumulator `r`, one loop step, and the end of the loop. The lemma does the recursion on `i`,
+the list split at `i`, and the termination proof. The epoch loops use two invariants:
+
+- One list field `F` of the state changes in place on both sides: the readable state is
+  `{ st0 with F := X }` and `r = X.map conv` (`process_slashings`, and next
+  `process_inactivity_updates`).
+- The hand loop builds a new list and the readable loop sets item `i`: the readable state is
+  `{ st0 with F := P ++ st0.F.drop i }` with `P.length = i`, and `r = P.map conv`
+  (`process_effective_balance_updates`). `lget_split` and `lset_split` read and write item `i`.
+
+The step proofs (`slash_step`, `ebu_step`) are still written by hand. They walk one loop body
+on both sides. The plan is to let `bridge_run` walk the body, with the claim for step `i + 1`
+as the last step, so that the generator can write them.
+
+Hand proofs with an odd shape, kept as they are:
+
+- `integer_squareroot`: a Newton recursion on `x`, not an index loop. The proof keeps
+  `x ≤ n` and `1 ≤ y`, so the division and the addition in the loop cannot fail.
+- `get_block_root_at_slot`: one readable `assert` of a chained comparison
+  (`slot < state.slot <= slot + SLOTS_PER_HISTORICAL_ROOT`) against two hand checks.
+- `xor`: a byte-wise `zip` of two `Bytes32` values against `Vector.zipWith`.
 
 Not proved yet, by cause (examples):
 
