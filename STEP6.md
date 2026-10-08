@@ -357,7 +357,7 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 | with a statement | 74 |
 | proved, conditional | 47 (and 28 callees) |
 | proved, full | 46 (and 22 callees) |
-| loops proved by hand (`Mainnet/Proofs.lean`) | 3 of 23 |
+| loops proved by hand (`Mainnet/Proofs.lean`) | 4 of 23 |
 
 `bridge_main` has these steps in addition to the steps for binds, `if` and leaves:
 

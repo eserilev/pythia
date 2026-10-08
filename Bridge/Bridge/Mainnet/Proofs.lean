@@ -460,4 +460,104 @@ theorem hand_get_pending_balance_to_withdraw : spec_get_pending_balance_to_withd
     (fun i b => by rw [GenMainnet.get_pending_balance_to_withdraw.loop1]; rfl) _
     (fun w r => rfl) 0 ⟨0⟩ (by decide)
 
+/-- The search loop for a free builder index: the readable loop returns the same first index as
+the hand `for` loop with an early `return`. -/
+theorem nb_loop (st : GenMainnet.BeaconState) (e : GenMainnet.Epoch)
+    (he : GenMainnet.get_current_epoch st = .ok e)
+    (he' : EpochProofs.Spec.get_current_epoch Hand (abs_BeaconState st) = .ok e.val)
+    (hlen : st.builders.length < 2 ^ 64)
+    (B : Nat → MProd (Option Nat) PUnit → EpochProofs.Spec.SpecM (ForInStep (MProd (Option Nat) PUnit)))
+    (hB : ∀ index r, B index r = (have _r := r.snd; do
+      let builder ← EpochProofs.Spec.listGet (abs_BeaconState st).builders index
+      let __do_lift ← EpochProofs.Spec.get_current_epoch Hand (abs_BeaconState st)
+      if (decide (builder.withdrawable_epoch ≤ __do_lift) && builder.balance == 0) = true then
+        pure (ForInStep.done ⟨some index, PUnit.unit⟩)
+      else do
+        pure PUnit.unit
+        pure (ForInStep.yield ⟨none, PUnit.unit⟩)))
+    (i : Nat) (hi : i ≤ st.builders.length) :
+    ∃ o : Option Nat, (∀ j ∈ o, j < st.builders.length) ∧
+      GenMainnet.get_index_for_new_builder.loop1 st st.builders.length i =
+        .ok (o.map (fun j => (⟨j⟩ : GenMainnet.BuilderIndex)), ()) ∧
+      forIn ((List.range st.builders.length).drop i) ⟨none, PUnit.unit⟩ B = .ok ⟨o, PUnit.unit⟩ := by
+  rw [GenMainnet.get_index_for_new_builder.loop1]
+  by_cases hlt : i < st.builders.length
+  · rw [dif_pos hlt]
+    have hg : lget st.builders (i : Int) = .ok st.builders[i] := by
+      unfold lget Rd.pyIndex
+      rw [if_neg (by omega), if_pos (by omega)]
+      simp [hlt]; rfl
+    have hg' : EpochProofs.Spec.listGet (abs_BeaconState st).builders i =
+        .ok (abs_Builder st.builders[i]) := by
+      show EpochProofs.Spec.listGet (st.builders.map abs_Builder) i = _
+      unfold EpochProofs.Spec.listGet
+      simp [hlt]; rfl
+    have hd : (List.range st.builders.length).drop i = i :: (List.range st.builders.length).drop (i + 1) := by
+      rw [List.drop_eq_getElem_cons (by simpa using hlt)]; simp
+    obtain ⟨o, ho, h1, h2⟩ := nb_loop st e he he' hlen B hB (i + 1) hlt
+    rw [hd, List.forIn_cons, hB, hg', ok_bind, he', ok_bind]
+    dsimp only
+    rw [hg, ok_bind, he, ok_bind]
+    generalize st.builders[i] = b at *
+    by_cases hc : (decide (b.withdrawable_epoch.val ≤ e.val) && b.balance.val == 0) = true
+    · refine ⟨some i, (fun j hj => by cases hj; exact hlt), ?_, ?_⟩
+      · have hw : b.withdrawable_epoch.val ≤ e.val := by simp at hc; exact hc.1
+        have hb0 : b.balance.val = 0 := by simp at hc; exact hc.2
+        have d1 : decide (uv b.withdrawable_epoch ≤ uv e) = true := by simp [uv]; exact hw
+        rw [d1, if_pos rfl, ok_bind]
+        have d2 : (uv b.balance == 0) = true := by simp [uv, hb0]
+        rw [d2, pure_bind, if_pos rfl, uOf_ok _ rfl (by omega), ok_bind]
+        rfl
+      · rw [if_pos (by simpa [abs_Builder] using hc)]
+        rfl
+    · refine ⟨o, ho, ?_, ?_⟩
+      · by_cases hw : b.withdrawable_epoch.val ≤ e.val
+        · have d1 : decide (uv b.withdrawable_epoch ≤ uv e) = true := by simp [uv]; exact hw
+          have hb0 : ¬ b.balance.val = 0 := by simp [hw] at hc; exact hc
+          have d2 : (uv b.balance == 0) = false := by simp [uv]; omega
+          rw [d1, if_pos rfl, ok_bind, d2, pure_bind, if_neg (by decide)]
+          exact h1
+        · have d1 : decide (uv b.withdrawable_epoch ≤ uv e) = false := by simp [uv]; omega
+          rw [d1, if_neg (by decide), pure_bind, if_neg (by decide)]
+          exact h1
+      · rw [if_neg (by simpa [abs_Builder] using hc)]
+        exact h2
+  · rw [dif_neg hlt]
+    have hd : (List.range st.builders.length).drop i = [] := by simp; omega
+    refine ⟨none, (fun j hj => by cases hj), rfl, ?_⟩
+    rw [hd]; rfl
+termination_by st.builders.length - i
+theorem gce_ok (st : GenMainnet.BeaconState) (hs : st.slot.val < 2 ^ 64) :
+    ∃ e : GenMainnet.Epoch, GenMainnet.get_current_epoch st = .ok e := by
+  unfold GenMainnet.get_current_epoch GenMainnet.compute_epoch_at_slot
+  simp only [bind_pure, uv, bridge_cast]
+  rw [uOp_div_ok rfl st.slot.val _ (by decide) hs, ok_bind]
+  exact ⟨_, uCast_ok _ rfl (by simp only [bridge_cast]; exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hs)⟩
+
+theorem hand_get_index_for_new_builder (h_get_current_epoch : spec_get_current_epoch) :
+    spec_get_index_for_new_builder := by
+  intro st hr0
+  bridge_split
+  obtain ⟨e, he⟩ := gce_ok st (by assumption)
+  have hs := simI_sim (h_get_current_epoch st hr0)
+  have he' : EpochProofs.Spec.get_current_epoch Hand (abs_BeaconState st) = .ok e.val := by
+    unfold Sim at hs; rw [he] at hs
+    cases h : EpochProofs.Spec.get_current_epoch Hand (abs_BeaconState st) <;> rw [h] at hs <;> cases hs; rfl
+  have hlen : st.builders.length < 2 ^ 64 := by assumption
+  unfold GenMainnet.get_index_for_new_builder EpochProofs.Spec.get_index_for_new_builder
+  obtain ⟨o, ho, h1, h2⟩ := nb_loop st e he he' hlen _ (fun index r => rfl) 0 (Nat.zero_le _)
+  rw [List.drop_zero] at h2
+  show SimI _ _ (GenMainnet.get_index_for_new_builder.loop1 st st.builders.length 0 >>= _)
+    (forIn (List.range (abs_BeaconState st).builders.length) _ _ >>= _)
+  have hl' : (abs_BeaconState st).builders.length = st.builders.length := by simp [abs_BeaconState]
+  rw [h1, ok_bind, hl', h2, ok_bind]
+  cases o with
+  | none =>
+    simp only [Option.map_none]
+    show SimI _ _ (pure PUnit.unit >>= fun _ => uOf GenMainnet.BuilderIndex ((st.builders.length : Nat) : Int) >>= pure) _
+    rw [uOf_ok _ rfl hlen]
+    exact ⟨rfl, fun x hx => by cases hx; exact hlen⟩
+  | some j =>
+    have hj := ho j rfl
+    exact ⟨rfl, fun x hx => by cases hx; show j < 2 ^ 64; omega⟩
 end Pythia.Bridge.Mainnet
