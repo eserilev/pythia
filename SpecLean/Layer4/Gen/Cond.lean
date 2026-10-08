@@ -26,11 +26,11 @@ structure CallHyp (P : Prop) : Prop where
 
 
 set_option maxHeartbeats 1000000 in
-theorem get_base_reward_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (get_base_reward_per_increment_fcall : CallHyp (∀ (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat), a_state.validators.length + a_state.validators.length + 272 ≤ n → ∀ {γ : Type} (k : DRes × List DV → DM γ),
+theorem get_base_reward_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (get_base_reward_per_increment_fcall : CallHyp (∀ (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat), a_state.validators.length + a_state.validators.length + bigFuel + 272 ≤ n → ∀ {γ : Type} (k : DRes × List DV → DM γ),
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen n).fn [] Scope.fn_get_base_reward_per_increment [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_base_reward_per_increment a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])))) :
-    ((den (Scope.env sha) fpsGen (a_state.validators.length + a_state.validators.length + m + 284)).fn [] Scope.fn_get_base_reward [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 82 64) a_index))]).map (Except.mapError SpecError.fail) =
+    ((den (Scope.env sha) fpsGen (bigFuel + a_state.validators.length + a_state.validators.length + m + 284)).fn [] Scope.fn_get_base_reward [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 82 64) a_index))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Gwei => (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 82 64) a_index))])) <$> get_base_reward a_state ⟨a_index⟩) := by
   rw [s_fn]
   have hok_state' := hok_state
@@ -43,34 +43,34 @@ theorem get_base_reward_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (ho
   all_goals l4_close
 
 set_option maxHeartbeats 1000000 in
-theorem get_base_reward_call (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (get_base_reward_per_increment_fcall : CallHyp (∀ (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat), a_state.validators.length + a_state.validators.length + 272 ≤ n → ∀ {γ : Type} (k : DRes × List DV → DM γ),
+theorem get_base_reward_call (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (get_base_reward_per_increment_fcall : CallHyp (∀ (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat), a_state.validators.length + a_state.validators.length + bigFuel + 272 ≤ n → ∀ {γ : Type} (k : DRes × List DV → DM γ),
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen n).fn [] Scope.fn_get_base_reward_per_increment [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_base_reward_per_increment a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])))) {γ : Type} (k : DRes × List DV → DM γ) :
     Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (a_state.validators.length + a_state.validators.length + m + 284)).fn [] Scope.fn_get_base_reward [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 82 64) a_index))]) k) =
+        (DM.bind ((den (Scope.env sha) fpsGen (bigFuel + a_state.validators.length + a_state.validators.length + m + 284)).fn [] Scope.fn_get_base_reward [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 82 64) a_index))]) k) =
       callK (get_base_reward a_state ⟨a_index⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 82 64) a_index))])) :=
   bind_call (get_base_reward_den sha m a_state hok_state a_index hok_index get_base_reward_per_increment_fcall) k
 
 set_option maxHeartbeats 1000000 in
-theorem get_base_reward_fcall (sha : Oracle) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (get_base_reward_per_increment_fcall : CallHyp (∀ (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat), a_state.validators.length + a_state.validators.length + 272 ≤ n → ∀ {γ : Type} (k : DRes × List DV → DM γ),
+theorem get_base_reward_fcall (sha : Oracle) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (get_base_reward_per_increment_fcall : CallHyp (∀ (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat), a_state.validators.length + a_state.validators.length + bigFuel + 272 ≤ n → ∀ {γ : Type} (k : DRes × List DV → DM γ),
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen n).fn [] Scope.fn_get_base_reward_per_increment [(.cont 733 (kids_BeaconState a_state))]) k) =
-      callK (get_base_reward_per_increment a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])))) (n : Nat) (hn : a_state.validators.length + a_state.validators.length + 284 ≤ n) {γ : Type}
+      callK (get_base_reward_per_increment a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])))) (n : Nat) (hn : bigFuel + a_state.validators.length + a_state.validators.length + 284 ≤ n) {γ : Type}
     (k : DRes × List DV → DM γ) :
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen n).fn [] Scope.fn_get_base_reward [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 82 64) a_index))]) k) =
       callK (get_base_reward a_state ⟨a_index⟩) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state)), (.leaf (.uint (.nominal 82 64) a_index))])) := by
-  obtain ⟨m, rfl⟩ : ∃ m, n = a_state.validators.length + a_state.validators.length + m + 284 := ⟨n - (a_state.validators.length + a_state.validators.length + 284), by omega⟩
+  obtain ⟨m, rfl⟩ : ∃ m, n = bigFuel + a_state.validators.length + a_state.validators.length + m + 284 := ⟨n - (bigFuel + a_state.validators.length + a_state.validators.length + 284), by omega⟩
   exact get_base_reward_call sha m a_state hok_state a_index hok_index get_base_reward_per_increment_fcall k
 
 set_option maxHeartbeats 1000000 in
 theorem get_base_reward_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (get_base_reward_per_increment_fcall : CallHyp (∀ (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat), a_state.validators.length + a_state.validators.length + 272 ≤ n → ∀ {γ : Type} (k : DRes × List DV → DM γ),
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (get_base_reward_per_increment_fcall : CallHyp (∀ (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat), a_state.validators.length + a_state.validators.length + bigFuel + 272 ≤ n → ∀ {γ : Type} (k : DRes × List DV → DM γ),
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen n).fn [] Scope.fn_get_base_reward_per_increment [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_base_reward_per_increment a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])))) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
-    ∀ fuel, a_state.validators.length + a_state.validators.length + 284 ≤ fuel →
+    ∀ fuel, bigFuel + a_state.validators.length + a_state.validators.length + 284 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 82 64) a_index)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_base_reward» [(.ref r_state), (.uint (.nominal 82 64) a_index)] h) (get_base_reward a_state ⟨a_index⟩) := by
   intro fuel hf
@@ -82,11 +82,11 @@ theorem get_base_reward_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : He
 set_option maxHeartbeats 1000000 in
 theorem get_base_reward_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
     (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha))
-    (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (get_base_reward_per_increment_fcall : CallHyp (∀ (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat), a_state.validators.length + a_state.validators.length + 272 ≤ n → ∀ {γ : Type} (k : DRes × List DV → DM γ),
+    (hc : GenBridge.ContWF h) (a_state : BeaconState) (a_index : Nat) (hok_index : a_index < 2 ^ 64) (get_base_reward_per_increment_fcall : CallHyp (∀ (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat), a_state.validators.length + a_state.validators.length + bigFuel + 272 ≤ n → ∀ {γ : Type} (k : DRes × List DV → DM γ),
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen n).fn [] Scope.fn_get_base_reward_per_increment [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_base_reward_per_increment a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])))) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
-    ∀ fuel, a_state.validators.length + a_state.validators.length + 284 ≤ fuel →
+    ∀ fuel, bigFuel + a_state.validators.length + a_state.validators.length + 284 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state), (.uint (.nominal 82 64) a_index)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_base_reward» [(.ref r_state), (.uint (.nominal 82 64) a_index)] h) (get_base_reward a_state ⟨a_index⟩) :=
   get_base_reward_l4 sha gfp h hwf hh hX a_state (okb_BeaconState hy_state) a_index hok_index get_base_reward_per_increment_fcall r_state (bridge_BeaconState hc hy_state)

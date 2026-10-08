@@ -1008,21 +1008,6 @@ set_option maxHeartbeats 1000000 in
   bind_call (saturating_sub_den_CommitteeIndex sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
-  rw [s_fn]
-  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
-  all_goals l4_close
-
-set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
-    Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) :=
-  bind_call (saturating_sub_den_CommitteeIndex_i sha m a_a a_b) k
-
-set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_Epoch (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Uint64 => (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
@@ -1038,19 +1023,19 @@ set_option maxHeartbeats 1000000 in
   bind_call (saturating_sub_den_Epoch sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_Epoch_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
+theorem saturating_sub_den_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
   rw [s_fn]
   l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
   all_goals l4_close
 
 set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_Epoch_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
+@[l4_simp] theorem saturating_sub_call_CommitteeIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
     Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))])) :=
-  bind_call (saturating_sub_den_Epoch_i sha m a_a a_b) k
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 170 64) x.val), [(.leaf (.uint (.nominal 170 64) a_a)), (.leaf (.uint (.nominal 170 64) a_b))])) :=
+  bind_call (saturating_sub_den_CommitteeIndex_i sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_Gwei (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
@@ -1068,19 +1053,19 @@ set_option maxHeartbeats 1000000 in
   bind_call (saturating_sub_den_Gwei sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_Gwei_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 265 64) x.val), [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
+theorem saturating_sub_den_Epoch_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
   rw [s_fn]
   l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
   all_goals l4_close
 
 set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_Gwei_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
+@[l4_simp] theorem saturating_sub_call_Epoch_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
     Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))])) :=
-  bind_call (saturating_sub_den_Gwei_i sha m a_a a_b) k
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 140 64) x.val), [(.leaf (.uint (.nominal 140 64) a_a)), (.leaf (.uint (.nominal 140 64) a_b))])) :=
+  bind_call (saturating_sub_den_Epoch_i sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
@@ -1096,6 +1081,21 @@ set_option maxHeartbeats 1000000 in
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]) k) =
       callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) :=
   bind_call (saturating_sub_den_Slot sha m a_a a_b) k
+
+set_option maxHeartbeats 1000000 in
+theorem saturating_sub_den_Gwei_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 265 64) x.val), [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
+  rw [s_fn]
+  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
+  all_goals l4_close
+
+set_option maxHeartbeats 1000000 in
+@[l4_simp] theorem saturating_sub_call_Gwei_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))])) :=
+  bind_call (saturating_sub_den_Gwei_i sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_Slot_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
@@ -1128,21 +1128,6 @@ set_option maxHeartbeats 1000000 in
   bind_call (saturating_sub_den_ValidatorIndex sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_ValidatorIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.uint (.nominal 82 64) a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 82 64) x.val), [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.uint (.nominal 82 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
-  rw [s_fn]
-  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
-  all_goals l4_close
-
-set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_ValidatorIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
-    Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.uint (.nominal 82 64) a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 82 64) x.val), [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.uint (.nominal 82 64) a_b))])) :=
-  bind_call (saturating_sub_den_ValidatorIndex_i sha m a_a a_b) k
-
-set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_WithdrawalIndex (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Uint64 => (DRes.val (.uint (.nominal 748 64) x.val), [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
@@ -1156,6 +1141,21 @@ set_option maxHeartbeats 1000000 in
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))]) k) =
       callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 748 64) x.val), [(.leaf (.uint (.nominal 748 64) a_a)), (.leaf (.int a_b))])) :=
   bind_call (saturating_sub_den_WithdrawalIndex sha m a_a a_b) k
+
+set_option maxHeartbeats 1000000 in
+theorem saturating_sub_den_ValidatorIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.uint (.nominal 82 64) a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 82 64) x.val), [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.uint (.nominal 82 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
+  rw [s_fn]
+  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
+  all_goals l4_close
+
+set_option maxHeartbeats 1000000 in
+@[l4_simp] theorem saturating_sub_call_ValidatorIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.uint (.nominal 82 64) a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 82 64) x.val), [(.leaf (.uint (.nominal 82 64) a_a)), (.leaf (.uint (.nominal 82 64) a_b))])) :=
+  bind_call (saturating_sub_den_ValidatorIndex_i sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_WithdrawalIndex_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
