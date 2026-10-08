@@ -355,9 +355,9 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 |---|---|
 | Mapped functions without a loop | 83 |
 | with a statement | 74 |
-| proved, conditional | 44 (and 26 callees) |
-| proved, full | 43 (and 20 callees) |
-| loops proved by hand (`Mainnet/Loops.lean`) | 1 (`integer_squareroot`) |
+| proved, conditional | 45 (and 27 callees) |
+| proved, full | 44 (and 21 callees) |
+| loops proved by hand (`Mainnet/Proofs.lean`) | 1 (`integer_squareroot`) |
 
 `bridge_main` has these steps in addition to the steps for binds, `if` and leaves:
 
@@ -376,8 +376,8 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
   `IR_T` of a structure value with one goal per field.
 - Each `bridge_close` alternative has its own heartbeat budget (`bridge.closeHeartbeats`).
 
-Functions with a loop get hand-written proofs in `Bridge/Bridge/Mainnet/Loops.lean`, one
-theorem `loop_f : spec_f` each. The generator reads the names and adds `full_f := loop_f` to
+Functions with a loop get hand-written proofs in `Bridge/Bridge/Mainnet/Proofs.lean`, one
+theorem `hand_f : spec_f` each. The generator reads the names and adds `full_f := hand_f` to
 `Eqs.lean`. `integer_squareroot` is the first: a recursion on `x` that keeps `x ≤ n` and
 `1 ≤ y`, so the division and the addition in the loop cannot fail.
 

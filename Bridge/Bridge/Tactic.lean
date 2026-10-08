@@ -1097,6 +1097,17 @@ partial def bridgePost (g : MVarId) : TacticM (List MVarId) := do
     return gs
   return [g]
 
+/-- Prove a goal `Post P r` by walking `r`. Fails if a goal is left. -/
+syntax "bridge_post" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_post) => do
+    let rest ← bridgePost (← getMainGoal)
+    setGoals rest
+    unless rest.isEmpty do
+      throwError "bridge_post: {rest.length} goals left\n{Lean.MessageData.joinSep (rest.map Lean.MessageData.ofGoal) "\n"}"
+
 /-- Prove a bridge statement `SimI P f r h`: the `Sim` part with `bridge_run`, the range part
 by walking `r`. -/
 syntax "bridge_main" : tactic

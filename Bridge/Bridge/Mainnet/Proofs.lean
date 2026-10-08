@@ -1,10 +1,11 @@
 import Bridge.GenMainnet.Specs
 
 /-!
-# Bridge proofs of functions with a loop (mainnet)
+# Hand-written bridge proofs (mainnet)
 
-Hand-written proofs of `spec_f` for functions whose readable Lean has a loop. Each theorem is
-`loop_f : spec_f`. `tools/gen_bridge.py` reads the names and uses them in `Eqs.lean`.
+Proofs of `spec_f` that `bridge_main` cannot find: the functions with a loop, and a few steps
+without a generic lemma. Each theorem is `hand_f : spec_f`. `tools/gen_bridge.py` reads the names
+and uses them in `Eqs.lean`.
 -/
 
 namespace Pythia.Bridge.Mainnet
@@ -13,6 +14,7 @@ open Pythia.Bridge SpecLean SpecLean.Rd
 
 attribute [local instance] GenMainnet.Cfg.default
 set_option linter.unusedSectionVars false
+set_option maxHeartbeats 4000000
 
 variable [Spec]
 
@@ -69,7 +71,7 @@ theorem isqrt_loop_le (n x y : Nat) : EpochProofs.Spec.integer_squareroot.loop n
   · exact Nat.le_refl _
 termination_by x
 
-theorem loop_integer_squareroot : spec_integer_squareroot := by
+theorem hand_integer_squareroot : spec_integer_squareroot := by
   intro n hn
   unfold GenMainnet.integer_squareroot EpochProofs.Spec.integer_squareroot
   by_cases hm : n.val = 18446744073709551615
@@ -101,4 +103,54 @@ theorem loop_integer_squareroot : spec_integer_squareroot := by
     show EpochProofs.Spec.integer_squareroot.loop n.val n.val ((n.val + 1) / 2) < 2 ^ 64
     omega
 
+/-- The readable count of set bits: a sum of ones over the set bits. -/
+theorem foldl_count (bits : List Boolean) (a : Int) :
+    (bits.filterMap fun bit => if bit.val = true then some (1 : Int) else none).foldl (· + ·) a =
+      a + (((bits.map Boolean.val).filter id).length : Int) := by
+  induction bits generalizing a with
+  | nil => simp
+  | cons b bits ih =>
+    cases hb : b.val <;> simp [hb, ih] <;> omega
+
+theorem hand_get_set_bit_count : spec_get_set_bit_count := by
+  intro bits hr
+  unfold GenMainnet.get_set_bit_count EpochProofs.Spec.get_set_bit_count
+  have hl : ((bits.map Boolean.val).filter id).length < 2 ^ 64 :=
+    Nat.lt_of_le_of_lt (List.length_filter_le _ _) (by simpa using hr.1)
+  have e := foldl_count bits 0
+  simp only [Int.zero_add] at e
+  simp only [bind_pure]
+  rw [e, uOf_ok _ rfl hl]
+  exact ⟨rfl, fun x hx => by cases hx; exact hl⟩
+/-- The readable withdrawn amounts: a `filterMap` against the hand `filter` then `map`. -/
+theorem withdrawn_eq (ws : List GenMainnet.Withdrawal) (v : Nat) :
+    (ws.filterMap fun w => if (uv w.validator_index == (v : Int)) = true then some w.amount else none).map
+        UintC.val =
+      ((ws.map abs_Withdrawal).filter fun w => w.validator_index == v).map (·.amount) := by
+  induction ws with
+  | nil => rfl
+  | cons w ws ih =>
+    simp only [List.filterMap_cons, List.map_cons, List.filter_cons]
+    by_cases hc : w.validator_index.val = v
+    · have e : (uv w.validator_index == (v : Int)) = true := by simp [uv, hc]
+      rw [if_pos e, if_pos (by simp [abs_Withdrawal, hc])]
+      simp only [List.map_cons]
+      rw [ih]; rfl
+    · rw [if_neg (by simp [uv]; omega), if_neg (by simp [abs_Withdrawal, hc])]
+      exact ih
+
+theorem hand_get_balance_after_withdrawals : spec_get_balance_after_withdrawals := by
+  intro state vi ws hr0 hr1 hr2
+  bridge_split
+  unfold GenMainnet.get_balance_after_withdrawals EpochProofs.Spec.get_balance_after_withdrawals
+  simp only [bind_pure]
+  refine simI_intro ?_ ?_
+  · apply sim_bind
+    · refine sim_hand_eq (sim_sumU rfl _ rfl _) ?_
+      congr 1
+      exact withdrawn_eq ws vi.val
+    · intro x hx
+      try dsimp only
+      bridge_run []
+  · bridge_post
 end Pythia.Bridge.Mainnet
