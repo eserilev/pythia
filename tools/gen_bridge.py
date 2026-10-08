@@ -264,6 +264,8 @@ def gen_types(m):
     for b, n in m.bytes.items():
         out.append(f"@[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_{b} : BytesC.len Gen.{b} = {n} := rfl")
         out.append(f"@[simp, bridge_simp, bridge_cast] theorem data_{b} (x : Gen.{b}) : BytesC.data x = x.data := rfl")
+        out.append(f"@[simp, bridge_simp, bridge_cast] theorem ofBytes_{b} (l : List UInt8) : "
+                   f"(BytesC.ofBytes l : Gen.{b}).data = l := rfl")
     out.append("")
     done, skipped = [], []
     for name, fields in m.rd.items():

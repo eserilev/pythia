@@ -39,6 +39,24 @@ theorem lget_mem {α : Type} {xs : List α} {i : Int} {x : α} (h : lget xs i = 
     exact List.mem_of_getElem? hk
   · cases h
 
+theorem lset_length {α : Type} {xs ys : List α} {i : Int} {x : α} (h : lset xs i x = .ok ys) :
+    ys.length = xs.length := by
+  unfold lset at h
+  split at h
+  · cases h; simp
+  · cases h
+
+theorem lset_forall {α : Type} {P : α → Prop} {xs ys : List α} {i : Int} {x : α}
+    (h : lset xs i x = .ok ys) (hxs : ∀ y ∈ xs, P y) (hx : P x) : ∀ y ∈ ys, P y := by
+  unfold lset at h
+  split at h
+  · cases h
+    intro y hy
+    rcases List.mem_or_eq_of_mem_set hy with h1 | h1
+    · exact hxs y h1
+    · subst h1; exact hx
+  · cases h
+
 theorem uOf_range' {α : Type} [UintC α] {z : Int} {x : α}
     (h : (uOf α z : SpecM α) = .ok x) : UintC.val x < 2 ^ UintC.bits α :=
   uOf_range z x h
@@ -184,7 +202,8 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
       else if fn == ``SpecLean.Rd.lget then some ``lget_mem
       else if fn == ``SpecLean.Rd.uCast then some ``uCast_range
       else if fn == ``SpecLean.Rd.uOf then some ``uOf_range'
-      else if fn == ``SpecLean.Rd.bytesOf then some ``bytesOf_len else none
+      else if fn == ``SpecLean.Rd.bytesOf then some ``bytesOf_len
+      else if fn == ``SpecLean.Rd.lset then some ``lset_length else none
     if let some lem := lem then
       try
         let pf ← mkAppM lem #[d.toExpr]
@@ -217,6 +236,28 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
                   let (_, g2) ← (← g.assert (Lean.Name.mkSimple s!"hm_{(← getLCtx).numIndices}") cty.headBeta cpf).intro1P
                   g := g2
           let _ := xs
+        -- A set into a list with a range hypothesis `∀ y ∈ xs, P y`: add `∀ y ∈ ys, P y` when the
+        -- new item has `P` (proved without the callee facts, so this does not recurse).
+        if lem == ``lset_length && callees then
+          let xs := (lhs.getArg! 1).consumeMData
+          for d' in (← g.getDecl).lctx do
+            if d'.isImplementationDetail then continue
+            let t' := (← instantiateMVars d'.type).consumeMData
+            unless t'.isForall do continue
+            let body := t'.bindingBody!
+            unless body.isForall do continue
+            let dom := body.bindingDomain!
+            unless dom.isAppOfArity ``Membership.mem 5 && (dom.getArg! 3).consumeMData == xs do continue
+            let s ← saveState
+            try
+              let hS ← g.withContext (Term.exprToSyntax d.toExpr)
+              let hS' ← g.withContext (Term.exprToSyntax d'.toExpr)
+              let gs ← evalTacticAt (← `(tactic|
+                have := lset_forall $hS $hS' (by bridge_range0))) g
+              match gs with
+              | [g'] => g := g'
+              | _ => s.restore
+            catch _ => s.restore
         let (_, g') ← (← g.assert nm (← inferType pf) pf).intro1P
         let gs ← try evalTacticAt (← `(tactic| try simp only [bridge_ir] at $(mkIdent nm):ident)) g'
           catch _ => pure [g']
@@ -251,10 +292,30 @@ macro_rules | `(tactic| bridge_range0) => `(tactic| first
      | omega
      | (simp_all only; done)
      | (simp_all; done)
-     | (simp_all; omega)))
+     | (simp_all; omega))
+  | (bridge_facts0
+     simp only [bridge_ir, bridge_cast, bd, bridge_simp, List.length_append, List.length_drop,
+       List.length_cons, List.length_nil]
+     simp_all
+     done))
+
+/-- Close `IR_T ⟨…⟩` for a structure value: one goal per field, each from the context. -/
+syntax "bridge_ir_struct" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_ir_struct) => withMainContext do
+    let t := (← instantiateMVars (← getMainTarget)).consumeMData
+    let some c := t.getAppFn.constName? | throwError "bridge_ir_struct: not an IR goal"
+    unless c.getString!.startsWith "IR_" && (`Pythia.Bridge).isPrefixOf c do
+      throwError "bridge_ir_struct: not an IR goal"
+    unless t.appArg!.consumeMData.getAppFn.isConst do
+      throwError "bridge_ir_struct: not a structure value"
+    evalTactic (← `(tactic| (bridge_facts; unfold $(mkIdent c):ident; (repeat' apply And.intro); all_goals ((try dsimp only); first | assumption | omega | (intro _ _; first | (apply_assumption <;> assumption) | bridge_range0) | bridge_range0))))
 
 macro_rules | `(tactic| bridge_range) => `(tactic| first
   | assumption
+  | bridge_ir_struct
   | (bridge_facts; simp only [bd, bridge_cast, List.length_append, List.length_take, List.length_drop] at *; omega)
   | (simp only [Option.mem_def, Option.some.injEq, forall_eq', forall_eq]; first | bridge_range | (split <;> bridge_range))
   | (apply Nat.or_lt_two_pow <;> bridge_range)
@@ -295,6 +356,7 @@ elab_rules : tactic
       ← `(tactic| (simp only [uv, bridge_cast, bridge_const] at *; rw [uint8_and_beq _ _ (by omega) (by omega)]; simp_all)),
       ← `(tactic| (simp only [uv, bridge_cast, bridge_const] at *; rw [uint8_or _ _ (by omega) (by omega)]; simp_all)),
       ← `(tactic| (simp (disch := first | assumption | decide | omega) only [bridge_simp, bd, lslice_drop_one, toVec_prefix, BytesC.data_ofBytes, List.singleton_append]; done)),
+      ← `(tactic| (bridge_facts; simp (disch := first | assumption | bridge_decide | omega) only [bridge_simp, bd, lslice_drop_one, toVec_prefix, bridge_cast]; done)),
       ← `(tactic| (simp only [bridge_simp, bd, lslice_take] at *; subst_vars; rw [toVec_domain _ _ (by assumption) (by assumption)])),
       ← `(tactic| (bridge_facts; simp only [bridge_const, bridge_cast, bd, lslice_take] at *; rw [← ‹toVec 32 _ = _›]; exact toVec_domain _ _ (by assumption) (by assumption) _)),
       ← `(tactic| (simp (disch := assumption) only [bridge_simp, uv, lslice_take, lslice_take_one, lslice_drop, lslice_drop_one, List.map_drop, bd, toVec_toList, bridge_cast]; done)),
@@ -491,8 +553,14 @@ elab_rules : tactic
       try
         evalTactic tac
         if (← getUnsolvedGoals).isEmpty then return
+        if bridge.debug.get (← getOptions) then
+          for g' in ← getUnsolvedGoals do
+            IO.eprintln s!"bridge_leaf: goal left: {((← ppGoal g').pretty).takeRight 600}"
         s.restore
-      catch _ => s.restore
+      catch e =>
+        if bridge.debug.get (← getOptions) then
+          IO.eprintln s!"bridge_leaf: alternative failed: {((← e.toMessageData.toString).replace "\n" " ").take 400}"
+        s.restore
     throwError "bridge_leaf: no lemma fits"
 
 open Lean Meta Elab Tactic in

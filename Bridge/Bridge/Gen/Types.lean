@@ -46,28 +46,40 @@ set_option maxRecDepth 4000
 @[simp, bridge_simp, bridge_ir] theorem bits_Uint256 : UintC.bits Gen.Uint256 = 256 := rfl
 @[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_Root : BytesC.len Gen.Root = 32 := rfl
 @[simp, bridge_simp, bridge_cast] theorem data_Root (x : Gen.Root) : BytesC.data x = x.data := rfl
+@[simp, bridge_simp, bridge_cast] theorem ofBytes_Root (l : List UInt8) : (BytesC.ofBytes l : Gen.Root).data = l := rfl
 @[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_Version : BytesC.len Gen.Version = 4 := rfl
 @[simp, bridge_simp, bridge_cast] theorem data_Version (x : Gen.Version) : BytesC.data x = x.data := rfl
+@[simp, bridge_simp, bridge_cast] theorem ofBytes_Version (l : List UInt8) : (BytesC.ofBytes l : Gen.Version).data = l := rfl
 @[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_Hash32 : BytesC.len Gen.Hash32 = 32 := rfl
 @[simp, bridge_simp, bridge_cast] theorem data_Hash32 (x : Gen.Hash32) : BytesC.data x = x.data := rfl
+@[simp, bridge_simp, bridge_cast] theorem ofBytes_Hash32 (l : List UInt8) : (BytesC.ofBytes l : Gen.Hash32).data = l := rfl
 @[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_BLSPubkey : BytesC.len Gen.BLSPubkey = 48 := rfl
 @[simp, bridge_simp, bridge_cast] theorem data_BLSPubkey (x : Gen.BLSPubkey) : BytesC.data x = x.data := rfl
+@[simp, bridge_simp, bridge_cast] theorem ofBytes_BLSPubkey (l : List UInt8) : (BytesC.ofBytes l : Gen.BLSPubkey).data = l := rfl
 @[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_Bytes32 : BytesC.len Gen.Bytes32 = 32 := rfl
 @[simp, bridge_simp, bridge_cast] theorem data_Bytes32 (x : Gen.Bytes32) : BytesC.data x = x.data := rfl
+@[simp, bridge_simp, bridge_cast] theorem ofBytes_Bytes32 (l : List UInt8) : (BytesC.ofBytes l : Gen.Bytes32).data = l := rfl
 @[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_BLSSignature : BytesC.len Gen.BLSSignature = 96 := rfl
 @[simp, bridge_simp, bridge_cast] theorem data_BLSSignature (x : Gen.BLSSignature) : BytesC.data x = x.data := rfl
+@[simp, bridge_simp, bridge_cast] theorem ofBytes_BLSSignature (l : List UInt8) : (BytesC.ofBytes l : Gen.BLSSignature).data = l := rfl
 @[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_ExecutionAddress : BytesC.len Gen.ExecutionAddress = 20 := rfl
 @[simp, bridge_simp, bridge_cast] theorem data_ExecutionAddress (x : Gen.ExecutionAddress) : BytesC.data x = x.data := rfl
+@[simp, bridge_simp, bridge_cast] theorem ofBytes_ExecutionAddress (l : List UInt8) : (BytesC.ofBytes l : Gen.ExecutionAddress).data = l := rfl
 @[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_KZGCommitment : BytesC.len Gen.KZGCommitment = 48 := rfl
 @[simp, bridge_simp, bridge_cast] theorem data_KZGCommitment (x : Gen.KZGCommitment) : BytesC.data x = x.data := rfl
+@[simp, bridge_simp, bridge_cast] theorem ofBytes_KZGCommitment (l : List UInt8) : (BytesC.ofBytes l : Gen.KZGCommitment).data = l := rfl
 @[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_Domain : BytesC.len Gen.Domain = 32 := rfl
 @[simp, bridge_simp, bridge_cast] theorem data_Domain (x : Gen.Domain) : BytesC.data x = x.data := rfl
+@[simp, bridge_simp, bridge_cast] theorem ofBytes_Domain (l : List UInt8) : (BytesC.ofBytes l : Gen.Domain).data = l := rfl
 @[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_DomainType : BytesC.len Gen.DomainType = 4 := rfl
 @[simp, bridge_simp, bridge_cast] theorem data_DomainType (x : Gen.DomainType) : BytesC.data x = x.data := rfl
+@[simp, bridge_simp, bridge_cast] theorem ofBytes_DomainType (l : List UInt8) : (BytesC.ofBytes l : Gen.DomainType).data = l := rfl
 @[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_LogsBloom : BytesC.len Gen.LogsBloom = 256 := rfl
 @[simp, bridge_simp, bridge_cast] theorem data_LogsBloom (x : Gen.LogsBloom) : BytesC.data x = x.data := rfl
+@[simp, bridge_simp, bridge_cast] theorem ofBytes_LogsBloom (l : List UInt8) : (BytesC.ofBytes l : Gen.LogsBloom).data = l := rfl
 @[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_Bytes1 : BytesC.len Gen.Bytes1 = 1 := rfl
 @[simp, bridge_simp, bridge_cast] theorem data_Bytes1 (x : Gen.Bytes1) : BytesC.data x = x.data := rfl
+@[simp, bridge_simp, bridge_cast] theorem ofBytes_Bytes1 (l : List UInt8) : (BytesC.ofBytes l : Gen.Bytes1).data = l := rfl
 
 @[bridge_simp] def abs_Fork (x : Gen.Fork) : EpochProofs.Spec.Fork := { previous_version := (fun x : Gen.Version => toVec 4 x.data) x.previous_version, current_version := (fun x : Gen.Version => toVec 4 x.data) x.current_version, epoch := (fun x : Gen.Epoch => x.val) x.epoch }
 @[bridge_ir] def IR_Fork (x : Gen.Fork) : Prop := (fun x : Gen.Version => x.data.length = 4) x.previous_version ∧ (fun x : Gen.Version => x.data.length = 4) x.current_version ∧ (fun x : Gen.Epoch => x.val < 2 ^ 64) x.epoch
