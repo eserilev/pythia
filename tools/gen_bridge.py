@@ -129,6 +129,9 @@ class Model:
             if any(c is None for c in cs):
                 return None
             return self.prod_conv(rps, cs)
+        if rt.startswith("Option ") and h.startswith("Option "):
+            inner = self.conv(rt[7:], h[7:])
+            return None if inner is None else f"(Option.map {inner})"
         if rt.startswith("List ") and h.startswith("List "):
             inner = self.conv(rt[5:], h[5:])
             return None if inner is None else f"(List.map {inner})"
@@ -166,6 +169,8 @@ class Model:
         rt = strip_parens(rt)
         if len(split_prod(rt)) > 1:
             return "(fun _ => True)"
+        if rt.startswith("Option "):
+            return f"(fun o : Option ({self.rty(rt[7:])}) => ∀ y ∈ o, {self.ir(rt[7:])} y)"
         if rt.startswith("List "):
             return (f"(fun xs : List ({self.rty(rt[5:])}) => xs.length < 2 ^ 64 ∧ "
                     f"∀ y ∈ xs, {self.ir(rt[5:])} y)")
@@ -181,6 +186,8 @@ class Model:
 
     def rty(self, rt):
         rt = strip_parens(rt)
+        if rt.startswith("Option "):
+            return f"Option ({self.rty(rt[7:])})"
         ps = split_prod(rt)
         if len(ps) > 1:
             return " × ".join(f"({self.rty(p)})" for p in ps)
@@ -197,6 +204,52 @@ def beta(conv, arg):
     if mm:
         return re.sub(r"\bx\b", f"({arg})", mm.group(1))
     return f"{conv} {arg}"
+
+
+def gen_oracle(m):
+    """`OracleAgrees o`: the hand oracle `o` agrees with the readable oracle (`Spec`) on values in
+    range: `sha256`, each `hash_tree_root_T` whose type both models have, and the BLS functions."""
+    fields = dict(m.hd.get("Oracle", []))
+    encs = set(re.findall(r"^def enc_(\w+) ", m.rd_text, re.M))
+    lines = ["", "/-- The hand oracle `o` agrees with the oracle of the readable Lean on values in range. -/",
+             "structure OracleAgrees [Spec] (o : EpochProofs.Spec.Oracle) : Prop where",
+             "  hash : ∀ l : List UInt8, (Spec.sha256 l).length = 32 ∧ toVec 32 (Spec.sha256 l) = o.hash l"]
+    for f, ty in fields.items():
+        mm = re.fullmatch(r"hash_tree_root_(\w+)", f)
+        if not mm:
+            continue
+        t = mm.group(1)
+        hin = ty.split("→")[0].strip()
+        if t not in encs:
+            continue
+        conv = m.conv(t, hin)
+        if conv is None:
+            continue
+        ir = m.ir(t)
+        lines.append(f"  htr_{t} : ∀ x : {m.rty(t)}, {ir} x → ∃ r, htr enc_{t} x = .ok r ∧ "
+                     f"r.length = 32 ∧ toVec 32 r = o.{f} ({beta(conv, 'x')})")
+    if "bls_Verify" in fields:
+        lines.append("  bls_Verify : ∀ pk m sig : List UInt8, pk.length = 48 → m.length = 32 → "
+                     "sig.length = 96 → Spec.blsVerify pk m sig = "
+                     "o.bls_Verify (toVec 48 pk) (toVec 32 m) (toVec 96 sig)")
+    if "bls_FastAggregateVerify" in fields:
+        lines.append("  bls_FastAggregateVerify : ∀ (pks : List (List UInt8)) (m sig : List UInt8), "
+                     "(∀ pk ∈ pks, pk.length = 48) → m.length = 32 → sig.length = 96 → "
+                     "Spec.blsFastAggregateVerify pks m sig = "
+                     "o.bls_FastAggregateVerify (pks.map (toVec 48)) (toVec 32 m) (toVec 96 sig)")
+    if "bls_AggregatePKs" in fields:
+        lines.append("  bls_AggregatePKs : ∀ pks : List (List UInt8), (∀ pk ∈ pks, pk.length = 48) → "
+                     "(Spec.blsAggregatePKs pks).length = 48 ∧ "
+                     "toVec 48 (Spec.blsAggregatePKs pks) = o.bls_AggregatePKs (pks.map (toVec 48))")
+    if "bls_KeyValidate" in fields:
+        lines.append("  bls_KeyValidate : ∀ pk : List UInt8, pk.length = 48 → "
+                     "Spec.blsKeyValidate pk = o.bls_KeyValidate (toVec 48 pk)")
+    if "bls_SubtractPK" in fields:
+        lines.append("  bls_SubtractPK : ∀ a b : List UInt8, a.length = 48 → b.length = 48 → "
+                     "(Spec.blsG1Add a (Spec.blsG1Neg b)).length = 48 ∧ "
+                     "toVec 48 (Spec.blsG1Add a (Spec.blsG1Neg b)) = o.bls_SubtractPK (toVec 48 a) (toVec 48 b)")
+    lines.append("")
+    return lines
 
 
 def gen_types(m):
@@ -280,6 +333,7 @@ def gen_types(m):
         checks.append("Cfg." + c)
         out.append(f"@[bridge_const] theorem const_cfg_{c} : "
                    f"{beta(conv, f'(Gen.Cfg.default).{c}')} = {target} := by decide")
+    out += gen_oracle(m)
     out.append("attribute [bridge_simp] Hand EpochProofs.Spec.Preset.minimal")
     for c in sorted(rconst):
         if c not in checks:
@@ -315,6 +369,7 @@ def split_binders(sig):
             inner = sig[i + 1:j]
             if c == "(" and " : " in inner:
                 names, ty = inner.split(" : ", 1)
+                ty = ty.split(" := ")[0]
                 for nm in names.split():
                     out.append((nm, strip_parens(ty)))
             i = j + 1
@@ -327,12 +382,26 @@ def split_binders(sig):
 
 def fn_sigs(text, multiline):
     sigs = {}
-    pat = (r"^def ([A-Za-z_0-9]+) ((?:.|\n)*?) :=" if multiline
-           else r"^def ([A-Za-z_0-9]+) (.*?) :=")
-    for m in re.finditer(pat, text, re.M):
+    for m in re.finditer(r"^def ([A-Za-z_0-9]+) ", text, re.M):
         if m.group(1) in sigs:
             continue
-        binders, ret = split_binders(m.group(2).replace("\n", " "))
+        # The signature runs to the first `:=` outside parentheses.
+        i, d, sig = m.end(), 0, None
+        while i < len(text) - 1:
+            c = text[i]
+            if c in "([{":
+                d += 1
+            elif c in ")]}":
+                d -= 1
+            elif d == 0 and text.startswith(":=", i):
+                sig = text[m.end():i]
+                break
+            elif not multiline and c == "\n":
+                break
+            i += 1
+        if sig is None:
+            continue
+        binders, ret = split_binders(sig.replace("\n", " "))
         if ret is not None:
             sigs[m.group(1)] = (binders, ret)
     return sigs
@@ -371,6 +440,9 @@ def statement(m, name, rsigs, hsigs):
     rbs, rret = rsigs[name]
     hbs, hret = hsigs[name]
     rmap = dict(rbs)
+    oracle = False
+    if name == "compute_signing_root":
+        return signing_root_statement(m, rbs, hbs, hret)
     rm = re.fullmatch(r"SpecM (.+)", rret)
     if not rm:
         return None, "readable return"
@@ -381,7 +453,9 @@ def statement(m, name, rsigs, hsigs):
             args.append("Hand")
             continue
         if t == "Oracle":
-            return None, "oracle"
+            args.append("o")
+            oracle = True
+            continue
         if n not in rmap:
             return None, "parameters"
         c = m.conv(rmap[n], t)
@@ -406,7 +480,27 @@ def statement(m, name, rsigs, hsigs):
     rd_call = f"Gen.{name} " + " ".join(q(n) for n, _ in rbs) if rbs else f"Gen.{name}"
     hd_call = f"{HNS}.{name} " + " ".join(args) if args else f"{HNS}.{name}"
     post = m.ir(rret) if (rret in m.uints or rret in m.bytes) else "(fun _ => True)"
+    if oracle:
+        binders = [("o", "EpochProofs.Spec.Oracle")] + binders
+        irs = ["OracleAgrees «o»"] + irs
+        hd_call = hd_call.replace(" o ", " «o» ").replace(" o)", " «o»)")
+        if hd_call.endswith(" o"):
+            hd_call = hd_call[:-2] + " «o»"
     return Stmt(name, binders, irs, rd_call, hd_call, rc, pure, post), None
+
+
+def signing_root_statement(m, rbs, hbs, hret):
+    """`compute_signing_root`: the readable Lean takes the object, the hand spec takes its root."""
+    if [n for n, _ in rbs] != ["ssz_object", "domain"]:
+        return None, "parameters"
+    binders = [("o", "EpochProofs.Spec.Oracle"), ("ssz_object", "SszObj"), ("r", "List UInt8"),
+               ("domain", "Gen.Domain")]
+    irs = ["OracleAgrees «o»", "htrObj «ssz_object» = .ok «r»", "«r».length = 32",
+           "«domain».data.length = 32"]
+    st = Stmt("compute_signing_root", binders, irs, "Gen.compute_signing_root «ssz_object» «domain»",
+              f"{HNS}.compute_signing_root «o» (toVec 32 «r») (toVec 32 «domain».data)",
+              "(fun x : Gen.Root => toVec 32 x.data)", True, "(fun x : Gen.Root => x.data.length = 32)")
+    return st, None
 
 
 HEADER = """import {imp}

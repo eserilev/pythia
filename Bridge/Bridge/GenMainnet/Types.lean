@@ -374,6 +374,30 @@ attribute [bridge_simp] GenMainnet.WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA
 @[bridge_const] theorem const_cfg_MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA : ((GenMainnet.Cfg.default).MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA).val = Hand.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA := by decide
 @[bridge_const] theorem const_cfg_MIN_VALIDATOR_WITHDRAWABILITY_DELAY : ((GenMainnet.Cfg.default).MIN_VALIDATOR_WITHDRAWABILITY_DELAY).val = Hand.MIN_VALIDATOR_WITHDRAWABILITY_DELAY := by decide
 @[bridge_const] theorem const_cfg_SHARD_COMMITTEE_PERIOD : ((GenMainnet.Cfg.default).SHARD_COMMITTEE_PERIOD).val = Hand.SHARD_COMMITTEE_PERIOD := by decide
+
+/-- The hand oracle `o` agrees with the oracle of the readable Lean on values in range. -/
+structure OracleAgrees [Spec] (o : EpochProofs.Spec.Oracle) : Prop where
+  hash : ∀ l : List UInt8, (Spec.sha256 l).length = 32 ∧ toVec 32 (Spec.sha256 l) = o.hash l
+  htr_BeaconState : ∀ x : GenMainnet.BeaconState, IR_BeaconState x → ∃ r, htr enc_BeaconState x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_BeaconState (abs_BeaconState x)
+  htr_BeaconBlockHeader : ∀ x : GenMainnet.BeaconBlockHeader, IR_BeaconBlockHeader x → ∃ r, htr enc_BeaconBlockHeader x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_BeaconBlockHeader (abs_BeaconBlockHeader x)
+  htr_BeaconBlock : ∀ x : GenMainnet.BeaconBlock, IR_BeaconBlock x → ∃ r, htr enc_BeaconBlock x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_BeaconBlock (abs_BeaconBlock x)
+  htr_BeaconBlockBody : ∀ x : GenMainnet.BeaconBlockBody, IR_BeaconBlockBody x → ∃ r, htr enc_BeaconBlockBody x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_BeaconBlockBody (abs_BeaconBlockBody x)
+  htr_Epoch : ∀ x : GenMainnet.Epoch, (fun x : GenMainnet.Epoch => x.val < 2 ^ 64) x → ∃ r, htr enc_Epoch x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_Epoch ((x).val)
+  htr_SigningData : ∀ x : GenMainnet.SigningData, IR_SigningData x → ∃ r, htr enc_SigningData x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_SigningData (abs_SigningData x)
+  htr_ForkData : ∀ x : GenMainnet.ForkData, IR_ForkData x → ∃ r, htr enc_ForkData x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_ForkData (abs_ForkData x)
+  htr_AttestationData : ∀ x : GenMainnet.AttestationData, IR_AttestationData x → ∃ r, htr enc_AttestationData x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_AttestationData (abs_AttestationData x)
+  htr_VoluntaryExit : ∀ x : GenMainnet.VoluntaryExit, IR_VoluntaryExit x → ∃ r, htr enc_VoluntaryExit x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_VoluntaryExit (abs_VoluntaryExit x)
+  htr_DepositMessage : ∀ x : GenMainnet.DepositMessage, IR_DepositMessage x → ∃ r, htr enc_DepositMessage x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_DepositMessage (abs_DepositMessage x)
+  htr_BLSToExecutionChange : ∀ x : GenMainnet.BLSToExecutionChange, IR_BLSToExecutionChange x → ∃ r, htr enc_BLSToExecutionChange x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_BLSToExecutionChange (abs_BLSToExecutionChange x)
+  htr_ExecutionPayloadBid : ∀ x : GenMainnet.ExecutionPayloadBid, IR_ExecutionPayloadBid x → ∃ r, htr enc_ExecutionPayloadBid x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_ExecutionPayloadBid (abs_ExecutionPayloadBid x)
+  htr_PayloadAttestationData : ∀ x : GenMainnet.PayloadAttestationData, IR_PayloadAttestationData x → ∃ r, htr enc_PayloadAttestationData x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_PayloadAttestationData (abs_PayloadAttestationData x)
+  htr_ExecutionRequests : ∀ x : GenMainnet.ExecutionRequests, IR_ExecutionRequests x → ∃ r, htr enc_ExecutionRequests x = .ok r ∧ r.length = 32 ∧ toVec 32 r = o.hash_tree_root_ExecutionRequests (abs_ExecutionRequests x)
+  bls_Verify : ∀ pk m sig : List UInt8, pk.length = 48 → m.length = 32 → sig.length = 96 → Spec.blsVerify pk m sig = o.bls_Verify (toVec 48 pk) (toVec 32 m) (toVec 96 sig)
+  bls_FastAggregateVerify : ∀ (pks : List (List UInt8)) (m sig : List UInt8), (∀ pk ∈ pks, pk.length = 48) → m.length = 32 → sig.length = 96 → Spec.blsFastAggregateVerify pks m sig = o.bls_FastAggregateVerify (pks.map (toVec 48)) (toVec 32 m) (toVec 96 sig)
+  bls_AggregatePKs : ∀ pks : List (List UInt8), (∀ pk ∈ pks, pk.length = 48) → (Spec.blsAggregatePKs pks).length = 48 ∧ toVec 48 (Spec.blsAggregatePKs pks) = o.bls_AggregatePKs (pks.map (toVec 48))
+  bls_KeyValidate : ∀ pk : List UInt8, pk.length = 48 → Spec.blsKeyValidate pk = o.bls_KeyValidate (toVec 48 pk)
+  bls_SubtractPK : ∀ a b : List UInt8, a.length = 48 → b.length = 48 → (Spec.blsG1Add a (Spec.blsG1Neg b)).length = 48 ∧ toVec 48 (Spec.blsG1Add a (Spec.blsG1Neg b)) = o.bls_SubtractPK (toVec 48 a) (toVec 48 b)
+
 attribute [bridge_simp] Hand EpochProofs.Spec.Preset.mainnet
 attribute [bridge_simp] GenMainnet.BLS_WITHDRAWAL_PREFIX
 attribute [bridge_simp] GenMainnet.BUILDER_WITHDRAWAL_PREFIX
