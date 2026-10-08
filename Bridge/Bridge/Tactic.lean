@@ -332,22 +332,20 @@ open Lean Meta Elab Tactic in
 elab_rules : tactic
   | `(tactic| bridge_mem) => withMainContext <| withTransparency .default do
     let lctx ← getLCtx
-    let mut mems : Array Lean.Expr := #[]
+    let mut mems : Array (Lean.Expr × Lean.Expr) := #[]
     let mut alls : Array Lean.Expr := #[]
     for d in lctx do
       if d.isImplementationDetail then continue
       let t := (← instantiateMVars d.type).consumeMData
-      if t.isAppOfArity ``Membership.mem 5 then mems := mems.push d.toExpr
+      if t.isAppOfArity ``Membership.mem 5 then mems := mems.push (d.toExpr, t.getArg! 4)
       else if t.isForall && t.bindingBody!.isForall &&
           t.bindingBody!.bindingDomain!.isAppOfArity ``Membership.mem 5 then
         alls := alls.push d.toExpr
     let g ← getMainGoal
     for h in alls do
-      for m in mems do
+      for (m, a) in mems do
         let s ← saveState
         try
-          let mt ← inferType m
-          let a := (mt.consumeMData.getArg! 4)
           let pf := mkApp2 h a m
           let ty ← inferType pf
           if ← isDefEq ty (← g.getType) then
@@ -518,6 +516,7 @@ open Lean Meta Elab Tactic in
 elab_rules : tactic
   | `(tactic| bridge_eqv) => withMainContext do
     let mut facts : Array Lean.Term := #[]
+    let mut mapFacts : Array Lean.Term := #[]
     for d in (← getLCtx) do
       if d.isImplementationDetail then continue
       let t := (← instantiateMVars d.type).consumeMData
@@ -530,6 +529,8 @@ elab_rules : tactic
       if lhsFn == some ``toVec || lhsFn == some ``List.map || isVal ||
           (lhs.isFVar && !(← inferType lhs).isProp) then
         facts := facts.push (← Term.exprToSyntax d.toExpr)
+      if lhsFn == some ``List.map then
+        mapFacts := mapFacts.push (← Term.exprToSyntax d.toExpr)
     let args ← facts.mapM fun f => `(Lean.Parser.Tactic.simpLemma| $f:term)
     -- the facts first in their own form, then again after the goal is normalized
     unless facts.isEmpty do
@@ -541,6 +542,10 @@ elab_rules : tactic
       evalTactic (← `(tactic| try simp only [$args,*]))
     if (← getUnsolvedGoals).isEmpty then return
     evalTactic (← `(tactic| try simp only [bridge_const, Option.map_some, Option.map_none]))
+    if (← getUnsolvedGoals).isEmpty then return
+    -- a hand list that the readable side has only through its length: `length (map f x)`
+    for f in mapFacts do
+      evalTactic (← `(tactic| try simp only [← $f:term, List.length_map]))
     if (← getUnsolvedGoals).isEmpty then return
     evalTactic (← `(tactic| try simp only [bridge_abs, bridge_cast, Bool.and_assoc, Bool.or_assoc, gt_iff_lt, ge_iff_le]))
     if (← getUnsolvedGoals).isEmpty then return
@@ -711,10 +716,10 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
   if fn == ``SpecLean.Rd.sumU then return #[← `(tactic| (apply sim_sumU; $close))]
   if fn == ``SpecLean.Rd.pyMin then
     return #[← `(tactic| (apply sim_pyMin2; intro _ _; rfl)),
-      ← `(tactic| (refine sim_hand_eq (sim_pyMin2 (fun _ _ => rfl) _ _) ?_; simp only [bridge_const, bridge_cast]))]
+      ← `(tactic| (refine sim_hand_eq (sim_pyMin2 (fun _ _ => rfl) _ _) ?_; first | (simp only [bridge_const, bridge_cast]; done) | bridge_eqv))]
   if fn == ``SpecLean.Rd.pyMax then
     return #[← `(tactic| (apply sim_pyMax2; intro _ _; rfl)),
-      ← `(tactic| (refine sim_hand_eq (sim_pyMax2 (fun _ _ => rfl) _ _) ?_; simp only [bridge_const, bridge_cast]))]
+      ← `(tactic| (refine sim_hand_eq (sim_pyMax2 (fun _ _ => rfl) _ _) ?_; first | (simp only [bridge_const, bridge_cast]; done) | bridge_eqv))]
   if fn == ``SpecLean.Rd.lget && a.getAppNumArgs == 3 then
     let mut out := #[← `(tactic| apply sim_lget), ← `(tactic| apply sim_lget_last)]
     -- the same with the index rewritten: the item map is `abs_T` for the item type `T`

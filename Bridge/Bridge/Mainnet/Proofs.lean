@@ -560,4 +560,59 @@ theorem hand_get_index_for_new_builder (h_get_current_epoch : spec_get_current_e
   | some j =>
     have hj := ho j rfl
     exact ⟨rfl, fun x hx => by cases hx; show j < 2 ^ 64; omega⟩
+/-- `assert slot < state.slot <= slot + SLOTS_PER_HISTORICAL_ROOT`: one readable `assert` of a
+chained comparison against two hand checks. -/
+theorem hand_get_block_root_at_slot : spec_get_block_root_at_slot := by
+  intro st slot hr0 hr1
+  bridge_split
+  unfold GenMainnet.get_block_root_at_slot EpochProofs.Spec.get_block_root_at_slot
+  simp only [bind_pure]
+  have hsl : (abs_BeaconState st).slot = st.slot.val := rfl
+  rw [hsl]
+  have hsp : Hand.SLOTS_PER_HISTORICAL_ROOT = GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val := by decide
+  rw [hsp]
+  by_cases h1 : slot.val < st.slot.val
+  · have d1 : decide (uv slot < uv st.slot) = true := by simp [uv]; exact h1
+    rw [if_pos d1, if_neg (by simpa using h1)]
+    have hS : GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val = 8192 := rfl
+    by_cases ho : slot.val + GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val < 2 ^ 64
+    · have e1 : (uOp .add (uv slot) (uv GenMainnet.SLOTS_PER_HISTORICAL_ROOT) : SpecM GenMainnet.Slot) =
+          .ok ⟨slot.val + GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val⟩ := by
+        rw [show uv slot = ((slot.val : Nat) : Int) from rfl,
+          show uv GenMainnet.SLOTS_PER_HISTORICAL_ROOT = ((GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val : Nat) : Int) from rfl,
+          uOp_add_nat (α := GenMainnet.Slot) rfl, if_pos ho]; rfl
+      have e2 : EpochProofs.Spec.uint64Add slot.val GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val =
+          .ok (slot.val + GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val) := by
+        unfold EpochProofs.Spec.uint64Add
+        rw [if_pos (by simpa [EpochProofs.Spec.UINT64_SIZE] using ho)]; rfl
+      rw [e1, ok_bind, e2, ok_bind, pure_bind]
+      by_cases h2 : st.slot.val ≤ slot.val + GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val
+      · have d2 : decide (uv st.slot ≤ uv (⟨slot.val + GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val⟩ : GenMainnet.Slot)) = true := by
+          simp [uv]; omega
+        rw [d2, if_neg (by simpa using h2)]
+        show SimI _ _ (pure () >>= fun _ => _) (pure PUnit.unit >>= fun _ => _)
+        rw [pure_bind, pure_bind]
+        rw [show uv slot = ((slot.val : Nat) : Int) from rfl,
+          show uv GenMainnet.SLOTS_PER_HISTORICAL_ROOT = ((GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val : Nat) : Int) from rfl,
+          uOp_mod_ok (α := GenMainnet.Slot) rfl slot.val _ (by rw [hS]; decide) hr1, ok_bind]
+        refine ⟨sim_lget (fun x : GenMainnet.Root => toVec 32 x.data) st.block_roots _, ?_⟩
+        intro x hx
+        have hall : ∀ y ∈ st.block_roots, List.length y.data = 32 := by assumption
+        exact hall x (lget_mem hx)
+      · have d2 : decide (uv st.slot ≤ uv (⟨slot.val + GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val⟩ : GenMainnet.Slot)) = false := by
+          simp [uv]; omega
+        rw [d2, if_pos (by simpa using h2)]
+        exact ⟨rfl, fun x hx => by cases hx⟩
+    · have e1 : (uOp .add (uv slot) (uv GenMainnet.SLOTS_PER_HISTORICAL_ROOT) : SpecM GenMainnet.Slot) = .error .bug := by
+        rw [show uv slot = ((slot.val : Nat) : Int) from rfl,
+          show uv GenMainnet.SLOTS_PER_HISTORICAL_ROOT = ((GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val : Nat) : Int) from rfl,
+          uOp_add_nat (α := GenMainnet.Slot) rfl, if_neg ho]
+      have e2 : EpochProofs.Spec.uint64Add slot.val GenMainnet.SLOTS_PER_HISTORICAL_ROOT.val = .error .overflow := by
+        unfold EpochProofs.Spec.uint64Add
+        rw [if_neg (by simpa [EpochProofs.Spec.UINT64_SIZE] using ho)]; rfl
+      rw [e1, err_bind, err_bind, e2, err_bind]
+      exact ⟨rfl, fun x hx => by cases hx⟩
+  · have d1 : ¬ decide (uv slot < uv st.slot) = true := by simp [uv]; omega
+    rw [if_neg d1, if_pos (by simpa using h1)]
+    exact ⟨rfl, fun x hx => by cases hx⟩
 end Pythia.Bridge.Mainnet

@@ -371,12 +371,18 @@ theorem cond_is_slashable_validator  : spec_is_slashable_validator := by
 
 theorem full_is_slashable_validator : spec_is_slashable_validator := cond_is_slashable_validator 
 
+theorem cond_get_block_root_at_slot  : spec_get_block_root_at_slot := hand_get_block_root_at_slot 
+
+theorem full_get_block_root_at_slot : spec_get_block_root_at_slot := hand_get_block_root_at_slot 
+
 theorem cond_get_block_root (h_compute_start_slot_at_epoch : spec_compute_start_slot_at_epoch) (h_get_block_root_at_slot : spec_get_block_root_at_slot) : spec_get_block_root := by
   intro «state» «epoch» hr0 hr1
   bridge_split
   unfold GenMainnet.get_block_root EpochProofs.Spec.get_block_root
   try simp only [bind_pure]
   bridge_main
+
+theorem full_get_block_root : spec_get_block_root := cond_get_block_root full_compute_start_slot_at_epoch full_get_block_root_at_slot
 
 theorem cond_is_attestation_same_slot (h_get_block_root_at_slot : spec_get_block_root_at_slot) : spec_is_attestation_same_slot := by
   intro «state» «data» hr0 hr1
@@ -385,12 +391,23 @@ theorem cond_is_attestation_same_slot (h_get_block_root_at_slot : spec_get_block
   try simp only [bind_pure]
   bridge_main
 
+theorem full_is_attestation_same_slot : spec_is_attestation_same_slot := cond_is_attestation_same_slot full_get_block_root_at_slot
+
 theorem cond_compute_shuffled_index (h_compute_shuffled_permutation : spec_compute_shuffled_permutation) : spec_compute_shuffled_index := by
   intro «o» «index» «index_count» «seed» hr0 hr1 hr2 hr3
   bridge_split
   unfold GenMainnet.compute_shuffled_index EpochProofs.Spec.compute_shuffled_index
   try simp only [bind_pure]
   bridge_main
+
+theorem cond_get_committee_count_per_slot (h_get_active_validator_indices : spec_get_active_validator_indices) : spec_get_committee_count_per_slot := by
+  intro «state» «epoch» hr0 hr1
+  bridge_split
+  unfold GenMainnet.get_committee_count_per_slot EpochProofs.Spec.get_committee_count_per_slot
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_get_committee_count_per_slot : spec_get_committee_count_per_slot := cond_get_committee_count_per_slot full_get_active_validator_indices
 
 theorem cond_get_randao_mix  : spec_get_randao_mix := by
   intro «state» «epoch» hr0 hr1
@@ -666,9 +683,9 @@ theorem cond_verify_execution_payload_bid_signature (h_compute_signing_root : sp
 theorem full_verify_execution_payload_bid_signature : spec_verify_execution_payload_bid_signature := cond_verify_execution_payload_bid_signature full_compute_signing_root full_get_domain
 
 -- Mapped functions: 106, 83 without a loop, 74 of them with a statement.
--- Conditional: 47 mapped, 28 callees (75 of 115 statements without a loop).
--- Full: 46 mapped, 23 callees.
--- Not proved: add_builder_to_registry, add_flag, add_validator_to_registry, apply_pending_deposit, bytes_to_uint64, compute_committee, compute_consolidation_epoch_and_update_churn, compute_exit_epoch_and_update_churn, compute_proposer_indices, get_attestation_participation_flag_indices, get_beacon_proposer_indices, get_block_root_at_slot, get_committee_count_per_slot, get_indexed_attestation, get_next_sync_committee, get_unslashed_participating_indices, get_validator_from_deposit, initiate_validator_exit, is_slashable_attestation_data, is_valid_indexed_attestation, is_valid_indexed_payload_attestation, process_block_header, process_bls_to_execution_change, process_builder_deposit_request, process_builder_exit_request, process_consolidation_request, process_epoch, process_eth1_data, process_historical_summaries_update, process_justification_and_finalization, process_proposer_lookahead, process_ptc_window, process_randao, process_slot, process_voluntary_exit, process_withdrawal_request, process_withdrawals, settle_builder_payment, slash_validator, weigh_justification_and_finalization.
+-- Conditional: 47 mapped, 30 callees (77 of 115 statements without a loop).
+-- Full: 46 mapped, 27 callees.
+-- Not proved: add_builder_to_registry, add_flag, add_validator_to_registry, apply_pending_deposit, bytes_to_uint64, compute_committee, compute_consolidation_epoch_and_update_churn, compute_exit_epoch_and_update_churn, compute_proposer_indices, get_attestation_participation_flag_indices, get_beacon_proposer_indices, get_indexed_attestation, get_next_sync_committee, get_unslashed_participating_indices, get_validator_from_deposit, initiate_validator_exit, is_slashable_attestation_data, is_valid_indexed_attestation, is_valid_indexed_payload_attestation, process_block_header, process_bls_to_execution_change, process_builder_deposit_request, process_builder_exit_request, process_consolidation_request, process_epoch, process_eth1_data, process_historical_summaries_update, process_justification_and_finalization, process_proposer_lookahead, process_ptc_window, process_randao, process_slot, process_voluntary_exit, process_withdrawal_request, process_withdrawals, settle_builder_payment, slash_validator, weigh_justification_and_finalization.
 -- Loops proved by hand (Proofs.lean): get_index_for_new_builder, get_pending_balance_to_withdraw, get_pending_balance_to_withdraw_for_builder, integer_squareroot.
 -- Loops (statement only): compute_balance_weighted_selection, compute_ptc, compute_shuffled_permutation, get_attesting_indices, get_builder_withdrawals, get_builders_sweep_withdrawals, get_flag_index_deltas, get_inactivity_penalty_deltas, get_pending_partial_withdrawals, get_validators_sweep_withdrawals, process_attestation, process_attester_slashing, process_builder_pending_payments, process_effective_balance_updates, process_inactivity_updates, process_pending_consolidations, process_proposer_slashing, process_registry_updates, process_rewards_and_penalties, process_slashings, process_sync_aggregate.
 -- No statement (parameters): apply_withdrawals, decrease_balance, increase_balance, process_block, process_execution_payload_bid, process_operations, process_payload_attestation, process_pending_deposits, process_slots, state_transition.
