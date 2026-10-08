@@ -76,6 +76,12 @@ macro "bridge_nat" : tactic => `(tactic| try simp only [EpochProofs.Spec.Epoch,
 /-- Relate the first steps of a bind: a primitive lemma or a callee theorem. -/
 syntax "bridge_leaf" "[" ident,* "]" : tactic
 
+open Lean Meta Elab Tactic in
+/-- Print the main goal to stderr (for debugging the bridge tactic). -/
+elab "bridge_dump" : tactic => do
+  let g ← getMainGoal
+  IO.eprintln s!"bridge_dump: {← ppGoal g}"
+
 /-- Add range facts from the hypotheses `r = .ok x`. -/
 syntax "bridge_facts0" : tactic
 /-- `bridge_facts0` and the range facts of callee results. -/
@@ -167,8 +173,8 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
         -- A member of a list with a range hypothesis `∀ y ∈ xs, P y`: add `P x` and its fields.
         if lem == ``lget_mem then
           let pty ← inferType pf
-          let xs := pty.getArg! 4
-          let x := pty.getArg! 3
+          let xs := pty.getArg! 3
+          let x := (t.getArg! 2).consumeMData.appArg!
           for d' in (← g.getDecl).lctx do
             if d'.isImplementationDetail then continue
             let t' := (← instantiateMVars d'.type).consumeMData
@@ -228,6 +234,7 @@ macro_rules | `(tactic| bridge_range0) => `(tactic| first
 macro_rules | `(tactic| bridge_range) => `(tactic| first
   | assumption
   | (apply Nat.or_lt_two_pow <;> bridge_range)
+  | (apply Nat.lt_of_le_of_lt Nat.and_le_left; bridge_range)
   | (simp only [bridge_simp]; done)
   | decide
   | (simp only [bridge_simp, List.length_map]; first | assumption | omega)
@@ -260,6 +267,10 @@ elab_rules : tactic
       ← `(tactic| (simp only [bridge_const]; done)),
       ← `(tactic| (subst_vars; with_reducible rfl)),
       ← `(tactic| (subst_vars; with_reducible exact Iff.rfl)),
+      ← `(tactic| (subst_vars; simp (disch := omega) only [bridge_simp, uv, bridge_cast]; done)),
+      ← `(tactic| (simp only [uv, bridge_cast, bridge_const] at *; rw [uint8_and_beq _ _ (by omega) (by omega)]; simp_all)),
+      ← `(tactic| (simp only [uv, bridge_cast, bridge_const] at *; rw [uint8_or _ _ (by omega) (by omega)]; simp_all)),
+      ← `(tactic| (simp (disch := first | assumption | decide | omega) only [bridge_simp, bd, lslice_drop_one, toVec_prefix, BytesC.data_ofBytes, List.singleton_append]; done)),
       ← `(tactic| (simp (disch := assumption) only [bridge_simp, uv, lslice_take, lslice_take_one, lslice_drop, lslice_drop_one, List.map_drop, bd, toVec_toList, bridge_cast]; done)),
       ← `(tactic| (simp only [uv, bridge_const, bridge_cast] at *; simp_all only; done)),
       ← `(tactic| (simp only [uv, bridge_const, bridge_cast] at *; omega)),
@@ -283,7 +294,7 @@ elab_rules : tactic
           pure (← getUnsolvedGoals).isEmpty)
         (fun e => do
           if debug then
-            logInfo m!"bridge_close: {alt} failed: {(← e.toMessageData.toString).take 200}"
+            IO.eprintln s!"bridge_close: alternative failed: {((← e.toMessageData.toString).replace "\n" " ").take 300}"
           pure false)
       if ok then return
       s.restore
@@ -348,6 +359,9 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
         | ``SpecLean.BinOp.bitAnd => some (mkIdent ``sim_uOp_and_pure)
         | ``SpecLean.BinOp.bitOr => some (mkIdent ``sim_uOp_or_pure)
         | _ => none
+      let notArg := (a.getArg! 4).consumeMData.isAppOfArity ``Int.not 1
+      if op == ``SpecLean.BinOp.bitAnd && notArg then
+        return #[← `(tactic| (apply sim_uOp_andnot_pure; $close))]
       match lem with
       | some l => return #[← `(tactic| (apply $l:ident; $close))]
       | none => return #[]
@@ -458,6 +472,21 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
     if let some gs ← tryAt (evalTactic (← `(tactic| exact sim_pure _ _ _ (by bridge_close)))) g then
       return gs
     return [g]
+  if isBind r && isIte h &&
+      (r.getArg! 4).consumeMData.getAppFn.constName? == some ``SpecLean.Rd.iOp then
+    let tacP : TacticM Unit := do
+      evalTactic (← `(tactic| apply sim_pow_uOf))
+      onTag `hb (← `(tactic| decide))
+      onTag `hk (← `(tactic| bridge_range))
+      onTag `hK (← `(tactic| intro _))
+    if let some gs ← continueWith (← tryAt tacP g) then return gs
+  if isBind r && isIte h &&
+      (r.getArg! 4).consumeMData.getAppFn.constName? == some ``SpecLean.Rd.assert then
+    let tacA : TacticM Unit := do
+      evalTactic (← `(tactic| apply sim_assert))
+      onTag `hc (← `(tactic| bridge_close))
+      onTag `hK (← `(tactic| intro _))
+    if let some gs ← continueWith (← tryAt tacA g) then return gs
   if isBind r then
     let a := (r.getArg! 4).consumeMData
     -- a readable step that is `pure _`
@@ -481,6 +510,10 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
     let tac2 : TacticM Unit := do
       unless isGenFn aFn || aFn == ``SpecLean.Rd.uOp do
         throwError "bridge: not a call"
+      let k := (r.getArg! 5).consumeMData
+      let kb := if k.isLambda then k.bindingBody!.consumeMData else k
+      if kb.getAppFn.constName? == some ``SpecLean.Rd.uCast then
+        throwError "bridge: a cast follows"
       evalTactic (← `(tactic| apply sim_bind_val))
       onTag `hA (← `(tactic| bridge_callee [$hs,*]))
       onTag `hK (← `(tactic| intro x hx hfx))
@@ -493,6 +526,15 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
           | refine sim_bind_l _ (uOp_mod_ok (by decide) _ _ (by bridge_range) (by bridge_range)) ?_
           | refine sim_bind_l _ (uOp_div_ok (by decide) _ _ (by bridge_range) (by bridge_range)) ?_))
       if let some gs ← continueWith (← tryAt tac7 g) then return gs
+    -- a readable `bytesOf` of the right length
+    if aFn == ``SpecLean.Rd.bytesOf then
+      let tac9 : TacticM Unit :=
+        evalTactic (← `(tactic| refine sim_bind_l _ (bytesOf_ok _ (by
+          bridge_facts0
+          simp only [bridge_simp, bd, lslice_drop_one, List.length_append, List.length_drop,
+            List.length_cons, List.length_nil]
+          first | omega | (bridge_dump; omega))) ?_))
+      if let some gs ← continueWith (← tryAt tac9 g) then return gs
     -- a readable step that cannot fail: an append or a list of no limit
     if aFn == ``SpecLean.Rd.lappend || aFn == ``SpecLean.Rd.lfrom then
       let tac6 : TacticM Unit :=

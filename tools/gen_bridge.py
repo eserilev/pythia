@@ -209,6 +209,7 @@ def gen_types(m):
                    f"(UintC.ofNat n : Gen.{u}).val = n := rfl")
         out.append(f"@[simp, bridge_simp, bridge_ir] theorem bits_{u} : UintC.bits Gen.{u} = {bits} := rfl")
     for b, n in m.bytes.items():
+        out.append(f"@[simp, bridge_simp, bridge_ir, bridge_cast] theorem len_{b} : BytesC.len Gen.{b} = {n} := rfl")
         out.append(f"@[simp, bridge_simp, bridge_cast] theorem data_{b} (x : Gen.{b}) : BytesC.data x = x.data := rfl")
     out.append("")
     done, skipped = [], []

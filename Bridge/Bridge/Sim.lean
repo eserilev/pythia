@@ -34,6 +34,18 @@ theorem toVec_toList (n : Nat) (l : List UInt8) (h : l.length = n) : (toVec n l)
   intro i h1 h2
   simp [toVec, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2]
 
+/-- A 32-byte vector with its first byte replaced, as the hand spec writes it. -/
+theorem toVec_prefix (p : UInt8) (l : List UInt8) (hl : l.length = 32) (h : 1 + (min 32 32 - 1) = 32) :
+    toVec 32 ([p] ++ l.drop 1) = (#v[p] ++ (toVec 32 l).extract 1 32).cast h := by
+  apply Vector.toList_inj.mp
+  rw [toVec_toList _ _ (by simp [hl])]
+  simp [Vector.toList_cast, Vector.toList_append, Vector.toList_extract, toVec_toList _ _ hl]
+  rw [List.take_of_length_le (by simp [hl])]
+
+theorem bytesOf_ok {β : Type} [BytesC β] (b : List UInt8) (h : b.length = BytesC.len β) :
+    (bytesOf β b : SpecM β) = .ok (BytesC.ofBytes b) := by
+  unfold bytesOf; rw [if_pos h]; rfl
+
 def Sim {α β : Type} (f : α → β) (r : SpecM α) (h : HM β) : Prop :=
   r.map f = h.mapError errClass
 
@@ -172,12 +184,33 @@ theorem sim_pure_and {α : Type} {f : α → Bool} {R : SpecM α} (a b : Bool)
     (hs : Sim f R (if a = true then pure b else pure false)) : Sim f R (pure (a && b)) := by
   cases a <;> simpa using hs
 
+/-- A readable `assert c` against the hand `if ¬P then throw .assertionFailed`. -/
+theorem sim_assert {β β' : Type} {g : β → β'} (c : Bool) (P : Prop) {_ : Decidable P}
+    {K : Unit → SpecM β} {L : PUnit → HM β'} (hc : c = true ↔ P) (hK : P → Sim g (K ()) (L ())) :
+    Sim g (assert c >>= K)
+      (if ¬P then (throw .assertionFailed >>= L) else (pure PUnit.unit >>= L)) := by
+  by_cases h : P
+  · rw [if_neg (fun hn => hn h)]
+    have hc' : c = true := hc.mpr h
+    subst hc'
+    exact hK h
+  · rw [if_pos h]
+    have hc' : c = false := by cases c <;> simp_all
+    subst hc'
+    rfl
+
 /-! ## Uint arithmetic -/
 
 theorem uOf_ok {α : Type} [UintC α] (n : Nat) (hb : UintC.bits α = 64) (hn : n < 2 ^ 64) :
     (uOf α (n : Int) : SpecM α) = .ok (UintC.ofNat n) := by
   unfold uOf
   rw [if_pos ⟨Int.natCast_nonneg n, by rw [hb]; exact_mod_cast hn⟩]
+  rfl
+
+theorem uOf_okB {α : Type} [UintC α] (n : Nat) (hn : n < 2 ^ UintC.bits α) :
+    (uOf α (n : Int) : SpecM α) = .ok (UintC.ofNat n) := by
+  unfold uOf
+  rw [if_pos ⟨Int.natCast_nonneg n, by exact_mod_cast hn⟩]
   rfl
 
 theorem uOf_neg {α : Type} [UintC α] (z : Int) (hb : UintC.bits α = 64)
@@ -268,8 +301,8 @@ theorem sim_uOp_add_pure {α : Type} [UintC α] (hb : UintC.bits α = 64) (a b :
     uOf_ok _ hb hs, map_val_ofNat]
   rfl
 
-theorem sim_uOp_and_pure {α : Type} [UintC α] (hb : UintC.bits α = 64) (a b : Int) (n m : Nat)
-    (han : a = n) (hbm : b = m) (hn : n < 2 ^ 64) :
+theorem sim_uOp_and_pure {α : Type} [UintC α] (a b : Int) (n m : Nat)
+    (han : a = n) (hbm : b = m) (hn : n < 2 ^ UintC.bits α) :
     Sim UintC.val (uOp .bitAnd a b : SpecM α) (pure (n &&& m)) := by
   subst han hbm
   unfold uOp Sim
@@ -277,11 +310,34 @@ theorem sim_uOp_and_pure {α : Type} [UintC α] (hb : UintC.bits α = 64) (a b :
   show Except.map UintC.val (uOf α (pyAnd (Int.ofNat n) (Int.ofNat m))) = _
   simp only [pyAnd]
   rw [show (Int.ofNat (n &&& m)) = ((n &&& m : Nat) : Int) from rfl,
-    uOf_ok _ hb (Nat.lt_of_le_of_lt Nat.and_le_left hn), map_val_ofNat]
+    uOf_okB _ (Nat.lt_of_le_of_lt Nat.and_le_left hn), map_val_ofNat]
   rfl
 
-theorem sim_uOp_or_pure {α : Type} [UintC α] (hb : UintC.bits α = 64) (a b : Int) (n m : Nat)
-    (han : a = n) (hbm : b = m) (hn : n < 2 ^ 64) (hm : m < 2 ^ 64) :
+theorem xor_and_eq (a b : Nat) (ha : a < 2 ^ 64) : a ^^^ (a &&& b) = a &&& (2 ^ 64 - 1 ^^^ b) := by
+  apply Nat.eq_of_testBit_eq
+  intro i
+  simp only [Nat.testBit_xor, Nat.testBit_and, Nat.testBit_two_pow_sub_one]
+  by_cases hi : i < 64
+  · cases a.testBit i <;> cases b.testBit i <;> simp [hi]
+  · have : a.testBit i = false :=
+      Nat.testBit_lt_two_pow (Nat.lt_of_lt_of_le ha (Nat.pow_le_pow_right (by decide) (by omega)))
+    simp [this, hi]
+
+/-- `x & ~m` on a Python `int`: the readable `Int.not` against the hand `UINT64_MAX ^^^ m`. -/
+theorem sim_uOp_andnot_pure {α : Type} [UintC α] (hb : UintC.bits α = 64) (a b : Int) (n m : Nat)
+    (han : a = n) (hbm : b = m) (hn : n < 2 ^ 64) :
+    Sim UintC.val (uOp .bitAnd a b.not : SpecM α) (pure (n &&& (2 ^ 64 - 1 ^^^ m))) := by
+  subst han hbm
+  unfold uOp Sim
+  simp only [erase, intArith, mapError_ok, ok_bind]
+  show Except.map UintC.val (uOf α (pyAnd (Int.ofNat n) (Int.negSucc m))) = _
+  simp only [pyAnd]
+  rw [show (Int.ofNat (n ^^^ (n &&& m))) = ((n ^^^ (n &&& m) : Nat) : Int) from rfl, xor_and_eq n m hn,
+    uOf_okB _ (by rw [hb]; exact Nat.lt_of_le_of_lt Nat.and_le_left hn), map_val_ofNat]
+  rfl
+
+theorem sim_uOp_or_pure {α : Type} [UintC α] (a b : Int) (n m : Nat)
+    (han : a = n) (hbm : b = m) (hn : n < 2 ^ UintC.bits α) (hm : m < 2 ^ UintC.bits α) :
     Sim UintC.val (uOp .bitOr a b : SpecM α) (pure (n ||| m)) := by
   subst han hbm
   unfold uOp Sim
@@ -289,7 +345,7 @@ theorem sim_uOp_or_pure {α : Type} [UintC α] (hb : UintC.bits α = 64) (a b : 
   show Except.map UintC.val (uOf α (pyOr (Int.ofNat n) (Int.ofNat m))) = _
   simp only [pyOr]
   rw [show (Int.ofNat (n ||| m)) = ((n ||| m : Nat) : Int) from rfl,
-    uOf_ok _ hb (Nat.or_lt_two_pow hn hm), map_val_ofNat]
+    uOf_okB _ (Nat.or_lt_two_pow hn hm), map_val_ofNat]
   rfl
 
 theorem fdiv_nat (a b : Nat) : (a : Int).fdiv (b : Int) = ((a / b : Nat) : Int) := by
@@ -343,6 +399,70 @@ theorem uint64Mod_ok (a b : Nat) (hb0 : b ≠ 0) : EpochProofs.Spec.uint64Mod a 
 
 theorem uint64Div_ok (a b : Nat) (hb0 : b ≠ 0) : EpochProofs.Spec.uint64Div a b = .ok (a / b) := by
   unfold EpochProofs.Spec.uint64Div; rw [if_neg hb0]; rfl
+
+theorem iOp_pow2 (k : Int) (hk : 0 ≤ k) :
+    iOp .pow 2 k = if k < 2 ^ 32 then .ok (((2 ^ k.toNat : Nat)) : Int) else .error .bug := by
+  simp only [iOp, intArith, erase]
+  rw [if_neg (by omega)]
+  by_cases h : k < 2 ^ 32
+  · rw [if_pos (Or.inr h), if_pos h]
+    push_cast; rfl
+  · rw [if_neg (by simp; omega), if_neg h]
+    rfl
+
+/-- `uOf α (2 ** k)` for an 8-bit class against the hand `if 2 ^ k < 256 then … else throw`. -/
+theorem sim_pow_uOf {α β β' : Type} [UintC α] {g : β → β'} (hb : UintC.bits α = 8) (k : Int)
+    (hk : 0 ≤ k) {K : α → SpecM β} {H : HM β'}
+    (hK : 2 ^ k.toNat < 256 → Sim g (K (UintC.ofNat (2 ^ k.toNat))) H) :
+    Sim g (iOp .pow 2 k >>= fun z => uOf α z >>= K)
+      (if 2 ^ k.toNat < 256 then H else throw .overflow) := by
+  rw [iOp_pow2 k hk]
+  by_cases h32 : k < 2 ^ 32
+  · rw [if_pos h32, ok_bind]
+    by_cases h8 : 2 ^ k.toNat < 256
+    · rw [if_pos h8]
+      unfold uOf
+      rw [if_pos ⟨Int.natCast_nonneg _, by rw [hb]; exact_mod_cast h8⟩]
+      show Sim g (K (UintC.ofNat (((2 ^ k.toNat : Nat) : Int)).toNat)) H
+      rw [Int.toNat_natCast]
+      exact hK h8
+    · rw [if_neg h8]
+      unfold uOf
+      rw [if_neg (by rw [hb]; intro ⟨_, h⟩; exact h8 (by exact_mod_cast h))]
+      rfl
+  · have h8 : ¬ 2 ^ k.toNat < 256 := by
+      have : 8 ≤ k.toNat := by omega
+      have := Nat.pow_le_pow_right (show 0 < 2 by decide) this
+      omega
+    rw [if_neg h32, err_bind, if_neg h8]
+    rfl
+
+@[bridge_cast] theorem uint8_and (a b : Nat) (ha : a < 256) (hb : b < 256) :
+    UInt8.ofNat a &&& UInt8.ofNat b = UInt8.ofNat (a &&& b) := by
+  apply UInt8.toNat.inj
+  simp [UInt8.toNat_and, UInt8.toNat_ofNat, Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb,
+    Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt Nat.and_le_left ha)]
+
+@[bridge_cast] theorem uint8_or (a b : Nat) (ha : a < 256) (hb : b < 256) :
+    UInt8.ofNat a ||| UInt8.ofNat b = UInt8.ofNat (a ||| b) := by
+  apply UInt8.toNat.inj
+  have : a ||| b < 2 ^ 8 := Nat.or_lt_two_pow ha hb
+  simp [UInt8.toNat_or, UInt8.toNat_ofNat, Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb,
+    Nat.mod_eq_of_lt (show a ||| b < 256 from this)]
+
+@[bridge_cast] theorem uint8_beq (a b : Nat) (ha : a < 256) (hb : b < 256) :
+    (UInt8.ofNat a == UInt8.ofNat b) = (a == b) := by
+  rw [Bool.eq_iff_iff]
+  simp only [beq_iff_eq]
+  constructor
+  · intro h
+    have := congrArg UInt8.toNat h
+    simpa [UInt8.toNat_ofNat, Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb] using this
+  · intro h; subst h; rfl
+
+@[bridge_cast] theorem uint8_and_beq (a b : Nat) (ha : a < 256) (hb : b < 256) :
+    (UInt8.ofNat a &&& UInt8.ofNat b == UInt8.ofNat b) = (a &&& b == b) := by
+  rw [uint8_and a b ha hb, uint8_beq _ _ (Nat.lt_of_le_of_lt Nat.and_le_left ha) hb]
 
 /-! ## Lists -/
 

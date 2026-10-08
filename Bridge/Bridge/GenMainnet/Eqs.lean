@@ -132,6 +132,15 @@ theorem cond_get_finality_delay (h_get_previous_epoch : spec_get_previous_epoch)
 
 theorem full_get_finality_delay : spec_get_finality_delay := cond_get_finality_delay full_get_previous_epoch
 
+theorem cond_has_flag  : spec_has_flag := by
+  intro «flags» «flag_index» hr0 hr1
+  bridge_split
+  unfold GenMainnet.has_flag EpochProofs.Spec.has_flag
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_has_flag : spec_has_flag := cond_has_flag 
+
 theorem cond_is_eligible_for_partial_withdrawals  : spec_is_eligible_for_partial_withdrawals := by
   intro «validator» «balance» hr0 hr1
   bridge_split
@@ -312,6 +321,22 @@ theorem cond_is_builder_withdrawal_credential  : spec_is_builder_withdrawal_cred
 
 theorem full_is_builder_withdrawal_credential : spec_is_builder_withdrawal_credential := cond_is_builder_withdrawal_credential 
 
+theorem cond_convert_validator_index_to_builder_index  : spec_convert_validator_index_to_builder_index := by
+  intro «validator_index» hr0
+  bridge_split
+  unfold GenMainnet.convert_validator_index_to_builder_index EpochProofs.Spec.convert_validator_index_to_builder_index
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_convert_validator_index_to_builder_index : spec_convert_validator_index_to_builder_index := cond_convert_validator_index_to_builder_index 
+
+theorem cond_can_builder_cover_bid (h_get_pending_balance_to_withdraw_for_builder : spec_get_pending_balance_to_withdraw_for_builder) : spec_can_builder_cover_bid := by
+  intro «state» «builder_index» «bid_amount» hr0 hr1 hr2
+  bridge_split
+  unfold GenMainnet.can_builder_cover_bid EpochProofs.Spec.can_builder_cover_bid
+  try simp only [bind_pure]
+  bridge_main
+
 theorem cond_get_beacon_proposer_index  : spec_get_beacon_proposer_index := by
   intro «state» hr0
   bridge_split
@@ -322,9 +347,9 @@ theorem cond_get_beacon_proposer_index  : spec_get_beacon_proposer_index := by
 theorem full_get_beacon_proposer_index : spec_get_beacon_proposer_index := cond_get_beacon_proposer_index 
 
 -- Mapped functions: 106, 83 without a loop, 51 of them with a statement.
--- Conditional: 26 mapped, 8 callees (34 of 73 statements without a loop).
--- Full: 26 mapped, 8 callees.
--- Not proved: add_builder_to_registry, add_flag, add_validator_to_registry, bytes_to_uint64, can_builder_cover_bid, convert_validator_index_to_builder_index, get_active_validator_indices, get_attestation_participation_flag_indices, get_balance_after_withdrawals, get_block_root, get_block_root_at_slot, get_committee_count_per_slot, get_committee_indices, get_eligible_validator_indices, get_set_bit_count, get_total_active_balance, get_total_balance, get_unslashed_participating_indices, get_validator_from_deposit, has_flag, is_attestation_same_slot, is_partially_withdrawable_validator, is_slashable_attestation_data, is_valid_switch_to_compounding_request, process_builder_exit_request, process_consolidation_request, process_eth1_data, process_justification_and_finalization, process_participation_flag_updates, process_withdrawal_request, process_withdrawals, queue_excess_active_balance, settle_builder_payment, switch_to_compounding_validator, update_next_withdrawal_builder_index, update_next_withdrawal_index, update_next_withdrawal_validator_index, weigh_justification_and_finalization, xor.
+-- Conditional: 27 mapped, 10 callees (37 of 73 statements without a loop).
+-- Full: 27 mapped, 9 callees.
+-- Not proved: add_builder_to_registry, add_flag, add_validator_to_registry, bytes_to_uint64, get_active_validator_indices, get_attestation_participation_flag_indices, get_balance_after_withdrawals, get_block_root, get_block_root_at_slot, get_committee_count_per_slot, get_committee_indices, get_eligible_validator_indices, get_set_bit_count, get_total_active_balance, get_total_balance, get_unslashed_participating_indices, get_validator_from_deposit, is_attestation_same_slot, is_partially_withdrawable_validator, is_slashable_attestation_data, is_valid_switch_to_compounding_request, process_builder_exit_request, process_consolidation_request, process_eth1_data, process_justification_and_finalization, process_participation_flag_updates, process_withdrawal_request, process_withdrawals, queue_excess_active_balance, settle_builder_payment, switch_to_compounding_validator, update_next_withdrawal_builder_index, update_next_withdrawal_index, update_next_withdrawal_validator_index, weigh_justification_and_finalization, xor.
 -- Loops (statement only): get_builder_withdrawals, get_builders_sweep_withdrawals, get_inactivity_penalty_deltas, get_index_for_new_builder, get_pending_balance_to_withdraw, get_pending_balance_to_withdraw_for_builder, get_pending_partial_withdrawals, get_validators_sweep_withdrawals, integer_squareroot, process_effective_balance_updates, process_inactivity_updates, process_pending_consolidations.
 -- No statement (no signature): process_sync_aggregate, slash_validator, state_transition.
 -- No statement (oracle): apply_parent_execution_payload, apply_pending_deposit, is_valid_deposit_signature, process_attestation, process_attester_slashing, process_block, process_block_header, process_bls_to_execution_change, process_builder_deposit_request, process_epoch, process_execution_payload_bid, process_historical_summaries_update, process_operations, process_parent_execution_payload, process_payload_attestation, process_proposer_lookahead, process_proposer_slashing, process_ptc_window, process_randao, process_slot, process_slots, process_sync_committee_updates, process_voluntary_exit, verify_block_signature.
