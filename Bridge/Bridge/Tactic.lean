@@ -121,6 +121,19 @@ elab_rules : tactic
     if t.hasFVar || t.hasMVar then throwError "bridge_decide: the goal has variables"
     evalTactic (← `(tactic| decide))
 
+/-- Run a tactic and turn a runtime error (recursion limit, heartbeats) into an ordinary failure,
+so that `first` tries the next alternative. -/
+syntax "bridge_safe" "(" tacticSeq ")" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_safe ($t)) => do
+    let s ← saveState
+    let ok ← tryCatchRuntimeEx (do evalTactic t; pure true) (fun _ => pure false)
+    unless ok do
+      s.restore
+      throwError "bridge_safe: the tactic failed"
+
 /-- Hand type abbreviations of `Nat`. `omega` needs `Nat` itself. -/
 macro "bridge_nat" : tactic => `(tactic| try simp only [EpochProofs.Spec.Epoch,
   EpochProofs.Spec.Gwei, EpochProofs.Spec.Slot, EpochProofs.Spec.Uint64,
@@ -241,7 +254,8 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
       else if fn == ``SpecLean.Rd.lset then some ``lset_length
       else if fn == ``SpecLean.Rd.sumU then some ``sumU_range
       else if fn == ``SpecLean.Rd.pyMax then some ``pyMax2_val
-      else if fn == ``SpecLean.Rd.pyMin then some ``pyMin2_val else none
+      else if fn == ``SpecLean.Rd.pyMin then some ``pyMin2_val
+      else if fn == ``SpecLean.Rd.pyRange then some ``pyRange_uv_len else none
     if let some lem := lem then
       try
         let pf ← mkAppM lem #[d.toExpr]
@@ -399,9 +413,11 @@ elab_rules : tactic
       evalTactic (← `(tactic| bridge_ok_hyp))
     else
       let s ← saveState
-      try evalTactic (← `(tactic| with_reducible assumption)) catch _ =>
+      -- `assumption` can reach the recursion limit, which `first` does not catch
+      let ok ← tryCatchRuntimeEx (do evalTactic (← `(tactic| with_reducible assumption)); pure true)
+        (fun _ => pure false)
+      unless ok do
         s.restore
-        -- the full `assumption` can reach the recursion limit, which `first` does not catch
         let ok ← tryCatchRuntimeEx (do evalTactic (← `(tactic| assumption)); pure true)
           (fun _ => pure false)
         unless ok do
@@ -536,7 +552,7 @@ elab_rules : tactic
     unless facts.isEmpty do
       evalTactic (← `(tactic| try simp only [$args,*]))
       if (← getUnsolvedGoals).isEmpty then return
-    evalTactic (← `(tactic| try simp only [bd, bridge_cast, List.map_map, Function.comp_def]))
+    evalTactic (← `(tactic| try simp only [bd, bridge_cast, List.map_map, Function.comp_def, List.length_map]))
     if (← getUnsolvedGoals).isEmpty then return
     unless facts.isEmpty do
       evalTactic (← `(tactic| try simp only [$args,*]))
@@ -711,6 +727,9 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
     return #[← `(tactic| (apply sim_uCast_pure; $close))]
   if fn == ``SpecLean.Rd.uOf && handPure then
     return #[← `(tactic| (apply sim_uOf_pure; $close))]
+  if fn == ``List.mapM then
+    return #[← `(tactic| (apply sim_mapM_range (g := UintC.val); intro _ _ _; (try dsimp only); bridge_run [$hs,*])),
+      ← `(tactic| (apply sim_mapM_range; intro _ _ _; (try dsimp only); bridge_run [$hs,*]))]
   if fn == ``List.filterMapM then
     return #[← `(tactic| (apply sim_filterMapM_zipIdx (hM := fun _ _ => rfl); intro _ _ _ _ _; (try dsimp only); bridge_run [$hs,*]))]
   if fn == ``SpecLean.Rd.sumU then return #[← `(tactic| (apply sim_sumU; $close))]
@@ -730,6 +749,8 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
       for c in cands do
         if env.contains c then
           out := out.push (← `(tactic| (refine sim_hand_eq (sim_lget $(mkIdent c) _ _) ?_; congr 1; simp (disch := first | assumption | (intro _ _; bridge_mem)) only [uv, bridge_cast, bridge_abs, List.map_map, Function.comp_def, idxOf_map_bytes, idxOf_map_toVec])))
+      -- a list of uints: the item map is `UintC.val`, and the index is a value fact
+      out := out.push (← `(tactic| (refine sim_hand_eq (sim_lget UintC.val _ _) ?_; congr 1 <;> bridge_eqv)))
     return out
   if fn == ``SpecLean.Rd.lset then return #[← `(tactic| (apply sim_lset; bridge_close))]
   if a.isAppOfArity ``Bind.bind 6 then
@@ -749,7 +770,7 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
       out := out.push (← `(tactic| (apply sim_of_ok; (focus (apply simI_sim; apply $h:ident; all_goals bridge_range)); bridge_ok_hyp)))
     -- the same, when the hand arguments are equal to the callee's only after a rewrite
     for h in hs ++ own do
-      out := out.push (← `(tactic| (apply sim_hand_eq; (focus (apply simI_sim; apply $h:ident; all_goals bridge_range)); first | with_reducible rfl | (simp only [Option.map_some, Option.map_none, uv, bridge_cast, decide_eq_true_eq, Int.ofNat_lt, apply_ite, bridge_simp]; done) | (congr 1 <;> bridge_eqv))))
+      out := out.push (← `(tactic| (apply sim_hand_eq; (focus (apply simI_sim; apply $h:ident; all_goals bridge_range)); first | bridge_safe (with_reducible rfl) | bridge_safe (simp only [Option.map_some, Option.map_none, uv, bridge_cast, decide_eq_true_eq, Int.ofNat_lt, apply_ite, bridge_abs, List.length_map]; done) | bridge_safe (congr 1 <;> bridge_eqv))))
     return out
   return #[]
 
@@ -770,9 +791,9 @@ elab_rules : tactic
             for g' in ← getUnsolvedGoals do
               IO.eprintln s!"bridge_leaf: goal left: {((← ppGoal g').pretty).takeRight 600}"
           return false)
-        (fun _ => do
+        (fun e => do
           if bridge.debug.get (← getOptions) then
-            IO.eprintln s!"bridge_leaf: alternative failed"
+            IO.eprintln s!"bridge_leaf: alternative failed: {((← e.toMessageData.toString).takeRight 1200)}"
           return false)
       if ok then return
       s.restore
@@ -932,6 +953,10 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
       let xsS ← g.withContext (Term.exprToSyntax (a.getArg! 2))
       let tacI : TacticM Unit := evalTactic (← `(tactic| (have hmem : $xS ∈ $xsS := (by bridge_from_not); have := List.idxOf_lt_length_of_mem hmem; refine sim_bind_l _ (lindex_ok _ _ hmem) ?_)))
       if let some gs ← continueWith (← g.withContext (tryAt tacI g)) then return gs
+    -- `range(a, b)` of two uints: a list of known value
+    if a.getAppFn.constName? == some ``SpecLean.Rd.pyRange then
+      if let some gs ← continueWith (← tryAt (evalTactic (← `(tactic| refine sim_bind_l _ (pyRange_nat _ _) ?_))) g) then
+        return gs
     -- `uint_to_bytes`: a plain value
     if (a.getAppFn.constName?.map (·.getString!)) == some "uint_to_bytes" then
       if let some gs ← continueWith (← tryAt (evalTactic (← `(tactic| refine sim_bind_l _ rfl ?_))) g) then
@@ -1091,8 +1116,10 @@ partial def bridgePost (g : MVarId) : TacticM (List MVarId) := do
         s.restore
   if r.getAppFn.constName? == some ``SpecLean.Rd.bytesOf then
     if let some gs ← tryAt (evalTactic (← `(tactic| exact post_bytesOf _))) g then return gs
+  if r.getAppFn.constName? == some ``List.mapM then
+    if let some gs ← step (← `(tactic| (refine post_mapM_ir _ _ _ (by (try simp only [List.length_map, List.length_range']); bridge_range) ?_; intro _ _; (try dsimp only)))) then return gs
   if r.getAppFn.constName? == some ``List.filterMapM then
-    if let some gs ← step (← `(tactic| (refine post_filterMapM_ir _ _ _ (by simp only [List.length_map, List.length_zipIdx]; bridge_range) ?_; intro x _; cases x; (try dsimp only)))) then return gs
+    if let some gs ← step (← `(tactic| (refine post_filterMapM_ir _ _ _ (by (try simp only [List.length_map, List.length_zipIdx]); bridge_range) ?_; intro x _; cases x; (try dsimp only)))) then return gs
   if r.getAppFn.constName? == some ``MonadExcept.throw then
     if let some gs ← tryAt (evalTactic (← `(tactic| exact post_throw _))) g then return gs
   if let some gs ← tryAt (evalTactic (← `(tactic|

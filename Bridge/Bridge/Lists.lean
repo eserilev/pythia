@@ -369,4 +369,65 @@ theorem pyMin2_val {α : Type} [PyOrd α] [UintC α] {a b x : α} (h : pyMin [a,
   · exact Or.inl (h1 ▸ rfl)
   · exact Or.inr ((List.mem_singleton.mp h1) ▸ rfl)
 
+/-- `range(a, b)` and a list comprehension over it. -/
+theorem pyRange_nat (a b : Nat) :
+    pyRange (a : Int) (b : Int) 1 = .ok ((List.range' a (b - a)).map fun i : Nat => (i : Int)) := by
+  unfold pyRange
+  rw [if_neg (by decide)]
+  show Except.ok _ = Except.ok _
+  congr 1
+  have : (((b : Int) - a + 1 - 1) / 1).toNat = b - a := by omega
+  simp only [gt_iff_lt, show (1 : Int) > 0 from by decide, ↓reduceIte, this]
+  rw [List.range'_eq_map_range]
+  simp [List.map_map, Function.comp_def]
+
+theorem sim_mapM_range {β δ : Type} (g : β → δ) (a b : Nat) (F : Int → SpecM β) (G : Nat → HM δ)
+    (hF : ∀ i, a ≤ i → i < b → Sim g (F i) (G i)) :
+    Sim (List.map g) (((List.range' a (b - a)).map fun i : Nat => (i : Int)).mapM F)
+      ((List.range' a (b - a)).mapM G) := by
+  have h := sim_mapM g Int.toNat F G ((List.range' a (b - a)).map fun i : Nat => (i : Int))
+    (fun x hx => by
+      obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hx
+      have := List.mem_range'_1.mp hi
+      rw [Int.toNat_natCast]
+      exact hF i this.1 (by omega))
+  rw [List.map_map] at h
+  have e : ((List.range' a (b - a)).map (Int.toNat ∘ fun i : Nat => (i : Int))) = List.range' a (b - a) := by
+    simp [Function.comp_def]
+  rw [e] at h
+  exact h
+
+theorem post_mapM_ir {γ δ : Type} (R : δ → Prop) (F : γ → SpecM δ) (L : List γ)
+    (hL : L.length < 2 ^ 64) (hF : ∀ x ∈ L, Post R (F x)) :
+    Post (fun ys => ys.length < 2 ^ 64 ∧ ∀ y ∈ ys, R y) (L.mapM F) := by
+  have key : ∀ ys, L.mapM F = .ok ys → ys.length = L.length ∧ ∀ y ∈ ys, R y := by
+    induction L with
+    | nil => intro ys h; cases h; exact ⟨rfl, fun _ h => nomatch h⟩
+    | cons x L ih =>
+      intro ys h
+      rw [List.mapM_cons] at h
+      cases hx : F x with
+      | error e => rw [hx] at h; cases h
+      | ok y =>
+        rw [hx, ok_bind] at h
+        cases hr : L.mapM F with
+        | error e => rw [hr, err_bind] at h; cases h
+        | ok rs =>
+          rw [hr, ok_bind] at h
+          cases h
+          have := ih (by simp at hL; omega) (fun z hz => hF z (List.mem_cons_of_mem _ hz)) rs hr
+          refine ⟨by simp [this.1], fun z hz => ?_⟩
+          rcases List.mem_cons.mp hz with h1 | h1
+          · rw [h1]; exact hF x (List.mem_cons_self ..) y hx
+          · exact this.2 z h1
+  intro ys h
+  have := key ys h
+  exact ⟨by omega, this.2⟩
+theorem pyRange_uv_len {α β : Type} [UintC α] [UintC β] {a : α} {b : β} {y : List Int}
+    (h : pyRange (uv a) (uv b) 1 = .ok y) : y.length ≤ UintC.val b := by
+  rw [show uv a = ((UintC.val a : Nat) : Int) from rfl, show uv b = ((UintC.val b : Nat) : Int) from rfl,
+    pyRange_nat] at h
+  cases h
+  simp
+
 end Pythia.Bridge
