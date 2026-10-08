@@ -192,6 +192,90 @@ theorem sim_loop0 {C R O β γ : Type} {g : O → β} (n : Nat) (items : List γ
   have := sim_loop n items hn L B K Inv hstep hend 0 (Nat.zero_le _) c r h
   rwa [List.drop_zero] at this
 
+/-- `sim_loop0` for a readable loop with 1 loop variable. -/
+theorem sim_loopv1 {V1 R O β γ : Type} {g : O → β} (n : Nat) (items : List γ)
+    (hn : items.length = n) (L : Nat → V1 → SpecM O) (B : γ → R → HM (ForInStep R))
+    (K : R → HM β) (Inv : Nat → V1 → R → Prop)
+    (hstep : ∀ i x v1 r, i < n → items[i]? = some x → Inv i v1 r →
+      (∀ v1' r', Inv (i + 1) v1' r' →
+        Sim g (L (i + 1) v1') (forIn (items.drop (i + 1)) r' B >>= K)) →
+      Sim g (L i v1) (B x r >>= loopNext K fun r' => forIn (items.drop (i + 1)) r' B >>= K))
+    (hend : ∀ v1 r, Inv n v1 r → Sim g (L n v1) (K r))
+    (v1 : V1) (r : R) (h : Inv 0 v1 r) : Sim g (L 0 v1) (forIn items r B >>= K) :=
+  sim_loop0 (C := V1) n items hn (fun i c => L i c) B K (fun i c r => Inv i c r)
+    (fun i x c r hi hx hc ih => hstep i x c r hi hx hc fun v1' r' h' => ih v1' r' h')
+    (fun c r hc => hend c r hc) v1 r h
+
+/-- `sim_loop0` for a readable loop with 2 loop variables. -/
+theorem sim_loopv2 {V1 V2 R O β γ : Type} {g : O → β} (n : Nat) (items : List γ)
+    (hn : items.length = n) (L : Nat → V1 → V2 → SpecM O) (B : γ → R → HM (ForInStep R))
+    (K : R → HM β) (Inv : Nat → V1 → V2 → R → Prop)
+    (hstep : ∀ i x v1 v2 r, i < n → items[i]? = some x → Inv i v1 v2 r →
+      (∀ v1' v2' r', Inv (i + 1) v1' v2' r' →
+        Sim g (L (i + 1) v1' v2') (forIn (items.drop (i + 1)) r' B >>= K)) →
+      Sim g (L i v1 v2) (B x r >>= loopNext K fun r' => forIn (items.drop (i + 1)) r' B >>= K))
+    (hend : ∀ v1 v2 r, Inv n v1 v2 r → Sim g (L n v1 v2) (K r))
+    (v1 : V1) (v2 : V2) (r : R) (h : Inv 0 v1 v2 r) : Sim g (L 0 v1 v2) (forIn items r B >>= K) :=
+  sim_loop0 (C := V1 × V2) n items hn (fun i c => L i (c.1) (c.2)) B K (fun i c r => Inv i (c.1) (c.2) r)
+    (fun i x c r hi hx hc ih => hstep i x (c.1) (c.2) r hi hx hc fun v1' v2' r' h' => ih (v1', v2') r' h')
+    (fun c r hc => hend (c.1) (c.2) r hc) (v1, v2) r h
+
+/-- `sim_loop0` for a readable loop with 3 loop variables. -/
+theorem sim_loopv3 {V1 V2 V3 R O β γ : Type} {g : O → β} (n : Nat) (items : List γ)
+    (hn : items.length = n) (L : Nat → V1 → V2 → V3 → SpecM O) (B : γ → R → HM (ForInStep R))
+    (K : R → HM β) (Inv : Nat → V1 → V2 → V3 → R → Prop)
+    (hstep : ∀ i x v1 v2 v3 r, i < n → items[i]? = some x → Inv i v1 v2 v3 r →
+      (∀ v1' v2' v3' r', Inv (i + 1) v1' v2' v3' r' →
+        Sim g (L (i + 1) v1' v2' v3') (forIn (items.drop (i + 1)) r' B >>= K)) →
+      Sim g (L i v1 v2 v3) (B x r >>= loopNext K fun r' => forIn (items.drop (i + 1)) r' B >>= K))
+    (hend : ∀ v1 v2 v3 r, Inv n v1 v2 v3 r → Sim g (L n v1 v2 v3) (K r))
+    (v1 : V1) (v2 : V2) (v3 : V3) (r : R) (h : Inv 0 v1 v2 v3 r) : Sim g (L 0 v1 v2 v3) (forIn items r B >>= K) :=
+  sim_loop0 (C := V1 × V2 × V3) n items hn (fun i c => L i (c.1) (c.2.1) (c.2.2)) B K (fun i c r => Inv i (c.1) (c.2.1) (c.2.2) r)
+    (fun i x c r hi hx hc ih => hstep i x (c.1) (c.2.1) (c.2.2) r hi hx hc fun v1' v2' v3' r' h' => ih (v1', v2', v3') r' h')
+    (fun c r hc => hend (c.1) (c.2.1) (c.2.2) r hc) (v1, v2, v3) r h
+
+/-- `sim_loop0` for a readable loop with 4 loop variables. -/
+theorem sim_loopv4 {V1 V2 V3 V4 R O β γ : Type} {g : O → β} (n : Nat) (items : List γ)
+    (hn : items.length = n) (L : Nat → V1 → V2 → V3 → V4 → SpecM O) (B : γ → R → HM (ForInStep R))
+    (K : R → HM β) (Inv : Nat → V1 → V2 → V3 → V4 → R → Prop)
+    (hstep : ∀ i x v1 v2 v3 v4 r, i < n → items[i]? = some x → Inv i v1 v2 v3 v4 r →
+      (∀ v1' v2' v3' v4' r', Inv (i + 1) v1' v2' v3' v4' r' →
+        Sim g (L (i + 1) v1' v2' v3' v4') (forIn (items.drop (i + 1)) r' B >>= K)) →
+      Sim g (L i v1 v2 v3 v4) (B x r >>= loopNext K fun r' => forIn (items.drop (i + 1)) r' B >>= K))
+    (hend : ∀ v1 v2 v3 v4 r, Inv n v1 v2 v3 v4 r → Sim g (L n v1 v2 v3 v4) (K r))
+    (v1 : V1) (v2 : V2) (v3 : V3) (v4 : V4) (r : R) (h : Inv 0 v1 v2 v3 v4 r) : Sim g (L 0 v1 v2 v3 v4) (forIn items r B >>= K) :=
+  sim_loop0 (C := V1 × V2 × V3 × V4) n items hn (fun i c => L i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2)) B K (fun i c r => Inv i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2) r)
+    (fun i x c r hi hx hc ih => hstep i x (c.1) (c.2.1) (c.2.2.1) (c.2.2.2) r hi hx hc fun v1' v2' v3' v4' r' h' => ih (v1', v2', v3', v4') r' h')
+    (fun c r hc => hend (c.1) (c.2.1) (c.2.2.1) (c.2.2.2) r hc) (v1, v2, v3, v4) r h
+
+/-- `sim_loop0` for a readable loop with 5 loop variables. -/
+theorem sim_loopv5 {V1 V2 V3 V4 V5 R O β γ : Type} {g : O → β} (n : Nat) (items : List γ)
+    (hn : items.length = n) (L : Nat → V1 → V2 → V3 → V4 → V5 → SpecM O) (B : γ → R → HM (ForInStep R))
+    (K : R → HM β) (Inv : Nat → V1 → V2 → V3 → V4 → V5 → R → Prop)
+    (hstep : ∀ i x v1 v2 v3 v4 v5 r, i < n → items[i]? = some x → Inv i v1 v2 v3 v4 v5 r →
+      (∀ v1' v2' v3' v4' v5' r', Inv (i + 1) v1' v2' v3' v4' v5' r' →
+        Sim g (L (i + 1) v1' v2' v3' v4' v5') (forIn (items.drop (i + 1)) r' B >>= K)) →
+      Sim g (L i v1 v2 v3 v4 v5) (B x r >>= loopNext K fun r' => forIn (items.drop (i + 1)) r' B >>= K))
+    (hend : ∀ v1 v2 v3 v4 v5 r, Inv n v1 v2 v3 v4 v5 r → Sim g (L n v1 v2 v3 v4 v5) (K r))
+    (v1 : V1) (v2 : V2) (v3 : V3) (v4 : V4) (v5 : V5) (r : R) (h : Inv 0 v1 v2 v3 v4 v5 r) : Sim g (L 0 v1 v2 v3 v4 v5) (forIn items r B >>= K) :=
+  sim_loop0 (C := V1 × V2 × V3 × V4 × V5) n items hn (fun i c => L i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2)) B K (fun i c r => Inv i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2) r)
+    (fun i x c r hi hx hc ih => hstep i x (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2) r hi hx hc fun v1' v2' v3' v4' v5' r' h' => ih (v1', v2', v3', v4', v5') r' h')
+    (fun c r hc => hend (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2) r hc) (v1, v2, v3, v4, v5) r h
+
+/-- `sim_loop0` for a readable loop with 6 loop variables. -/
+theorem sim_loopv6 {V1 V2 V3 V4 V5 V6 R O β γ : Type} {g : O → β} (n : Nat) (items : List γ)
+    (hn : items.length = n) (L : Nat → V1 → V2 → V3 → V4 → V5 → V6 → SpecM O) (B : γ → R → HM (ForInStep R))
+    (K : R → HM β) (Inv : Nat → V1 → V2 → V3 → V4 → V5 → V6 → R → Prop)
+    (hstep : ∀ i x v1 v2 v3 v4 v5 v6 r, i < n → items[i]? = some x → Inv i v1 v2 v3 v4 v5 v6 r →
+      (∀ v1' v2' v3' v4' v5' v6' r', Inv (i + 1) v1' v2' v3' v4' v5' v6' r' →
+        Sim g (L (i + 1) v1' v2' v3' v4' v5' v6') (forIn (items.drop (i + 1)) r' B >>= K)) →
+      Sim g (L i v1 v2 v3 v4 v5 v6) (B x r >>= loopNext K fun r' => forIn (items.drop (i + 1)) r' B >>= K))
+    (hend : ∀ v1 v2 v3 v4 v5 v6 r, Inv n v1 v2 v3 v4 v5 v6 r → Sim g (L n v1 v2 v3 v4 v5 v6) (K r))
+    (v1 : V1) (v2 : V2) (v3 : V3) (v4 : V4) (v5 : V5) (v6 : V6) (r : R) (h : Inv 0 v1 v2 v3 v4 v5 v6 r) : Sim g (L 0 v1 v2 v3 v4 v5 v6) (forIn items r B >>= K) :=
+  sim_loop0 (C := V1 × V2 × V3 × V4 × V5 × V6) n items hn (fun i c => L i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2.1) (c.2.2.2.2.2)) B K (fun i c r => Inv i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2.1) (c.2.2.2.2.2) r)
+    (fun i x c r hi hx hc ih => hstep i x (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2.1) (c.2.2.2.2.2) r hi hx hc fun v1' v2' v3' v4' v5' v6' r' h' => ih (v1', v2', v3', v4', v5', v6') r' h')
+    (fun c r hc => hend (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2.1) (c.2.2.2.2.2) r hc) (v1, v2, v3, v4, v5, v6) r h
+
 /-! ## Sums and appends -/
 
 /-- A readable index loop that adds the amounts of the items that pass a test, against the hand
@@ -277,5 +361,43 @@ theorem sim_filterMapM_gen {γ γ' δ δ' : Type} (k : δ → δ') (e : γ → �
       apply sim_bind ih'
       intro r _
       exact sim_pure _ _ _ rfl
+
+/-! ## The loop tactic -/
+
+/-- `bridge_loop (Inv)` on a goal `Sim g (f.loopN … n 0 v₁ … vₖ >>= k) (forIn items r B >>= K)`:
+apply `sim_loopvₖ` with the invariant `Inv`. The goals left are `hn` (the lengths), `step` (one
+step), `fin` (the end of the loop) and `init` (the invariant at the start). The readable loop
+has the index parameter `i_` after the bound `n`, then its loop variables. -/
+syntax "bridge_loop" "(" term ")" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_loop ($inv)) => withMainContext do
+    evalTactic (← `(tactic| first | apply sim_bind_pure | apply sim_bind_proj))
+    withMainContext do
+    let g ← getMainGoal
+    let some (r, _) ← simSides g | throwError "bridge_loop: not a Sim goal"
+    let some fn := r.getAppFn.constName? | throwError "bridge_loop: not a loop call"
+    let ty := (← getConstInfo fn).type
+    let names ← forallTelescope ty fun xs _ => xs.mapM fun x => x.fvarId!.getUserName
+    let args := r.getAppArgs
+    unless names.size == args.size do throwError "bridge_loop: partial call of {fn}"
+    let some idx := names.findIdx? (· == `i_) | throwError "bridge_loop: no index in {fn}"
+    let k := args.size - idx - 1
+    let L := mkAppN r.getAppFn (args.extract 0 idx)
+    let n := args[idx - 1]!
+    let LS ← Term.exprToSyntax L
+    let nS ← Term.exprToSyntax n
+    let lem := mkIdent (Name.mkSimple s!"sim_loopv{k}")
+    evalTactic (← `(tactic| refine $lem:ident (n := $nS) (L := $LS) (Inv := $inv)
+      (hn := ?hn) (hstep := ?step) (hend := ?fin) (h := ?init) ..))
+
+/-- In a loop step with `hi : i < xs.length` and `hx : items[i]? = some x`: replace `x` by item `i`
+of the readable list, and add `lget xs i = .ok xs[i]`. -/
+macro "bridge_item" hi:ident hx:ident : tactic => `(tactic| (
+  simp only [bridge_abs, List.getElem?_map, List.getElem?_zipIdx, zipIdx_map', Nat.zero_add,
+    List.getElem?_eq_getElem $hi, Option.map_some, Option.some.injEq] at $hx:ident
+  subst $hx:ident
+  have := lget_ok _ _ $hi))
 
 end Pythia.Bridge

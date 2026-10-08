@@ -358,6 +358,7 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 | proved, conditional | 47 (and 31 callees) |
 | proved, full | 46 (and 27 callees) |
 | loops proved by hand (`Mainnet/Proofs.lean`) | 3 of the 23 mapped loops, and 3 callee loops |
+| loops proved by `bridge_loop` (generated) | 1 (`process_inactivity_updates`, conditional) |
 
 `bridge_main` has these steps in addition to the steps for binds, `if` and leaves:
 
@@ -406,9 +407,34 @@ the list split at `i`, and the termination proof. The epoch loops use two invari
   `{ st0 with F := P ++ st0.F.drop i }` with `P.length = i`, and `r = P.map conv`
   (`process_effective_balance_updates`). `lget_split` and `lset_split` read and write item `i`.
 
-The step proofs (`slash_step`, `ebu_step`) are still written by hand. They walk one loop body
-on both sides. The plan is to let `bridge_run` walk the body, with the claim for step `i + 1`
-as the last step, so that the generator can write them.
+The generator writes the proofs of the loops of the first shape (`loop_shape` and `loop_proof` in
+`tools/gen_bridge.py`). It reads the shape from the hand source: one `for` loop,
+`let mut F := state.F`, then `pure { state with F }`. The proof is the same for each function:
+
+1. `bridge_walk` walks the code before the loop and keeps the loop goal.
+2. `bridge_loop (Inv)` reads the readable loop call (the parameter `i_`, the bound before it, the
+   loop variables after it) and applies `sim_loopvₖ` for `k` loop variables. The goals left are
+   `hn`, `init`, `fin` and `step`.
+3. In `step`, `bridge_item` replaces the hand item by item `i` of the readable list. Then
+   `bridge_run` walks one loop body. At the recursive call it applies the claim `ih` for step
+   `i + 1` and closes the invariant with `bridge_inv`.
+
+`bridge_run` has three steps for loop bodies:
+
+- A callee on a state `{ s with F := X }` gets the state `s` if the callee does not read `F`
+  (`sim_bind_eq_l`). The check is `rfl`: it fails for a callee that reads `F`. So no lemma per
+  callee is necessary. The hand loop calls its callees on the old state, so this step makes both
+  sides call them on the same state.
+- A bind whose first step is a bind or an `if` is put in order first (`sim_assoc_r`,
+  `sim_ite_bind_r`, and the same on the readable side). The hand loop body has this form,
+  because it is followed by the rest of the loop.
+- A readable `contains` on a list of uints against the hand `∈` (`contains_iff_mem_val`), and a
+  fact `a = c` of the context for a goal `a = b` (`bridge_rw_fact`).
+
+`process_inactivity_updates` has a generated proof. `process_slashings` has the same shape, but
+its body calls `decrease_balance`, whose hand version takes the balances and not the state. Its
+proof is still `slash_step`. `process_effective_balance_updates` (a new list, not a field
+changed in place) is still `ebu_step`.
 
 Hand proofs with an odd shape, kept as they are:
 

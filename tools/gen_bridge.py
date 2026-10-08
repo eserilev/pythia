@@ -597,7 +597,75 @@ def proof(st, callees):
             f"  try simp only [bind_pure]\n  bridge_main\n")
 
 
-def cond_theorem(st, callees):
+def loop_shape(m, name):
+    """The shape of a loop function for `bridge_loop`, or None. Shape `field`: one loop over an
+    index, and the hand loop changes one list field `F` of the state in place
+    (`let mut F := state.F`, then `pure { state with F }`). Returns (vars, j, field, conv, ir):
+    the readable loop variables, the index of the state among them, and the item map and range of
+    the field."""
+    rb = bodies(m.rd_text)
+    if f"{name}.loop1" not in rb or f"{name}.loop2" in rb:
+        return None
+    sig = re.match(rf"def {re.escape(name)}\.loop1 (.*?) :=\n", rb[f"{name}.loop1"], re.S)
+    if not sig:
+        return None
+    binders, _ = split_binders(sig.group(1))
+    names = [b for b, _ in binders]
+    if "i_" not in names:
+        return None
+    vs = binders[names.index("i_") + 1:]
+    js = [k for k, (_, t) in enumerate(vs) if t == "BeaconState"]
+    hb = bodies(m.hd_text).get(name, "")
+    f = re.search(r"let mut (\w+) := state\.(\w+)\n", hb)
+    if len(js) != 1 or not f or f.group(1) != f.group(2) or hb.count("for ") != 1:
+        return None
+    field = f.group(1)
+    if not re.search(rf"pure \{{ state with {field} \}}", hb):
+        return None
+    rt = dict(m.rd.get("BeaconState", [])).get(field)
+    ht = dict(m.hd.get("BeaconState", [])).get(field)
+    if not rt or not ht or not rt.startswith("List ") or not m.hresolve(ht).startswith("List "):
+        return None
+    conv = m.conv(rt[5:], m.hresolve(ht)[5:])
+    if conv is None:
+        return None
+    return vs, js[0], field, conv, m.ir(rt[5:])
+
+
+def loop_proof(m, st, callees):
+    """The proof of a loop function of shape `field` (`loop_shape`): `bridge_walk` up to the
+    loop, `bridge_loop` with the invariant of the shape, then the four goals of `sim_loop`."""
+    shape = loop_shape(m, st.name)
+    if shape is None or "state" not in [n for n, _ in st.binders]:
+        return None
+    vs, j, field, conv, ir = shape
+    names = [q(n) for n, _ in st.binders] + [f"hr{i}" for i in range(len(st.irs))]
+    v = [f"v{k + 1}" for k in range(len(vs))]
+    hs = ", ".join(f"h_{c}" for c in callees)
+    inv = (f"fun _ {' '.join(v)} r => ∃ X, {v[j]} = {{ «state» with {field} := X }} ∧ "
+           f"r = X.map {conv} ∧ ∀ y ∈ X, {ir} y")
+    loop1 = f"Gen.{st.name}.loop1"
+    return (f"  intro {' '.join(names)}\n  bridge_split\n  unfold Gen.{st.name} {HNS}.{st.name}\n"
+            f"  refine simI_intro ?_ (post_true _)\n  bridge_walk [{hs}]\n  all_goals\n"
+            f"    bridge_loop ({inv})\n"
+            f"    case hn => simp [bridge_abs]\n"
+            f"    case init => exact ⟨_, rfl, rfl, by first | assumption | bridge_range⟩\n"
+            f"    case fin =>\n"
+            f"      intro {' '.join(v)} r ⟨X, hs, hr, _⟩\n      subst hs hr\n"
+            f"      rw [{loop1}, dif_neg (Nat.lt_irrefl _)]\n      rfl\n"
+            f"    case step =>\n"
+            f"      intro i x {' '.join(v)} r hi hx hinv ih\n"
+            f"      obtain ⟨X, rfl, rfl, hX⟩ := hinv\n      bridge_item hi hx\n"
+            f"      rw [{loop1}, dif_pos hi]\n      dsimp only\n      bridge_run [{hs}]\n")
+
+
+def cond_theorem(st, callees, m=None, loops=()):
+    if st.name in loops and m is not None:
+        lp = loop_proof(m, st, callees)
+        if lp is not None:
+            hyps = " ".join(f"(h_{c} : spec_{c})" for c in callees)
+            return f"theorem cond_{st.name} {hyps} : spec_{st.name} := by\n{lp}"
+
     hyps = " ".join(f"(h_{c} : spec_{c})" for c in callees)
     return f"theorem cond_{st.name} {hyps} : spec_{st.name} := by\n{proof(st, callees)}"
 
@@ -627,13 +695,14 @@ def main():
         d = Path(args.trials)
         d.mkdir(parents=True, exist_ok=True)
         for n, st in stmts.items():
-            if n in loops:
+            if n in loops and loop_shape(m, n) is None:
                 continue
-            body = HEADER.format(imp="Bridge.Gen.Specs") + "\n" + cond_theorem(st, callees[n])
+            body = (HEADER.format(imp="Bridge.Gen.Specs\nimport Bridge.Loops") + "\n"
+                    + cond_theorem(st, callees[n], m, loops))
             (d / f"{n}.lean").write_text(fp(body + "\nend Pythia.Bridge\n"))
     if args.proved:
         proved = set(Path(args.proved).read_text().split())
-        write_eqs(stmts, why, loops, callees, proved, outdir, fp, hand_proofs(args.preset))
+        write_eqs(stmts, why, loops, callees, proved, outdir, fp, hand_proofs(args.preset), m)
 
 
 def hand_proofs(preset):
@@ -648,7 +717,7 @@ def hand_proofs(preset):
     return out
 
 
-def write_eqs(stmts, why, loops, callees, proved, outdir, fp, hand=None):
+def write_eqs(stmts, why, loops, callees, proved, outdir, fp, hand=None, m=None):
     hand = hand or {}
     imp = "Bridge.Gen.Specs" if not hand else "Bridge.Mainnet.Proofs"
     out = ["-- Generated by tools/gen_bridge.py. Do not edit.", HEADER.format(imp=imp)]
@@ -665,9 +734,10 @@ def write_eqs(stmts, why, loops, callees, proved, outdir, fp, hand=None):
     for n in stmts:
         visit(n)
     full = set()
+    tried = set(proved)
     proved = set(proved) | set(hand)
     for n in order:
-        if n in hand:
+        if n in hand and not (n in loops and n in tried):
             hs = hand[n]
             out.append(f"theorem cond_{n} " + " ".join(f"(h_{c} : spec_{c})" for c in hs)
                        + f" : spec_{n} := hand_{n} " + " ".join(f"h_{c}" for c in hs) + "\n")
@@ -678,7 +748,7 @@ def write_eqs(stmts, why, loops, callees, proved, outdir, fp, hand=None):
             continue
         if n not in proved:
             continue
-        out.append(cond_theorem(stmts[n], callees[n]))
+        out.append(cond_theorem(stmts[n], callees[n], m, loops))
         if all(c in full for c in callees[n]):
             full.add(n)
             args = " ".join(f"full_{c}" for c in callees[n])
@@ -689,7 +759,8 @@ def write_eqs(stmts, why, loops, callees, proved, outdir, fp, hand=None):
     out.append(f"-- Mapped functions: {len(mapped)}, {len(mnl)} without a loop, "
                f"{len([n for n in mnl if n in stmts])} of them with a statement.")
     pnl = [n for n in proved if n not in loops]
-    hl = sorted(n for n in hand if n in loops)
+    hl = sorted(n for n in hand if n in loops and n not in tried)
+    gl = sorted(n for n in tried if n in loops)
     fnl = [n for n in full if n not in loops]
     out.append(f"-- Conditional: {len([n for n in mnl if n in proved])} mapped, "
                f"{len([n for n in pnl if n not in mapped])} callees "
@@ -697,6 +768,7 @@ def write_eqs(stmts, why, loops, callees, proved, outdir, fp, hand=None):
     out.append(f"-- Full: {len([n for n in mnl if n in full])} mapped, "
                f"{len([n for n in fnl if n not in mapped])} callees.")
     out.append(f"-- Not proved: {', '.join(sorted(set(nonloop) - proved)) or 'none'}.")
+    out.append(f"-- Loops proved by bridge_loop: {', '.join(gl) or 'none'}.")
     out.append(f"-- Loops proved by hand (Proofs.lean): {', '.join(hl) or 'none'}.")
     out.append(f"-- Loops (statement only): "
                f"{', '.join(sorted(n for n in stmts if n in loops and n not in hand))}.")

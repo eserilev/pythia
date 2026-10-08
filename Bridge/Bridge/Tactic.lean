@@ -26,6 +26,44 @@ register_option bridge.debug : Bool := { defValue := false, descr := "log the st
 
 open SpecLean SpecLean.Rd
 
+/-- Replace a readable step by an equal one (a callee on a state with fields it does not read). -/
+theorem sim_bind_eq_l {α β β' : Type} {g : β → β'} {A A' : SpecM α} {K : α → SpecM β}
+    {H : HM β'} (h : A = A') (hs : Sim g (A' >>= K) H) : Sim g (A >>= K) H := by
+  subst h; exact hs
+
+theorem sim_assoc_r {α γ β β' : Type} {g : β → β'} {R : SpecM β} {A : HM α} {f : α → HM γ}
+    {k : γ → HM β'} (hs : Sim g R (A >>= fun x => f x >>= k)) : Sim g R ((A >>= f) >>= k) := by
+  cases A <;> exact hs
+
+theorem sim_assoc_l {α γ β β' : Type} {g : β → β'} {A : SpecM α} {f : α → SpecM γ}
+    {k : γ → SpecM β} {H : HM β'} (hs : Sim g (A >>= fun x => f x >>= k) H) :
+    Sim g ((A >>= f) >>= k) H := by
+  cases A <;> exact hs
+
+theorem sim_ite_bind_r {γ β β' : Type} {g : β → β'} {R : SpecM β} (c : Prop) [Decidable c]
+    {A B : HM γ} {k : γ → HM β'} (hs : Sim g R (if c then A >>= k else B >>= k)) :
+    Sim g R ((if c then A else B) >>= k) := by
+  by_cases h : c
+  · rw [if_pos h] at hs ⊢; exact hs
+  · rw [if_neg h] at hs ⊢; exact hs
+
+theorem sim_ite_bind_l {γ β β' : Type} {g : β → β'} {H : HM β'} (c : Prop) [Decidable c]
+    {A B : SpecM γ} {k : γ → SpecM β} (hs : Sim g (if c then A >>= k else B >>= k) H) :
+    Sim g ((if c then A else B) >>= k) H := by
+  by_cases h : c
+  · rw [if_pos h] at hs ⊢; exact hs
+  · rw [if_neg h] at hs ⊢; exact hs
+
+/-- A readable `contains` on a list of uints against the hand membership of the values. -/
+theorem contains_iff_mem_val {α : Type} [UintC α] [DecidableEq α] (xs : List α) (a : α) :
+    (xs.contains a = true) ↔ (UintC.val a ∈ xs.map UintC.val) := by
+  rw [List.contains_iff_mem, List.mem_map]
+  constructor
+  · intro h; exact ⟨a, h, rfl⟩
+  · rintro ⟨b, hb, he⟩
+    have : b = a := by rw [← UintC.ofNat_val b, he, UintC.ofNat_val]
+    exact this ▸ hb
+
 theorem uOp_range {α : Type} [UintC α] {op : BinOp} {a b : Int} {x : α}
     (h : (uOp op a b : SpecM α) = .ok x) : UintC.val x < 2 ^ UintC.bits α := by
   unfold uOp at h
@@ -585,6 +623,30 @@ elab_rules : tactic
       | (guard_target =~ ∀ _, _; first | bridge_range | (simp only [List.forall_mem_map, bd, bridge_cast]; simp_all))
       | bridge_eqv))
 
+/-- Close `a = b` with a fact `a = c` of the context, then `rfl` (`c` and `b` equal after the
+constants reduce). -/
+syntax "bridge_rw_fact" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_rw_fact) => withMainContext do
+    let t := (← instantiateMVars (← getMainTarget)).consumeMData
+    unless t.isAppOfArity ``Eq 3 do throwError "bridge_rw_fact: not an equation"
+    let a := t.getArg! 1
+    for d in (← getLCtx) do
+      if d.isImplementationDetail then continue
+      let ty := (← instantiateMVars d.type).consumeMData
+      unless ty.isAppOfArity ``Eq 3 do continue
+      unless ← withReducible (isDefEq (ty.getArg! 1) a) do continue
+      let s ← saveState
+      try
+        let hS ← Term.exprToSyntax d.toExpr
+        evalTactic (← `(tactic| (rw [$hS:term]; rfl)))
+        if (← getUnsolvedGoals).isEmpty then return
+      catch _ => pure ()
+      s.restore
+    throwError "bridge_rw_fact: no fact closes the goal"
+
 /-- Close a pure goal: the alternatives below, tried in order. -/
 syntax "bridge_close" : tactic
 
@@ -593,6 +655,8 @@ elab_rules : tactic
   | `(tactic| bridge_close) => do
     let alts : Array (Lean.TSyntax `tactic) := #[
       ← `(tactic| with_reducible rfl),
+      ← `(tactic| exact contains_iff_mem_val _ _),
+      ← `(tactic| bridge_rw_fact),
       ← `(tactic| (simp only [uv, bridge_cast, Int.ofNat_eq_coe, gt_iff_lt]; bridge_eqv)),
       ← `(tactic| (simp (disch := first | assumption | (intro _ _; bridge_mem)) only [bridge_abs, bd, bridge_cast, List.map_map, Function.comp_def, List.contains_eq_mem, Bool.not_eq_true', decide_eq_false_iff_not, mem_map_bytes, mem_map_toVec, toVec_bne, toVec_beq]; done)),
       ← `(tactic| (bridge_facts; simp (disch := first | assumption | (simp only [List.length_drop]; omega) | (intro _ _; bridge_mem)) only [bridge_abs, bd, bridge_cast, withdrawalAddress_toVec, toVec_bne, toVec_beq]; done)),
@@ -814,6 +878,50 @@ def onTag (tag : Lean.Name) (tac : Lean.Syntax) : TacticM Unit := do
   unless found do throwError "bridge: no goal {tag}"
   setGoals out
 
+open Lean Meta in
+/-- The structure `s` of an update `{ s with … }`: a constructor whose fields are projections of
+`s`, except the updated ones. -/
+partial def updateBase (e : Lean.Expr) : MetaM (Option Lean.Expr) := do
+  let e := e.consumeMData
+  let some c := e.getAppFn.constName? | return none
+  let some (.ctorInfo ci) := (← getEnv).find? c | return none
+  let fields := e.getAppArgs.extract ci.numParams e.getAppNumArgs
+  for f in fields do
+    let f := f.consumeMData
+    let base? : Option Lean.Expr := match f with
+      | .proj _ _ s => some s
+      | _ => none
+    let base? ← match base? with
+      | some b => pure (some b)
+      | none =>
+        match f.getAppFn.constName? with
+        | some p =>
+          if (← getEnv).isProjectionFn p && f.getAppNumArgs ≥ 1 then pure (some f.appArg!)
+          else pure none
+        | none => pure none
+    if let some b := base? then
+      -- an update of an update: go to the first structure
+      return some ((← updateBase b).getD b)
+  return none
+
+open Lean Meta in
+/-- The call `a` with each argument `{ s with … }` replaced by `s`, if there is one. -/
+def frameCall (a : Lean.Expr) : MetaM (Option Lean.Expr) := do
+  let args := a.getAppArgs
+  let mut out := #[]
+  let mut changed := false
+  for arg in args do
+    match ← updateBase arg with
+    | some b => out := out.push b; changed := true
+    | none => out := out.push arg
+  return if changed then some (mkAppN a.getAppFn out) else none
+
+/-- Close the invariant of a loop step (`sim_loop`). The default is the invariant of a loop that
+changes one list field: `∃ X, state = { st0 with F := X } ∧ r = X.map conv ∧ ∀ y ∈ X, P y`. -/
+syntax "bridge_inv" : tactic
+macro_rules
+  | `(tactic| bridge_inv) => `(tactic| (refine ⟨_, rfl, rfl, ?_⟩; bridge_range))
+
 open Lean Meta Elab Tactic in
 /-- Prove one `Sim` goal step by step. Returns the goals it could not prove. -/
 partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) := do
@@ -824,6 +932,42 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
       for g' in gs do out := out ++ (← bridgeGoal hs g')
       return out
   let some (r, h) ← g.withContext (simSides g) | return [g]
+  -- the next step of a loop (`sim_loop`): the claim `ih` for step `i + 1`
+  if let some fnName := r.getAppFn.constName? then
+    if fnName.isStr && fnName.getString!.startsWith "loop" then
+      if ((← g.getDecl).lctx.findFromUserName? `ih).isSome then
+        let ihId := mkIdent `ih
+        if let some gs ← tryAt (evalTactic (← `(tactic| (apply $ihId:ident; bridge_inv)))) g then
+          return gs
+  -- a bind whose first step is a bind or an `if` (a `for` body, then the rest of the loop)
+  if h.isAppOfArity ``Bind.bind 6 then
+    let b := (h.getArg! 4).consumeMData.headBeta
+    let lem? := if b.isAppOfArity ``Bind.bind 6 then some (mkIdent ``sim_assoc_r)
+      else if b.isAppOfArity ``ite 5 then some (mkIdent ``sim_ite_bind_r) else none
+    if let some lem := lem? then
+      if let some gs ← tryAt (evalTactic (← `(tactic| (apply $lem; try dsimp only)))) g then
+        let mut out := []
+        for g' in gs do out := out ++ (← bridgeGoal hs g')
+        return out
+  if r.isAppOfArity ``Bind.bind 6 then
+    let b := (r.getArg! 4).consumeMData.headBeta
+    let lem? := if b.isAppOfArity ``Bind.bind 6 then some (mkIdent ``sim_assoc_l)
+      else if b.isAppOfArity ``ite 5 then some (mkIdent ``sim_ite_bind_l) else none
+    if let some lem := lem? then
+      if let some gs ← tryAt (evalTactic (← `(tactic| (apply $lem; try dsimp only)))) g then
+        let mut out := []
+        for g' in gs do out := out ++ (← bridgeGoal hs g')
+        return out
+  -- a callee on `{ s with … }` that does not read the updated fields: call it on `s`
+  if r.isAppOfArity ``Bind.bind 6 then
+    let a := (r.getArg! 4).consumeMData
+    if isGenFn (a.getAppFn.constName?.getD .anonymous) then
+      if let some a' ← g.withContext (frameCall a) then
+        let aS ← g.withContext (Term.exprToSyntax a')
+        if let some gs ← tryAt (evalTactic (← `(tactic| refine sim_bind_eq_l (A' := $aS) rfl ?_))) g then
+          let mut out := []
+          for g' in gs do out := out ++ (← bridgeGoal hs g')
+          return out
   -- `dedup x` of a list with no duplicates: drop it, with the fact `List.map f x = H`
   if let some dd := r.find? (fun e => e.isAppOfArity ``SpecLean.Rd.dedup 3 && (e.getArg! 2).isFVar) then
     let x := dd.getArg! 2
@@ -1078,6 +1222,16 @@ elab_rules : tactic
     setGoals rest
     unless rest.isEmpty do
       throwError "bridge_run: {rest.length} goals left\n{Lean.MessageData.joinSep (rest.map Lean.MessageData.ofGoal) "\n"}"
+
+/-- `bridge_run` that keeps the goals it cannot prove (a loop, for `bridge_loop`). -/
+syntax "bridge_walk" "[" ident,* "]" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_walk [$hs,*]) => do
+    let g ← getMainGoal
+    let rest ← bridgeGoal hs.getElems g
+    setGoals rest
 
 open Lean Meta Elab Tactic in
 /-- Prove a goal `Post P r` by walking `r`. Returns the goals it could not prove. -/
