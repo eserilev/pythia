@@ -1,4 +1,5 @@
 import SpecLean.Validation.Keep
+import SpecLean.Validation.FieldKeep
 import SpecLean.Validation.BlsBridge
 import SpecLean.Validation.SigningRoots
 
@@ -145,26 +146,71 @@ theorem bigProd_mono {a b c d : Nat} (hac : a ≤ c) (hbd : b ≤ d) : bigProd a
 
 end SpecLean.Validation
 
+open Lean Meta Elab Tactic in
+/-- Two facts give one object two different contents. -/
+elab "rd_clash" : tactic => withMainContext do
+  let g ← getMainGoal
+  let mut facts := #[]
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let some (_, l, _) := ty.eq? | continue
+    if l.isAppOfArity ``SpecLean.Heap.objs 2 then facts := facts.push (d, l)
+  for (d1, l1) in facts do
+    for (d2, l2) in facts do
+      if d1.fvarId == d2.fvarId then continue
+      unless l1 == l2 do continue
+      let s ← saveState
+      try
+        let e ← mkEqTrans (← mkEqSymm d1.toExpr) d2.toExpr
+        let (_, g1) ← (← g.assert `hcl (← inferType e) e).intro1P
+        let gs ← evalTacticAt (← `(tactic| simp (config := { decide := true }) only
+          [Option.some.injEq, SpecLean.HeapObj.container.injEq, reduceCtorEq, false_and, and_false] at $(mkIdent `hcl):ident)) g1
+        if gs.isEmpty then replaceMainGoal []; return
+        restoreState s
+      catch _ => restoreState s
+  throwError "rd_clash: none"
+
 /-- Object `a` is at no path of the footprint: each pattern with exact steps reaches one object
 per argument, and the facts show it is another object. -/
 macro "rd_not_atfp" : tactic => `(tactic| (
   rintro ⟨k, pat, q, hmem, ⟨c, hc, -⟩, hm, hat⟩
   simp only [List.mem_cons, List.mem_nil_iff, or_false] at hmem
-  (repeat' (first | (rcases hmem with rfl | hmem) | subst hmem)) <;>
+  (repeat' (rcases hmem with hmem | hmem)) <;> (try subst hmem) <;>
     rcases q with _ | ⟨q0, _ | ⟨q1, _ | ⟨q2, q⟩⟩⟩ <;>
-    simp only [SpecLean.Encode.Matches, and_true, true_and, and_false, false_and] at hm <;>
+    (try simp only [SpecLean.Encode.Matches, and_true, true_and, and_false, false_and] at hm) <;>
     (try subst hm) <;>
-    (try (obtain ⟨rfl, rfl⟩ := hm)) <;>
+    (try (obtain ⟨hm1, hm2⟩ := hm; subst hm1; subst hm2)) <;>
     rcases k with _ | _ | _ | _ | _ | k <;>
-    simp only [List.getElem?_cons_zero, List.getElem?_cons_succ, List.getElem?_nil,
-      reduceCtorEq, Option.some.injEq, SpecLean.Value.ref.injEq] at hc <;>
+    (try simp only [List.getElem?_cons_zero, List.getElem?_cons_succ, List.getElem?_nil,
+      reduceCtorEq, Option.some.injEq, SpecLean.Value.ref.injEq] at hc) <;>
     (try subst hc) <;>
-    simp only [SpecLean.Encode.at?, SpecLean.Encode.follow, List.getElem?_cons_zero,
-      List.getElem?_cons_succ, Option.bind_some, Option.bind] at hat <;>
-    simp_all))
+    (try simp only [SpecLean.Encode.at?, SpecLean.Encode.follow, List.getElem?_cons_zero,
+      List.getElem?_cons_succ, Option.bind_some, Option.bind] at hat) <;>
+    (try simp only [*, Option.some.injEq, SpecLean.Value.ref.injEq, reduceCtorEq] at hat) <;>
+    (try subst hat) <;>
+    rd_clash))
 
 namespace SpecLean.Validation.Tactic
 open Lean Meta Elab Tactic
+
+/-- Each fact `x = y` of two local names: one name goes. -/
+elab "rd_subst_vv" : tactic => withMainContext do
+  let mut g ← getMainGoal
+  let mut done := false
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let some (_, l, r) := ty.eq? | continue
+    unless l.isFVar && r.isFVar && l != r do continue
+    try
+      let (_, g') ← substCore g d.fvarId (symm := false) (tryToSkip := true)
+      g := g'
+      done := true
+      break
+    catch _ => pure ()
+  unless done do throwError "rd_subst_vv: none"
+  replaceMainGoal [g]
 
 /-- A read `h'.objs a` after a callee that writes (`Frame h h' vs fp`, with `fp` not empty):
 an object of `h` at no path of `fp` keeps its contents. -/
@@ -189,6 +235,12 @@ elab "rd_frame_fp" : tactic => do
         for rd in findAllApps (fun e => e.isAppOfArity ``SpecLean.Heap.objs 2 && !e.hasLooseBVars) t do
           unless ← withReducible (isDefEq (rd.getArg! 0) h1) do continue
           let a := rd.getArg! 1
+          -- Done before: a kept fact `hfk : h1.objs a = ...`.
+          let done ← lctx.anyM fun d => do
+            if d.userName.eraseMacroScopes != `hfo then return false
+            let some (_, l, _) := (← instantiateMVars d.type).eq? | return false
+            return l.isAppOfArity ``SpecLean.Heap.objs 2 && (← withReducible (isDefEq (l.getArg! 1) a))
+          if done then continue
           for d in lctx do
             if d.isImplementationDetail then continue
             let ty ← instantiateMVars d.type
@@ -203,8 +255,10 @@ elab "rd_frame_fp" : tactic => do
                 (← mkAppM ``SpecLean.Encode.AtFp #[h0, fty.getArg! 2, fty.getArg! 3, a])
                 (mkConst ``False))
               let stx ← `(tactic| rd_not_atfp)
-              let gs ← Tactic.run notAt.mvarId! (evalTactic stx)
+              let gs ← Tactic.run notAt.mvarId! (Term.withoutErrToSorry <| withoutRecover <| evalTactic stx)
               unless gs.isEmpty do throwError "not at"
+              let pfN ← instantiateMVars notAt
+              if pfN.hasSorry || pfN.hasExprMVar then throwError "not at: open proof"
               let neN ← mkFreshExprMVar (← mkAppM ``Ne #[l, ← mkAppOptM ``Option.none #[some (mkConst ``SpecLean.HeapObj)]])
               let stx2 ← `(tactic| (rw [$(← Term.exprToSyntax d.toExpr):term]; exact Option.some_ne_none _))
               let gs2 ← Tactic.run neN.mvarId! (evalTactic stx2)
@@ -214,8 +268,112 @@ elab "rd_frame_fp" : tactic => do
             catch _ => restoreState s
     return none
   let some pf := found | throwError "rd_frame_fp: none"
-  let (_, g1) ← (← g.assert `hfo (← inferType pf) pf).intro1P
+  let (fo, g1) ← (← g.assert `hfo (← inferType pf) pf).intro1P
   replaceMainGoal [g1]
-  evalTactic (← `(tactic| simp only [$(mkIdent `hfo):ident] at *))
+  -- A fact of the new heap about the same object (a decode after the call): its parts are the
+  -- old parts. Else the reads of the goal.
+  let unified ← g1.withContext do
+    let some (_, l, _) := (← instantiateMVars (← inferType pf)).eq? | return false
+    for d in ← getLCtx do
+      if d.isImplementationDetail || d.fvarId == fo then continue
+      let ty ← instantiateMVars d.type
+      let some (_, l2, r2) := ty.eq? | continue
+      unless l2 == l && r2.isAppOfArity ``Option.some 2 do continue
+      let s ← saveState
+      try
+        let e ← mkEqTrans (← mkEqSymm d.toExpr) (mkFVar fo)
+        let (_, g2) ← (← g1.assert `hinj (← inferType e) e).intro1P
+        let gs ← evalTacticAt (← `(tactic| (
+          simp only [Option.some.injEq, SpecLean.HeapObj.list.injEq,
+            SpecLean.HeapObj.container.injEq, true_and] at $(mkIdent `hinj):ident
+          try subst $(mkIdent `hinj):ident))) g2
+        replaceMainGoal gs
+        return true
+      catch _ => restoreState s
+    return false
+  unless unified do
+    evalTactic (← `(tactic| try simp only [$(mkIdent `hfo):ident]))
 
 end SpecLean.Validation.Tactic
+
+/-- The `FieldKeep` part of a writer's contract (`f_pk`, SPEC 9.2). -/
+macro_rules | `(tactic| rd_frame) => `(tactic| ((repeat' (first | rd_fieldkeep | rd_chain | rd_struct_eq | with_reducible apply And.intro)); done))
+
+namespace SpecLean.Validation.Tactic
+open Lean Meta Elab Tactic
+
+/-- Two reads of one index, `normIndex A i = none` and `normIndex B i = some _`, where the
+facts give `A = B`: a value read through a structure fact (`{ .. } = r`) and lengths that
+`omega` relates. -/
+elab "rd_norm_clash" : tactic => withMainContext do
+  let g ← getMainGoal
+  let mut nones := #[]
+  let mut somes := #[]
+  let mut structs : Array Lean.Expr := #[]
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let some (_, l, r) := ty.eq? | continue
+    if l.isAppOfArity ``SpecLean.normIndex 2 then
+      if r.isAppOfArity ``Option.none 1 then nones := nones.push (d, l)
+      else if r.isAppOfArity ``Option.some 2 then somes := somes.push (d, l)
+    if l.getAppFn.isConst then
+      if let some (.ctorInfo ci) := (← getEnv).find? l.getAppFn.constName! then
+        if ci.numFields > 4 then structs := structs.push d.toExpr
+  for (dn, ln) in nones do
+    for (ds, ls) in somes do
+      unless ← withReducible (isDefEq (ln.getArg! 1) (ls.getArg! 1)) do continue
+      let s ← saveState
+      try
+        let eqT ← mkAppM ``Eq #[ln.getArg! 0, ls.getArg! 0]
+        let rws ← structs.mapM fun e => do
+          `(Lean.Parser.Tactic.simpLemma| ← $(← Term.exprToSyntax e):term)
+        let some heq ← proveBy eqT (← `(tactic| (
+            (try simp only [$rws,*])
+            omega)))
+          | throwError "no equality"
+        let gs ← evalTacticAt (← `(tactic| exact absurd $(← Term.exprToSyntax dn.toExpr)
+          (by rw [$(← Term.exprToSyntax heq):term, $(← Term.exprToSyntax ds.toExpr):term]; simp))) g
+        unless gs.isEmpty do throwError "open"
+        replaceMainGoal []
+        return
+      catch _ => restoreState s
+  throwError "rd_norm_clash: none"
+
+end SpecLean.Validation.Tactic
+
+macro_rules | `(tactic| rd_finish) => `(tactic| rd_norm_clash)
+
+namespace SpecLean.Validation.Tactic
+open Lean Meta Elab Tactic
+
+/-- `normIndex xs.length i = some k` and `xs[k]? = none`: the index is in range, so the read
+gives an item. -/
+elab "rd_index_none" : tactic => withMainContext do
+  let g ← getMainGoal
+  let mut somes := #[]
+  let mut nones := #[]
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    let ty ← instantiateMVars d.type
+    let some (_, l, r) := ty.eq? | continue
+    if l.isAppOfArity ``SpecLean.normIndex 2 && r.isAppOfArity ``Option.some 2 then
+      somes := somes.push d.toExpr
+    if l.isAppOfArity ``GetElem?.getElem? 7 && r.isAppOfArity ``Option.none 1 then
+      nones := nones.push d.toExpr
+  for hs in somes do
+    for hn in nones do
+      let s ← saveState
+      try
+        let gs ← evalTacticAt (← `(tactic| (
+          have h1 := SpecLean.Validation.Where.normIndex_lt $(← Term.exprToSyntax hs)
+          have h2 := List.getElem?_eq_none_iff.mp $(← Term.exprToSyntax hn)
+          omega))) g
+        if gs.isEmpty then replaceMainGoal []; return
+        restoreState s
+      catch _ => restoreState s
+  throwError "rd_index_none: none"
+
+end SpecLean.Validation.Tactic
+
+macro_rules | `(tactic| rd_finish) => `(tactic| rd_index_none)

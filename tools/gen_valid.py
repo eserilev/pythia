@@ -974,6 +974,41 @@ class Gen:
                 pats.append(p)
         return "[" + ", ".join(pats) + "]"
 
+    def rebinds(self, name, seen=None):
+        """The fields that `name` and its callees assign (`x.f = ...`), as names. Each one is
+        `(class, index)` in `rb` for every container class with a field of that name."""
+        memo = self.__dict__.setdefault("rebind_memo", {})
+        if name in memo:
+            return memo[name]
+        seen = set() if seen is None else seen
+        seen.add(name)
+        out = set()
+        for x in ast.walk(self.b.fns[name]):
+            ts = (x.targets if isinstance(x, ast.Assign) else
+                  [x.target] if isinstance(x, (ast.AugAssign, ast.AnnAssign)) else [])
+            for t in ts:
+                for y in ([t] + list(t.elts) if isinstance(t, (ast.Tuple, ast.List)) else [t]):
+                    if isinstance(y, ast.Attribute):
+                        out.add(y.attr)
+        for c in self.cls[name]["calls"]:
+            if c in self.b.fns and c not in seen:
+                out |= self.rebinds(c, seen)
+        if len(seen) == 1:
+            memo[name] = out
+        return out
+
+    def rebind_term(self, name):
+        """The `rb` of `FieldKeep` for `name` (SPEC 9.2), as a Lean list."""
+        pairs = []
+        for c in self.b.order:
+            if not T.is_container_cls(c):
+                continue
+            fields = [f for f, _ in c._FIELD_TYPES]
+            for f in sorted(self.rebinds(name)):
+                if f in fields:
+                    pairs.append(f"(Scope.Id.«{self.n.scope(c)}», {fields.index(f)})")
+        return "[" + ", ".join(pairs) + "]"
+
     def own_slices(self, name, sig, tree):
         """The fields `root.f = root.f[lo:hi]` of a function, as field positions."""
         out = set()
@@ -1694,7 +1729,7 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
         return ls[0] if len(ls) == 1 else "(" + " + ".join(ls) + ")"
 
     def theorem(self, name, sig, tree, callees=(), fuel=64, poly=None, tie=False, extra=(),
-                wf=False, alloc=False, inst=None, ho=False, given=None, tinst=None):
+                wf=False, alloc=False, inst=None, ho=False, given=None, tinst=None, keep=False):
         """The `_run` theorem at fuel `k + fuel` and the `_valid` theorem of SPEC 9.2. A call to
         a callee in `callees` uses the callee's `_run` theorem (`rd_call`).
 
@@ -1903,6 +1938,10 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
             # A callee whose fuel depends on its input: its bound, in the caller's arguments.
             fuel = f"{' + '.join(extra)} + {fuel}"
             bounded = True
+        if keep:
+            # The `FieldKeep` form of a writer (`f_pk`): the fields that it does not assign keep
+            # their values (SPEC 9.2).
+            exp = f"({exp}) ∧ FieldKeep h h' {self.rebind_term(name)}"
         binders = " ".join(a[0] for a in args if a[0])
         decs, hys = [], []
         for j, (_, t) in enumerate(sig.params):
@@ -1970,9 +2009,12 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
                     f"_p{self.n.cls(tinst)}" if tinst is not None else
                     f"_po{given}" if given is not None else "")
             name_run, name_valid = f"{name}{isfx}_run", f"{name}{isfx}_valid"
+            if keep:
+                name_run, name_valid = f"{name}{isfx}_pk_run", f"{name}{isfx}_pk_valid"
         for part, rb in part_bounds + ([("", comp_rlen)] if comp_rlen is not None and
                                          getattr(self, "stmt_only", False) else []):
-            self.rlen[name_run[:-4] + part] = rb
+            if not keep:
+                self.rlen[name_run[:-4] + part] = rb
         names = (" ".join(a[3] for a in args if a[3]) + (" hw hwf haw" if sig.mutated else "") +
                  (" hsub" if sig.mutated and lnames else "") +
                  (" hwf haw" if wfb else "") + (" ho" if ho else "") + (" hb" if hb else "") +
@@ -1985,6 +2027,8 @@ theorem {name}_loop{k}@@HYPS@@ (h : Heap) {bnd} (l : Nat)"""
         if callees and getattr(self, "stmt_only", False):
             # The same after a callee that writes: an object at no path of its footprint.
             alts.append("(rd_frame_fp; try rd_step)")
+            # A field of an old container after a writer, outside the fields that it assigns.
+            alts.append("(rd_keep_fields; try rd_step)")
         if callees and (sig.mutated or ret[0] == "container"):
             # A field read that a split left open: the field index and the item from the facts.
             alts.append("(rd_fieldidx; try rd_step)")
@@ -2094,6 +2138,9 @@ def bound_fuels(text):
 
 
 VARIANT = r"_p(?:[A-Z]\w*|o\d+)$"
+# Optional theorems: class-polymorphic variants (`f_p0`, `f_p0i`) and the `FieldKeep` form of a
+# writer (`f_pk`). One that fails leaves, and its callers try again without it.
+OPT = r"_p(?:\d+i?|k)$"
 
 
 def old_names(gen_dir, cls):
@@ -2411,7 +2458,7 @@ def cond(args, g, cls, make, work):
                 break
 
         new_drop = {k for k, (_, ok, _, _) in results.items()
-                    if not ok and re.search(r"_p\d+i?$", k) and k not in dropped}
+                    if not ok and re.search(OPT, k) and k not in dropped}
         # A callee statement that the proof does not use leaves the theorem.
         new_prune = False
         for k, us in unused.items():
@@ -2437,7 +2484,7 @@ def cond(args, g, cls, make, work):
                              .replace(" \n", "\n"))
 
     def done(n, ks):
-        own = [k for k in texts if owner[k] == n and not re.search(r"_p\d+i?$", k)]
+        own = [k for k in texts if owner[k] == n and not re.search(OPT, k)]
         return bool(own) and n not in skipped and all(k in ks for k in own)
     cond_ok = [n for n in tier if done(n, proved_k)]
     full_ok = [n for n in tier if done(n, full_k)]
@@ -2473,7 +2520,7 @@ def cond(args, g, cls, make, work):
             cause[n] = skipped[n]
         else:
             fk = [k for k in texts if owner[k] == n and k not in proved_k and
-                  not re.search(r"_p\d+i?$", k)]
+                  not re.search(OPT, k)]
             cause[n] = (f"{fk[0]}: no proof rule: {shape[fk[0]]}" if fk and fk[0] in shape else
                         f"{fk[0]}: {results[fk[0]][3]}" if fk and fk[0] in results else "?")
     ranked = sorted(hard, key=lambda n: (-len(upward(n, set()) - set(have)), n))
@@ -2729,7 +2776,10 @@ def main():
         g.cur_hb = any(getattr(g, "hbneed", {}).get(c) for c in callees)
         f = 64 + max((fuel[c] if c in fuel else bfuel[c][0] for c in callees), default=0)
         # The theorems of each callee: the plain one and its class-polymorphic variants.
-        lemmas = [k for c in callees for k in fuel if k == c or k.startswith(c + "_p")]
+        # The `FieldKeep` form of a writing callee first: it says more.
+        lemmas = [k for c in callees for k in
+                  sorted((k for k in fuel if k == c or k.startswith(c + "_p")),
+                         key=lambda k: not k.endswith("_pk"))]
         extra, wf = [], any(wfneed.get(c) for c in callees)
         alloc = any(not heq.get(c, True) for c in callees)
         hon = any(honeed.get(c) for c in callees)
@@ -2788,6 +2838,8 @@ def main():
                     lemmas.append(c + "_runF")
                     # Its class-polymorphic variants, with the same bound.
                     lemmas += [k + "_runF" for k in bfuel if k.startswith(c + "_p")]
+                    # The `FieldKeep` form first.
+                    lemmas.sort(key=lambda k: not k.endswith("_pk_runF"))
                     try:
                         extra += g.map_bound(n, c, bfuel[c][1])
                     except Unsupported:
@@ -2800,6 +2852,11 @@ def main():
                                   and x.func.id == c]
             cands[n] = (g.theorem(n, em.sigs[n], fns[n], lemmas, f, extra=extra, wf=wf,
                                   alloc=alloc, ho=hon), f)
+            if g.stmt_only and em.sigs[n].mutated:
+                # A writer: also its `FieldKeep` form, for a caller that keeps an object across
+                # the call (SPEC 9.2).
+                cands[n + "_pk"] = (g.theorem(n, em.sigs[n], fns[n], lemmas, f, extra=extra,
+                                              wf=wf, alloc=alloc, ho=hon, keep=True), f)
         except (Unsupported, S.Unsupported, ValueError) as e:
             skip = f"no statement: {e}"
             return cands, skip

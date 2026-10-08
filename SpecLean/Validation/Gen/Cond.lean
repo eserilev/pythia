@@ -37,31 +37,6 @@ attribute [local rd_simp] encUint encBytesN encBoolean enc_Uint64 enc_Root enc_S
 
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 8192 in
-theorem set_or_append_list_pInactivityScores_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : (List Uint64)) (hy0 : (decListT .progressiveList (.uint (.width 64)) none dec_Uint64) h (.ref r0) = some x0) (x1 : Nat) (hr1 : x1 < 2 ^ 64) (x2 : Nat) (hr2 : x2 < 2 ^ 64) (hw : WTree h [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)] [⟨(listRoot .progressiveList (.uint (.width 64))), []⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)]) (k : Nat) :
-      ResultMatches gfp [⟨(listRoot .progressiveList (.uint (.width 64))), []⟩] h [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)] (fun (r : (List Uint64)) h' v => v = .none ∧ (decListT .progressiveList (.uint (.width 64)) none dec_Uint64) h' (.ref r0) = some r)
-        (interp (Scope.env sha) (k + 64) Scope.Id.«set_or_append_list» [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)] h)
-        (set_or_append_list x0 (⟨x1⟩ : Uint64) (⟨x2⟩ : Uint64)) := by
-  simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
-  rd_split_hyps
-  all_goals (
-  rw [interp, callName, callValue.eq_def]
-  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_set_or_append_list, SpecLean.Rd.Gen.set_or_append_list, Scope.env, Scope.knownNames, *]
-  rd_step
-  repeat' (first | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
-  all_goals (first | rd_finish | ((try rd_heap); rd_frame; done) | ((try rd_heap); (try rd_frame); all_goals rd_finish)))
-
-set_option maxRecDepth 8192 in
-theorem set_or_append_list_pInactivityScores_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : (List Uint64)) (hy0 : (decListT .progressiveList (.uint (.width 64)) none dec_Uint64) h (.ref r0) = some x0) (x1 : Nat) (hr1 : x1 < 2 ^ 64) (x2 : Nat) (hr2 : x2 < 2 ^ 64) (hw : WTree h [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)] [⟨(listRoot .progressiveList (.uint (.width 64))), []⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)]) :
-    ∃ N, ∀ fuel ≥ N,
-      ResultMatches gfp [⟨(listRoot .progressiveList (.uint (.width 64))), []⟩] h [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)] (fun (r : (List Uint64)) h' v => v = .none ∧ (decListT .progressiveList (.uint (.width 64)) none dec_Uint64) h' (.ref r0) = some r)
-        (interp (Scope.env sha) fuel Scope.Id.«set_or_append_list» [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)] h)
-        (set_or_append_list x0 (⟨x1⟩ : Uint64) (⟨x2⟩ : Uint64)) :=
-  ⟨64, fun fuel hf => by
-    obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le' hf
-    exact set_or_append_list_pInactivityScores_run sha gfp h r0 x0 hy0 x1 hr1 x2 hr2 hw hwf haw k⟩
-
-set_option maxHeartbeats 4000000 in
-set_option maxRecDepth 8192 in
 theorem set_or_append_list_pEpochParticipation_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : (List ParticipationFlags)) (hy0 : (decListT .progressiveList (.uint (.nominal Scope.Id.«ParticipationFlags» 8)) none dec_ParticipationFlags) h (.ref r0) = some x0) (x1 : Nat) (hr1 : x1 < 2 ^ 64) (x2 : Nat) (hr2 : x2 < 2 ^ 8) (hw : WTree h [(.ref r0), (.uint (.width 64) x1), (.uint (.nominal Scope.Id.«ParticipationFlags» 8) x2)] [⟨(listRoot .progressiveList (.uint (.nominal Scope.Id.«ParticipationFlags» 8))), []⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.width 64) x1), (.uint (.nominal Scope.Id.«ParticipationFlags» 8) x2)]) (k : Nat) :
       ResultMatches gfp [⟨(listRoot .progressiveList (.uint (.nominal Scope.Id.«ParticipationFlags» 8))), []⟩] h [(.ref r0), (.uint (.width 64) x1), (.uint (.nominal Scope.Id.«ParticipationFlags» 8) x2)] (fun (r : (List ParticipationFlags)) h' v => v = .none ∧ (decListT .progressiveList (.uint (.nominal Scope.Id.«ParticipationFlags» 8)) none dec_ParticipationFlags) h' (.ref r0) = some r)
         (interp (Scope.env sha) (k + 64) Scope.Id.«set_or_append_list» [(.ref r0), (.uint (.width 64) x1), (.uint (.nominal Scope.Id.«ParticipationFlags» 8) x2)] h)
@@ -112,6 +87,31 @@ theorem set_or_append_list_pBalances_valid (gfp : Footprint) (h : Heap) (r0 : Na
 
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 8192 in
+theorem set_or_append_list_pInactivityScores_run (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : (List Uint64)) (hy0 : (decListT .progressiveList (.uint (.width 64)) none dec_Uint64) h (.ref r0) = some x0) (x1 : Nat) (hr1 : x1 < 2 ^ 64) (x2 : Nat) (hr2 : x2 < 2 ^ 64) (hw : WTree h [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)] [⟨(listRoot .progressiveList (.uint (.width 64))), []⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)]) (k : Nat) :
+      ResultMatches gfp [⟨(listRoot .progressiveList (.uint (.width 64))), []⟩] h [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)] (fun (r : (List Uint64)) h' v => v = .none ∧ (decListT .progressiveList (.uint (.width 64)) none dec_Uint64) h' (.ref r0) = some r)
+        (interp (Scope.env sha) (k + 64) Scope.Id.«set_or_append_list» [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)] h)
+        (set_or_append_list x0 (⟨x1⟩ : Uint64) (⟨x2⟩ : Uint64)) := by
+  simp only [rd_dec, Option.bind_eq_bind, Option.bind_eq_some_iff, rd_simp, Option.pure_def, Option.some.injEq, Value.ref.injEq, exists_eq_left', exists_eq_right] at hy0
+  rd_split_hyps
+  all_goals (
+  rw [interp, callName, callValue.eq_def]
+  simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_set_or_append_list, SpecLean.Rd.Gen.set_or_append_list, Scope.env, Scope.knownNames, *]
+  rd_step
+  repeat' (first | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
+  all_goals (first | rd_finish | ((try rd_heap); rd_frame; done) | ((try rd_heap); (try rd_frame); all_goals rd_finish)))
+
+set_option maxRecDepth 8192 in
+theorem set_or_append_list_pInactivityScores_valid (gfp : Footprint) (h : Heap) (r0 : Nat) (x0 : (List Uint64)) (hy0 : (decListT .progressiveList (.uint (.width 64)) none dec_Uint64) h (.ref r0) = some x0) (x1 : Nat) (hr1 : x1 < 2 ^ 64) (x2 : Nat) (hr2 : x2 < 2 ^ 64) (hw : WTree h [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)] [⟨(listRoot .progressiveList (.uint (.width 64))), []⟩]) (hwf : HeapWF h) (haw : ArgsWF h [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)]) :
+    ∃ N, ∀ fuel ≥ N,
+      ResultMatches gfp [⟨(listRoot .progressiveList (.uint (.width 64))), []⟩] h [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)] (fun (r : (List Uint64)) h' v => v = .none ∧ (decListT .progressiveList (.uint (.width 64)) none dec_Uint64) h' (.ref r0) = some r)
+        (interp (Scope.env sha) fuel Scope.Id.«set_or_append_list» [(.ref r0), (.uint (.width 64) x1), (.uint (.width 64) x2)] h)
+        (set_or_append_list x0 (⟨x1⟩ : Uint64) (⟨x2⟩ : Uint64)) :=
+  ⟨64, fun fuel hf => by
+    obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le' hf
+    exact set_or_append_list_pInactivityScores_run sha gfp h r0 x0 hy0 x1 hr1 x2 hr2 hw hwf haw k⟩
+
+set_option maxHeartbeats 4000000 in
+set_option maxRecDepth 8192 in
 theorem compute_shuffled_index_run (compute_shuffled_permutation_runF : compute_shuffled_permutation_stmtF sha) (gfp : Footprint) (h : Heap) (x0 : Nat) (hr0 : x0 < 2 ^ 64) (x1 : Nat) (hr1 : x1 < 2 ^ 64) (x2 : List UInt8) (hl2 : x2.length = 32) (hwf : HeapWF h) (haw : ArgsWF h [(.uint (.width 64) x0), (.uint (.width 64) x1), (.bytes Scope.Id.«Bytes32» x2)]) (ho : OracleHtr sha) (k : Nat) :
       ResultMatches gfp [] h [(.uint (.width 64) x0), (.uint (.width 64) x1), (.bytes Scope.Id.«Bytes32» x2)] (fun (r : Uint64) h' v => v = (enc_Uint64 r h').1 ∧ UintC.val r < 2 ^ 64)
         (interp (Scope.env sha) (k + x1 + x1 + 458) Scope.Id.«compute_shuffled_index» [(.uint (.width 64) x0), (.uint (.width 64) x1), (.bytes Scope.Id.«Bytes32» x2)] h)
@@ -120,7 +120,7 @@ theorem compute_shuffled_index_run (compute_shuffled_permutation_runF : compute_
   rw [interp, callName, callValue.eq_def]
   simp [rd_simp, lookup_lit, unfold_known, fieldIndex_lit, stop_call, stop_call_post, Scope.fn_compute_shuffled_index, SpecLean.Rd.Gen.compute_shuffled_index, Scope.env, Scope.knownNames, enc_Uint64, encUint, encBytesN]
   rd_step
-  repeat' (first | rd_call [compute_shuffled_permutation_runF] | (rd_frame_objs; try rd_step) | (rd_listres; try rd_step) | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
+  repeat' (first | rd_call [compute_shuffled_permutation_runF] | (rd_frame_objs; try rd_step) | (rd_frame_fp; try rd_step) | (rd_keep_fields; try rd_step) | (rd_listres; try rd_step) | (rd_items; try rd_step) | (rd_split <;> (try rd_step)))
   all_goals (first | rd_finish | ((try rd_frame_facts); (try rd_heap); rd_frame; done) | ((try rd_heap); (try rd_frame); all_goals rd_finish)))
 
 set_option maxRecDepth 8192 in

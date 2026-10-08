@@ -622,6 +622,21 @@ Why the frame matters, with three cases from the spec:
   `block`. The later calls get `state`. The proof needs the frame to show that `block` decodes
   unchanged.
 
+**Fields that a writer keeps.** A function never rebinds a field that it does not name.
+`ResultMatches` does not state this. A container at a footprint path can change, so a callee
+can set `state.validators` to a copy. A caller that holds `validator = state.validators[i]`
+across that call then writes an object outside the state, as in `initiate_validator_exit`. One
+general rule over the interpreter cannot prove the fact. The theorems hold for any entry heap,
+and a closure in that heap can run any code.
+
+So the contract of a writer is `ResultMatches` plus Keep. The second theorem, `f_pk`, adds
+`FieldKeep h h' rb` to the expected result. `rb` holds `(class, field index)` for each field name
+that `f` or a callee assigns (`x.f = ...`), for every class with a field of that name.
+`FieldKeep h h' rb` says that each container of `h` is a container of the same class in `h'`,
+and that each field outside `rb` keeps its value. The tactic proves it for each function with
+general step rules (`SpecLean/Validation/FieldKeep.lean`). A caller takes `g_pk` next to
+`g_stmt`. A full theorem needs both.
+
 **Entry points.** An upgrade breaks `WTree` over `[pre, post]`: `upgrade_to_electra` writes into
 `balances`, which `pre` and `post` share, and `upgrade_to_gloas` shares validators and
 `latest_block_header`. No spec function calls an upgrade. The test harness calls them, with a copy
