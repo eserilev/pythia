@@ -625,11 +625,15 @@ def proof(st, callees):
 
 
 def loop_shape(m, name):
-    """The shape of a loop function for `bridge_loop`, or None. Shape `field`: one loop over an
-    index, and the hand loop changes one list field `F` of the state in place
-    (`let mut F := state.F`, then `pure { state with F }`). Returns (vars, j, field, conv, ir):
-    the readable loop variables, the index of the state among them, and the item map and range of
-    the field."""
+    """The shape of a loop function for `bridge_loop`, or None. One loop over an index, and:
+
+    - shape `field`: the hand loop changes one list field `F` of the state in place
+      (`let mut F := state.F`, then `pure { state with F }`);
+    - shape `acc`: the hand loop changes one local list `A` (`let mut A := …` before the loop,
+      `A ←` or `A :=` in it), and the readable loop has the loop variable `A_in`.
+
+    Returns a dict with the readable loop variables `vs`, the index `j` of the changed variable
+    among them, and the item map `conv` and range `ir` of the list."""
     rb = bodies(m.rd_text)
     if f"{name}.loop1" not in rb or f"{name}.loop2" in rb:
         return None
@@ -641,49 +645,113 @@ def loop_shape(m, name):
     if "i_" not in names:
         return None
     vs = binders[names.index("i_") + 1:]
-    js = [k for k, (_, t) in enumerate(vs) if t == "BeaconState"]
     hb = bodies(m.hd_text).get(name, "")
+    if hb.count("for ") != 1:
+        return None
     f = re.search(r"let mut (\w+) := state\.(\w+)\n", hb)
-    if len(js) != 1 or not f or f.group(1) != f.group(2) or hb.count("for ") != 1:
+    if f and f.group(1) == f.group(2):
+        js = [k for k, (_, t) in enumerate(vs) if t == "BeaconState"]
+        field = f.group(1)
+        if len(js) != 1 or not re.search(rf"pure \{{ state with {field} \}}", hb):
+            return None
+        rt = dict(m.rd.get("BeaconState", [])).get(field)
+        ht = dict(m.hd.get("BeaconState", [])).get(field)
+        if not rt or not ht or not rt.startswith("List ") or not m.hresolve(ht).startswith("List "):
+            return None
+        conv = m.conv(rt[5:], m.hresolve(ht)[5:])
+        if conv is None:
+            return None
+        return {"kind": "field", "vs": vs, "j": js[0], "field": field, "conv": conv,
+                "ir": m.ir(rt[5:])}
+    pre, body = hb.split("for ", 1)
+    accs = [a for a in re.findall(r"let mut (\w+) :=", pre)
+            if re.search(rf"\b{a} (←|:=)", body)]
+    if not accs or len(accs) > 2:
         return None
-    field = f.group(1)
-    if not re.search(rf"pure \{{ state with {field} \}}", hb):
-        return None
-    rt = dict(m.rd.get("BeaconState", [])).get(field)
-    ht = dict(m.hd.get("BeaconState", [])).get(field)
-    if not rt or not ht or not rt.startswith("List ") or not m.hresolve(ht).startswith("List "):
-        return None
-    conv = m.conv(rt[5:], m.hresolve(ht)[5:])
-    if conv is None:
-        return None
-    return vs, js[0], field, conv, m.ir(rt[5:])
+    vn = [v for v, _ in vs]
+    js, convs, irs = [], [], []
+    for a in accs:
+        if f"{a}_in" not in vn:
+            return None
+        j = vn.index(f"{a}_in")
+        rt = vs[j][1]
+        if not rt.startswith("List "):
+            return None
+        conv = m.conv(rt[5:], "Nat")
+        if conv is None:
+            return None
+        js.append(j)
+        convs.append(conv)
+        irs.append(m.ir(rt[5:]))
+    return {"kind": "acc", "vs": vs, "js": js, "convs": convs, "irs": irs,
+            "j": js[0], "conv": convs[0], "ir": irs[0]}
 
 
 def loop_proof(m, st, callees):
-    """The proof of a loop function of shape `field` (`loop_shape`): `bridge_walk` up to the
-    loop, `bridge_loop` with the invariant of the shape, then the four goals of `sim_loop`."""
-    shape = loop_shape(m, st.name)
-    if shape is None or "state" not in [n for n, _ in st.binders]:
+    """The proof of a loop function of a shape of `loop_shape`: `bridge_walk` up to the loop,
+    `bridge_loop` with the invariant of the shape, then the four goals of `sim_loop`."""
+    sh = loop_shape(m, st.name)
+    if sh is None:
         return None
-    vs, j, field, conv, ir = shape
     names = [q(n) for n, _ in st.binders] + [f"hr{i}" for i in range(len(st.irs))]
-    v = [f"v{k + 1}" for k in range(len(vs))]
+    v = [f"v{k + 1}" for k in range(len(sh["vs"]))]
+    j, conv, ir = sh["j"], sh["conv"], sh["ir"]
     hs = ", ".join(f"h_{c}" for c in callees)
-    inv = (f"fun _ {' '.join(v)} r => ∃ X, {v[j]} = {{ «state» with {field} := X }} ∧ "
-           f"r = X.map {conv} ∧ ∀ y ∈ X, {ir} y")
     loop1 = f"Gen.{st.name}.loop1"
+    vv = " ".join(v)
+    if sh["kind"] == "field":
+        if "state" not in [n for n, _ in st.binders]:
+            return None
+        inv = (f"fun _ {vv} r => ∃ X, {v[j]} = {{ «state» with {sh['field']} := X }} ∧ "
+               f"r = X.map {conv} ∧ ∀ y ∈ X, {ir} y")
+        init = "exact ⟨_, rfl, rfl, by first | assumption | bridge_range⟩"
+        fin = (f"intro {vv} r ⟨X, hs, hr, _⟩\n      subst hs hr\n"
+               f"      rw [{loop1}, dif_neg (Nat.lt_irrefl _)]\n      rfl")
+        start = "obtain ⟨X, rfl, rfl, hX⟩ := hinv"
+    else:
+        js, convs, irs = sh["js"], sh["convs"], sh["irs"]
+        n = len(js)
+        rparts = ["r"] if n == 1 else ["r.fst", "r.snd"]
+        eqs = [f"{rp} = {v[jj]}.map {cv}" for rp, jj, cv in zip(rparts, js, convs)]
+        rngs = [f"(∀ y ∈ {v[jj]}, {ii} y)" for jj, ii in zip(js, irs)]
+        inv = f"fun _ {vv} r => " + " ∧ ".join(eqs + rngs)
+        pat = "⟨" + ", ".join(["rfl"] * n + [f"hX{t}" for t in range(n)]) + "⟩"
+        cases_r = "" if n == 1 else "obtain ⟨ra, rb⟩ := r\n        dsimp only at hinv\n        "
+        cases_rf = "" if n == 1 else "obtain ⟨ra, rb⟩ := r\n      dsimp only at hinv\n      "
+        init = "exact ⟨" + ", ".join(["by bridge_close"] * n + ["by bridge_range"] * n) + "⟩"
+        fin = (f"intro {vv} r hinv\n      {cases_rf}obtain {pat} := hinv\n"
+               f"      rw [{loop1}, dif_neg (Nat.lt_irrefl _)]\n      bridge_run [{hs}]")
+        start = f"{cases_r}obtain {pat} := hinv"
+    post = "(post_true _)" if st.post.startswith("(fun _ => True)") else "?_"
+    tail = ""
+    if post != "(post_true _)":
+        if sh["kind"] != "acc":
+            return None
+        k = len(v)
+        js, irs = sh["js"], sh["irs"]
+        projs = ["l" + ".2" * jj + (".1" if jj < k - 1 else "") for jj in js]
+        jinv = f"fun _ {vv} => " + " ∧ ".join(
+            f"{v[jj]}.length < 2 ^ 64 ∧ (∀ y ∈ {v[jj]}, {ii} y)" for jj, ii in zip(js, irs))
+        qpost = "fun l => " + " ∧ ".join(
+            f"({pj}).length < 2 ^ 64 ∧ (∀ y ∈ {pj}, {ii} y)" for pj, ii in zip(projs, irs))
+        tail = (f"  · (try dsimp only)\n    bridge_post_walk\n    all_goals\n"
+                f"      bridge_loop_post ({jinv}) ({qpost})\n"
+                f"      case pinit => bridge_range\n"
+                f"      case pfin =>\n        intro {vv} hJ\n"
+                f"        rw [{loop1}, dif_neg (Nat.lt_irrefl _)]\n        exact post_pure _ hJ\n"
+                f"      case pstep =>\n        intro i {vv} hi hJ ih\n"
+                f"        rw [{loop1}, dif_pos hi]\n        dsimp only\n        bridge_post\n"
+                f"      case pk =>\n        intro y hy hQ\n        bridge_post\n")
     return (f"  intro {' '.join(names)}\n  bridge_split\n  unfold Gen.{st.name} {HNS}.{st.name}\n"
-            f"  refine simI_intro ?_ (post_true _)\n  bridge_walk [{hs}]\n  all_goals\n"
-            f"    bridge_loop ({inv})\n"
-            f"    case hn => simp [bridge_abs]\n"
-            f"    case init => exact ⟨_, rfl, rfl, by first | assumption | bridge_range⟩\n"
-            f"    case fin =>\n"
-            f"      intro {' '.join(v)} r ⟨X, hs, hr, _⟩\n      subst hs hr\n"
-            f"      rw [{loop1}, dif_neg (Nat.lt_irrefl _)]\n      rfl\n"
-            f"    case step =>\n"
-            f"      intro i x {' '.join(v)} r hi hx hinv ih\n"
-            f"      obtain ⟨X, rfl, rfl, hX⟩ := hinv\n      bridge_item hi hx\n"
-            f"      rw [{loop1}, dif_pos hi]\n      dsimp only\n      bridge_run [{hs}]\n")
+            f"  refine simI_intro ?_ {post}\n  · (try dsimp only)\n    bridge_walk [{hs}]\n    all_goals\n"
+            f"      bridge_loop ({inv})\n"
+            f"      case hn => simp [bridge_abs]\n"
+            f"      case init => {init}\n"
+            f"      case fin =>\n        {fin.replace(chr(10) + '      ', chr(10) + '        ')}\n"
+            f"      case step =>\n"
+            f"        intro i x {vv} r hi hx hinv ih\n"
+            f"        {start}\n        bridge_item hi hx\n"
+            f"        rw [{loop1}, dif_pos hi]\n        dsimp only\n        bridge_run [{hs}]\n{tail}")
 
 
 def cond_theorem(st, callees, m=None, loops=()):

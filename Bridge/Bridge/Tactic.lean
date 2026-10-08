@@ -92,6 +92,11 @@ theorem sim_pure_ite_l {β β' : Type} {g : β → β'} (c : Prop) [Decidable c]
   · rw [if_pos h] at hs ⊢; exact hs
   · rw [if_neg h] at hs ⊢; exact hs
 
+theorem not_contains_iff_not_mem_val {α : Type} [UintC α] [DecidableEq α] (xs : List α) (a : α) :
+    ((!xs.contains a) = true) ↔ ¬ (UintC.val a ∈ xs.map UintC.val) := by
+  rw [← contains_iff_mem_val]
+  cases xs.contains a <;> simp
+
 theorem uv_beq_val {α β : Type} [UintC α] [UintC β] (a : α) (b : β) :
     (uv a == uv b) = (UintC.val a == UintC.val b) := by
   unfold uv
@@ -146,6 +151,18 @@ theorem lset_length {α : Type} {xs ys : List α} {i : Int} {x : α} (h : lset x
   unfold lset at h
   split at h
   · cases h; simp
+  · cases h
+
+theorem ir_lset {α : Type} {P : α → Prop} {xs ys : List α} {i : Int} {x : α}
+    (h : lset xs i x = .ok ys) (hxs : xs.length < 2 ^ 64 ∧ ∀ y ∈ xs, P y) (hx : P x) :
+    ys.length < 2 ^ 64 ∧ ∀ y ∈ ys, P y := by
+  unfold lset at h
+  split at h
+  · cases h
+    refine ⟨by simpa using hxs.1, fun y hy => ?_⟩
+    rcases List.mem_or_eq_of_mem_set hy with h1 | h1
+    · exact hxs.2 y h1
+    · rw [h1]; exact hx
   · cases h
 
 theorem lset_forall {α : Type} {P : α → Prop} {xs ys : List α} {i : Int} {x : α}
@@ -702,6 +719,7 @@ elab_rules : tactic
     let alts : Array (Lean.TSyntax `tactic) := #[
       ← `(tactic| with_reducible rfl),
       ← `(tactic| exact contains_iff_mem_val _ _),
+      ← `(tactic| exact not_contains_iff_not_mem_val _ _),
       ← `(tactic| bridge_rw_fact),
       ← `(tactic| (simp only [uv, bridge_cast, Int.ofNat_eq_coe, gt_iff_lt]; bridge_eqv)),
       ← `(tactic| (simp (disch := first | assumption | (intro _ _; bridge_mem)) only [bridge_abs, bd, bridge_cast, List.map_map, Function.comp_def, List.contains_eq_mem, Bool.not_eq_true', decide_eq_false_iff_not, mem_map_bytes, mem_map_toVec, toVec_bne, toVec_beq]; done)),
@@ -1025,10 +1043,11 @@ elab_rules : tactic
 changes one list field: `∃ X, state = { st0 with F := X } ∧ r = X.map conv ∧ ∀ y ∈ X, P y`. -/
 syntax "bridge_inv" : tactic
 macro_rules
-  | `(tactic| bridge_inv) => `(tactic| (refine ⟨_, rfl, rfl, ?_⟩; bridge_range))
-macro_rules
-  | `(tactic| bridge_inv) => `(tactic| (bridge_facts; refine ⟨_, ?_, rfl, ?_⟩ <;>
-      first | bridge_conj_assumption | bridge_range))
+  | `(tactic| bridge_inv) => `(tactic| first
+    | (refine ⟨_, rfl, rfl, ?_⟩; bridge_range)
+    | (refine ⟨rfl, ?_⟩; first | assumption | bridge_sub_ir)
+    | (refine ⟨rfl, rfl, ?_, ?_⟩ <;> first | assumption | bridge_sub_ir)
+    | (bridge_facts; refine ⟨_, ?_, rfl, ?_⟩ <;> first | bridge_conj_assumption | bridge_range))
 
 open Lean Meta Elab Tactic in
 /-- Prove one `Sim` goal step by step. Returns the goals it could not prove. -/
@@ -1451,6 +1470,18 @@ partial def bridgePost (g : MVarId) : TacticM (List MVarId) := do
     logInfo m!"bridge post: {r.getAppFn} {r.getAppNumArgs}"
   if p.isLambda && p.bindingBody!.consumeMData.isConstOf ``True then
     if let some gs ← tryAt (evalTactic (← `(tactic| exact post_true _))) g then return gs
+  -- the next step of a loop (`post_loop`): the claim `ih` for step `i + 1`
+  if let some fnName := r.getAppFn.constName? then
+    if fnName.isStr && fnName.getString!.startsWith "loop" then
+      if ((← g.getDecl).lctx.findFromUserName? `ih).isSome then
+        let ihId := mkIdent `ih
+        if let some gs ← tryAt (evalTactic (← `(tactic| (apply $ihId:ident; first | assumption | bridge_sub_ir)))) g then
+          return gs
+  -- a loop with its own post condition: keep the goal for `bridge_loop_post`
+  if r.isAppOfArity ``Bind.bind 6 then
+    if let some fnName := (r.getArg! 4).consumeMData.getAppFn.constName? then
+      if fnName.isStr && fnName.getString!.startsWith "loop" then
+        return [g]
   let step (tac : Lean.Syntax) : TacticM (Option (List MVarId)) := do
     match ← tryAt (evalTactic tac) g with
     | none => return none
@@ -1488,6 +1519,15 @@ partial def bridgePost (g : MVarId) : TacticM (List MVarId) := do
       logInfo m!"bridge post leaf: {gs.length} goals left"
     return gs
   return [g]
+
+/-- `bridge_post` that keeps the goals it cannot prove (a loop, for `bridge_loop_post`). -/
+syntax "bridge_post_walk" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_post_walk) => do
+    let rest ← bridgePost (← getMainGoal)
+    setGoals rest
 
 /-- Prove a goal `Post P r` by walking `r`. Fails if a goal is left. -/
 syntax "bridge_post" : tactic
@@ -1555,6 +1595,8 @@ macro_rules
   | `(tactic| bridge_sub_ir) => `(tactic| first
     | (refine ir_dedup ?_; bridge_sub_ir)
     | (refine lset_forall (by assumption) ?_ ?_ <;> first | assumption | bridge_range)
+    | (refine ir_lset (by assumption) ?_ ?_ <;> first | assumption | bridge_sub_ir)
+    | exact uOp_range (by assumption)
     | (refine ir_of_filterM (by assumption) ?_; bridge_sub_ir)
     | (refine ir_of_filterMapM_self (by assumption) (fun _ _ => by bridge_post_self) ?_; bridge_sub_ir)
     | bridge_range)

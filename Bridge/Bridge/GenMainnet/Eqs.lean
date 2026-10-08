@@ -308,6 +308,49 @@ theorem cond_is_in_inactivity_leak (h_get_finality_delay : spec_get_finality_del
 
 theorem full_is_in_inactivity_leak : spec_is_in_inactivity_leak := cond_is_in_inactivity_leak full_get_finality_delay
 
+theorem cond_get_inactivity_penalty_deltas (h_get_eligible_validator_indices : spec_get_eligible_validator_indices) (h_get_previous_epoch : spec_get_previous_epoch) (h_get_unslashed_participating_indices : spec_get_unslashed_participating_indices) : spec_get_inactivity_penalty_deltas := by
+  intro «state» hr0
+  bridge_split
+  unfold GenMainnet.get_inactivity_penalty_deltas EpochProofs.Spec.get_inactivity_penalty_deltas
+  refine simI_intro ?_ ?_
+  · (try dsimp only)
+    bridge_walk [h_get_eligible_validator_indices, h_get_previous_epoch, h_get_unslashed_participating_indices]
+    all_goals
+      bridge_loop (fun _ v1 v2 v3 r => r = v1.map (fun x : GenMainnet.Gwei => x.val) ∧ (∀ y ∈ v1, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y))
+      case hn => simp [bridge_abs]
+      case init => exact ⟨by bridge_close, by bridge_range⟩
+      case fin =>
+        intro v1 v2 v3 r hinv
+        obtain ⟨rfl, hX0⟩ := hinv
+        rw [GenMainnet.get_inactivity_penalty_deltas.loop1, dif_neg (Nat.lt_irrefl _)]
+        bridge_run [h_get_eligible_validator_indices, h_get_previous_epoch, h_get_unslashed_participating_indices]
+      case step =>
+        intro i x v1 v2 v3 r hi hx hinv ih
+        obtain ⟨rfl, hX0⟩ := hinv
+        bridge_item hi hx
+        rw [GenMainnet.get_inactivity_penalty_deltas.loop1, dif_pos hi]
+        dsimp only
+        bridge_run [h_get_eligible_validator_indices, h_get_previous_epoch, h_get_unslashed_participating_indices]
+  · (try dsimp only)
+    bridge_post_walk
+    all_goals
+      bridge_loop_post (fun _ v1 v2 v3 => v1.length < 2 ^ 64 ∧ (∀ y ∈ v1, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y)) (fun l => (l.1).length < 2 ^ 64 ∧ (∀ y ∈ l.1, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y))
+      case pinit => bridge_range
+      case pfin =>
+        intro v1 v2 v3 hJ
+        rw [GenMainnet.get_inactivity_penalty_deltas.loop1, dif_neg (Nat.lt_irrefl _)]
+        exact post_pure _ hJ
+      case pstep =>
+        intro i v1 v2 v3 hi hJ ih
+        rw [GenMainnet.get_inactivity_penalty_deltas.loop1, dif_pos hi]
+        dsimp only
+        bridge_post
+      case pk =>
+        intro y hy hQ
+        bridge_post
+
+theorem full_get_inactivity_penalty_deltas : spec_get_inactivity_penalty_deltas := cond_get_inactivity_penalty_deltas full_get_eligible_validator_indices full_get_previous_epoch full_get_unslashed_participating_indices
+
 theorem cond_is_eligible_for_partial_withdrawals  : spec_is_eligible_for_partial_withdrawals := by
   intro «validator» «balance» hr0 hr1
   bridge_split
@@ -582,23 +625,24 @@ theorem cond_process_inactivity_updates (h_get_current_epoch : spec_get_current_
   bridge_split
   unfold GenMainnet.process_inactivity_updates EpochProofs.Spec.process_inactivity_updates
   refine simI_intro ?_ (post_true _)
-  bridge_walk [h_get_current_epoch, h_get_eligible_validator_indices, h_get_previous_epoch, h_get_unslashed_participating_indices, h_is_in_inactivity_leak, h_saturating_sub]
-  all_goals
-    bridge_loop (fun _ v1 r => ∃ X, v1 = { «state» with inactivity_scores := X } ∧ r = X.map (fun x : GenMainnet.Uint64 => x.val) ∧ ∀ y ∈ X, (fun x : GenMainnet.Uint64 => x.val < 2 ^ 64) y)
-    case hn => simp [bridge_abs]
-    case init => exact ⟨_, rfl, rfl, by first | assumption | bridge_range⟩
-    case fin =>
-      intro v1 r ⟨X, hs, hr, _⟩
-      subst hs hr
-      rw [GenMainnet.process_inactivity_updates.loop1, dif_neg (Nat.lt_irrefl _)]
-      rfl
-    case step =>
-      intro i x v1 r hi hx hinv ih
-      obtain ⟨X, rfl, rfl, hX⟩ := hinv
-      bridge_item hi hx
-      rw [GenMainnet.process_inactivity_updates.loop1, dif_pos hi]
-      dsimp only
-      bridge_run [h_get_current_epoch, h_get_eligible_validator_indices, h_get_previous_epoch, h_get_unslashed_participating_indices, h_is_in_inactivity_leak, h_saturating_sub]
+  · (try dsimp only)
+    bridge_walk [h_get_current_epoch, h_get_eligible_validator_indices, h_get_previous_epoch, h_get_unslashed_participating_indices, h_is_in_inactivity_leak, h_saturating_sub]
+    all_goals
+      bridge_loop (fun _ v1 r => ∃ X, v1 = { «state» with inactivity_scores := X } ∧ r = X.map (fun x : GenMainnet.Uint64 => x.val) ∧ ∀ y ∈ X, (fun x : GenMainnet.Uint64 => x.val < 2 ^ 64) y)
+      case hn => simp [bridge_abs]
+      case init => exact ⟨_, rfl, rfl, by first | assumption | bridge_range⟩
+      case fin =>
+        intro v1 r ⟨X, hs, hr, _⟩
+        subst hs hr
+        rw [GenMainnet.process_inactivity_updates.loop1, dif_neg (Nat.lt_irrefl _)]
+        rfl
+      case step =>
+        intro i x v1 r hi hx hinv ih
+        obtain ⟨X, rfl, rfl, hX⟩ := hinv
+        bridge_item hi hx
+        rw [GenMainnet.process_inactivity_updates.loop1, dif_pos hi]
+        dsimp only
+        bridge_run [h_get_current_epoch, h_get_eligible_validator_indices, h_get_previous_epoch, h_get_unslashed_participating_indices, h_is_in_inactivity_leak, h_saturating_sub]
 
 theorem full_process_inactivity_updates : spec_process_inactivity_updates := cond_process_inactivity_updates full_get_current_epoch full_get_eligible_validator_indices full_get_previous_epoch full_get_unslashed_participating_indices full_is_in_inactivity_leak full_saturating_sub
 
@@ -620,23 +664,24 @@ theorem cond_process_slashings (h_decrease_balance : spec_decrease_balance) (h_g
   bridge_split
   unfold GenMainnet.process_slashings EpochProofs.Spec.process_slashings
   refine simI_intro ?_ (post_true _)
-  bridge_walk [h_decrease_balance, h_get_current_epoch, h_get_total_active_balance]
-  all_goals
-    bridge_loop (fun _ v1 v2 v3 r => ∃ X, v3 = { «state» with balances := X } ∧ r = X.map (fun x : GenMainnet.Gwei => x.val) ∧ ∀ y ∈ X, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y)
-    case hn => simp [bridge_abs]
-    case init => exact ⟨_, rfl, rfl, by first | assumption | bridge_range⟩
-    case fin =>
-      intro v1 v2 v3 r ⟨X, hs, hr, _⟩
-      subst hs hr
-      rw [GenMainnet.process_slashings.loop1, dif_neg (Nat.lt_irrefl _)]
-      rfl
-    case step =>
-      intro i x v1 v2 v3 r hi hx hinv ih
-      obtain ⟨X, rfl, rfl, hX⟩ := hinv
-      bridge_item hi hx
-      rw [GenMainnet.process_slashings.loop1, dif_pos hi]
-      dsimp only
-      bridge_run [h_decrease_balance, h_get_current_epoch, h_get_total_active_balance]
+  · (try dsimp only)
+    bridge_walk [h_decrease_balance, h_get_current_epoch, h_get_total_active_balance]
+    all_goals
+      bridge_loop (fun _ v1 v2 v3 r => ∃ X, v3 = { «state» with balances := X } ∧ r = X.map (fun x : GenMainnet.Gwei => x.val) ∧ ∀ y ∈ X, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y)
+      case hn => simp [bridge_abs]
+      case init => exact ⟨_, rfl, rfl, by first | assumption | bridge_range⟩
+      case fin =>
+        intro v1 v2 v3 r ⟨X, hs, hr, _⟩
+        subst hs hr
+        rw [GenMainnet.process_slashings.loop1, dif_neg (Nat.lt_irrefl _)]
+        rfl
+      case step =>
+        intro i x v1 v2 v3 r hi hx hinv ih
+        obtain ⟨X, rfl, rfl, hX⟩ := hinv
+        bridge_item hi hx
+        rw [GenMainnet.process_slashings.loop1, dif_pos hi]
+        dsimp only
+        bridge_run [h_decrease_balance, h_get_current_epoch, h_get_total_active_balance]
 
 theorem full_process_slashings : spec_process_slashings := cond_process_slashings full_decrease_balance full_get_current_epoch full_get_total_active_balance
 
@@ -774,9 +819,9 @@ theorem full_verify_execution_payload_bid_signature : spec_verify_execution_payl
 -- Conditional: 50 mapped, 31 callees (81 of 117 statements without a loop).
 -- Full: 49 mapped, 27 callees.
 -- Not proved: add_builder_to_registry, add_flag, add_validator_to_registry, apply_pending_deposit, bytes_to_uint64, compute_consolidation_epoch_and_update_churn, compute_exit_epoch_and_update_churn, compute_proposer_indices, get_attestation_participation_flag_indices, get_beacon_proposer_indices, get_indexed_attestation, get_next_sync_committee, get_validator_from_deposit, initiate_validator_exit, is_slashable_attestation_data, is_valid_indexed_attestation, is_valid_indexed_payload_attestation, process_block_header, process_bls_to_execution_change, process_builder_deposit_request, process_builder_exit_request, process_consolidation_request, process_epoch, process_eth1_data, process_historical_summaries_update, process_justification_and_finalization, process_proposer_lookahead, process_ptc_window, process_randao, process_slot, process_voluntary_exit, process_withdrawal_request, process_withdrawals, settle_builder_payment, slash_validator, weigh_justification_and_finalization.
--- Loops proved by bridge_loop: process_inactivity_updates, process_slashings.
+-- Loops proved by bridge_loop: get_inactivity_penalty_deltas, process_inactivity_updates, process_slashings.
 -- Loops proved by hand (Proofs.lean): get_index_for_new_builder, get_pending_balance_to_withdraw, get_pending_balance_to_withdraw_for_builder, integer_squareroot, process_effective_balance_updates.
--- Loops (statement only): compute_balance_weighted_selection, compute_ptc, compute_shuffled_permutation, get_attesting_indices, get_builder_withdrawals, get_builders_sweep_withdrawals, get_flag_index_deltas, get_inactivity_penalty_deltas, get_pending_partial_withdrawals, get_validators_sweep_withdrawals, process_attestation, process_attester_slashing, process_builder_pending_payments, process_pending_consolidations, process_proposer_slashing, process_registry_updates, process_rewards_and_penalties, process_sync_aggregate.
+-- Loops (statement only): compute_balance_weighted_selection, compute_ptc, compute_shuffled_permutation, get_attesting_indices, get_builder_withdrawals, get_builders_sweep_withdrawals, get_flag_index_deltas, get_pending_partial_withdrawals, get_validators_sweep_withdrawals, process_attestation, process_attester_slashing, process_builder_pending_payments, process_pending_consolidations, process_proposer_slashing, process_registry_updates, process_rewards_and_penalties, process_sync_aggregate.
 -- No statement (parameters): apply_withdrawals, process_block, process_execution_payload_bid, process_operations, process_payload_attestation, process_pending_deposits, process_slots, state_transition.
 -- No statement (return type): apply_parent_execution_payload, get_expected_withdrawals, process_parent_execution_payload.
 -- No statement (type of list): set_or_append_list.

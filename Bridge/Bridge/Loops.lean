@@ -276,6 +276,92 @@ theorem sim_loopv6 {V1 V2 V3 V4 V5 V6 R O β γ : Type} {g : O → β} (n : Nat)
     (fun i x c r hi hx hc ih => hstep i x (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2.1) (c.2.2.2.2.2) r hi hx hc fun v1' v2' v3' v4' v5' v6' r' h' => ih (v1', v2', v3', v4', v5', v6') r' h')
     (fun c r hc => hend (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2.1) (c.2.2.2.2.2) r hc) (v1, v2, v3, v4, v5, v6) r h
 
+/-! ## The range facts of a loop result -/
+
+theorem post_bind_post {α β : Type} {P : β → Prop} {Q : α → Prop} {A : SpecM α} {K : α → SpecM β}
+    (hA : Post Q A) (h : ∀ y, A = .ok y → Q y → Post P (K y)) : Post P (A >>= K) :=
+  post_bind fun y hy => h y hy (hA y hy)
+
+/-- A post condition of the readable index loop `L i c`, from an invariant `J` of its loop
+variables. `hstep` is one step: it may use the claim for step `i + 1` (`ih`). -/
+theorem post_loop {C O : Type} (n : Nat) (L : Nat → C → SpecM O) (J : Nat → C → Prop)
+    (Q : O → Prop)
+    (hstep : ∀ i c, i < n → J i c → (∀ c', J (i + 1) c' → Post Q (L (i + 1) c')) → Post Q (L i c))
+    (hend : ∀ c, J n c → Post Q (L n c)) (i : Nat) (hi : i ≤ n) (c : C) (h : J i c) :
+    Post Q (L i c) := by
+  by_cases hlt : i < n
+  · exact hstep i c hlt h fun c' h' => post_loop n L J Q hstep hend (i + 1) hlt c' h'
+  · have : i = n := by omega
+    subst this
+    exact hend c h
+termination_by n - i
+
+/-- `post_loop` from the start, for a readable loop with 1 loop variable. -/
+theorem post_loopv1 {V1 O : Type} (n : Nat) (L : Nat → V1 → SpecM O)
+    (J : Nat → V1 → Prop) (Q : O → Prop)
+    (hstep : ∀ i v1, i < n → J i v1 →
+      (∀ v1', J (i + 1) v1' → Post Q (L (i + 1) v1')) → Post Q (L i v1))
+    (hend : ∀ v1, J n v1 → Post Q (L n v1)) (v1 : V1) (h : J 0 v1) :
+    Post Q (L 0 v1) :=
+  post_loop (C := V1) n (fun i c => L i c) (fun i c => J i c) Q
+    (fun i c hi hc ih => hstep i c hi hc fun v1' h' => ih v1' h')
+    (fun c hc => hend c hc) 0 (Nat.zero_le _) v1 h
+
+/-- `post_loop` from the start, for a readable loop with 2 loop variables. -/
+theorem post_loopv2 {V1 V2 O : Type} (n : Nat) (L : Nat → V1 → V2 → SpecM O)
+    (J : Nat → V1 → V2 → Prop) (Q : O → Prop)
+    (hstep : ∀ i v1 v2, i < n → J i v1 v2 →
+      (∀ v1' v2', J (i + 1) v1' v2' → Post Q (L (i + 1) v1' v2')) → Post Q (L i v1 v2))
+    (hend : ∀ v1 v2, J n v1 v2 → Post Q (L n v1 v2)) (v1 : V1) (v2 : V2) (h : J 0 v1 v2) :
+    Post Q (L 0 v1 v2) :=
+  post_loop (C := V1 × V2) n (fun i c => L i (c.1) (c.2)) (fun i c => J i (c.1) (c.2)) Q
+    (fun i c hi hc ih => hstep i (c.1) (c.2) hi hc fun v1' v2' h' => ih (v1', v2') h')
+    (fun c hc => hend (c.1) (c.2) hc) 0 (Nat.zero_le _) (v1, v2) h
+
+/-- `post_loop` from the start, for a readable loop with 3 loop variables. -/
+theorem post_loopv3 {V1 V2 V3 O : Type} (n : Nat) (L : Nat → V1 → V2 → V3 → SpecM O)
+    (J : Nat → V1 → V2 → V3 → Prop) (Q : O → Prop)
+    (hstep : ∀ i v1 v2 v3, i < n → J i v1 v2 v3 →
+      (∀ v1' v2' v3', J (i + 1) v1' v2' v3' → Post Q (L (i + 1) v1' v2' v3')) → Post Q (L i v1 v2 v3))
+    (hend : ∀ v1 v2 v3, J n v1 v2 v3 → Post Q (L n v1 v2 v3)) (v1 : V1) (v2 : V2) (v3 : V3) (h : J 0 v1 v2 v3) :
+    Post Q (L 0 v1 v2 v3) :=
+  post_loop (C := V1 × V2 × V3) n (fun i c => L i (c.1) (c.2.1) (c.2.2)) (fun i c => J i (c.1) (c.2.1) (c.2.2)) Q
+    (fun i c hi hc ih => hstep i (c.1) (c.2.1) (c.2.2) hi hc fun v1' v2' v3' h' => ih (v1', v2', v3') h')
+    (fun c hc => hend (c.1) (c.2.1) (c.2.2) hc) 0 (Nat.zero_le _) (v1, v2, v3) h
+
+/-- `post_loop` from the start, for a readable loop with 4 loop variables. -/
+theorem post_loopv4 {V1 V2 V3 V4 O : Type} (n : Nat) (L : Nat → V1 → V2 → V3 → V4 → SpecM O)
+    (J : Nat → V1 → V2 → V3 → V4 → Prop) (Q : O → Prop)
+    (hstep : ∀ i v1 v2 v3 v4, i < n → J i v1 v2 v3 v4 →
+      (∀ v1' v2' v3' v4', J (i + 1) v1' v2' v3' v4' → Post Q (L (i + 1) v1' v2' v3' v4')) → Post Q (L i v1 v2 v3 v4))
+    (hend : ∀ v1 v2 v3 v4, J n v1 v2 v3 v4 → Post Q (L n v1 v2 v3 v4)) (v1 : V1) (v2 : V2) (v3 : V3) (v4 : V4) (h : J 0 v1 v2 v3 v4) :
+    Post Q (L 0 v1 v2 v3 v4) :=
+  post_loop (C := V1 × V2 × V3 × V4) n (fun i c => L i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2)) (fun i c => J i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2)) Q
+    (fun i c hi hc ih => hstep i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2) hi hc fun v1' v2' v3' v4' h' => ih (v1', v2', v3', v4') h')
+    (fun c hc => hend (c.1) (c.2.1) (c.2.2.1) (c.2.2.2) hc) 0 (Nat.zero_le _) (v1, v2, v3, v4) h
+
+/-- `post_loop` from the start, for a readable loop with 5 loop variables. -/
+theorem post_loopv5 {V1 V2 V3 V4 V5 O : Type} (n : Nat) (L : Nat → V1 → V2 → V3 → V4 → V5 → SpecM O)
+    (J : Nat → V1 → V2 → V3 → V4 → V5 → Prop) (Q : O → Prop)
+    (hstep : ∀ i v1 v2 v3 v4 v5, i < n → J i v1 v2 v3 v4 v5 →
+      (∀ v1' v2' v3' v4' v5', J (i + 1) v1' v2' v3' v4' v5' → Post Q (L (i + 1) v1' v2' v3' v4' v5')) → Post Q (L i v1 v2 v3 v4 v5))
+    (hend : ∀ v1 v2 v3 v4 v5, J n v1 v2 v3 v4 v5 → Post Q (L n v1 v2 v3 v4 v5)) (v1 : V1) (v2 : V2) (v3 : V3) (v4 : V4) (v5 : V5) (h : J 0 v1 v2 v3 v4 v5) :
+    Post Q (L 0 v1 v2 v3 v4 v5) :=
+  post_loop (C := V1 × V2 × V3 × V4 × V5) n (fun i c => L i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2)) (fun i c => J i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2)) Q
+    (fun i c hi hc ih => hstep i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2) hi hc fun v1' v2' v3' v4' v5' h' => ih (v1', v2', v3', v4', v5') h')
+    (fun c hc => hend (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2) hc) 0 (Nat.zero_le _) (v1, v2, v3, v4, v5) h
+
+/-- `post_loop` from the start, for a readable loop with 6 loop variables. -/
+theorem post_loopv6 {V1 V2 V3 V4 V5 V6 O : Type} (n : Nat) (L : Nat → V1 → V2 → V3 → V4 → V5 → V6 → SpecM O)
+    (J : Nat → V1 → V2 → V3 → V4 → V5 → V6 → Prop) (Q : O → Prop)
+    (hstep : ∀ i v1 v2 v3 v4 v5 v6, i < n → J i v1 v2 v3 v4 v5 v6 →
+      (∀ v1' v2' v3' v4' v5' v6', J (i + 1) v1' v2' v3' v4' v5' v6' → Post Q (L (i + 1) v1' v2' v3' v4' v5' v6')) → Post Q (L i v1 v2 v3 v4 v5 v6))
+    (hend : ∀ v1 v2 v3 v4 v5 v6, J n v1 v2 v3 v4 v5 v6 → Post Q (L n v1 v2 v3 v4 v5 v6)) (v1 : V1) (v2 : V2) (v3 : V3) (v4 : V4) (v5 : V5) (v6 : V6) (h : J 0 v1 v2 v3 v4 v5 v6) :
+    Post Q (L 0 v1 v2 v3 v4 v5 v6) :=
+  post_loop (C := V1 × V2 × V3 × V4 × V5 × V6) n (fun i c => L i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2.1) (c.2.2.2.2.2)) (fun i c => J i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2.1) (c.2.2.2.2.2)) Q
+    (fun i c hi hc ih => hstep i (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2.1) (c.2.2.2.2.2) hi hc fun v1' v2' v3' v4' v5' v6' h' => ih (v1', v2', v3', v4', v5', v6') h')
+    (fun c hc => hend (c.1) (c.2.1) (c.2.2.1) (c.2.2.2.1) (c.2.2.2.2.1) (c.2.2.2.2.2) hc) 0 (Nat.zero_le _) (v1, v2, v3, v4, v5, v6) h
+
 /-! ## Sums and appends -/
 
 /-- A readable index loop that adds the amounts of the items that pass a test, against the hand
@@ -391,6 +477,34 @@ elab_rules : tactic
     let lem := mkIdent (Name.mkSimple s!"sim_loopv{k}")
     evalTactic (← `(tactic| refine $lem:ident (n := $nS) (L := $LS) (Inv := $inv)
       (hn := ?hn) (hstep := ?step) (hend := ?fin) (h := ?init) ..))
+
+/-- `bridge_loop_post (J) (Q)` on a goal `Post P (f.loopN … n 0 v₁ … vₖ >>= k)`: the loop result
+has `Q` (`post_loopvₖ` with the invariant `J`), then `k`. The goals left are `pstep`, `pfin`,
+`pinit` and `pk`. -/
+syntax "bridge_loop_post" "(" term ")" "(" term ")" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_loop_post ($inv) ($q)) => withMainContext do
+    let g ← getMainGoal
+    let t := (← instantiateMVars (← g.getType)).consumeMData
+    unless t.isAppOfArity ``Post 3 do throwError "bridge_loop_post: not a Post goal"
+    let r := (t.getArg! 2).headBeta.consumeMData
+    unless r.isAppOfArity ``Bind.bind 6 do throwError "bridge_loop_post: not a bind"
+    let call := (r.getArg! 4).consumeMData
+    let some fn := call.getAppFn.constName? | throwError "bridge_loop_post: not a loop call"
+    let ty := (← getConstInfo fn).type
+    let names ← forallTelescope ty fun xs _ => xs.mapM fun x => x.fvarId!.getUserName
+    let args := call.getAppArgs
+    unless names.size == args.size do throwError "bridge_loop_post: partial call of {fn}"
+    let some idx := names.findIdx? (· == `i_) | throwError "bridge_loop_post: no index in {fn}"
+    let k := args.size - idx - 1
+    let LS ← Term.exprToSyntax (mkAppN call.getAppFn (args.extract 0 idx))
+    let nS ← Term.exprToSyntax args[idx - 1]!
+    let lem := mkIdent (Name.mkSimple s!"post_loopv{k}")
+    let holes : Array Lean.Term ← (List.replicate k 0).toArray.mapM fun _ => `(_)
+    evalTactic (← `(tactic| refine post_bind_post ($lem:ident (n := $nS) (L := $LS) (J := $inv) (Q := $q)
+      (hstep := ?pstep) (hend := ?pfin) (h := ?pinit) $holes*) ?pk))
 
 /-- In a loop step with `hi : i < xs.length` and `hx : items[i]? = some x`: replace `x` by item `i`
 of the readable list, and add `lget xs i = .ok xs[i]`. -/
