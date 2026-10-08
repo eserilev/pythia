@@ -531,6 +531,18 @@ theorem undv_boolean (x : Boolean) : undvLeaf decBooleanV (.leaf (.boolean x.val
 
 /-! ## The result of a callee taken from a statement -/
 
+/-- A uint leaf: its class and its number. -/
+def leafUint : DV → Option (UintTy × Nat)
+  | .leaf (.uint t n) => some (t, n)
+  | _ => none
+
+theorem leafUint_spec {d : DV} {t : UintTy} {n : Nat} (h : leafUint d = some (t, n)) :
+    d = .leaf (.uint t n) := by
+  unfold leafUint at h
+  split at h
+  · cases h; rfl
+  · cases h
+
 /-- The den result of a readable call: its value as a tree, or the error of its class. -/
 def extRes {α : Type} (enc : α → DRes) (r : SpecM α) : DM DRes :=
   match r with

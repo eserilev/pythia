@@ -6988,22 +6988,34 @@ theorem undv_kids_SignedBeaconBlock (x : SignedBeaconBlock) (hx : ok_SignedBeaco
 
 /-! The callees taken from statements (`ExtOK`). -/
 
-def ext_get_total_active_balance : ExtFn where
+def ext_get_index_for_new_builder : ExtFn where
   bound := fun rs => match rs with
-    | [r] => match undv_BeaconState r with
-      | some x => x.validators.length + x.validators.length + 256
-      | none => 0
+    | [r0] => match undv_BeaconState r0 with
+      | some x0 => x0.builders.length + 256
+      | _ => 0
     | _ => 0
   run := fun rs => match rs with
-    | [r] => match undv_BeaconState r with
-      | some x => GenBridge.extRes (fun y : Gwei => DRes.val (.uint (.nominal 265 64) y.val)) (get_total_active_balance x)
-      | none => none
+    | [r0] => match undv_BeaconState r0 with
+      | some x0 => if True then GenBridge.extRes (fun y : BuilderIndex => DRes.val (.uint (.nominal 199 64) y.val)) (get_index_for_new_builder x0) else none
+      | _ => none
+    | _ => none
+
+def ext_get_total_active_balance : ExtFn where
+  bound := fun rs => match rs with
+    | [r0] => match undv_BeaconState r0 with
+      | some x0 => x0.validators.length + x0.validators.length + 256
+      | _ => 0
+    | _ => 0
+  run := fun rs => match rs with
+    | [r0] => match undv_BeaconState r0 with
+      | some x0 => if True then GenBridge.extRes (fun y : Gwei => DRes.val (.uint (.nominal 265 64) y.val)) (get_total_active_balance x0) else none
+      | _ => none
     | _ => none
 
 /-- The table of the generated theorems. -/
-instance extGen : ExtTab := ⟨fun g => if g = 209 then some ext_get_total_active_balance else none⟩
+instance extGen : ExtTab := ⟨fun g => if g = 8 then some ext_get_index_for_new_builder else if g = 209 then some ext_get_total_active_balance else none⟩
 
-@[l4_simp] theorem extGen_ext (g : Name) : ExtTab.ext g = (fun g : Name => if g = 209 then some ext_get_total_active_balance else none) g := rfl
+@[l4_simp] theorem extGen_ext (g : Name) : ExtTab.ext g = (fun g : Name => if g = 8 then some ext_get_index_for_new_builder else if g = 209 then some ext_get_total_active_balance else none) g := rfl
 
 set_option maxHeartbeats 1000000 in
 theorem encDec_Builder (x : Builder) : GenBridge.EncDec (enc_Builder x) (.cont 14 (kids_Builder x)) := by

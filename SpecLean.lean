@@ -23,3 +23,5 @@ import SpecLean.Layer4.Examples4
 import SpecLean.Layer4.Examples5
 import SpecLean.Layer4.Gen.Funcs
 import SpecLean.Layer4.Gen.Cond
+import SpecLean.Layer4.Gen.Ext
+import SpecLean.NoFill
