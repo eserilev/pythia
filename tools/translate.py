@@ -219,6 +219,7 @@ def main():
     b.sources = sources
     b.sources_text = sources_text
     b.config_vars = spec_object.config_vars
+    b.preset = args.preset
     em = rd_emit.Emitter(b)
     em.collect()
     types = emit_types(b)
