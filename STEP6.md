@@ -358,7 +358,7 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 | proved, conditional | 50 (and 31 callees) |
 | proved, full | 49 (and 27 callees) |
 | loops proved by hand (`Mainnet/Proofs.lean`) | 2 of the 23 mapped loops, and 3 callee loops |
-| loops proved by `bridge_loop` (generated) | 4 (`process_inactivity_updates`, `process_slashings`, `get_inactivity_penalty_deltas`, `get_flag_index_deltas`) |
+| loops proved by `bridge_loop` (generated) | 5 (`process_inactivity_updates`, `process_slashings`, `get_inactivity_penalty_deltas`, `get_flag_index_deltas`, `process_rewards_and_penalties`) |
 
 `bridge_main` has these steps in addition to the steps for binds, `if` and leaves:
 
@@ -456,6 +456,25 @@ The generator writes the proofs of the loops of the first shape (`loop_shape` an
 `process_inactivity_updates` and `process_slashings` have generated proofs.
 `process_effective_balance_updates` (a new list, not a field changed in place) is still
 `ebu_step`.
+
+### A loop inside a loop
+
+`process_rewards_and_penalties` has a loop over the validators inside a loop over the deltas.
+Both change the field `balances`. The outer step walks to the inner loop, and `bridge_loop`
+keeps the readable rest after the inner loop (the next outer step) inside `L`. So the inner
+loop needs no post condition: at its end, `bridge_run` reaches the outer recursion and closes it
+with the outer `ih`. The inner invariant is the field invariant again.
+
+Further steps for this function:
+
+- `bridge_item` also handles `range(n)` items and appended item lists, and adds the index bound
+  with the lengths computed (`hbound`), for the range of `ValidatorIndex(index)`.
+- The field adapters take no range on their uint arguments: the readable and the hand arithmetic
+  fail on the same values. Only the range of the field stays.
+- A callee precondition from the post condition of an earlier callee (`bridge_facts`, then
+  `bridge_conj_assumption`).
+- `bridge_frame_eq`: the state after two adapters is `st0` with a new field. Each post condition
+  `y = { t with F := y.F }` is rewritten once, latest first.
 
 ### Loops with local accumulators
 

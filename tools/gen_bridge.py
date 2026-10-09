@@ -511,9 +511,11 @@ def statement(m, name, rsigs, hsigs):
     irs = []
     for n, t in rbs:
         ir = m.ir(t)
-        if field is not None and n == "state":
-            # the readable function reads only the field
-            irs.append(f"(∀ y ∈ «state».{field[0]}, {m.ir(field[1][5:])} y)")
+        if field is not None:
+            # the readable function reads only the field, and its uint arguments need no range:
+            # the readable and the hand arithmetic fail on the same values
+            if n == "state":
+                irs.append(f"(∀ y ∈ «state».{field[0]}, {m.ir(field[1][5:])} y)")
             continue
         if ir != "(fun _ => True)":
             irs.append(f"{ir} {q(n)}")
@@ -636,18 +638,31 @@ def loop_shape(m, name):
     Returns a dict with the readable loop variables `vs`, the index `j` of the changed variable
     among them, and the item map `conv` and range `ir` of the list."""
     rb = bodies(m.rd_text)
-    if f"{name}.loop1" not in rb or f"{name}.loop2" in rb:
+    if f"{name}.loop1" not in rb:
         return None
-    sig = re.match(rf"def {re.escape(name)}\.loop1 (.*?) :=\n", rb[f"{name}.loop1"], re.S)
-    if not sig:
-        return None
-    binders, _ = split_binders(sig.group(1))
-    names = [b for b, _ in binders]
-    if "i_" not in names:
-        return None
-    vs = binders[names.index("i_") + 1:]
+
+    def loop_vars(ln):
+        sig = re.match(rf"def {re.escape(name)}\.{ln} (.*?) :=\n", rb[f"{name}.{ln}"], re.S)
+        if not sig:
+            return None
+        binders, _ = split_binders(sig.group(1))
+        names = [b for b, _ in binders]
+        return binders[names.index("i_") + 1:] if "i_" in names else None
+
+    # a loop inside the loop: `loop1` calls `loop2`, and the hand has a `for` inside a `for`
+    inner = None
     hb = bodies(m.hd_text).get(name, "")
-    if hb.count("for ") != 1:
+    if f"{name}.loop2" in rb:
+        if (f"{name}.loop3" in rb or f"{name}.loop2" not in rb[f"{name}.loop1"]
+                or hb.count("for ") != 2):
+            return None
+        inner = loop_vars("loop2")
+        if inner is None:
+            return None
+    elif hb.count("for ") != 1:
+        return None
+    vs = loop_vars("loop1")
+    if vs is None:
         return None
     f = re.search(r"let mut (\w+) := state\.(\w+)\n", hb)
     if f and f.group(1) == f.group(2):
@@ -662,8 +677,12 @@ def loop_shape(m, name):
         conv = m.conv(rt[5:], m.hresolve(ht)[5:])
         if conv is None:
             return None
+        if inner is not None and [t for _, t in inner].count("BeaconState") != 1:
+            return None
         return {"kind": "field", "vs": vs, "j": js[0], "field": field, "conv": conv,
-                "ir": m.ir(rt[5:])}
+                "ir": m.ir(rt[5:]), "inner": inner}
+    if inner is not None:
+        return None
     pre, body = hb.split("for ", 1)
     # with two lists, the hand accumulator is an `MProd` with the lists in the order of their names
     accs = sorted(a for a in re.findall(r"let mut (\w+) :=", pre)
@@ -724,6 +743,27 @@ def loop_proof(m, st, callees):
         fin = (f"intro {vv} r hinv\n      {cases_rf}obtain {pat} := hinv\n"
                f"      rw [{loop1}, dif_neg (Nat.lt_irrefl _)]\n      bridge_run [{hs}]")
         start = f"{cases_r}obtain {pat} := hinv"
+    body_run = f"bridge_run [{hs}]"
+    if sh.get("inner") is not None:
+        vin = [f"w{k + 1}" for k in range(len(sh["inner"]))]
+        ww = " ".join(vin)
+        jin = [t for _, t in sh["inner"]].index("BeaconState")
+        loop2 = f"Gen.{st.name}.loop2"
+        inv2 = (f"fun _ {ww} r => ∃ X, {vin[jin]} = {{ «state» with {sh['field']} := X }} ∧ "
+                f"r = X.map {conv} ∧ ∀ y ∈ X, {ir} y")
+        body_run = (f"bridge_walk [{hs}]\n        all_goals\n"
+                    f"          bridge_loop ({inv2})\n"
+                    f"          case hn => simp [bridge_abs]\n"
+                    f"          case init => exact ⟨_, rfl, rfl, by first | exact hX | bridge_range⟩\n"
+                    f"          case fin =>\n"
+                    f"            intro {ww} r ⟨X', hs, hr, _⟩\n            subst hs hr\n"
+                    f"            rw [{loop2}, dif_neg (Nat.lt_irrefl _)]\n            try dsimp only\n"
+                    f"            bridge_run [{hs}]\n"
+                    f"          case step =>\n"
+                    f"            intro j x {ww} r hj hx hinv ih\n"
+                    f"            obtain ⟨X', rfl, rfl, hX'⟩ := hinv\n            bridge_item hj hx\n"
+                    f"            rw [{loop2}, dif_pos hj]\n            dsimp only\n"
+                    f"            bridge_run [{hs}]")
     post = "(post_true _)" if st.post.startswith("(fun _ => True)") else "?_"
     tail = ""
     if post != "(post_true _)":
@@ -753,7 +793,7 @@ def loop_proof(m, st, callees):
             f"      case step =>\n"
             f"        intro i x {vv} r hi hx hinv ih\n"
             f"        {start}\n        bridge_item hi hx\n"
-            f"        rw [{loop1}, dif_pos hi]\n        dsimp only\n        bridge_run [{hs}]\n{tail}")
+            f"        rw [{loop1}, dif_pos hi]\n        dsimp only\n        {body_run}\n{tail}")
 
 
 def cond_theorem(st, callees, m=None, loops=()):

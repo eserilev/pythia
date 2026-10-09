@@ -54,7 +54,7 @@ abbrev spec_convert_builder_index_to_validator_index : Prop :=
 
 /-- The bridge statement of `decrease_balance`. -/
 abbrev spec_decrease_balance : Prop :=
-  ∀ («state» : GenMainnet.BeaconState) («index» : GenMainnet.ValidatorIndex) («delta» : GenMainnet.Gwei), (∀ y ∈ «state».balances, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y) → (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) «index» → (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) «delta» → SimI (fun s : GenMainnet.BeaconState => s = { «state» with balances := s.balances } ∧ ∀ y ∈ s.balances, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y) (fun s : GenMainnet.BeaconState => (List.map (fun x : GenMainnet.Gwei => x.val)) s.balances) (GenMainnet.decrease_balance «state» «index» «delta») (EpochProofs.Spec.decrease_balance ((List.map (fun x : GenMainnet.Gwei => x.val)) «state».balances) ((fun x : GenMainnet.ValidatorIndex => x.val) «index») ((fun x : GenMainnet.Gwei => x.val) «delta»))
+  ∀ («state» : GenMainnet.BeaconState) («index» : GenMainnet.ValidatorIndex) («delta» : GenMainnet.Gwei), (∀ y ∈ «state».balances, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y) → SimI (fun s : GenMainnet.BeaconState => s = { «state» with balances := s.balances } ∧ ∀ y ∈ s.balances, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y) (fun s : GenMainnet.BeaconState => (List.map (fun x : GenMainnet.Gwei => x.val)) s.balances) (GenMainnet.decrease_balance «state» «index» «delta») (EpochProofs.Spec.decrease_balance ((List.map (fun x : GenMainnet.Gwei => x.val)) «state».balances) ((fun x : GenMainnet.ValidatorIndex => x.val) «index») ((fun x : GenMainnet.Gwei => x.val) «delta»))
 
 /-- The bridge statement of `get_activation_churn_limit`. -/
 abbrev spec_get_activation_churn_limit : Prop :=
@@ -154,7 +154,7 @@ abbrev spec_has_flag : Prop :=
 
 /-- The bridge statement of `increase_balance`. -/
 abbrev spec_increase_balance : Prop :=
-  ∀ («state» : GenMainnet.BeaconState) («index» : GenMainnet.ValidatorIndex) («delta» : GenMainnet.Gwei), (∀ y ∈ «state».balances, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y) → (fun x : GenMainnet.ValidatorIndex => x.val < 2 ^ 64) «index» → (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) «delta» → SimI (fun s : GenMainnet.BeaconState => s = { «state» with balances := s.balances } ∧ ∀ y ∈ s.balances, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y) (fun s : GenMainnet.BeaconState => (List.map (fun x : GenMainnet.Gwei => x.val)) s.balances) (GenMainnet.increase_balance «state» «index» «delta») (EpochProofs.Spec.increase_balance ((List.map (fun x : GenMainnet.Gwei => x.val)) «state».balances) ((fun x : GenMainnet.ValidatorIndex => x.val) «index») ((fun x : GenMainnet.Gwei => x.val) «delta»))
+  ∀ («state» : GenMainnet.BeaconState) («index» : GenMainnet.ValidatorIndex) («delta» : GenMainnet.Gwei), (∀ y ∈ «state».balances, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y) → SimI (fun s : GenMainnet.BeaconState => s = { «state» with balances := s.balances } ∧ ∀ y ∈ s.balances, (fun x : GenMainnet.Gwei => x.val < 2 ^ 64) y) (fun s : GenMainnet.BeaconState => (List.map (fun x : GenMainnet.Gwei => x.val)) s.balances) (GenMainnet.increase_balance «state» «index» «delta») (EpochProofs.Spec.increase_balance ((List.map (fun x : GenMainnet.Gwei => x.val)) «state».balances) ((fun x : GenMainnet.ValidatorIndex => x.val) «index») ((fun x : GenMainnet.Gwei => x.val) «delta»))
 
 /-- The bridge statement of `initiate_builder_exit`. -/
 abbrev spec_initiate_builder_exit : Prop :=

@@ -263,6 +263,8 @@ elab "bridge_dump" : tactic => do
 syntax "bridge_facts0" : tactic
 /-- `bridge_facts0` and the range facts of callee results. -/
 syntax "bridge_facts" : tactic
+/-- Close the goal with a conjunct of a hypothesis (a callee post condition). -/
+syntax "bridge_conj_assumption" : tactic
 /-- Close a range side goal without the callee facts. -/
 syntax "bridge_range0" : tactic
 /-- Close a range side goal. -/
@@ -435,7 +437,7 @@ def addFacts (callees : Bool) : TacticM Unit := withMainContext do
           let hy ← g.withContext (Term.exprToSyntax d.toExpr)
           let before := (← getThe Core.State).messages.toList.countP (·.severity == .error)
           let gs ← evalTacticAt (← `(tactic|
-            have := simI_post (by apply $h:ident <;> bridge_range0) $hy)) g
+            have := simI_post (by apply $h:ident <;> first | bridge_conj_assumption | bridge_range0) $hy)) g
           let after := (← getThe Core.State).messages.toList.countP (·.severity == .error)
           match gs with
           | [g'] => if after == before then g := g'; break else s.restore
@@ -909,6 +911,9 @@ def leafTacs (hs : Array Ident) (a hd : Lean.Expr) : TacticM (Array Lean.Syntax)
     let own ← specHypsFor fn
     for h in hs ++ own do
       out := out.push (← `(tactic| (apply simI_sim; apply $h:ident; all_goals bridge_range)))
+    -- a precondition from the post condition of an earlier callee (a field adapter)
+    for h in hs ++ own do
+      out := out.push (← `(tactic| (apply simI_sim; apply $h:ident; all_goals first | bridge_conj_assumption | (bridge_facts; bridge_conj_assumption) | bridge_range)))
     -- the hand spec has the callee's result as a parameter, with a hypothesis `call = .ok b`
     for h in hs ++ own do
       out := out.push (← `(tactic| (apply sim_of_ok; (focus (apply simI_sim; apply $h:ident; all_goals bridge_range)); bridge_ok_hyp)))
@@ -1054,8 +1059,6 @@ elab_rules : tactic
       s.restore
     throwError "bridge_from_ok: no fact"
 
-/-- Close the goal with a conjunct of a hypothesis (a callee post condition). -/
-syntax "bridge_conj_assumption" : tactic
 
 open Lean Meta in
 partial def conjParts (pf ty : Lean.Expr) (depth : Nat) : MetaM (List (Lean.Expr × Lean.Expr)) := do
@@ -1095,6 +1098,33 @@ elab_rules : tactic
         s.restore
     throwError "bridge_conj_assumption: no conjunct fits"
 
+/-- Close `x = { s with F := x.F }` when `x` comes from a chain of field adapters: each post
+condition `y = { t with F := y.F }` is rewritten once, latest first, then `rfl`. -/
+syntax "bridge_frame_eq" : tactic
+
+open Lean Meta Elab Tactic in
+elab_rules : tactic
+  | `(tactic| bridge_frame_eq) => withMainContext do
+    let mut eqs : Array Lean.Expr := #[]
+    for d in (← getLCtx) do
+      if d.isImplementationDetail then continue
+      let ty := (← instantiateMVars d.type).consumeMData.headBeta
+      for (pf, pty) in ← conjParts d.toExpr ty 3 do
+        if pty.isAppOfArity ``Eq 3 && (pty.getArg! 1).consumeMData.isFVar then
+          let rhs := (pty.getArg! 2).consumeMData
+          if let some c := rhs.getAppFn.constName? then
+            if let some (.ctorInfo _) := (← getEnv).find? c then
+              eqs := eqs.push pf
+    if bridge.debug.get (← getOptions) then logInfo m!"bridge_frame_eq: {eqs.size} equations"
+    for pf in eqs.reverse do
+      let pS ← Term.exprToSyntax pf
+      try evalTactic (← `(tactic| rw [$pS:term]))
+      catch e =>
+        if bridge.debug.get (← getOptions) then logInfo m!"bridge_frame_eq: {e.toMessageData}"
+      -- `rw` closes the goal with `rfl` when it can
+      if (← getUnsolvedGoals).isEmpty then return
+    evalTactic (← `(tactic| rfl))
+
 /-- Close the invariant of a loop step (`sim_loop`). The default is the invariant of a loop that
 changes one list field: `∃ X, state = { st0 with F := X } ∧ r = X.map conv ∧ ∀ y ∈ X, P y`. -/
 syntax "bridge_inv" : tactic
@@ -1103,7 +1133,8 @@ macro_rules
     | (refine ⟨rfl, rfl, ?_, ?_⟩ <;> first | bridge_conj_assumption | bridge_sub_ir)
     | (refine ⟨rfl, ?_⟩; first | bridge_conj_assumption | bridge_sub_ir)
     | (refine ⟨_, rfl, rfl, ?_⟩; bridge_range)
-    | (bridge_facts; refine ⟨_, ?_, rfl, ?_⟩ <;> first | bridge_conj_assumption | bridge_range))
+    | (bridge_facts; refine ⟨_, ?_, rfl, ?_⟩ <;>
+        first | bridge_conj_assumption | bridge_frame_eq | bridge_range))
 
 open Lean Meta Elab Tactic in
 /-- Prove one `Sim` goal step by step. Returns the goals it could not prove. -/
@@ -1122,8 +1153,10 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
     if ty.isAppOfArity ``Eq 3 && (ty.getArg! 1).isConstOf ``Bool.false && (ty.getArg! 2).isConstOf ``Bool.true then
       let hS ← g.withContext (Term.exprToSyntax d.toExpr)
       if let some gs ← tryAt (evalTactic (← `(tactic| exact absurd $hS Bool.false_ne_true))) g then return gs
-  -- the next step of a loop (`sim_loop`): the claim `ih` for step `i + 1`
-  if let some fnName := r.getAppFn.constName? then
+  -- the next step of a loop (`sim_loop`): the claim `ih` for step `i + 1` (for a loop inside a
+  -- loop, the loop call is followed by the rest of the outer step)
+  let rHead := if r.isAppOfArity ``Bind.bind 6 then (r.getArg! 4).consumeMData else r
+  if let some fnName := rHead.getAppFn.constName? then
     if fnName.isStr && fnName.getString!.startsWith "loop" then
       if ((← g.getDecl).lctx.findFromUserName? `ih).isSome then
         let ihId := mkIdent `ih
@@ -1483,7 +1516,8 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
       onTag `h2 (← `(tactic| intro _))
     if let some gs ← continueWith (← tryAt tac g) then return gs
   -- a readable bind against one hand call (a function that returns its last call): add `>>= pure`
-  if isBind r && !isBind h && !isPure h && !isIte h then
+  if isBind r && !isBind h && !isPure h && !isIte h &&
+      (h.getAppFn.constName?.getD .anonymous).getPrefix == `EpochProofs.Spec then
     if let some gs ← continueWith (← tryAt (evalTactic (← `(tactic| apply sim_of_bind_pure_r))) g) then
       return gs
   -- a leaf on its own, with the abs map of the goal

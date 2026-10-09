@@ -459,10 +459,14 @@ syntax "bridge_loop" "(" term ")" : tactic
 open Lean Meta Elab Tactic in
 elab_rules : tactic
   | `(tactic| bridge_loop ($inv)) => withMainContext do
-    evalTactic (← `(tactic| first | apply sim_bind_pure | apply sim_bind_proj))
+    -- the readable rest after the loop: dropped when it only returns (a part of) the result,
+    -- else kept in `L` (a loop inside a loop: the rest is the next step of the outer loop)
+    evalTactic (← `(tactic| first | apply sim_bind_pure | apply sim_bind_proj | skip))
     withMainContext do
     let g ← getMainGoal
-    let some (r, _) ← simSides g | throwError "bridge_loop: not a Sim goal"
+    let some (r0, _) ← simSides g | throwError "bridge_loop: not a Sim goal"
+    let (r, rest) := if r0.isAppOfArity ``Bind.bind 6 then
+        ((r0.getArg! 4).consumeMData, some (r0.getArg! 5)) else (r0, none)
     let some fn := r.getAppFn.constName? | throwError "bridge_loop: not a loop call"
     let ty := (← getConstInfo fn).type
     let names ← forallTelescope ty fun xs _ => xs.mapM fun x => x.fvarId!.getUserName
@@ -470,7 +474,19 @@ elab_rules : tactic
     unless names.size == args.size do throwError "bridge_loop: partial call of {fn}"
     let some idx := names.findIdx? (· == `i_) | throwError "bridge_loop: no index in {fn}"
     let k := args.size - idx - 1
-    let L := mkAppN r.getAppFn (args.extract 0 idx)
+    let part := mkAppN r.getAppFn (args.extract 0 idx)
+    let L ← match rest with
+      | none => pure part
+      | some kont =>
+        let vtys ← (args.extract (idx + 1) args.size).mapM fun a => (inferType a : MetaM Lean.Expr)
+        (withLocalDeclD `j (mkConst ``Nat) fun j => do
+          let rec go (i : Nat) (vs : Array Lean.Expr) : MetaM Lean.Expr := do
+            if h : i < vtys.size then
+              withLocalDeclD (Name.mkSimple s!"v{i + 1}") vtys[i] fun v => go (i + 1) (vs.push v)
+            else
+              let body ← mkAppM ``Bind.bind #[mkAppN part (#[j] ++ vs), kont]
+              mkLambdaFVars (#[j] ++ vs) body
+          go 0 #[] : MetaM Lean.Expr)
     let n := args[idx - 1]!
     let LS ← Term.exprToSyntax L
     let nS ← Term.exprToSyntax n
@@ -506,12 +522,28 @@ elab_rules : tactic
     evalTactic (← `(tactic| refine post_bind_post ($lem:ident (n := $nS) (L := $LS) (J := $inv) (Q := $q)
       (hstep := ?pstep) (hend := ?pfin) (h := ?pinit) $holes*) ?pk))
 
+theorem map_append_singleton {α β : Type} (f : α → β) (a : List α) (b : α) :
+    a.map f ++ [f b] = (a ++ [b]).map f := by
+  simp
+
 /-- In a loop step with `hi : i < xs.length` and `hx : items[i]? = some x`: replace `x` by item `i`
 of the readable list, and add `lget xs i = .ok xs[i]`. -/
 macro "bridge_item" hi:ident hx:ident : tactic => `(tactic| (
-  simp only [bridge_abs, List.getElem?_map, List.getElem?_zipIdx, zipIdx_map', Nat.zero_add,
-    List.getElem?_eq_getElem $hi, Option.map_some, Option.some.injEq] at $hx:ident
-  subst $hx:ident
-  have := lget_ok _ _ $hi))
+  first
+  | (simp only [bridge_abs, map_append_singleton, List.getElem?_map, List.getElem?_zipIdx,
+      zipIdx_map', Nat.zero_add, List.getElem?_eq_getElem $hi, Option.map_some,
+      Option.some.injEq] at $hx:ident
+     subst $hx:ident)
+  -- an item of `List.range n`: the index itself
+  | (obtain ⟨_, hx'⟩ := List.getElem?_eq_some_iff.mp $hx:ident
+     simp only [List.getElem_range] at hx'
+     subst hx')
+  have hitem := lget_ok _ _ $hi
+  -- the bound on the index, with the lengths of the readable lists computed (for range facts)
+  have hbound := $hi
+  try simp only [List.length_map, List.length_range', List.length_range, List.length_append,
+    List.length_cons, List.length_nil, Nat.sub_zero] at hbound
+  -- an item of `range(n)` is the index
+  try simp only [List.getElem_map, List.getElem_range', Nat.zero_add, Nat.one_mul] at hitem))
 
 end Pythia.Bridge
