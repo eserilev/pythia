@@ -355,8 +355,8 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 |---|---|
 | Mapped functions without a loop | 83 |
 | with a statement | 74 |
-| proved, conditional | 50 (and 31 callees) |
-| proved, full | 49 (and 27 callees) |
+| proved, conditional | 53 (and 31 callees) |
+| proved, full | 52 (and 27 callees) |
 | loops proved by hand (`Mainnet/Proofs.lean`) | 2 of the 23 mapped loops, and 3 callee loops |
 | loops proved by `bridge_loop` (generated) | 5 (`process_inactivity_updates`, `process_slashings`, `get_inactivity_penalty_deltas`, `get_flag_index_deltas`, `process_rewards_and_penalties`) |
 
@@ -475,6 +475,22 @@ Further steps for this function:
   `bridge_conj_assumption`).
 - `bridge_frame_eq`: the state after two adapters is `st0` with a new field. Each post condition
   `y = { t with F := y.F }` is rewritten once, latest first.
+
+### Frames of state functions
+
+A function that returns a pair with the state (`compute_exit_epoch_and_update_churn` returns
+the exit epoch and the state) gets a frame in its post condition:
+`x.2 = { state with F₁ := x.2.F₁, … }`, where `F₁, …` are the fields that the function or its
+callees can write (`Model.writes` in the generator: the `{ state with F := … }` updates in the
+readable bodies, and the same for each callee on the state). A caller that reads a kept field of
+the returned state (`x.snd.validators`) gets the frame with `bridge_facts` and rewrites with it,
+so the read is on the input state (`findFrame` in `Tactic.lean`). A function that returns the
+state alone has no frame in its post condition: in the loops, the proofs on the state need no
+more facts, and a frame there made 6 of them fail.
+
+Two more steps for these functions: a readable `if` is split also when the hand has an `if` on
+another test, and (as a fallback) a hand `if` deeper in the hand side is decided by the facts
+(`omega` with `max`).
 
 ### Loops with local accumulators
 

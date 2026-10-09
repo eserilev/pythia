@@ -1136,6 +1136,36 @@ macro_rules
     | (bridge_facts; refine ⟨_, ?_, rfl, ?_⟩ <;>
         first | bridge_conj_assumption | bridge_frame_eq | bridge_range))
 
+open Lean Meta in
+/-- A frame fact `e = { s with F₁ := e.F₁, … }` (a callee post condition) whose `e` is read in
+`goal` at a field it keeps: the proof term of the equation. -/
+def findFrame (goal : Lean.Expr) : MetaM (Option Lean.Expr) := do
+  for d in (← getLCtx) do
+    if d.isImplementationDetail then continue
+    let ty := (← instantiateMVars d.type).consumeMData.headBeta
+    for (pf, pty) in ← conjParts d.toExpr ty 3 do
+      unless pty.isAppOfArity ``Eq 3 do continue
+      let lhs := (pty.getArg! 1).consumeMData
+      let rhs := (pty.getArg! 2).consumeMData
+      let some c := rhs.getAppFn.constName? | continue
+      let some (.ctorInfo ci) := (← getEnv).find? c | continue
+      if lhs.getAppFn.isConstOf c then continue
+      let fields := rhs.getAppArgs.extract ci.numParams rhs.getAppNumArgs
+      let sname := ci.induct
+      unless isStructure (← getEnv) sname do continue
+      let fnames := getStructureFields (← getEnv) sname
+      -- a kept field `F` (its value is not `lhs.F`) read through `lhs` in the goal
+      let mut hit := false
+      for (fname, v) in fnames.zip fields do
+        let projFn := sname ++ fname
+        let v := v.consumeMData
+        if v.isAppOfArity projFn 1 && v.appArg!.consumeMData == lhs then continue
+        if (goal.find? fun e => e.isAppOfArity projFn 1 && e.appArg!.consumeMData == lhs).isSome then
+          hit := true
+          break
+      if hit then return some pf
+  return none
+
 open Lean Meta Elab Tactic in
 /-- Prove one `Sim` goal step by step. Returns the goals it could not prove. -/
 partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) := do
@@ -1181,6 +1211,46 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
         let mut out := []
         for g' in gs do out := out ++ (← bridgeGoal hs g')
         return out
+  -- a state from a callee read at a field the callee keeps: rewrite it with the callee frame
+  -- (its post condition `e = { s with F := e.F, … }`), so the read is on `s`
+  let goalTy ← instantiateMVars (← g.getType)
+  let mut frame? ← g.withContext (findFrame goalTy)
+  let mut gF := g
+  let sF0 ← saveState
+  if frame?.isNone then
+    -- the post conditions of the callees are not facts yet: add them, but only when the readable
+    -- side reads a field of a state that a callee returned (`y.F` or `y.2.F` for `f … = .ok y`)
+    let results ← g.withContext do
+      let mut out : Array Lean.Expr := #[]
+      for d in (← getLCtx) do
+        if d.isImplementationDetail then continue
+        let ty := (← instantiateMVars d.type).consumeMData
+        if ty.isAppOfArity ``Eq 3 && (ty.getArg! 2).consumeMData.isAppOfArity ``Except.ok 3 &&
+            isGenFn ((ty.getArg! 1).consumeMData.getAppFn.constName?.getD .anonymous) then
+          out := out.push ((ty.getArg! 2).consumeMData.appArg!.consumeMData)
+      pure out
+    let env ← getEnv
+    let readsResult := (r.find? fun e =>
+      e.getAppNumArgs == 1 && (e.getAppFn.constName?.map env.isProjectionFn).getD false &&
+      (let b := e.appArg!.consumeMData
+       let b := if b.isAppOfArity ``Prod.snd 3 || b.isAppOfArity ``Prod.fst 3 then b.appArg!.consumeMData else b
+       results.contains b)).isSome
+    if readsResult then
+      let sF ← saveState
+      if let some [g'] ← tryAt (evalTactic (← `(tactic| bridge_facts))) g then
+        gF := g'
+        frame? ← g'.withContext (findFrame (← instantiateMVars (← g'.getType)))
+        -- no frame: undo `bridge_facts`, which assigned `g`
+        if frame?.isNone then
+          sF.restore
+          gF := g
+  if let some pf := frame? then
+    let pS ← gF.withContext (Term.exprToSyntax pf)
+    if let some gs ← tryAt (evalTactic (← `(tactic| (rw [$pS:term]; try dsimp only)))) gF then
+      let mut out := []
+      for g' in gs do out := out ++ (← bridgeGoal hs g')
+      return out
+    sF0.restore
   -- a callee on `{ s with … }` that does not read the updated fields: call it on `s`
   if r.isAppOfArity ``Bind.bind 6 then
     let a := (r.getArg! 4).consumeMData
@@ -1503,7 +1573,34 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
       onTag `h1 (← `(tactic| intro _ _))
       onTag `h2 (← `(tactic| intro _ _))
     if let some gs ← continueWith (← tryAt tac g) then return gs
-  if isIte r && !isIte h then
+  -- (a fallback, it is slow) a hand `if` deeper in the hand side (in a test or a value), with a closed test that the facts
+  -- decide: rewrite it away (the readable side made the same test before)
+  let cands : Array Lean.Expr ← do
+    let mut out := #[]
+    let hTop := if isIte h then (h.getArg! 1) else h
+    let rec collect (e : Lean.Expr) (acc : Array Lean.Expr) : Array Lean.Expr :=
+      let acc := match e with
+        | .app f a => collect a (collect f acc)
+        | .lam _ t b _ => collect b (collect t acc)
+        | .forallE _ t b _ => collect b (collect t acc)
+        | .letE _ t v b _ => collect b (collect v (collect t acc))
+        | .mdata _ b => collect b acc
+        | .proj _ _ b => collect b acc
+        | _ => acc
+      if e.isAppOfArity ``ite 5 && !(e.getArg! 1).hasLooseBVars && !(e.getArg! 1).hasMVar &&
+          ((e.getArg! 1).find? (·.isAppOfArity ``ite 5)).isNone && !acc.contains (e.getArg! 1) then
+        acc.push (e.getArg! 1)
+      else acc
+    out := collect hTop out
+    pure out
+  for c in cands.toList.take 4 do
+    let cS ← g.withContext (Term.exprToSyntax c)
+    let tacD : TacticM Unit := evalTactic (← `(tactic| first
+      | rw [if_pos (show $cS from by first | bridge_close | (simp only [uv_beq_val] at *; assumption) | (simp only [uv, bridge_cast, decide_eq_true_eq, gt_iff_lt, Int.ofNat_lt, Nat.cast_lt] at *; omega))]
+      | rw [if_neg (show ¬ $cS from by first | bridge_close | (simp only [uv_beq_val] at *; assumption) | (simp only [uv, bridge_cast, decide_eq_true_eq, gt_iff_lt, Int.ofNat_lt, Nat.cast_lt] at *; omega))]))
+    if let some gs ← continueWith (← tryAt tacD g) then return gs
+  -- a readable `if` with no hand `if` to pair with (or a hand `if` on another test): split it
+  if isIte r then
     -- decided by a fact of the context (the same test ran before)
     let cS ← g.withContext (Term.exprToSyntax (r.getArg! 1))
     let tacD : TacticM Unit := evalTactic (← `(tactic| first

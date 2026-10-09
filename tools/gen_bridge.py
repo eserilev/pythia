@@ -110,6 +110,29 @@ class Model:
         self.habbrev = {m.group(1): m.group(2).strip() for m in
                         re.finditer(r"^abbrev (\w+) := (.+)$", self.hd_text, re.M)}
 
+    def writes(self, name, seen=None):
+        """The state fields that the readable function `name` (with its loops and the functions it
+        calls) can change, or None when unknown. A field outside this set keeps its value."""
+        if not hasattr(self, "_rb"):
+            self._rb = bodies(self.rd_text)
+            self._writes = {}
+        if name in self._writes:
+            return self._writes[name]
+        seen = (seen or set()) | {name}
+        text = "".join(b for k, b in self._rb.items() if k == name or k.startswith(name + ".loop"))
+        if not text:
+            return None
+        out = set(re.findall(r"\{ \(?state\)? with (\w+) :=", text))
+        for c in set(re.findall(r"\b([a-z_][a-z0-9_]*) \(?state\b", text)):
+            if c == name or c in seen or c not in self._rb or c.startswith("loop"):
+                continue
+            w = self.writes(c, seen)
+            if w is None:
+                return None
+            out |= w
+        self._writes[name] = out
+        return out
+
     def hresolve(self, t):
         t = strip_parens(t)
         seen = 0
@@ -523,6 +546,18 @@ def statement(m, name, rsigs, hsigs):
     rd_call = f"Gen.{name} " + " ".join(q(n) for n, _ in rbs) if rbs else f"Gen.{name}"
     hd_call = f"{HNS}.{name} " + " ".join(args) if args else f"{HNS}.{name}"
     post = post_ir(m, rret)
+    # the frame of a function on the state: the fields it does not write keep their value
+    # Only for a pair with the state: a caller of a function that returns the state alone gets
+    # the state itself, but a caller of a pair has no other fact on the state in the pair.
+    if field is None and rmap.get("state") == "BeaconState":
+        parts = split_prod(rret)
+        if "BeaconState" in parts and len(parts) == 2:
+            w = m.writes(name)
+            if w is not None:
+                sv = "x" if len(parts) == 1 else ("x.1" if parts[0] == "BeaconState" else "x.2")
+                upd = ", ".join(f"{f} := {sv}.{f}" for f in sorted(w))
+                frame = f"{sv} = {{ «state» with {upd} }}" if w else f"{sv} = «state»"
+                post = f"(fun x : {m.rty(rret)} => {frame} ∧ {post} x)"
     if field is not None:
         post = (f"(fun s : Gen.BeaconState => s = {{ «state» with {fn} := s.{fn} }} ∧ "
                 f"∀ y ∈ s.{fn}, {m.ir(ft[5:])} y)")

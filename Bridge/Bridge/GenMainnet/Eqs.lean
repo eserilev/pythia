@@ -171,6 +171,15 @@ theorem cond_get_consolidation_churn_limit (h_get_total_active_balance : spec_ge
 
 theorem full_get_consolidation_churn_limit : spec_get_consolidation_churn_limit := cond_get_consolidation_churn_limit full_get_total_active_balance
 
+theorem cond_compute_consolidation_epoch_and_update_churn (h_compute_activation_exit_epoch : spec_compute_activation_exit_epoch) (h_get_consolidation_churn_limit : spec_get_consolidation_churn_limit) (h_get_current_epoch : spec_get_current_epoch) : spec_compute_consolidation_epoch_and_update_churn := by
+  intro «state» «consolidation_balance» «total_active_balance» hr0 hr1 hr2
+  bridge_split
+  unfold GenMainnet.compute_consolidation_epoch_and_update_churn EpochProofs.Spec.compute_consolidation_epoch_and_update_churn
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_compute_consolidation_epoch_and_update_churn : spec_compute_consolidation_epoch_and_update_churn := cond_compute_consolidation_epoch_and_update_churn full_compute_activation_exit_epoch full_get_consolidation_churn_limit full_get_current_epoch
+
 theorem cond_get_exit_churn_limit (h_get_total_active_balance : spec_get_total_active_balance) : spec_get_exit_churn_limit := by
   intro «state» «total_active_balance» hr0 hr1
   bridge_split
@@ -179,6 +188,15 @@ theorem cond_get_exit_churn_limit (h_get_total_active_balance : spec_get_total_a
   bridge_main
 
 theorem full_get_exit_churn_limit : spec_get_exit_churn_limit := cond_get_exit_churn_limit full_get_total_active_balance
+
+theorem cond_compute_exit_epoch_and_update_churn (h_compute_activation_exit_epoch : spec_compute_activation_exit_epoch) (h_get_current_epoch : spec_get_current_epoch) (h_get_exit_churn_limit : spec_get_exit_churn_limit) : spec_compute_exit_epoch_and_update_churn := by
+  intro «state» «exit_balance» «total_active_balance» hr0 hr1 hr2
+  bridge_split
+  unfold GenMainnet.compute_exit_epoch_and_update_churn EpochProofs.Spec.compute_exit_epoch_and_update_churn
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_compute_exit_epoch_and_update_churn : spec_compute_exit_epoch_and_update_churn := cond_compute_exit_epoch_and_update_churn full_compute_activation_exit_epoch full_get_current_epoch full_get_exit_churn_limit
 
 theorem cond_compute_start_slot_at_epoch  : spec_compute_start_slot_at_epoch := by
   intro «epoch» hr0
@@ -870,6 +888,15 @@ theorem cond_update_pending_partial_withdrawals  : spec_update_pending_partial_w
 
 theorem full_update_pending_partial_withdrawals : spec_update_pending_partial_withdrawals := cond_update_pending_partial_withdrawals 
 
+theorem cond_settle_builder_payment  : spec_settle_builder_payment := by
+  intro «state» «payment_index» hr0 hr1
+  bridge_split
+  unfold GenMainnet.settle_builder_payment EpochProofs.Spec.settle_builder_payment
+  try simp only [bind_pure]
+  bridge_main
+
+theorem full_settle_builder_payment : spec_settle_builder_payment := cond_settle_builder_payment 
+
 theorem cond_verify_block_signature (h_compute_signing_root : spec_compute_signing_root) (h_get_domain : spec_get_domain) : spec_verify_block_signature := by
   intro «o» «state» «signed_block» hr0 hr1 hr2
   bridge_split
@@ -907,9 +934,9 @@ theorem cond_verify_execution_payload_bid_signature (h_compute_signing_root : sp
 theorem full_verify_execution_payload_bid_signature : spec_verify_execution_payload_bid_signature := cond_verify_execution_payload_bid_signature full_compute_signing_root full_get_domain
 
 -- Mapped functions: 106, 83 without a loop, 76 of them with a statement.
--- Conditional: 50 mapped, 31 callees (81 of 117 statements without a loop).
--- Full: 49 mapped, 27 callees.
--- Not proved: add_builder_to_registry, add_flag, add_validator_to_registry, apply_pending_deposit, bytes_to_uint64, compute_consolidation_epoch_and_update_churn, compute_exit_epoch_and_update_churn, compute_proposer_indices, get_attestation_participation_flag_indices, get_beacon_proposer_indices, get_indexed_attestation, get_next_sync_committee, get_validator_from_deposit, initiate_validator_exit, is_slashable_attestation_data, is_valid_indexed_attestation, is_valid_indexed_payload_attestation, process_block_header, process_bls_to_execution_change, process_builder_deposit_request, process_builder_exit_request, process_consolidation_request, process_epoch, process_eth1_data, process_historical_summaries_update, process_justification_and_finalization, process_proposer_lookahead, process_ptc_window, process_randao, process_slot, process_voluntary_exit, process_withdrawal_request, process_withdrawals, settle_builder_payment, slash_validator, weigh_justification_and_finalization.
+-- Conditional: 53 mapped, 31 callees (84 of 117 statements without a loop).
+-- Full: 52 mapped, 27 callees.
+-- Not proved: add_builder_to_registry, add_flag, add_validator_to_registry, apply_pending_deposit, bytes_to_uint64, compute_proposer_indices, get_attestation_participation_flag_indices, get_beacon_proposer_indices, get_indexed_attestation, get_next_sync_committee, get_validator_from_deposit, initiate_validator_exit, is_slashable_attestation_data, is_valid_indexed_attestation, is_valid_indexed_payload_attestation, process_block_header, process_bls_to_execution_change, process_builder_deposit_request, process_builder_exit_request, process_consolidation_request, process_epoch, process_eth1_data, process_historical_summaries_update, process_justification_and_finalization, process_proposer_lookahead, process_ptc_window, process_randao, process_slot, process_voluntary_exit, process_withdrawal_request, process_withdrawals, slash_validator, weigh_justification_and_finalization.
 -- Loops proved by bridge_loop: get_flag_index_deltas, get_inactivity_penalty_deltas, process_inactivity_updates, process_rewards_and_penalties, process_slashings.
 -- Loops proved by hand (Proofs.lean): get_index_for_new_builder, get_pending_balance_to_withdraw, get_pending_balance_to_withdraw_for_builder, integer_squareroot, process_effective_balance_updates.
 -- Loops (statement only): compute_balance_weighted_selection, compute_ptc, compute_shuffled_permutation, get_attesting_indices, get_builder_withdrawals, get_builders_sweep_withdrawals, get_pending_partial_withdrawals, get_validators_sweep_withdrawals, process_attestation, process_attester_slashing, process_builder_pending_payments, process_pending_consolidations, process_proposer_slashing, process_registry_updates, process_sync_aggregate.
