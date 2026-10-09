@@ -70,6 +70,11 @@ def balanced(s):
     return d == 0
 
 
+# The frame post condition on the state functions of whole-state loop bodies (`Model.frame_fns`)
+# is off: the post walk of `initiate_validator_exit` cannot prove the frame equation of the state
+# it builds yet (the definitional check unfolds a large number literal).
+FRAME_STATE_ON = False
+
 # The readable Lean of each preset, the output directory, and the module name of the readable Lean.
 PRESETS = {
     "minimal": ("SpecLean/Gen/Readable.lean", "Gen", "SpecLean.Gen.Readable"),
@@ -131,6 +136,31 @@ class Model:
                 return None
             out |= w
         self._writes[name] = out
+        return out
+
+    def frame_fns(self):
+        """The functions that return the state alone and get a frame post condition with the range
+        of the written fields: those called on the state inside the body of a whole-state loop (a
+        hand loop with `let mut state := state`). The loop keeps its state as the input state with
+        the written fields, and the range of the state comes from these post conditions. (A frame
+        on every state function made loop proofs fail, because their statements must prove it.)"""
+        if hasattr(self, "_frame_fns"):
+            return self._frame_fns
+        if not FRAME_STATE_ON:
+            self._frame_fns = set()
+            return self._frame_fns
+        rb = bodies(self.rd_text)
+        hb = bodies(self.hd_text)
+        rsigs = fn_sigs(self.rd_text, False)
+        out = set()
+        for n, b in hb.items():
+            if "let mut state := state" not in b or "for " not in b:
+                continue
+            text = "".join(v for k, v in rb.items() if k.startswith(n + ".loop"))
+            for c in set(re.findall(r"\b([a-z_][a-z0-9_]*) \(?state\b", text)):
+                if c in rsigs and strip_parens(re.sub(r"^SpecM ", "", rsigs[c][1])) == "BeaconState":
+                    out.add(c)
+        self._frame_fns = out
         return out
 
     def hresolve(self, t):
@@ -551,12 +581,17 @@ def statement(m, name, rsigs, hsigs):
     # the state itself, but a caller of a pair has no other fact on the state in the pair.
     if field is None and rmap.get("state") == "BeaconState":
         parts = split_prod(rret)
-        if "BeaconState" in parts and len(parts) == 2:
+        # also the state functions of the exit chain, which the registry loop calls
+        if "BeaconState" in parts and (len(parts) == 2 or name in m.frame_fns()):
             w = m.writes(name)
             if w is not None:
                 sv = "x" if len(parts) == 1 else ("x.1" if parts[0] == "BeaconState" else "x.2")
                 upd = ", ".join(f"{f} := {sv}.{f}" for f in sorted(w))
                 frame = f"{sv} = {{ «state» with {upd} }}" if w else f"{sv} = «state»"
+                if True:
+                    # and the range of each written field, so the caller has the range of the state
+                    rf = dict(m.rd.get("BeaconState", []))
+                    frame += "".join(f" ∧ {m.ir(rf[f])} {sv}.{f}" for f in sorted(w))
                 post = f"(fun x : {m.rty(rret)} => {frame} ∧ {post} x)"
     if field is not None:
         post = (f"(fun s : Gen.BeaconState => s = {{ «state» with {fn} := s.{fn} }} ∧ "

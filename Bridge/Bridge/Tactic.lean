@@ -1110,12 +1110,50 @@ elab_rules : tactic
       if d.isImplementationDetail then continue
       let ty := (← instantiateMVars d.type).consumeMData.headBeta
       for (pf, pty) in ← conjParts d.toExpr ty 3 do
-        if pty.isAppOfArity ``Eq 3 && (pty.getArg! 1).consumeMData.isFVar then
+        -- `y = …` or `y.2 = …` (the state of a pair from a callee)
+        unless pty.isAppOfArity ``Eq 3 do continue
+        let lhs := (pty.getArg! 1).consumeMData
+        let base := if lhs.isAppOfArity ``Prod.snd 3 || lhs.isAppOfArity ``Prod.fst 3 then
+          lhs.appArg!.consumeMData else lhs
+        if base.isFVar then
           let rhs := (pty.getArg! 2).consumeMData
           if let some c := rhs.getAppFn.constName? then
             if let some (.ctorInfo _) := (← getEnv).find? c then
               eqs := eqs.push pf
     if bridge.debug.get (← getOptions) then logInfo m!"bridge_frame_eq: {eqs.size} equations"
+    -- two structure values: one goal per field (an `rfl` on the whole structures can reach the
+    -- recursion limit), each closed by `rfl` or by one frame equation
+    let s0 ← saveState
+    let rest := (← getGoals).drop 1
+    setGoals [← getMainGoal]
+    let byField : TacticM Bool := do
+      let t := (← instantiateMVars (← getMainTarget)).consumeMData
+      unless t.isAppOfArity ``Eq 3 do return false
+      let l := (t.getArg! 1).consumeMData
+      let r := (t.getArg! 2).consumeMData
+      unless l.getAppFn.isConst && l.getAppFn == r.getAppFn do return false
+      evalTactic (← `(tactic| congr 1))
+      for g in ← getGoals do
+        setGoals [g]
+        let mut done := false
+        try evalTactic (← `(tactic| rfl)); done := true catch _ => pure ()
+        if !done then
+          for pf in eqs.reverse do
+            if done then break
+            let pS ← Term.exprToSyntax pf
+            let s1 ← saveState
+            try
+              evalTactic (← `(tactic| (rw [$pS:term]; try rfl)))
+              if (← getUnsolvedGoals).isEmpty then done := true else s1.restore
+            catch _ => s1.restore
+        unless done do throwError "bridge_frame_eq: a field is not closed"
+      return true
+    try
+      if ← byField then
+        setGoals rest
+        return
+    catch _ => pure ()
+    s0.restore
     for pf in eqs.reverse do
       let pS ← Term.exprToSyntax pf
       try evalTactic (← `(tactic| rw [$pS:term]))
@@ -1700,7 +1738,7 @@ partial def bridgePost (g : MVarId) : TacticM (List MVarId) := do
     if let some gs ← step (← `(tactic| (apply post_ite <;> intro _))) then return gs
   if r.isAppOfArity ``Pure.pure 4 then
     if let some gs ← tryAt (evalTactic (← `(tactic|
-        (apply post_pure; (try dsimp only); first | (refine ⟨rfl, ?_⟩; bridge_sub_ir) | bridge_sub_ir)))) g then return gs
+        (apply post_pure; (try dsimp only); first | (refine ⟨rfl, ?_⟩; bridge_sub_ir) | bridge_sub_ir | (refine ⟨rfl, ?_⟩; (repeat' apply And.intro); all_goals first | trivial | bridge_sub_ir) | (bridge_facts; refine ⟨?_, ?_⟩; bridge_frame_eq; (repeat' apply And.intro); all_goals first | trivial | bridge_conj_assumption | bridge_sub_ir))))) g then return gs
   if isGenFn (r.getAppFn.constName?.getD .anonymous) then
     setGoals [g]
     for h in ← specHypsFor (r.getAppFn.constName?.getD .anonymous) do
