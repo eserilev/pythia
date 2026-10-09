@@ -1625,6 +1625,10 @@ def callee_lens(m, name, params):
     return out
 
 
+# Conditions on literals (a constructor's range checks) decided before the case splits of
+# `l4_close`, which otherwise splits on each one and runs out of recursion depth.
+DECIDE_CLOSE = "  all_goals (try simp (config := { decide := true }) only [↓reduceIte])\n  all_goals l4_close\n"
+
 HTR = {}
 # Callees taken from a statement of the tactic (`ExtOK`): the class of the argument, the fuel
 # bound of the statement on the readable argument `x`, the lengths it grows with, its constant.
@@ -2511,8 +2515,10 @@ def main():
                 pass
         pre = ("import SpecLean.Layer4.Gen.Funcs\n" if fuel else "import SpecLean.Layer4.Gen.Classes\n") + \
             OPENX + "\nnamespace SpecLean.Layer4.Gen\n\n"
-        print(check(pre + candidate(m, args.show, fuel, ok=bool(os.environ.get("L4_OK")))[0] +
-                    "\nend SpecLean.Layer4.Gen\n", "show", True)[1])
+        t = candidate(m, args.show, fuel, ok=bool(os.environ.get("L4_OK")))[0]
+        if os.environ.get("L4_REC"):
+            t = t.replace("  all_goals l4_close\n", DECIDE_CLOSE)
+        print(check(pre + t + "\nend SpecLean.Layer4.Gen\n", "show", True)[1])
         return
     names = list(m.fns) if not args.only else args.only.split(",")
     names = order(m, set(names))
@@ -2597,13 +2603,17 @@ def main():
                     texts[n] = retry[n][0]
                     del fails[n]
                 print("%-55s %s" % (n + " (ok)", "ok" if ok else err), flush=True)
-        # A heartbeat timeout again, with four times the heartbeats.
+        # A heartbeat timeout again, with four times the heartbeats; a recursion limit again,
+        # with a deeper limit.
         retry2 = {}
         for n in cands:
-            if "@" in n or n in proved or "maximum number of heartbeats" not in fails.get(n, ""):
+            if "@" in n or n in proved:
                 continue
             t = retry.get(n, cands[n])
-            retry2[n] = (t[0].replace("maxHeartbeats 1000000 in", "maxHeartbeats 4000000 in"), t[1])
+            if "maximum number of heartbeats" in fails.get(n, ""):
+                retry2[n] = (t[0].replace("maxHeartbeats 1000000 in", "maxHeartbeats 4000000 in"), t[1])
+            elif "maximum recursion depth" in fails.get(n, ""):
+                retry2[n] = (t[0].replace("  all_goals l4_close\n", DECIDE_CLOSE), t[1])
         with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
             futs = {ex.submit(check, pre + t + "\nend SpecLean.Layer4.Gen\n", n): n for n, (t, _) in retry2.items()}
             for fu in concurrent.futures.as_completed(futs):

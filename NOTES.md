@@ -1051,3 +1051,9 @@ Two facts are still hypotheses. They are open obligations for the tactic road (`
   are `RefEq`, so a write of a uint item is allowed. A container item replaced by a new object
   breaks old paths, so such writers stay out of layer 4 for now.
 - `NewOnce h h' vs`: each new object that the arguments reach has one path from them.
+
+Parked (2026-10-08): `get_validator_from_deposit` in layer 4. After `l4_eval` the goal keeps
+`if` conditions on literals (range checks of the `Validator` constructor, such as
+`18446744073709551615 < 18446744073709551616`). `l4_close` splits on each one and runs out of
+recursion depth. A `simp` with `decide := true` removes these conditions, but the proof still
+stops at the same place. The next step is to find which split in `l4_close` repeats.
