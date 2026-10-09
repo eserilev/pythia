@@ -13,6 +13,7 @@ set_option linter.unusedSectionVars false
 set_option linter.unusedVariables false
 set_option maxHeartbeats 4000000
 set_option maxRecDepth 4000
+attribute [local irreducible] GenMainnet.BUILDER_INDEX_FLAG GenMainnet.BUILDER_INDEX_SELF_BUILD GenMainnet.FAR_FUTURE_EPOCH GenMainnet.MAX_EFFECTIVE_BALANCE_ELECTRA GenMainnet.MIN_ACTIVATION_BALANCE GenMainnet.UINT64_MAX
 
 variable [Spec]
 

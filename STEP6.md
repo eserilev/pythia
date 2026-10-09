@@ -492,6 +492,15 @@ Two more steps for these functions: a readable `if` is split also when the hand 
 another test, and (as a fallback) a hand `if` deeper in the hand side is decided by the facts
 (`omega` with `max`).
 
+### Large constants
+
+The readable constants with a value of at least `2 ^ 32` (`FAR_FUTURE_EPOCH`, `UINT64_MAX`, and
+four more) are irreducible in `Specs.lean`, `Eqs.lean` and the trial files (`{irr}` in the header
+of the generator: an attribute set in `Types.lean` does not reach the files that import it).
+`Types.lean` has one value lemma `big_C` for each. A definitional check that reached
+`FAR_FUTURE_EPOCH` evaluated it in unary steps: `congr` and `rfl` on a state with a changed
+validator reached the recursion limit.
+
 ### Loops with local accumulators
 
 The second loop shape: the hand loop changes local lists (`let mut A := …` before the loop,

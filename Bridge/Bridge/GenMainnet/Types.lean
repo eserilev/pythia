@@ -439,5 +439,11 @@ attribute [bridge_simp] EpochProofs.Spec.TIMELY_HEAD_WEIGHT
 attribute [bridge_simp] EpochProofs.Spec.TIMELY_SOURCE_WEIGHT
 attribute [bridge_simp] EpochProofs.Spec.TIMELY_TARGET_WEIGHT
 attribute [bridge_simp] EpochProofs.Spec.UINT64_SIZE
+@[bridge_const] theorem big_BUILDER_INDEX_FLAG : GenMainnet.BUILDER_INDEX_FLAG = (⟨1099511627776⟩ : GenMainnet.Uint64) := rfl
+@[bridge_const] theorem big_BUILDER_INDEX_SELF_BUILD : GenMainnet.BUILDER_INDEX_SELF_BUILD = (⟨18446744073709551615⟩ : GenMainnet.BuilderIndex) := rfl
+@[bridge_const] theorem big_FAR_FUTURE_EPOCH : GenMainnet.FAR_FUTURE_EPOCH = (⟨18446744073709551615⟩ : GenMainnet.Epoch) := rfl
+@[bridge_const] theorem big_MAX_EFFECTIVE_BALANCE_ELECTRA : GenMainnet.MAX_EFFECTIVE_BALANCE_ELECTRA = (⟨2048000000000⟩ : GenMainnet.Gwei) := rfl
+@[bridge_const] theorem big_MIN_ACTIVATION_BALANCE : GenMainnet.MIN_ACTIVATION_BALANCE = (⟨32000000000⟩ : GenMainnet.Gwei) := rfl
+@[bridge_const] theorem big_UINT64_MAX : GenMainnet.UINT64_MAX = (⟨18446744073709551615⟩ : GenMainnet.Uint64) := rfl
 
 end Pythia.Bridge.Mainnet
