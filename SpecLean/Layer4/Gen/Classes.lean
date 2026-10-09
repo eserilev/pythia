@@ -6988,6 +6988,30 @@ theorem undv_kids_SignedBeaconBlock (x : SignedBeaconBlock) (hx : ok_SignedBeaco
 
 /-! The callees taken from statements (`ExtOK`). -/
 
+def ext_compute_shuffled_index : ExtFn where
+  bound := fun rs => match rs with
+    | [r0, r1, r2] => match GenBridge.leafUint r0, GenBridge.leafUint r1, GenBridge.leafBytes r2 with
+      | some (t0, x0), some (t1, x1), some (c2, x2) => x1 + x1 + 458
+      | _, _, _ => 0
+    | _ => 0
+  run := fun rs => match rs with
+    | [r0, r1, r2] => match GenBridge.leafUint r0, GenBridge.leafUint r1, GenBridge.leafBytes r2 with
+      | some (t0, x0), some (t1, x1), some (c2, x2) => if t0 = (.width 64) ∧ x0 < 2 ^ 64 ∧ t1 = (.width 64) ∧ x1 < 2 ^ 64 ∧ c2 = Scope.Id.«Bytes32» ∧ x2.length = 32 then GenBridge.extRes (fun y : Uint64 => DRes.val (.uint (.width 64) y.val)) (compute_shuffled_index (⟨x0⟩ : Uint64) (⟨x1⟩ : Uint64) (⟨x2⟩ : Bytes32)) else none
+      | _, _, _ => none
+    | _ => none
+
+def ext_compute_shuffled_permutation : ExtFn where
+  bound := fun rs => match rs with
+    | [r0, r1] => match GenBridge.leafUint r0, GenBridge.leafBytes r1 with
+      | some (t0, x0), some (c1, x1) => x0 + x0 + 202 + 192
+      | _, _ => 0
+    | _ => 0
+  run := fun rs => match rs with
+    | [r0, r1] => match GenBridge.leafUint r0, GenBridge.leafBytes r1 with
+      | some (t0, x0), some (c1, x1) => if t0 = (.width 64) ∧ x0 < 2 ^ 64 ∧ c1 = Scope.Id.«Bytes32» ∧ x1.length = 32 then GenBridge.extRes (fun y : (List Uint64) => DRes.tree (.list .pyList .any none (y.map fun z => DV.leaf (.uint (.width 64) z.val)))) (compute_shuffled_permutation (⟨x0⟩ : Uint64) (⟨x1⟩ : Bytes32)) else none
+      | _, _ => none
+    | _ => none
+
 def ext_get_balance_after_withdrawals : ExtFn where
   bound := fun rs => match rs with
     | [r0, r1, r2] => match undv_BeaconState r0, GenBridge.leafUint r1, GenBridge.undvListE (.container Scope.Id.«Withdrawal») undv_Withdrawal r2 with
@@ -6998,6 +7022,30 @@ def ext_get_balance_after_withdrawals : ExtFn where
     | [r0, r1, r2] => match undv_BeaconState r0, GenBridge.leafUint r1, GenBridge.undvListE (.container Scope.Id.«Withdrawal») undv_Withdrawal r2 with
       | some x0, some (t1, x1), some x2 => if t1 = (.nominal Scope.Id.«ValidatorIndex» 64) then GenBridge.extRes (fun y : Gwei => DRes.val (.uint (.nominal 265 64) y.val)) (get_balance_after_withdrawals x0 (⟨x1⟩ : ValidatorIndex) x2) else none
       | _, _, _ => none
+    | _ => none
+
+def ext_get_base_reward : ExtFn where
+  bound := fun rs => match rs with
+    | [r0, r1] => match undv_BeaconState r0, GenBridge.leafUint r1 with
+      | some x0, some (t1, x1) => x0.validators.length + x0.validators.length + bigFuel + 256
+      | _, _ => 0
+    | _ => 0
+  run := fun rs => match rs with
+    | [r0, r1] => match undv_BeaconState r0, GenBridge.leafUint r1 with
+      | some x0, some (t1, x1) => if t1 = (.nominal Scope.Id.«ValidatorIndex» 64) ∧ x1 < 2 ^ 64 then GenBridge.extRes (fun y : Gwei => DRes.val (.uint (.nominal 265 64) y.val)) (get_base_reward x0 (⟨x1⟩ : ValidatorIndex)) else none
+      | _, _ => none
+    | _ => none
+
+def ext_get_base_reward_per_increment : ExtFn where
+  bound := fun rs => match rs with
+    | [r0] => match undv_BeaconState r0 with
+      | some x0 => x0.validators.length + x0.validators.length + bigFuel + 192
+      | _ => 0
+    | _ => 0
+  run := fun rs => match rs with
+    | [r0] => match undv_BeaconState r0 with
+      | some x0 => if True then GenBridge.extRes (fun y : Gwei => DRes.val (.uint (.nominal 265 64) y.val)) (get_base_reward_per_increment x0) else none
+      | _ => none
     | _ => none
 
 def ext_get_index_for_new_builder : ExtFn where
@@ -7036,13 +7084,25 @@ def ext_get_total_active_balance : ExtFn where
       | _ => none
     | _ => none
 
+def ext_is_valid_switch_to_compounding_request : ExtFn where
+  bound := fun rs => match rs with
+    | [r0, r1] => match undv_BeaconState r0, undv_ConsolidationRequest r1 with
+      | some x0, some x1 => x0.validators.length + 256
+      | _, _ => 0
+    | _ => 0
+  run := fun rs => match rs with
+    | [r0, r1] => match undv_BeaconState r0, undv_ConsolidationRequest r1 with
+      | some x0, some x1 => if True then GenBridge.extRes (fun y : Bool => DRes.val (.bool y)) (is_valid_switch_to_compounding_request x0 x1) else none
+      | _, _ => none
+    | _ => none
+
 /-- The table of the generated theorems: the entries of the allowed set. -/
 instance extGen [ExtSet] : ExtTab :=
-  ⟨fun g => if g ∈ ExtSet.S then (fun g => if g = 260 then some ext_get_balance_after_withdrawals else if g = 8 then some ext_get_index_for_new_builder else if g = 387 then some ext_get_set_bit_count else if g = 209 then some ext_get_total_active_balance else none) g else none,
+  ⟨fun g => if g ∈ ExtSet.S then (fun g => if g = 121 then some ext_compute_shuffled_index else if g = 177 then some ext_compute_shuffled_permutation else if g = 260 then some ext_get_balance_after_withdrawals else if g = 263 then some ext_get_base_reward else if g = 262 then some ext_get_base_reward_per_increment else if g = 8 then some ext_get_index_for_new_builder else if g = 387 then some ext_get_set_bit_count else if g = 209 then some ext_get_total_active_balance else if g = 459 then some ext_is_valid_switch_to_compounding_request else none) g else none,
    fun g => if g ∈ ExtSet.S then (fun g => none) g else none⟩
 
 @[l4_simp] theorem extGen_ext [ExtSet] (g : Name) :
-    ExtTab.ext g = if g ∈ ExtSet.S then (fun g : Name => if g = 260 then some ext_get_balance_after_withdrawals else if g = 8 then some ext_get_index_for_new_builder else if g = 387 then some ext_get_set_bit_count else if g = 209 then some ext_get_total_active_balance else none) g else none := rfl
+    ExtTab.ext g = if g ∈ ExtSet.S then (fun g : Name => if g = 121 then some ext_compute_shuffled_index else if g = 177 then some ext_compute_shuffled_permutation else if g = 260 then some ext_get_balance_after_withdrawals else if g = 263 then some ext_get_base_reward else if g = 262 then some ext_get_base_reward_per_increment else if g = 8 then some ext_get_index_for_new_builder else if g = 387 then some ext_get_set_bit_count else if g = 209 then some ext_get_total_active_balance else if g = 459 then some ext_is_valid_switch_to_compounding_request else none) g else none := rfl
 
 @[l4_simp] theorem extGen_extW [ExtSet] (g : Name) :
     ExtTab.extW g = if g ∈ ExtSet.S then (fun g : Name => none) g else none := rfl

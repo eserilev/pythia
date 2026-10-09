@@ -572,6 +572,18 @@ theorem leafUint_spec {d : DV} {t : UintTy} {n : Nat} (h : leafUint d = some (t,
   · cases h; rfl
   · cases h
 
+/-- A bytes leaf: its class and its bytes. -/
+def leafBytes : DV → Option (Name × List UInt8)
+  | .leaf (.bytes c bs) => some (c, bs)
+  | _ => none
+
+theorem leafBytes_spec {d : DV} {c : Name} {bs : List UInt8} (h : leafBytes d = some (c, bs)) :
+    d = .leaf (.bytes c bs) := by
+  unfold leafBytes at h
+  split at h
+  · cases h; rfl
+  · cases h
+
 /-- The den result of a readable call: its value as a tree, or the error of its class. -/
 def extRes {α : Type} (enc : α → DRes) (r : SpecM α) : DM DRes :=
   match r with

@@ -1,6 +1,7 @@
 import SpecLean.Layer4.Gen.Funcs
 import SpecLean.Layer4.ExtBridge
 import SpecLean.Validation.Gen.Loops
+import SpecLean.Validation.Gen.Stmts
 
 /-!
 # Layer 4: the callees taken from statements
@@ -24,7 +25,12 @@ set_option linter.unusedSectionVars false
 open SpecLean.Layer4.ExtBridge
 
 set_option maxHeartbeats 4000000 in
-theorem extGen_ok [ExtSet] (sha : Oracle) : ExtOK (Scope.env sha) := by
+theorem extGen_ok [ExtSet] (sha : Oracle)
+    (hst_compute_shuffled_index : (121 : Name) ∈ ExtSet.S → Validation.HtrBridge.OracleHtr sha ∧ Validation.Gen.compute_shuffled_index_stmtF sha)
+    (hst_compute_shuffled_permutation : (177 : Name) ∈ ExtSet.S → Validation.HtrBridge.OracleHtr sha ∧ Validation.Gen.compute_shuffled_permutation_stmtF sha)
+    (hst_get_base_reward : (263 : Name) ∈ ExtSet.S → Validation.Gen.get_base_reward_stmtF sha)
+    (hst_get_base_reward_per_increment : (262 : Name) ∈ ExtSet.S → Validation.Gen.get_base_reward_per_increment_stmtF sha)
+    (hst_is_valid_switch_to_compounding_request : (459 : Name) ∈ ExtSet.S → Validation.Gen.is_valid_switch_to_compounding_request_stmtF sha) : ExtOK (Scope.env sha) := by
   refine ⟨?_, fun g x d hx => by simp [extGen_extW] at hx⟩
   intro g x d hx hd n roots vs h r hdec hwf hlen hb hr
   simp only [extGen_ext] at hx
@@ -32,6 +38,187 @@ theorem extGen_ok [ExtSet] (sha : Oracle) : ExtOK (Scope.env sha) := by
   · rw [if_neg hmem] at hx; cases hx
   rw [if_pos (Classical.not_not.mp hmem)] at hx
   try dsimp only at hx
+  split at hx
+  · next hg =>
+    subst hg
+    simp only [Option.some.injEq] at hx; subst hx
+    obtain ⟨r_0, r_1, r_2, rfl⟩ : ∃ r_0 r_1 r_2, roots = [r_0, r_1, r_2] := by
+      rcases roots with _ | ⟨r_0, _ | ⟨r_1, _ | ⟨r_2, _ | ⟨_, _⟩⟩⟩⟩ <;> simp [ext_compute_shuffled_index] at hr ⊢
+    obtain ⟨v_0, v_1, v_2, rfl⟩ : ∃ v_0 v_1 v_2, vs = [v_0, v_1, v_2] := by
+      rcases vs with _ | ⟨v_0, _ | ⟨v_1, _ | ⟨v_2, _ | ⟨_, _⟩⟩⟩⟩ <;> simp [DecArgs] at hdec ⊢ <;> omega
+    obtain ⟨k0, hk0⟩ := hdec.2 0 v_0 r_0 rfl rfl
+    obtain ⟨k1, hk1⟩ := hdec.2 1 v_1 r_1 rfl rfl
+    obtain ⟨k2, hk2⟩ := hdec.2 2 v_2 r_2 rfl rfl
+    cases hl0 : GenBridge.leafUint r_0 with
+    | none => simp [ext_compute_shuffled_index, hl0] at hr
+    | some p0 =>
+    obtain ⟨t0, x0⟩ := p0
+    cases hl1 : GenBridge.leafUint r_1 with
+    | none => simp [ext_compute_shuffled_index, hl0, hl1] at hr
+    | some p1 =>
+    obtain ⟨t1, x1⟩ := p1
+    cases hq2 : GenBridge.leafBytes r_2 with
+    | none => simp [ext_compute_shuffled_index, hl0, hl1, hq2] at hr
+    | some p2 =>
+    obtain ⟨c2, x2⟩ := p2
+    by_cases hc2 : c2 ≠ Scope.Id.«Bytes32»
+    · simp [ext_compute_shuffled_index, hl0, hl1, hq2, hc2] at hr
+    rw [ne_eq, Classical.not_not] at hc2
+    subst hc2
+    by_cases hl2 : x2.length ≠ 32
+    · simp [ext_compute_shuffled_index, hl0, hl1, hq2, hl2] at hr
+    rw [ne_eq, Classical.not_not] at hl2
+    obtain rfl := GenBridge.leafBytes_spec hq2
+    obtain ⟨rfl, -⟩ := dec_leaf hk2
+    have hb2 : Below h (.bytes Scope.Id.«Bytes32» x2) := fun q a e => absurd e (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+    by_cases ht0 : t0 ≠ (.width 64)
+    · simp [ext_compute_shuffled_index, hl0, hl1, hq2, hl2, ht0] at hr
+    rw [ne_eq, Classical.not_not] at ht0
+    subst ht0
+    obtain rfl := GenBridge.leafUint_spec hl0
+    obtain ⟨rfl, -⟩ := dec_leaf hk0
+    have hb0 : Below h (.uint (.width 64) x0) := fun q a e => absurd e (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+    by_cases hr0 : ¬ x0 < 2 ^ 64
+    · simp [ext_compute_shuffled_index, hl0, hl1, hq2, hl2, hr0] at hr
+    rw [Classical.not_not] at hr0
+    by_cases ht1 : t1 ≠ (.width 64)
+    · simp [ext_compute_shuffled_index, hl0, hl1, hq2, hl2, hr0, ht1] at hr
+    rw [ne_eq, Classical.not_not] at ht1
+    subst ht1
+    obtain rfl := GenBridge.leafUint_spec hl1
+    obtain ⟨rfl, -⟩ := dec_leaf hk1
+    have hb1 : Below h (.uint (.width 64) x1) := fun q a e => absurd e (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+    by_cases hr1 : ¬ x1 < 2 ^ 64
+    · simp [ext_compute_shuffled_index, hl0, hl1, hq2, hl2, hr0, hr1] at hr
+    rw [Classical.not_not] at hr1
+    simp only [ext_compute_shuffled_index, hl0, hl1, hq2, hl2, hr0, hr1] at hr hb
+    try simp only [and_self, ↓reduceIte, true_and] at hr
+    have haw : ArgsWF h [(.uint (.width 64) x0), (.uint (.width 64) x1), (.bytes Scope.Id.«Bytes32» x2)] := by
+      intro kk q a ha
+      obtain ⟨w, hw, hf⟩ := at?_some ha
+      match kk, hw with
+      | 0, hw => simp at hw; subst hw; exact absurd hf (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+      | 1, hw => simp at hw; subst hw; exact absurd hf (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+      | 2, hw => simp at hw; subst hw; exact absurd hf (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+      | _ + 3, hw => simp at hw
+    obtain ⟨ho, hst⟩ := hst_compute_shuffled_index (Classical.not_not.mp hmem)
+    have hm := hst [] h x0 hr0 x1 hr1 x2 hl2 hwf haw ho n hb
+    rw [interp, callName, callValue_glob_fn _ _ _ hd] at hm
+    have hba : BelowArgs h [(.uint (.width 64) x0), (.uint (.width 64) x1), (.bytes Scope.Id.«Bytes32» x2)] := by
+      intro kk w' hw'
+      match kk, hw' with
+      | 0, hw' => simp at hw'; subst hw'; exact hb0
+      | 1, hw' => simp at hw'; subst hw'; exact hb1
+      | 2, hw' => simp at hw'; subst hw'; exact hb2
+      | _ + 3, hw' => simp at hw'
+    revert hm
+    cases hc : callFn (Scope.env sha) n d.params (ClosureBody.stmts d.body) Locals.empty [(.uint (.width 64) x0), (.uint (.width 64) x1), (.bytes Scope.Id.«Bytes32» x2)] [] h with
+    | error e' =>
+      cases hg : compute_shuffled_index (⟨x0⟩ : Uint64) (⟨x1⟩ : Uint64) (⟨x2⟩ : Bytes32) with
+      | ok y => intro hm; simp [ResultMatches] at hm
+      | error f =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hne, hf⟩
+        refine ⟨?_, rep_ne_oof f⟩
+        rw [normE_of_ne hne, normE_of_ne (rep_ne_oof f), GenBridge.rep_fail, hf]
+    | ok q =>
+      obtain ⟨w, h'⟩ := q
+      cases hg : compute_shuffled_index (⟨x0⟩ : Uint64) (⟨x1⟩ : Uint64) (⟨x2⟩ : Bytes32) with
+      | error f => intro hm; simp [ResultMatches] at hm
+      | ok y =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hw, hfr, hfresh, -⟩
+        have he : Ext h h' := ext_of_frame hfr hfresh (NoFill.callFn_noFill _ NoFill.ssz_libKeeps hc)
+        refine ⟨⟨by have := hw.1; simp only [enc_Uint64, encUint] at this; exact this, rfl⟩, trivial, ⟨rfl, fun j w' d' hw' hd' => ?_⟩,
+          hfr, Skel_of_Ext he, fun _ => he, fun kg q b kg' q' hab hle _ => ?_⟩
+        · match j, hw', hd' with
+          | 0, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k0, by rw [dec_ext he hb0 k0]; exact hk0⟩
+          | 1, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k1, by rw [dec_ext he hb1 k1]; exact hk1⟩
+          | 2, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k2, by rw [dec_ext he hb2 k2]; exact hk2⟩
+          | _ + 3, hw', _ => simp at hw'
+        · have := at?_below0 hwf hdec ((at?_Ext he hba kg q b).mp hab); omega
+  split at hx
+  · next hg =>
+    subst hg
+    simp only [Option.some.injEq] at hx; subst hx
+    obtain ⟨r_0, r_1, rfl⟩ : ∃ r_0 r_1, roots = [r_0, r_1] := by
+      rcases roots with _ | ⟨r_0, _ | ⟨r_1, _ | ⟨_, _⟩⟩⟩ <;> simp [ext_compute_shuffled_permutation] at hr ⊢
+    obtain ⟨v_0, v_1, rfl⟩ : ∃ v_0 v_1, vs = [v_0, v_1] := by
+      rcases vs with _ | ⟨v_0, _ | ⟨v_1, _ | ⟨_, _⟩⟩⟩ <;> simp [DecArgs] at hdec ⊢ <;> omega
+    obtain ⟨k0, hk0⟩ := hdec.2 0 v_0 r_0 rfl rfl
+    obtain ⟨k1, hk1⟩ := hdec.2 1 v_1 r_1 rfl rfl
+    cases hl0 : GenBridge.leafUint r_0 with
+    | none => simp [ext_compute_shuffled_permutation, hl0] at hr
+    | some p0 =>
+    obtain ⟨t0, x0⟩ := p0
+    cases hq1 : GenBridge.leafBytes r_1 with
+    | none => simp [ext_compute_shuffled_permutation, hl0, hq1] at hr
+    | some p1 =>
+    obtain ⟨c1, x1⟩ := p1
+    by_cases hc1 : c1 ≠ Scope.Id.«Bytes32»
+    · simp [ext_compute_shuffled_permutation, hl0, hq1, hc1] at hr
+    rw [ne_eq, Classical.not_not] at hc1
+    subst hc1
+    by_cases hl1 : x1.length ≠ 32
+    · simp [ext_compute_shuffled_permutation, hl0, hq1, hl1] at hr
+    rw [ne_eq, Classical.not_not] at hl1
+    obtain rfl := GenBridge.leafBytes_spec hq1
+    obtain ⟨rfl, -⟩ := dec_leaf hk1
+    have hb1 : Below h (.bytes Scope.Id.«Bytes32» x1) := fun q a e => absurd e (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+    by_cases ht0 : t0 ≠ (.width 64)
+    · simp [ext_compute_shuffled_permutation, hl0, hq1, hl1, ht0] at hr
+    rw [ne_eq, Classical.not_not] at ht0
+    subst ht0
+    obtain rfl := GenBridge.leafUint_spec hl0
+    obtain ⟨rfl, -⟩ := dec_leaf hk0
+    have hb0 : Below h (.uint (.width 64) x0) := fun q a e => absurd e (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+    by_cases hr0 : ¬ x0 < 2 ^ 64
+    · simp [ext_compute_shuffled_permutation, hl0, hq1, hl1, hr0] at hr
+    rw [Classical.not_not] at hr0
+    simp only [ext_compute_shuffled_permutation, hl0, hq1, hl1, hr0] at hr hb
+    try simp only [and_self, ↓reduceIte, true_and] at hr
+    have haw : ArgsWF h [(.uint (.width 64) x0), (.bytes Scope.Id.«Bytes32» x1)] := by
+      intro kk q a ha
+      obtain ⟨w, hw, hf⟩ := at?_some ha
+      match kk, hw with
+      | 0, hw => simp at hw; subst hw; exact absurd hf (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+      | 1, hw => simp at hw; subst hw; exact absurd hf (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+      | _ + 2, hw => simp at hw
+    obtain ⟨ho, hst⟩ := hst_compute_shuffled_permutation (Classical.not_not.mp hmem)
+    have hm := hst [] h x0 hr0 x1 hl1 hwf haw ho n hb
+    rw [interp, callName, callValue_glob_fn _ _ _ hd] at hm
+    have hba : BelowArgs h [(.uint (.width 64) x0), (.bytes Scope.Id.«Bytes32» x1)] := by
+      intro kk w' hw'
+      match kk, hw' with
+      | 0, hw' => simp at hw'; subst hw'; exact hb0
+      | 1, hw' => simp at hw'; subst hw'; exact hb1
+      | _ + 2, hw' => simp at hw'
+    revert hm
+    cases hc : callFn (Scope.env sha) n d.params (ClosureBody.stmts d.body) Locals.empty [(.uint (.width 64) x0), (.bytes Scope.Id.«Bytes32» x1)] [] h with
+    | error e' =>
+      cases hg : compute_shuffled_permutation (⟨x0⟩ : Uint64) (⟨x1⟩ : Bytes32) with
+      | ok y => intro hm; simp [ResultMatches] at hm
+      | error f =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hne, hf⟩
+        refine ⟨?_, rep_ne_oof f⟩
+        rw [normE_of_ne hne, normE_of_ne (rep_ne_oof f), GenBridge.rep_fail, hf]
+    | ok q =>
+      obtain ⟨w, h'⟩ := q
+      cases hg : compute_shuffled_permutation (⟨x0⟩ : Uint64) (⟨x1⟩ : Bytes32) with
+      | error f => intro hm; simp [ResultMatches] at hm
+      | ok y =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hw, hfr, hfresh, -⟩
+        have he : Ext h h' := ext_of_frame hfr hfresh (NoFill.callFn_noFill _ NoFill.ssz_libKeeps hc)
+        have hLR := ExtBridge.listRes_rel y (fun z : Uint64 => Value.uint (.width 64) z.val) (fun _ => rfl) hw.1 hwf hdec hba he
+        refine ⟨hLR.1, hLR.2, ⟨rfl, fun j w' d' hw' hd' => ?_⟩,
+          hfr, Skel_of_Ext he, fun _ => he, fun kg q b kg' q' hab hle _ => ?_⟩
+        · match j, hw', hd' with
+          | 0, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k0, by rw [dec_ext he hb0 k0]; exact hk0⟩
+          | 1, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k1, by rw [dec_ext he hb1 k1]; exact hk1⟩
+          | _ + 2, hw', _ => simp at hw'
+        · have := at?_below0 hwf hdec ((at?_Ext he hba kg q b).mp hab); omega
   split at hx
   · next hg =>
     subst hg
@@ -112,6 +299,134 @@ theorem extGen_ok [ExtSet] (sha : Oracle) : ExtOK (Scope.env sha) := by
           | 1, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k1, by rw [dec_ext he hb1 k1]; exact hk1⟩
           | 2, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k2, by rw [dec_ext he hb2 k2]; exact hk2⟩
           | _ + 3, hw', _ => simp at hw'
+        · have := at?_below0 hwf hdec ((at?_Ext he hba kg q b).mp hab); omega
+  split at hx
+  · next hg =>
+    subst hg
+    simp only [Option.some.injEq] at hx; subst hx
+    obtain ⟨r_0, r_1, rfl⟩ : ∃ r_0 r_1, roots = [r_0, r_1] := by
+      rcases roots with _ | ⟨r_0, _ | ⟨r_1, _ | ⟨_, _⟩⟩⟩ <;> simp [ext_get_base_reward] at hr ⊢
+    obtain ⟨v_0, v_1, rfl⟩ : ∃ v_0 v_1, vs = [v_0, v_1] := by
+      rcases vs with _ | ⟨v_0, _ | ⟨v_1, _ | ⟨_, _⟩⟩⟩ <;> simp [DecArgs] at hdec ⊢ <;> omega
+    obtain ⟨k0, hk0⟩ := hdec.2 0 v_0 r_0 rfl rfl
+    obtain ⟨k1, hk1⟩ := hdec.2 1 v_1 r_1 rfl rfl
+    cases hu0 : undv_BeaconState r_0 with
+    | none => simp [ext_get_base_reward, hu0] at hr
+    | some x0 =>
+    have hy0 := decOf_BeaconState h k0 v_0 r_0 x0 hk0 hu0
+    obtain ⟨r0, rfl⟩ : ∃ a, v_0 = .ref a := by
+      cases v_0 <;> simp [dec_BeaconState, containerFieldsT] at hy0; exact ⟨_, rfl⟩
+    have hb0 : Below h (.ref r0) := dec_below hwf k0 _ r_0 hk0
+    cases hl1 : GenBridge.leafUint r_1 with
+    | none => simp [ext_get_base_reward, hu0, hl1] at hr
+    | some p1 =>
+    obtain ⟨t1, x1⟩ := p1
+    by_cases ht1 : t1 ≠ (.nominal Scope.Id.«ValidatorIndex» 64)
+    · simp [ext_get_base_reward, hu0, hl1, ht1] at hr
+    rw [ne_eq, Classical.not_not] at ht1
+    subst ht1
+    obtain rfl := GenBridge.leafUint_spec hl1
+    obtain ⟨rfl, -⟩ := dec_leaf hk1
+    have hb1 : Below h (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1) := fun q a e => absurd e (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+    by_cases hr1 : ¬ x1 < 2 ^ 64
+    · simp [ext_get_base_reward, hu0, hl1, hr1] at hr
+    rw [Classical.not_not] at hr1
+    simp only [ext_get_base_reward, hu0, hl1, hr1] at hr hb
+    try simp only [and_self, ↓reduceIte, true_and] at hr
+    have haw : ArgsWF h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1)] := by
+      intro kk q a ha
+      obtain ⟨w, hw, hf⟩ := at?_some ha
+      match kk, hw with
+      | 0, hw => simp at hw; subst hw; exact dec_exists k0 _ r_0 hk0 q a hf
+      | 1, hw => simp at hw; subst hw; exact absurd hf (fun e' => follow_nonref_ref (fun b e => by cases e) e')
+      | _ + 2, hw => simp at hw
+    have hm := hst_get_base_reward (Classical.not_not.mp hmem) [] h r0 x0 hy0 x1 hr1 hwf haw n (by have := hb; simp only [bigFuel_eq] at this ⊢; omega)
+    rw [interp, callName, callValue_glob_fn _ _ _ hd] at hm
+    have hba : BelowArgs h [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1)] := by
+      intro kk w' hw'
+      match kk, hw' with
+      | 0, hw' => simp at hw'; subst hw'; exact hb0
+      | 1, hw' => simp at hw'; subst hw'; exact hb1
+      | _ + 2, hw' => simp at hw'
+    revert hm
+    cases hc : callFn (Scope.env sha) n d.params (ClosureBody.stmts d.body) Locals.empty [(.ref r0), (.uint (.nominal Scope.Id.«ValidatorIndex» 64) x1)] [] h with
+    | error e' =>
+      cases hg : get_base_reward x0 (⟨x1⟩ : ValidatorIndex) with
+      | ok y => intro hm; simp [ResultMatches] at hm
+      | error f =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hne, hf⟩
+        refine ⟨?_, rep_ne_oof f⟩
+        rw [normE_of_ne hne, normE_of_ne (rep_ne_oof f), GenBridge.rep_fail, hf]
+    | ok q =>
+      obtain ⟨w, h'⟩ := q
+      cases hg : get_base_reward x0 (⟨x1⟩ : ValidatorIndex) with
+      | error f => intro hm; simp [ResultMatches] at hm
+      | ok y =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hw, hfr, hfresh, -⟩
+        have he : Ext h h' := ext_of_frame hfr hfresh (NoFill.callFn_noFill _ NoFill.ssz_libKeeps hc)
+        refine ⟨⟨by have := hw.1; simp only [enc_Gwei, encUint] at this; exact this, rfl⟩, trivial, ⟨rfl, fun j w' d' hw' hd' => ?_⟩,
+          hfr, Skel_of_Ext he, fun _ => he, fun kg q b kg' q' hab hle _ => ?_⟩
+        · match j, hw', hd' with
+          | 0, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k0, by rw [dec_ext he hb0 k0]; exact hk0⟩
+          | 1, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k1, by rw [dec_ext he hb1 k1]; exact hk1⟩
+          | _ + 2, hw', _ => simp at hw'
+        · have := at?_below0 hwf hdec ((at?_Ext he hba kg q b).mp hab); omega
+  split at hx
+  · next hg =>
+    subst hg
+    simp only [Option.some.injEq] at hx; subst hx
+    obtain ⟨r_0, rfl⟩ : ∃ r_0, roots = [r_0] := by
+      rcases roots with _ | ⟨r_0, _ | ⟨_, _⟩⟩ <;> simp [ext_get_base_reward_per_increment] at hr ⊢
+    obtain ⟨v_0, rfl⟩ : ∃ v_0, vs = [v_0] := by
+      rcases vs with _ | ⟨v_0, _ | ⟨_, _⟩⟩ <;> simp [DecArgs] at hdec ⊢ <;> omega
+    obtain ⟨k0, hk0⟩ := hdec.2 0 v_0 r_0 rfl rfl
+    cases hu0 : undv_BeaconState r_0 with
+    | none => simp [ext_get_base_reward_per_increment, hu0] at hr
+    | some x0 =>
+    have hy0 := decOf_BeaconState h k0 v_0 r_0 x0 hk0 hu0
+    obtain ⟨r0, rfl⟩ : ∃ a, v_0 = .ref a := by
+      cases v_0 <;> simp [dec_BeaconState, containerFieldsT] at hy0; exact ⟨_, rfl⟩
+    have hb0 : Below h (.ref r0) := dec_below hwf k0 _ r_0 hk0
+    simp only [ext_get_base_reward_per_increment, hu0] at hr hb
+    try simp only [and_self, ↓reduceIte, true_and] at hr
+    have haw : ArgsWF h [(.ref r0)] := by
+      intro kk q a ha
+      obtain ⟨w, hw, hf⟩ := at?_some ha
+      match kk, hw with
+      | 0, hw => simp at hw; subst hw; exact dec_exists k0 _ r_0 hk0 q a hf
+      | _ + 1, hw => simp at hw
+    have hm := hst_get_base_reward_per_increment (Classical.not_not.mp hmem) [] h r0 x0 hy0 hwf haw n (by have := hb; simp only [bigFuel_eq] at this ⊢; omega)
+    rw [interp, callName, callValue_glob_fn _ _ _ hd] at hm
+    have hba : BelowArgs h [(.ref r0)] := by
+      intro kk w' hw'
+      match kk, hw' with
+      | 0, hw' => simp at hw'; subst hw'; exact hb0
+      | _ + 1, hw' => simp at hw'
+    revert hm
+    cases hc : callFn (Scope.env sha) n d.params (ClosureBody.stmts d.body) Locals.empty [(.ref r0)] [] h with
+    | error e' =>
+      cases hg : get_base_reward_per_increment x0 with
+      | ok y => intro hm; simp [ResultMatches] at hm
+      | error f =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hne, hf⟩
+        refine ⟨?_, rep_ne_oof f⟩
+        rw [normE_of_ne hne, normE_of_ne (rep_ne_oof f), GenBridge.rep_fail, hf]
+    | ok q =>
+      obtain ⟨w, h'⟩ := q
+      cases hg : get_base_reward_per_increment x0 with
+      | error f => intro hm; simp [ResultMatches] at hm
+      | ok y =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hw, hfr, hfresh, -⟩
+        have he : Ext h h' := ext_of_frame hfr hfresh (NoFill.callFn_noFill _ NoFill.ssz_libKeeps hc)
+        refine ⟨⟨by have := hw.1; simp only [enc_Gwei, encUint] at this; exact this, rfl⟩, trivial, ⟨rfl, fun j w' d' hw' hd' => ?_⟩,
+          hfr, Skel_of_Ext he, fun _ => he, fun kg q b kg' q' hab hle _ => ?_⟩
+        · match j, hw', hd' with
+          | 0, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k0, by rw [dec_ext he hb0 k0]; exact hk0⟩
+          | _ + 1, hw', _ => simp at hw'
         · have := at?_below0 hwf hdec ((at?_Ext he hba kg q b).mp hab); omega
   split at hx
   · next hg =>
@@ -278,6 +593,72 @@ theorem extGen_ok [ExtSet] (sha : Oracle) : ExtOK (Scope.env sha) := by
           | 0, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k0, by rw [dec_ext he hb0 k0]; exact hk0⟩
           | _ + 1, hw', _ => simp at hw'
         · have := at?_below0 hwf hdec ((at?_Ext he hba kg q b).mp hab); omega
+  split at hx
+  · next hg =>
+    subst hg
+    simp only [Option.some.injEq] at hx; subst hx
+    obtain ⟨r_0, r_1, rfl⟩ : ∃ r_0 r_1, roots = [r_0, r_1] := by
+      rcases roots with _ | ⟨r_0, _ | ⟨r_1, _ | ⟨_, _⟩⟩⟩ <;> simp [ext_is_valid_switch_to_compounding_request] at hr ⊢
+    obtain ⟨v_0, v_1, rfl⟩ : ∃ v_0 v_1, vs = [v_0, v_1] := by
+      rcases vs with _ | ⟨v_0, _ | ⟨v_1, _ | ⟨_, _⟩⟩⟩ <;> simp [DecArgs] at hdec ⊢ <;> omega
+    obtain ⟨k0, hk0⟩ := hdec.2 0 v_0 r_0 rfl rfl
+    obtain ⟨k1, hk1⟩ := hdec.2 1 v_1 r_1 rfl rfl
+    cases hu0 : undv_BeaconState r_0 with
+    | none => simp [ext_is_valid_switch_to_compounding_request, hu0] at hr
+    | some x0 =>
+    have hy0 := decOf_BeaconState h k0 v_0 r_0 x0 hk0 hu0
+    obtain ⟨r0, rfl⟩ : ∃ a, v_0 = .ref a := by
+      cases v_0 <;> simp [dec_BeaconState, containerFieldsT] at hy0; exact ⟨_, rfl⟩
+    have hb0 : Below h (.ref r0) := dec_below hwf k0 _ r_0 hk0
+    cases hu1 : undv_ConsolidationRequest r_1 with
+    | none => simp [ext_is_valid_switch_to_compounding_request, hu0, hu1] at hr
+    | some x1 =>
+    have hy1 := decOf_ConsolidationRequest h k1 v_1 r_1 x1 hk1 hu1
+    obtain ⟨r1, rfl⟩ : ∃ a, v_1 = .ref a := by
+      cases v_1 <;> simp [dec_ConsolidationRequest, containerFieldsT] at hy1; exact ⟨_, rfl⟩
+    have hb1 : Below h (.ref r1) := dec_below hwf k1 _ r_1 hk1
+    simp only [ext_is_valid_switch_to_compounding_request, hu0, hu1] at hr hb
+    try simp only [and_self, ↓reduceIte, true_and] at hr
+    have haw : ArgsWF h [(.ref r0), (.ref r1)] := by
+      intro kk q a ha
+      obtain ⟨w, hw, hf⟩ := at?_some ha
+      match kk, hw with
+      | 0, hw => simp at hw; subst hw; exact dec_exists k0 _ r_0 hk0 q a hf
+      | 1, hw => simp at hw; subst hw; exact dec_exists k1 _ r_1 hk1 q a hf
+      | _ + 2, hw => simp at hw
+    have hm := hst_is_valid_switch_to_compounding_request (Classical.not_not.mp hmem) [] h r0 x0 hy0 r1 x1 hy1 hwf haw n hb
+    rw [interp, callName, callValue_glob_fn _ _ _ hd] at hm
+    have hba : BelowArgs h [(.ref r0), (.ref r1)] := by
+      intro kk w' hw'
+      match kk, hw' with
+      | 0, hw' => simp at hw'; subst hw'; exact hb0
+      | 1, hw' => simp at hw'; subst hw'; exact hb1
+      | _ + 2, hw' => simp at hw'
+    revert hm
+    cases hc : callFn (Scope.env sha) n d.params (ClosureBody.stmts d.body) Locals.empty [(.ref r0), (.ref r1)] [] h with
+    | error e' =>
+      cases hg : is_valid_switch_to_compounding_request x0 x1 with
+      | ok y => intro hm; simp [ResultMatches] at hm
+      | error f =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hne, hf⟩
+        refine ⟨?_, rep_ne_oof f⟩
+        rw [normE_of_ne hne, normE_of_ne (rep_ne_oof f), GenBridge.rep_fail, hf]
+    | ok q =>
+      obtain ⟨w, h'⟩ := q
+      cases hg : is_valid_switch_to_compounding_request x0 x1 with
+      | error f => intro hm; simp [ResultMatches] at hm
+      | ok y =>
+        simp only [hg, GenBridge.extRes, Option.some.injEq] at hr; subst hr
+        rintro ⟨hw, hfr, hfresh, -⟩
+        have he : Ext h h' := ext_of_frame hfr hfresh (NoFill.callFn_noFill _ NoFill.ssz_libKeeps hc)
+        refine ⟨⟨hw, rfl⟩, trivial, ⟨rfl, fun j w' d' hw' hd' => ?_⟩,
+          hfr, Skel_of_Ext he, fun _ => he, fun kg q b kg' q' hab hle _ => ?_⟩
+        · match j, hw', hd' with
+          | 0, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k0, by rw [dec_ext he hb0 k0]; exact hk0⟩
+          | 1, hw', hd' => simp at hw' hd'; subst hw'; subst hd'; exact ⟨k1, by rw [dec_ext he hb1 k1]; exact hk1⟩
+          | _ + 2, hw', _ => simp at hw'
+        · have := at?_below0 hwf hdec ((at?_Ext he hba kg q b).mp hab); omega
   · cases hx
 
 theorem get_activation_churn_limit_l4f (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
@@ -286,7 +667,7 @@ theorem get_activation_churn_limit_l4f (sha : Oracle) (gfp : Footprint) (h : Hea
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_activation_churn_limit» [(.ref r_state)] h) (get_activation_churn_limit a_state) :=
   letI : ExtSet := ⟨[209]⟩
-  get_activation_churn_limit_l4 sha gfp h hwf hh (extGen_ok sha) a_state hok_state r_state hr_state (hS_get_total_active_balance := by decide)
+  get_activation_churn_limit_l4 sha gfp h hwf hh (extGen_ok sha (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide))) a_state hok_state r_state hr_state (hS_get_total_active_balance := by decide)
 
 theorem get_builder_payment_quorum_threshold_l4f (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
     (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
@@ -294,7 +675,7 @@ theorem get_builder_payment_quorum_threshold_l4f (sha : Oracle) (gfp : Footprint
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_builder_payment_quorum_threshold» [(.ref r_state)] h) (get_builder_payment_quorum_threshold a_state) :=
   letI : ExtSet := ⟨[209]⟩
-  get_builder_payment_quorum_threshold_l4 sha gfp h hwf hh (extGen_ok sha) a_state hok_state r_state hr_state (hS_get_total_active_balance := by decide)
+  get_builder_payment_quorum_threshold_l4 sha gfp h hwf hh (extGen_ok sha (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide))) a_state hok_state r_state hr_state (hS_get_total_active_balance := by decide)
 
 theorem get_consolidation_churn_limit_l4f (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
     (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
@@ -302,7 +683,7 @@ theorem get_consolidation_churn_limit_l4f (sha : Oracle) (gfp : Footprint) (h : 
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_consolidation_churn_limit» [(.ref r_state)] h) (get_consolidation_churn_limit a_state) :=
   letI : ExtSet := ⟨[209]⟩
-  get_consolidation_churn_limit_l4 sha gfp h hwf hh (extGen_ok sha) a_state hok_state r_state hr_state (hS_get_total_active_balance := by decide)
+  get_consolidation_churn_limit_l4 sha gfp h hwf hh (extGen_ok sha (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide))) a_state hok_state r_state hr_state (hS_get_total_active_balance := by decide)
 
 theorem get_exit_churn_limit_l4f (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
     (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
@@ -310,6 +691,6 @@ theorem get_exit_churn_limit_l4f (sha : Oracle) (gfp : Footprint) (h : Heap) (hw
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_exit_churn_limit» [(.ref r_state)] h) (get_exit_churn_limit a_state) :=
   letI : ExtSet := ⟨[209]⟩
-  get_exit_churn_limit_l4 sha gfp h hwf hh (extGen_ok sha) a_state hok_state r_state hr_state (hS_get_total_active_balance := by decide)
+  get_exit_churn_limit_l4 sha gfp h hwf hh (extGen_ok sha (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide)) (fun hm => absurd hm (by decide))) a_state hok_state r_state hr_state (hS_get_total_active_balance := by decide)
 
 end SpecLean.Layer4.Gen
