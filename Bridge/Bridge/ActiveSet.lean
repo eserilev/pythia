@@ -90,4 +90,116 @@ theorem total_active_balance_congr (p : Preset) (s t : BeaconState) (hslot : t.s
       simp [heb]
     rw [hmap]
 
+/-! ## The hand steps of `process_registry_updates` keep the active set -/
+
+theorem bind_eq_ok {ε α β : Type} {A : Except ε α} {f : α → Except ε β} {b : β}
+    (h : (A >>= f) = .ok b) : ∃ a, A = .ok a ∧ f a = .ok b := by
+  cases A with
+  | error e => cases h
+  | ok a => exact ⟨a, rfl, h⟩
+
+theorem uint64Add_ok {a b c : Nat} (h : uint64Add a b = .ok c) : c = a + b := by
+  unfold uint64Add at h
+  split at h
+  · cases h; rfl
+  · cases h
+
+theorem compute_activation_exit_epoch_gt (p : Preset) (e c : Nat)
+    (h : compute_activation_exit_epoch p e = .ok c) : e < c := by
+  unfold compute_activation_exit_epoch at h
+  obtain ⟨a, ha, h⟩ := bind_eq_ok h
+  have := uint64Add_ok ha
+  have := uint64Add_ok h
+  omega
+
+/-- `compute_exit_epoch_and_update_churn` gives an exit epoch after the current epoch, and keeps
+the slot and the validators. -/
+theorem compute_exit_epoch_gt (p : Preset) (tab : Nat) (s s₁ : BeaconState) (bal e cur : Nat)
+    (hcur : get_current_epoch p s = .ok cur)
+    (h : compute_exit_epoch_and_update_churn p tab s bal = .ok (e, s₁)) :
+    cur < e ∧ s₁.slot = s.slot ∧ s₁.validators = s.validators := by
+  unfold compute_exit_epoch_and_update_churn at h
+  rw [hcur] at h
+  obtain ⟨cur', hc', h⟩ := bind_eq_ok h
+  cases hc'
+  obtain ⟨cae, hcae, h⟩ := bind_eq_ok h
+  have hgt := compute_activation_exit_epoch_gt p cur cae hcae
+  obtain ⟨churn, _, h⟩ := bind_eq_ok h
+  dsimp only at h
+  split at h <;> split at h
+  all_goals
+    repeat (obtain ⟨_, hb, h⟩ := bind_eq_ok h; try have := uint64Add_ok hb)
+    cases h
+    refine ⟨?_, rfl, rfl⟩
+    try dsimp only
+    omega
+
+/-- The facts of a validator list change for `total_active_balance_congr`. -/
+def KeepsActive (s t : List Validator) (e : Nat) : Prop :=
+  t.length = s.length ∧ ∀ i (hs : i < s.length) (ht : i < t.length),
+    t[i].effective_balance = s[i].effective_balance ∧
+      is_active_validator t[i] e = is_active_validator s[i] e
+
+theorem keepsActive_refl (s : List Validator) (e : Nat) : KeepsActive s s e :=
+  ⟨rfl, fun _ _ _ => ⟨rfl, rfl⟩⟩
+
+theorem keepsActive_trans {s t u : List Validator} {e : Nat} (h1 : KeepsActive s t e)
+    (h2 : KeepsActive t u e) : KeepsActive s u e := by
+  refine ⟨h2.1.trans h1.1, fun i hs hu => ?_⟩
+  have ht : i < t.length := by rw [h1.1]; exact hs
+  obtain ⟨a1, b1⟩ := h1.2 i hs ht
+  obtain ⟨a2, b2⟩ := h2.2 i ht hu
+  exact ⟨a2.trans a1, b2.trans b1⟩
+
+/-- Setting one validator to a value with the same effective balance and activity. -/
+theorem keepsActive_set (s : List Validator) (k : Nat) (v : Validator) (e : Nat) (hk : k < s.length)
+    (heb : v.effective_balance = s[k].effective_balance)
+    (hact : is_active_validator v e = is_active_validator s[k] e) :
+    KeepsActive s (s.set k v) e := by
+  refine ⟨by simp, fun i hs ht => ?_⟩
+  by_cases hik : i = k
+  · subst hik; simp [heb, hact]
+  · simp [List.getElem_set, Ne.symm hik]
+
+/-- The hand `initiate_validator_exit` keeps the slot, and the effective balance and the activity
+at the current epoch of each validator. -/
+theorem initiate_validator_exit_keeps (p : Preset) (tab : Nat) (s s' : BeaconState) (k cur : Nat)
+    (hcur : get_current_epoch p s = .ok cur) (hcf : cur < FAR_FUTURE_EPOCH)
+    (h : initiate_validator_exit p tab s k = .ok s') :
+    s'.slot = s.slot ∧ KeepsActive s.validators s'.validators cur := by
+  unfold initiate_validator_exit at h
+  obtain ⟨v, hv, h⟩ := bind_eq_ok h
+  have hk : k < s.validators.length := by
+    unfold listGet at hv
+    split at hv
+    · rename_i a ha; exact (List.getElem?_eq_some_iff.mp ha).1
+    · cases hv
+  have hvk : v = s.validators[k] := by
+    unfold listGet at hv
+    rw [List.getElem?_eq_getElem hk] at hv
+    cases hv; rfl
+  subst hvk
+  split at h
+  · cases h; exact ⟨rfl, keepsActive_refl _ _⟩
+  · rename_i hfar
+    obtain ⟨_, _, h⟩ := bind_eq_ok h
+    obtain ⟨w, hce, h⟩ := bind_eq_ok h
+    obtain ⟨hgt, hslot, hvals⟩ := compute_exit_epoch_gt p tab s w.2 _ w.1 cur hcur hce
+    obtain ⟨wd, _, h⟩ := bind_eq_ok h
+    obtain ⟨vs, hvs, h⟩ := bind_eq_ok h
+    cases h
+    unfold listSet at hvs
+    rw [hvals] at hvs
+    split at hvs
+    · cases hvs
+      refine ⟨hslot, ?_⟩
+      refine keepsActive_set _ _ _ _ hk rfl ?_
+      have hex : s.validators[k].exit_epoch = FAR_FUTURE_EPOCH := by simpa using hfar
+      unfold is_active_validator
+      simp only [hex]
+      have h1 : decide (cur < w.1) = true := by simp; omega
+      have h2 : decide (cur < FAR_FUTURE_EPOCH) = true := by simp; omega
+      rw [h1, h2]
+    · rename_i hlt; exact absurd hk hlt
+
 end Pythia.Bridge
