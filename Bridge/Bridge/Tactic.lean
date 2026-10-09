@@ -1459,6 +1459,15 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
       let fS ← g.withContext (Term.exprToSyntax fact)
       let tacK : TacticM Unit := evalTactic (← `(tactic| refine sim_bind_l _ $fS ?_))
       if let some gs ← continueWith (← tryAt tacK g) then return gs
+    -- a read and a write after a write at the same index (the hand writes once): the read gives
+    -- the written value, and the second write replaces the first
+    if a.isAppOfArity ``SpecLean.Rd.lget 3 && (a.getArg! 1).consumeMData.isAppOfArity ``List.set 4 then
+      let tacG : TacticM Unit := evalTactic (← `(tactic|
+        refine sim_bind_l _ (lget_set_eq _ _ _ (by first | bridge_from_ok lget_lt lget | omega)) ?_))
+      if let some gs ← continueWith (← tryAt tacG g) then return gs
+    if a.isAppOfArity ``SpecLean.Rd.lset 4 && (a.getArg! 1).consumeMData.isAppOfArity ``List.set 4 then
+      let tacS : TacticM Unit := evalTactic (← `(tactic| refine sim_bind_eq_l (lset_set_eq _ _ _ _) ?_))
+      if let some gs ← continueWith (← tryAt tacS g) then return gs
     -- `lindex xs x` with `x ∈ xs` from a negated `contains` check before
     if a.isAppOfArity ``SpecLean.Rd.lindex 4 then
       let xS ← g.withContext (Term.exprToSyntax (a.getArg! 3))
@@ -1538,6 +1547,13 @@ partial def bridgeGoal (hs : Array Ident) (g : MVarId) : TacticM (List MVarId) :
           | refine sim_bind_l _ (lappend_none _ _) ?_
           | refine sim_bind_l _ (lfrom_none _) ?_))
       if let some gs ← continueWith (← tryAt tac6 g) then return gs
+    -- a readable write with no hand write to pair with (the hand writes later, once): it
+    -- succeeds, because the index was read before
+    let hFirst := if isBind h then (h.getArg! 4).consumeMData else h
+    if a.isAppOfArity ``SpecLean.Rd.lset 4 && hFirst.getAppFn.constName? != some ``EpochProofs.Spec.listSet then
+      let tacW : TacticM Unit := evalTactic (← `(tactic|
+        refine sim_bind_l _ (lset_ok _ _ _ (by first | bridge_from_ok lget_lt lget | omega)) ?_))
+      if let some gs ← continueWith (← tryAt tacW g) then return gs
     -- a readable step whose result is already known (a second read of the same place)
     let tac5 : TacticM Unit :=
       evalTactic (← `(tactic| refine sim_bind_l _ (by assumption) ?_))

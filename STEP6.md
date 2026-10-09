@@ -355,8 +355,8 @@ Status on mainnet, the target preset (`GenMainnet/Eqs.lean` lists the names):
 |---|---|
 | Mapped functions without a loop | 83 |
 | with a statement | 74 |
-| proved, conditional | 53 (and 31 callees) |
-| proved, full | 52 (and 27 callees) |
+| proved, conditional | 54 (and 31 callees) |
+| proved, full | 53 (and 27 callees) |
 | loops proved by hand (`Mainnet/Proofs.lean`) | 2 of the 23 mapped loops, and 3 callee loops |
 | loops proved by `bridge_loop` (generated) | 5 (`process_inactivity_updates`, `process_slashings`, `get_inactivity_penalty_deltas`, `get_flag_index_deltas`, `process_rewards_and_penalties`) |
 

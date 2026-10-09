@@ -589,6 +589,29 @@ theorem lget_err {α : Type} (xs : List α) (i : Nat) (h : ¬ i < xs.length) :
   rw [if_neg (by omega), if_neg (by omega)]
   rfl
 
+theorem lget_lt {α : Type} {xs : List α} {i : Nat} {y : α} (h : lget xs (i : Int) = .ok y) :
+    i < xs.length := by
+  unfold lget Rd.pyIndex at h
+  rw [if_neg (by omega)] at h
+  by_cases hi : (i : Int) < xs.length
+  · omega
+  · rw [if_neg hi] at h; cases h
+
+theorem lget_set_eq {α : Type} (xs : List α) (i : Nat) (v : α) (h : i < xs.length) :
+    lget (xs.set i v) (i : Int) = .ok v := by
+  rw [lget_ok _ _ (by simpa using h)]
+  simp
+
+/-- A set after a set at the same index: only the last value stays. -/
+theorem lset_set_eq {α : Type} (xs : List α) (i : Nat) (v w : α) :
+    lset (xs.set i v) (i : Int) w = lset xs (i : Int) w := by
+  unfold lset Rd.pyIndex
+  rw [List.length_set, if_neg (by omega)]
+  by_cases hi : (i : Int) < xs.length
+  · rw [if_pos hi]
+    simp only [Int.toNat_natCast, List.set_set]
+  · rw [if_neg hi]
+
 theorem lset_ok {α : Type} (xs : List α) (i : Nat) (x : α) (h : i < xs.length) :
     lset xs (i : Int) x = .ok (xs.set i x) := by
   unfold lset Rd.pyIndex
