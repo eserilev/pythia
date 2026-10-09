@@ -19,6 +19,8 @@ variable [Spec]
 set_option linter.unusedSimpArgs false
 set_option linter.unusedSectionVars false
 
+variable [ExtSet]
+
 set_option maxHeartbeats 1000000 in
 theorem add_flag_den (sha : Oracle) (m : Nat) (a_flags : Nat) (a_flag_index : Int) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_add_flag [(.leaf (.uint (.nominal 20 8) a_flags)), (.leaf (.int a_flag_index))]).map (Except.mapError SpecError.fail) =
@@ -1068,21 +1070,6 @@ set_option maxHeartbeats 1000000 in
   bind_call (saturating_sub_den_Epoch_i sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
-theorem saturating_sub_den_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
-    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
-      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
-  rw [s_fn]
-  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
-  all_goals l4_close
-
-set_option maxHeartbeats 1000000 in
-@[l4_simp] theorem saturating_sub_call_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
-    Option.map (Except.mapError SpecError.fail)
-        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]) k) =
-      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) :=
-  bind_call (saturating_sub_den_Slot sha m a_a a_b) k
-
-set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_Gwei_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
     ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Uint64 => (DRes.val (.uint (.nominal 265 64) x.val), [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))])) <$> saturating_sub ⟨a_a⟩ (a_b : Int)) := by
@@ -1096,6 +1083,21 @@ set_option maxHeartbeats 1000000 in
         (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))]) k) =
       callK (saturating_sub ⟨a_a⟩ (a_b : Int)) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.leaf (.uint (.nominal 265 64) a_a)), (.leaf (.uint (.nominal 265 64) a_b))])) :=
   bind_call (saturating_sub_den_Gwei_i sha m a_a a_b) k
+
+set_option maxHeartbeats 1000000 in
+theorem saturating_sub_den_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) :
+    ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]).map (Except.mapError SpecError.fail) =
+      some ((fun x : Uint64 => (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) <$> saturating_sub ⟨a_a⟩ a_b) := by
+  rw [s_fn]
+  l4_eval [Scope.fn_saturating_sub, saturating_sub, fpsGen, fpAll]
+  all_goals l4_close
+
+set_option maxHeartbeats 1000000 in
+@[l4_simp] theorem saturating_sub_call_Slot (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Int) {γ : Type} (k : DRes × List DV → DM γ) :
+    Option.map (Except.mapError SpecError.fail)
+        (DM.bind ((den (Scope.env sha) fpsGen (m + 9)).fn [] Scope.fn_saturating_sub [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))]) k) =
+      callK (saturating_sub ⟨a_a⟩ a_b) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 196 64) x.val), [(.leaf (.uint (.nominal 196 64) a_a)), (.leaf (.int a_b))])) :=
+  bind_call (saturating_sub_den_Slot sha m a_a a_b) k
 
 set_option maxHeartbeats 1000000 in
 theorem saturating_sub_den_Slot_i (sha : Oracle) (m : Nat) (a_a : Nat) (a_b : Nat) :
@@ -1210,17 +1212,17 @@ theorem decrease_balance_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : 
   decrease_balance_l4 sha gfp h hwf hh hX a_state a_index a_delta r_state (bridge_BeaconState hc hy_state) hw hc
 
 set_option maxHeartbeats 1000000 in
-theorem get_activation_churn_limit_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) :
+theorem get_activation_churn_limit_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     ((den (Scope.env sha) fpsGen (a_state.validators.length + a_state.validators.length + m + 269)).fn [] Scope.fn_get_activation_churn_limit [(.cont 733 (kids_BeaconState a_state))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Gwei => (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) <$> get_activation_churn_limit a_state) := by
   rw [s_fn]
   have hok_state' := hok_state
   simp only [ok_Builder, ok_BuilderPendingWithdrawal, ok_ForkData, ok_SigningData, ok_Withdrawal, ok_Checkpoint, ok_PayloadAttestationData, ok_SyncCommittee, ok_Validator, ok_DepositMessage, ok_PendingDeposit, ok_BeaconBlockHeader, ok_BuilderPendingPayment, ok_PendingConsolidation, ok_Eth1Data, ok_HistoricalSummary, ok_DepositRequest, ok_WithdrawalRequest, ok_ConsolidationRequest, ok_BuilderDepositRequest, ok_BuilderExitRequest, ok_PendingPartialWithdrawal, ok_Fork, ok_ExecutionPayloadBid, ok_SignedBeaconBlockHeader, ok_DepositData, ok_VoluntaryExit, ok_SyncAggregate, ok_BLSToExecutionChange, ok_SignedExecutionPayloadBid, ok_PayloadAttestation, ok_AttestationData, ok_IndexedPayloadAttestation, ok_ExecutionRequests, ok_BeaconState, ok_ProposerSlashing, ok_Attestation, ok_Deposit, ok_SignedVoluntaryExit, ok_SignedBLSToExecutionChange, ok_IndexedAttestation, ok_AttesterSlashing, ok_BeaconBlockBody, ok_BeaconBlock, ok_SignedBeaconBlock] at hok_state'
-  l4_eval [Scope.fn_get_activation_churn_limit, get_activation_churn_limit, fpsGen, fpAll, EFFECTIVE_BALANCE_INCREMENT, GenBridge.dbind_assoc, GenBridge.extRes_call, ext_get_total_active_balance, undv_kids_BeaconState a_state hok_state]
+  l4_eval [Scope.fn_get_activation_churn_limit, get_activation_churn_limit, fpsGen, fpAll, EFFECTIVE_BALANCE_INCREMENT, GenBridge.dbind_assoc, GenBridge.extRes_call, ext_get_total_active_balance, hS_get_total_active_balance, undv_kids_BeaconState a_state hok_state]
   all_goals l4_close
 
 set_option maxHeartbeats 1000000 in
-theorem get_activation_churn_limit_call (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) {γ : Type} (k : DRes × List DV → DM γ) :
+theorem get_activation_churn_limit_call (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) {γ : Type} (k : DRes × List DV → DM γ) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen (a_state.validators.length + a_state.validators.length + m + 269)).fn [] Scope.fn_get_activation_churn_limit [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_activation_churn_limit a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) :=
@@ -1228,7 +1230,7 @@ theorem get_activation_churn_limit_call (sha : Oracle) (m : Nat) (a_state : Beac
 
 set_option maxHeartbeats 1000000 in
 theorem get_activation_churn_limit_fcall (sha : Oracle) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat) (hn : a_state.validators.length + a_state.validators.length + 269 ≤ n) {γ : Type}
-    (k : DRes × List DV → DM γ) :
+    (k : DRes × List DV → DM γ) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen n).fn [] Scope.fn_get_activation_churn_limit [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_activation_churn_limit a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) := by
@@ -1237,7 +1239,7 @@ theorem get_activation_churn_limit_fcall (sha : Oracle) (a_state : BeaconState) 
 
 set_option maxHeartbeats 1000000 in
 theorem get_activation_churn_limit_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     ∀ fuel, a_state.validators.length + a_state.validators.length + 269 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_activation_churn_limit» [(.ref r_state)] h) (get_activation_churn_limit a_state) := by
@@ -1250,7 +1252,7 @@ theorem get_activation_churn_limit_l4 (sha : Oracle) (gfp : Footprint) (h : Heap
 set_option maxHeartbeats 1000000 in
 theorem get_activation_churn_limit_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
     (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha))
-    (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
+    (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     ∀ fuel, a_state.validators.length + a_state.validators.length + 269 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_activation_churn_limit» [(.ref r_state)] h) (get_activation_churn_limit a_state) :=
@@ -1498,17 +1500,17 @@ theorem get_block_root_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : He
   get_block_root_l4 sha gfp h hwf hh hX a_state a_epoch r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
-theorem get_builder_payment_quorum_threshold_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) :
+theorem get_builder_payment_quorum_threshold_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     ((den (Scope.env sha) fpsGen (a_state.validators.length + a_state.validators.length + m + 267)).fn [] Scope.fn_get_builder_payment_quorum_threshold [(.cont 733 (kids_BeaconState a_state))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Gwei => (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) <$> get_builder_payment_quorum_threshold a_state) := by
   rw [s_fn]
   have hok_state' := hok_state
   simp only [ok_Builder, ok_BuilderPendingWithdrawal, ok_ForkData, ok_SigningData, ok_Withdrawal, ok_Checkpoint, ok_PayloadAttestationData, ok_SyncCommittee, ok_Validator, ok_DepositMessage, ok_PendingDeposit, ok_BeaconBlockHeader, ok_BuilderPendingPayment, ok_PendingConsolidation, ok_Eth1Data, ok_HistoricalSummary, ok_DepositRequest, ok_WithdrawalRequest, ok_ConsolidationRequest, ok_BuilderDepositRequest, ok_BuilderExitRequest, ok_PendingPartialWithdrawal, ok_Fork, ok_ExecutionPayloadBid, ok_SignedBeaconBlockHeader, ok_DepositData, ok_VoluntaryExit, ok_SyncAggregate, ok_BLSToExecutionChange, ok_SignedExecutionPayloadBid, ok_PayloadAttestation, ok_AttestationData, ok_IndexedPayloadAttestation, ok_ExecutionRequests, ok_BeaconState, ok_ProposerSlashing, ok_Attestation, ok_Deposit, ok_SignedVoluntaryExit, ok_SignedBLSToExecutionChange, ok_IndexedAttestation, ok_AttesterSlashing, ok_BeaconBlockBody, ok_BeaconBlock, ok_SignedBeaconBlock] at hok_state'
-  l4_eval [Scope.fn_get_builder_payment_quorum_threshold, get_builder_payment_quorum_threshold, fpsGen, fpAll, BUILDER_PAYMENT_THRESHOLD_DENOMINATOR, BUILDER_PAYMENT_THRESHOLD_NUMERATOR, SLOTS_PER_EPOCH, GenBridge.dbind_assoc, GenBridge.extRes_call, ext_get_total_active_balance, undv_kids_BeaconState a_state hok_state]
+  l4_eval [Scope.fn_get_builder_payment_quorum_threshold, get_builder_payment_quorum_threshold, fpsGen, fpAll, BUILDER_PAYMENT_THRESHOLD_DENOMINATOR, BUILDER_PAYMENT_THRESHOLD_NUMERATOR, SLOTS_PER_EPOCH, GenBridge.dbind_assoc, GenBridge.extRes_call, ext_get_total_active_balance, hS_get_total_active_balance, undv_kids_BeaconState a_state hok_state]
   all_goals l4_close
 
 set_option maxHeartbeats 1000000 in
-theorem get_builder_payment_quorum_threshold_call (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) {γ : Type} (k : DRes × List DV → DM γ) :
+theorem get_builder_payment_quorum_threshold_call (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) {γ : Type} (k : DRes × List DV → DM γ) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen (a_state.validators.length + a_state.validators.length + m + 267)).fn [] Scope.fn_get_builder_payment_quorum_threshold [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_builder_payment_quorum_threshold a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) :=
@@ -1516,7 +1518,7 @@ theorem get_builder_payment_quorum_threshold_call (sha : Oracle) (m : Nat) (a_st
 
 set_option maxHeartbeats 1000000 in
 theorem get_builder_payment_quorum_threshold_fcall (sha : Oracle) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat) (hn : a_state.validators.length + a_state.validators.length + 267 ≤ n) {γ : Type}
-    (k : DRes × List DV → DM γ) :
+    (k : DRes × List DV → DM γ) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen n).fn [] Scope.fn_get_builder_payment_quorum_threshold [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_builder_payment_quorum_threshold a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) := by
@@ -1525,7 +1527,7 @@ theorem get_builder_payment_quorum_threshold_fcall (sha : Oracle) (a_state : Bea
 
 set_option maxHeartbeats 1000000 in
 theorem get_builder_payment_quorum_threshold_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     ∀ fuel, a_state.validators.length + a_state.validators.length + 267 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_builder_payment_quorum_threshold» [(.ref r_state)] h) (get_builder_payment_quorum_threshold a_state) := by
@@ -1538,7 +1540,7 @@ theorem get_builder_payment_quorum_threshold_l4 (sha : Oracle) (gfp : Footprint)
 set_option maxHeartbeats 1000000 in
 theorem get_builder_payment_quorum_threshold_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
     (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha))
-    (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
+    (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     ∀ fuel, a_state.validators.length + a_state.validators.length + 267 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_builder_payment_quorum_threshold» [(.ref r_state)] h) (get_builder_payment_quorum_threshold a_state) :=
@@ -1682,17 +1684,17 @@ theorem get_committee_indices_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hw
     hwf hh (GenWrap.decArgs_cons hr_committee_bits (GenWrap.decArgs_nil h)) (Examples.wtree_nil h _) hden (fun x h' v hx => hx.1.1))
 
 set_option maxHeartbeats 1000000 in
-theorem get_consolidation_churn_limit_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) :
+theorem get_consolidation_churn_limit_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     ((den (Scope.env sha) fpsGen (a_state.validators.length + a_state.validators.length + m + 267)).fn [] Scope.fn_get_consolidation_churn_limit [(.cont 733 (kids_BeaconState a_state))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Gwei => (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) <$> get_consolidation_churn_limit a_state) := by
   rw [s_fn]
   have hok_state' := hok_state
   simp only [ok_Builder, ok_BuilderPendingWithdrawal, ok_ForkData, ok_SigningData, ok_Withdrawal, ok_Checkpoint, ok_PayloadAttestationData, ok_SyncCommittee, ok_Validator, ok_DepositMessage, ok_PendingDeposit, ok_BeaconBlockHeader, ok_BuilderPendingPayment, ok_PendingConsolidation, ok_Eth1Data, ok_HistoricalSummary, ok_DepositRequest, ok_WithdrawalRequest, ok_ConsolidationRequest, ok_BuilderDepositRequest, ok_BuilderExitRequest, ok_PendingPartialWithdrawal, ok_Fork, ok_ExecutionPayloadBid, ok_SignedBeaconBlockHeader, ok_DepositData, ok_VoluntaryExit, ok_SyncAggregate, ok_BLSToExecutionChange, ok_SignedExecutionPayloadBid, ok_PayloadAttestation, ok_AttestationData, ok_IndexedPayloadAttestation, ok_ExecutionRequests, ok_BeaconState, ok_ProposerSlashing, ok_Attestation, ok_Deposit, ok_SignedVoluntaryExit, ok_SignedBLSToExecutionChange, ok_IndexedAttestation, ok_AttesterSlashing, ok_BeaconBlockBody, ok_BeaconBlock, ok_SignedBeaconBlock] at hok_state'
-  l4_eval [Scope.fn_get_consolidation_churn_limit, get_consolidation_churn_limit, fpsGen, fpAll, EFFECTIVE_BALANCE_INCREMENT, GenBridge.dbind_assoc, GenBridge.extRes_call, ext_get_total_active_balance, undv_kids_BeaconState a_state hok_state]
+  l4_eval [Scope.fn_get_consolidation_churn_limit, get_consolidation_churn_limit, fpsGen, fpAll, EFFECTIVE_BALANCE_INCREMENT, GenBridge.dbind_assoc, GenBridge.extRes_call, ext_get_total_active_balance, hS_get_total_active_balance, undv_kids_BeaconState a_state hok_state]
   all_goals l4_close
 
 set_option maxHeartbeats 1000000 in
-theorem get_consolidation_churn_limit_call (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) {γ : Type} (k : DRes × List DV → DM γ) :
+theorem get_consolidation_churn_limit_call (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) {γ : Type} (k : DRes × List DV → DM γ) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen (a_state.validators.length + a_state.validators.length + m + 267)).fn [] Scope.fn_get_consolidation_churn_limit [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_consolidation_churn_limit a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) :=
@@ -1700,7 +1702,7 @@ theorem get_consolidation_churn_limit_call (sha : Oracle) (m : Nat) (a_state : B
 
 set_option maxHeartbeats 1000000 in
 theorem get_consolidation_churn_limit_fcall (sha : Oracle) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat) (hn : a_state.validators.length + a_state.validators.length + 267 ≤ n) {γ : Type}
-    (k : DRes × List DV → DM γ) :
+    (k : DRes × List DV → DM γ) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen n).fn [] Scope.fn_get_consolidation_churn_limit [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_consolidation_churn_limit a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) := by
@@ -1709,7 +1711,7 @@ theorem get_consolidation_churn_limit_fcall (sha : Oracle) (a_state : BeaconStat
 
 set_option maxHeartbeats 1000000 in
 theorem get_consolidation_churn_limit_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     ∀ fuel, a_state.validators.length + a_state.validators.length + 267 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_consolidation_churn_limit» [(.ref r_state)] h) (get_consolidation_churn_limit a_state) := by
@@ -1722,7 +1724,7 @@ theorem get_consolidation_churn_limit_l4 (sha : Oracle) (gfp : Footprint) (h : H
 set_option maxHeartbeats 1000000 in
 theorem get_consolidation_churn_limit_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
     (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha))
-    (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
+    (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     ∀ fuel, a_state.validators.length + a_state.validators.length + 267 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_consolidation_churn_limit» [(.ref r_state)] h) (get_consolidation_churn_limit a_state) :=
@@ -1998,17 +2000,17 @@ theorem get_eligible_validator_indices_l4r (sha : Oracle) (gfp : Footprint) (h :
   get_eligible_validator_indices_l4 sha gfp h hwf hh hX a_state r_state (bridge_BeaconState hc hy_state)
 
 set_option maxHeartbeats 1000000 in
-theorem get_exit_churn_limit_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) :
+theorem get_exit_churn_limit_den (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     ((den (Scope.env sha) fpsGen (a_state.validators.length + a_state.validators.length + m + 269)).fn [] Scope.fn_get_exit_churn_limit [(.cont 733 (kids_BeaconState a_state))]).map (Except.mapError SpecError.fail) =
       some ((fun x : Gwei => (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) <$> get_exit_churn_limit a_state) := by
   rw [s_fn]
   have hok_state' := hok_state
   simp only [ok_Builder, ok_BuilderPendingWithdrawal, ok_ForkData, ok_SigningData, ok_Withdrawal, ok_Checkpoint, ok_PayloadAttestationData, ok_SyncCommittee, ok_Validator, ok_DepositMessage, ok_PendingDeposit, ok_BeaconBlockHeader, ok_BuilderPendingPayment, ok_PendingConsolidation, ok_Eth1Data, ok_HistoricalSummary, ok_DepositRequest, ok_WithdrawalRequest, ok_ConsolidationRequest, ok_BuilderDepositRequest, ok_BuilderExitRequest, ok_PendingPartialWithdrawal, ok_Fork, ok_ExecutionPayloadBid, ok_SignedBeaconBlockHeader, ok_DepositData, ok_VoluntaryExit, ok_SyncAggregate, ok_BLSToExecutionChange, ok_SignedExecutionPayloadBid, ok_PayloadAttestation, ok_AttestationData, ok_IndexedPayloadAttestation, ok_ExecutionRequests, ok_BeaconState, ok_ProposerSlashing, ok_Attestation, ok_Deposit, ok_SignedVoluntaryExit, ok_SignedBLSToExecutionChange, ok_IndexedAttestation, ok_AttesterSlashing, ok_BeaconBlockBody, ok_BeaconBlock, ok_SignedBeaconBlock] at hok_state'
-  l4_eval [Scope.fn_get_exit_churn_limit, get_exit_churn_limit, fpsGen, fpAll, EFFECTIVE_BALANCE_INCREMENT, GenBridge.dbind_assoc, GenBridge.extRes_call, ext_get_total_active_balance, undv_kids_BeaconState a_state hok_state]
+  l4_eval [Scope.fn_get_exit_churn_limit, get_exit_churn_limit, fpsGen, fpAll, EFFECTIVE_BALANCE_INCREMENT, GenBridge.dbind_assoc, GenBridge.extRes_call, ext_get_total_active_balance, hS_get_total_active_balance, undv_kids_BeaconState a_state hok_state]
   all_goals l4_close
 
 set_option maxHeartbeats 1000000 in
-theorem get_exit_churn_limit_call (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) {γ : Type} (k : DRes × List DV → DM γ) :
+theorem get_exit_churn_limit_call (sha : Oracle) (m : Nat) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) {γ : Type} (k : DRes × List DV → DM γ) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen (a_state.validators.length + a_state.validators.length + m + 269)).fn [] Scope.fn_get_exit_churn_limit [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_exit_churn_limit a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) :=
@@ -2016,7 +2018,7 @@ theorem get_exit_churn_limit_call (sha : Oracle) (m : Nat) (a_state : BeaconStat
 
 set_option maxHeartbeats 1000000 in
 theorem get_exit_churn_limit_fcall (sha : Oracle) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (n : Nat) (hn : a_state.validators.length + a_state.validators.length + 269 ≤ n) {γ : Type}
-    (k : DRes × List DV → DM γ) :
+    (k : DRes × List DV → DM γ) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     Option.map (Except.mapError SpecError.fail)
         (DM.bind ((den (Scope.env sha) fpsGen n).fn [] Scope.fn_get_exit_churn_limit [(.cont 733 (kids_BeaconState a_state))]) k) =
       callK (get_exit_churn_limit a_state) fun x => Option.map (Except.mapError SpecError.fail) (k (DRes.val (.uint (.nominal 265 64) x.val), [(.cont 733 (kids_BeaconState a_state))])) := by
@@ -2025,7 +2027,7 @@ theorem get_exit_churn_limit_fcall (sha : Oracle) (a_state : BeaconState) (hok_s
 
 set_option maxHeartbeats 1000000 in
 theorem get_exit_churn_limit_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
-    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
+    (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     ∀ fuel, a_state.validators.length + a_state.validators.length + 269 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_exit_churn_limit» [(.ref r_state)] h) (get_exit_churn_limit a_state) := by
@@ -2038,7 +2040,7 @@ theorem get_exit_churn_limit_l4 (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf
 set_option maxHeartbeats 1000000 in
 theorem get_exit_churn_limit_l4r (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
     (hh : Examples2.HtrDec (Scope.env sha)) (hX : ExtOK (Scope.env sha))
-    (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) :
+    (hc : GenBridge.ContWF h) (a_state : BeaconState) (r_state : Nat) (hy_state : dec_BeaconState h (.ref r_state) = some a_state) (hS_get_total_active_balance : (209 : Name) ∈ ExtSet.S := by assumption) :
     ∀ fuel, a_state.validators.length + a_state.validators.length + 269 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_exit_churn_limit» [(.ref r_state)] h) (get_exit_churn_limit a_state) :=

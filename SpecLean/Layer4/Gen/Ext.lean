@@ -24,10 +24,14 @@ set_option linter.unusedSectionVars false
 open SpecLean.Layer4.ExtBridge
 
 set_option maxHeartbeats 4000000 in
-theorem extGen_ok (sha : Oracle) : ExtOK (Scope.env sha) := by
+theorem extGen_ok [ExtSet] (sha : Oracle) : ExtOK (Scope.env sha) := by
   refine ⟨?_, fun g x d hx => by simp [extGen_extW] at hx⟩
   intro g x d hx hd n roots vs h r hdec hwf hlen hb hr
   simp only [extGen_ext] at hx
+  by_cases hmem : g ∉ ExtSet.S
+  · rw [if_neg hmem] at hx; cases hx
+  rw [if_pos (Classical.not_not.mp hmem)] at hx
+  try dsimp only at hx
   split at hx
   · next hg =>
     subst hg
@@ -281,27 +285,31 @@ theorem get_activation_churn_limit_l4f (sha : Oracle) (gfp : Footprint) (h : Hea
     ∀ fuel, a_state.validators.length + a_state.validators.length + 269 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_activation_churn_limit» [(.ref r_state)] h) (get_activation_churn_limit a_state) :=
-  get_activation_churn_limit_l4 sha gfp h hwf hh (extGen_ok sha) a_state hok_state r_state hr_state
+  letI : ExtSet := ⟨[209]⟩
+  get_activation_churn_limit_l4 sha gfp h hwf hh (extGen_ok sha) a_state hok_state r_state hr_state (hS_get_total_active_balance := by decide)
 
 theorem get_builder_payment_quorum_threshold_l4f (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
     (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, a_state.validators.length + a_state.validators.length + 267 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_builder_payment_quorum_threshold» [(.ref r_state)] h) (get_builder_payment_quorum_threshold a_state) :=
-  get_builder_payment_quorum_threshold_l4 sha gfp h hwf hh (extGen_ok sha) a_state hok_state r_state hr_state
+  letI : ExtSet := ⟨[209]⟩
+  get_builder_payment_quorum_threshold_l4 sha gfp h hwf hh (extGen_ok sha) a_state hok_state r_state hr_state (hS_get_total_active_balance := by decide)
 
 theorem get_consolidation_churn_limit_l4f (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
     (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, a_state.validators.length + a_state.validators.length + 267 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_consolidation_churn_limit» [(.ref r_state)] h) (get_consolidation_churn_limit a_state) :=
-  get_consolidation_churn_limit_l4 sha gfp h hwf hh (extGen_ok sha) a_state hok_state r_state hr_state
+  letI : ExtSet := ⟨[209]⟩
+  get_consolidation_churn_limit_l4 sha gfp h hwf hh (extGen_ok sha) a_state hok_state r_state hr_state (hS_get_total_active_balance := by decide)
 
 theorem get_exit_churn_limit_l4f (sha : Oracle) (gfp : Footprint) (h : Heap) (hwf : HeapWF h)
     (hh : Examples2.HtrDec (Scope.env sha)) (a_state : BeaconState) (hok_state : ok_BeaconState a_state) (r_state : Nat) (hr_state : ∃ n, dec h n (.ref r_state) = some (.cont 733 (kids_BeaconState a_state))) :
     ∀ fuel, a_state.validators.length + a_state.validators.length + 269 ≤ fuel →
       ResultMatches gfp [] h [(.ref r_state)] (fun (x : Gwei) _ v => v = (.uint (.nominal 265 64) x.val))
         (interp (Scope.env sha) fuel Scope.Id.«get_exit_churn_limit» [(.ref r_state)] h) (get_exit_churn_limit a_state) :=
-  get_exit_churn_limit_l4 sha gfp h hwf hh (extGen_ok sha) a_state hok_state r_state hr_state
+  letI : ExtSet := ⟨[209]⟩
+  get_exit_churn_limit_l4 sha gfp h hwf hh (extGen_ok sha) a_state hok_state r_state hr_state (hS_get_total_active_balance := by decide)
 
 end SpecLean.Layer4.Gen

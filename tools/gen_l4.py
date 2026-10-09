@@ -359,6 +359,8 @@ set_option linter.unusedSimpArgs false
 set_option linter.unusedSectionVars false
 """
 
+OPENX = OPEN + "\nvariable [ExtSet]\n"
+
 
 def classes_file(m):
     out = [HEADER, "/-!\n# Layer 4: the rewrites of the readable classes\n\n"
@@ -682,9 +684,13 @@ def ext_text(m):
         ents.append((m.fns[c]["id"], c))
     body = "fun g => " + "".join("if g = %d then some ext_%s else " % (i, c) for i, c in ents) + "none"
     bodyW = "fun g => " + "".join("if g = %d then some extW_%s else " % (i, c) for i, c in entsW) + "none"
-    out.append("/-- The table of the generated theorems. -/\ninstance extGen : ExtTab := ⟨%s, %s⟩\n" % (body, bodyW))
-    out.append("@[l4_simp] theorem extGen_ext (g : Name) : ExtTab.ext g = (%s) g := rfl\n" % body.replace("fun g => ", "fun g : Name => ", 1))
-    out.append("@[l4_simp] theorem extGen_extW (g : Name) : ExtTab.extW g = (%s) g := rfl\n" % bodyW.replace("fun g => ", "fun g : Name => ", 1))
+    out.append("/-- The table of the generated theorems: the entries of the allowed set. -/\n"
+               "instance extGen [ExtSet] : ExtTab :=\n  ⟨fun g => if g ∈ ExtSet.S then (%s) g else none,\n"
+               "   fun g => if g ∈ ExtSet.S then (%s) g else none⟩\n" % (body, bodyW))
+    out.append("@[l4_simp] theorem extGen_ext [ExtSet] (g : Name) :\n    ExtTab.ext g = if g ∈ ExtSet.S then (%s) g else none := rfl\n"
+               % body.replace("fun g => ", "fun g : Name => ", 1))
+    out.append("@[l4_simp] theorem extGen_extW [ExtSet] (g : Name) :\n    ExtTab.extW g = if g ∈ ExtSet.S then (%s) g else none := rfl\n"
+               % bodyW.replace("fun g => ", "fun g : Name => ", 1))
     return "\n".join(out)
 
 
@@ -1674,10 +1680,49 @@ def hok_binder(m, pn, pt):
     return None
 
 
+def ext_closure(m, name, seen=None):
+    """The callees taken from statements that a call of `name` reaches, through callees with a
+    den theorem."""
+    seen = set() if seen is None else seen
+    out = set()
+    for c in m.callees(name):
+        if c in OPAQUE:
+            out.add(c)
+        elif c not in seen:
+            seen.add(c)
+            out |= ext_closure(m, c, seen)
+    return out
+
+
+def hs_binders(m, name):
+    """The membership hypotheses of the callees taken from statements that `name` reaches."""
+    return "".join(" (hS_%s : (%d : Name) ∈ ExtSet.S := by assumption)" % (c, m.fns[c]["id"])
+                   for c in sorted(ext_closure(m, name)))
+
+
+def add_hs(m, name, text):
+    """Each theorem of `name` takes the membership hypotheses, after its other binders."""
+    hs = hs_binders(m, name)
+    if not hs:
+        return text
+    out, i = [], 0
+    for mm in re.finditer(r"^theorem ", text, re.M):
+        j = text.find(" :\n", mm.start())
+        k = text.find(":=", mm.start())
+        if j < 0 or (0 <= k < j):
+            continue
+        out.append(text[i:j] + hs)
+        i = j
+    out.append(text[i:])
+    return "".join(out)
+
+
 def candidate(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
     if name in m.generic and not getattr(m, "_inst", False):
-        return candidate_generic(m, name, proved, ok)
-    return candidate1(m, name, proved, sub, isub, ok, nonep)
+        t, d = candidate_generic(m, name, proved, ok)
+    else:
+        t, d = candidate1(m, name, proved, sub, isub, ok, nonep)
+    return add_hs(m, name, t), d
 
 
 def candidate_generic(m, name, proved, ok):
@@ -1832,7 +1877,7 @@ def candidate1(m, name, proved, sub=None, isub=False, ok=False, nonep=False):
         unf += ["hbv"]
     for c in m.callees(name):
         if c in OPAQUE:
-            unf += ["GenBridge.dbind_assoc", "GenBridge.extRes_call", "ext_" + c]
+            unf += ["GenBridge.dbind_assoc", "GenBridge.extRes_call", "ext_" + c, "hS_" + c]
             for a in re.findall(r"\b%s (\w+)\b" % re.escape(c), m.bodies.get(name, "")):
                 if ("hok_" + a) in xs:
                     unf.append("undv_kids_%s a_%s hok_%s" % (OPAQUE[c]["cls"], a, a))
@@ -2055,10 +2100,10 @@ def call_hyp(text, name, hyps=()):
     its bound: `∀ binders (n : Nat), bound ≤ n → ∀ {γ} k, statement`. The hypothesis binders
     `hyps` of a conditional theorem are left out."""
     mm = re.search(r"theorem %s_call \(sha : Oracle\) \(m : Nat\) (.*?) \{γ : Type\} "
-                   r"\(k : DRes × List DV → DM γ\) :\n(.*?) :=\n" % re.escape(name), text, re.S)
+                   r"\(k : DRes × List DV → DM γ\)(.*?) :\n(.*?) :=\n" % re.escape(name), text, re.S)
     if not mm:
         return None
-    binders, stmt = mm.group(1), mm.group(2)
+    binders, stmt = mm.group(1) + mm.group(2).replace(" := by assumption", ""), mm.group(3)
     for h in hyps:
         binders = binders.replace(" " + h, "").replace(h, "")
     mf = re.search(r"\.fn (?:\[\]|\(fpsGen \d+\)) Scope\.fn_", stmt)
@@ -2201,10 +2246,14 @@ def ext_file(m, proved, texts):
             "`extGen_ok` proves `ExtOK` of the table from the tactic's theorems; each `_l4f` theorem is then "
             "the `_l4` theorem without the hypothesis.\n-/\n",
             "namespace SpecLean.Layer4.Gen\n", OPEN, "open SpecLean.Layer4.ExtBridge\n"]
-    prf = ["theorem extGen_ok (sha : Oracle) : ExtOK (Scope.env sha) := by",
+    prf = ["theorem extGen_ok [ExtSet] (sha : Oracle) : ExtOK (Scope.env sha) := by",
            "  refine ⟨?_, fun g x d hx => by simp [extGen_extW] at hx⟩",
            "  intro g x d hx hd n roots vs h r hdec hwf hlen hb hr",
-           "  simp only [extGen_ext] at hx"]
+           "  simp only [extGen_ext] at hx",
+           "  by_cases hmem : g ∉ ExtSet.S",
+           "  · rw [if_neg hmem] at hx; cases hx",
+           "  rw [if_pos (Classical.not_not.mp hmem)] at hx",
+           "  try dsimp only at hx"]
     for c, o in ents:
         prf.append("  split at hx")
         prf.append(ext_entry(m, c, o))
@@ -2217,9 +2266,13 @@ def ext_file(m, proved, texts):
         if not mm:
             continue
         bs = mm.group(1).replace(" (hX : ExtOK (Scope.env sha))", "")
+        bs = re.sub(r" \(hS_\w+ : \(\d+ : Name\) ∈ ExtSet\.S := by assumption\)", "", bs)
         args = " ".join(re.findall(r"\((\w+) :", bs))
-        body.append("theorem %s_l4f (sha : Oracle) %s :\n    %s :=\n  %s_l4 sha %s\n" % (
-            n, bs, mm.group(2), n, re.sub(r"\bhh\b", "hh (extGen_ok sha)", args, count=1)))
+        ids = sorted(m.fns[c]["id"] for c in ext_closure(m, n))
+        hs = " ".join("(hS_%s := by decide)" % c for c in sorted(ext_closure(m, n)))
+        body.append("theorem %s_l4f (sha : Oracle) %s :\n    %s :=\n  letI : ExtSet := ⟨[%s]⟩\n  %s_l4 sha %s %s\n" % (
+            n, bs, mm.group(2), ", ".join(map(str, ids)), n,
+            re.sub(r"\bhh\b", "hh (extGen_ok sha)", args, count=1), hs))
     body.append("end SpecLean.Layer4.Gen\n")
     return "\n".join(body)
 
@@ -2228,7 +2281,7 @@ def cond_file(m, texts):
     body = ["import SpecLean.Layer4.Gen.Funcs\n",
             "/-!\n# Layer 4: the conditional theorems\n\nGenerated by tools/gen_l4.py. Do not edit. "
             "Each theorem takes the call statement of each unproved callee as a hypothesis.\n-/\n",
-            "namespace SpecLean.Layer4.Gen\n", OPEN, CALLHYP]
+            "namespace SpecLean.Layer4.Gen\n", OPENX, CALLHYP]
     for n in order(m, set(texts)):
         body.append(texts[n])
     body.append("end SpecLean.Layer4.Gen\n")
@@ -2239,7 +2292,7 @@ def funcs_file(m, proved, texts, total):
     body = ["import SpecLean.Layer4.Gen.Classes\n",
             "/-!\n# Layer 4: the generated theorems\n\nGenerated by tools/gen_l4.py. Do not edit. "
             "The generator proves %d of the %d functions.\n-/\n" % (len(proved), total),
-            "namespace SpecLean.Layer4.Gen\n", OPEN]
+            "namespace SpecLean.Layer4.Gen\n", OPENX]
     for n in order(m, set(proved)):
         body.append(texts[n])
     body.append("end SpecLean.Layer4.Gen\n")
@@ -2250,7 +2303,7 @@ def cond_pass(m, proved, fails, jobs):
     """Conditional theorems: a function whose callees are proved, or failed only in the proof (so
     their call statements are in the den fragment), takes those call statements as hypotheses.
     A conditionally proved function is a hypothesis for its callers in turn."""
-    pre = "import SpecLean.Layer4.Gen.Funcs\n" + OPEN + "\nnamespace SpecLean.Layer4.Gen\n\n" + CALLHYP
+    pre = "import SpecLean.Layer4.Gen.Funcs\n" + OPENX + "\nnamespace SpecLean.Layer4.Gen\n\n" + CALLHYP
     COND.clear()
     for c, e in fails.items():
         if e.startswith(("unsupported", "callee")) or "@" in c:
@@ -2376,7 +2429,7 @@ def main():
             except Unsupported:
                 pass
         pre = ("import SpecLean.Layer4.Gen.Funcs\n" if fuel else "import SpecLean.Layer4.Gen.Classes\n") + \
-            OPEN + "\nnamespace SpecLean.Layer4.Gen\n\n"
+            OPENX + "\nnamespace SpecLean.Layer4.Gen\n\n"
         print(check(pre + candidate(m, args.show, fuel, ok=bool(os.environ.get("L4_OK")))[0] +
                     "\nend SpecLean.Layer4.Gen\n", "show", True)[1])
         return
@@ -2407,7 +2460,7 @@ def main():
         if not ok:
             print(out)
             sys.exit(1)
-        pre = "import SpecLean.Layer4.Gen.Funcs\n" + OPEN + "\nnamespace SpecLean.Layer4.Gen\n\n"
+        pre = "import SpecLean.Layer4.Gen.Funcs\n" + OPENX + "\nnamespace SpecLean.Layer4.Gen\n\n"
         cands = {}
         for n in ready:
             try:

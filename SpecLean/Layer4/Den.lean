@@ -296,6 +296,10 @@ class ExtTab where
   ext : Name → Option ExtFn
   extW : Name → Option ExtW
 
+/-- The callees taken from statements that a generated theorem may use. -/
+class ExtSet where
+  S : List Name
+
 /-- No callee is taken from a statement. -/
 instance (priority := low) noExt : ExtTab := ⟨fun _ => none, fun _ => none⟩
 

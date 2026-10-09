@@ -7036,12 +7036,16 @@ def ext_get_total_active_balance : ExtFn where
       | _ => none
     | _ => none
 
-/-- The table of the generated theorems. -/
-instance extGen : ExtTab := ⟨fun g => if g = 260 then some ext_get_balance_after_withdrawals else if g = 8 then some ext_get_index_for_new_builder else if g = 387 then some ext_get_set_bit_count else if g = 209 then some ext_get_total_active_balance else none, fun g => none⟩
+/-- The table of the generated theorems: the entries of the allowed set. -/
+instance extGen [ExtSet] : ExtTab :=
+  ⟨fun g => if g ∈ ExtSet.S then (fun g => if g = 260 then some ext_get_balance_after_withdrawals else if g = 8 then some ext_get_index_for_new_builder else if g = 387 then some ext_get_set_bit_count else if g = 209 then some ext_get_total_active_balance else none) g else none,
+   fun g => if g ∈ ExtSet.S then (fun g => none) g else none⟩
 
-@[l4_simp] theorem extGen_ext (g : Name) : ExtTab.ext g = (fun g : Name => if g = 260 then some ext_get_balance_after_withdrawals else if g = 8 then some ext_get_index_for_new_builder else if g = 387 then some ext_get_set_bit_count else if g = 209 then some ext_get_total_active_balance else none) g := rfl
+@[l4_simp] theorem extGen_ext [ExtSet] (g : Name) :
+    ExtTab.ext g = if g ∈ ExtSet.S then (fun g : Name => if g = 260 then some ext_get_balance_after_withdrawals else if g = 8 then some ext_get_index_for_new_builder else if g = 387 then some ext_get_set_bit_count else if g = 209 then some ext_get_total_active_balance else none) g else none := rfl
 
-@[l4_simp] theorem extGen_extW (g : Name) : ExtTab.extW g = (fun g : Name => none) g := rfl
+@[l4_simp] theorem extGen_extW [ExtSet] (g : Name) :
+    ExtTab.extW g = if g ∈ ExtSet.S then (fun g : Name => none) g else none := rfl
 
 set_option maxHeartbeats 1000000 in
 theorem encDec_Builder (x : Builder) : GenBridge.EncDec (enc_Builder x) (.cont 14 (kids_Builder x)) := by
